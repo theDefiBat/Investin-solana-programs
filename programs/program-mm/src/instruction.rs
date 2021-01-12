@@ -17,7 +17,7 @@ pub enum FundInstruction {
     Initialize {
         min_amount: u64,
         min_return: u64,
-        performance_fee_percentage: u64,
+        performance_fee_bps: u64,
         perp_market_index: u8,
     },
 
@@ -230,13 +230,13 @@ impl FundInstruction {
         Some(match op {
             0 => {
                 let data = array_ref![data, 0, 8 + 8 + 8 + 1];
-                let (min_amount, min_return, performance_fee_percentage, perp_market_index) =
+                let (min_amount, min_return, performance_fee_bps, perp_market_index) =
                     array_refs![data, 8, 8, 8, 1];
 
                 FundInstruction::Initialize {
                     min_amount: u64::from_le_bytes(*min_amount),
                     min_return: u64::from_le_bytes(*min_return),
-                    performance_fee_percentage: u64::from_le_bytes(*performance_fee_percentage),
+                    performance_fee_bps: u64::from_le_bytes(*performance_fee_bps),
                     perp_market_index: u8::from_le_bytes(*perp_market_index),
                 }
             }

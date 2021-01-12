@@ -46,9 +46,16 @@ macro_rules! check_eq {
 
 pub mod investin_vault {
     use solana_program::declare_id;
-    // set investin admin
+    // set investin admin's usdc token account
     declare_id!("2C7AtpEbcdfmDzh5g4cFBzCXbgZJmxhY2bWPMi7QKqBH");
 }
+
+pub mod usdc_token {
+    use solana_program::declare_id;
+    declare_id!("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+}
+
+
 
 pub struct Fund {}
 
@@ -59,7 +66,7 @@ impl Fund {
         accounts: &[AccountInfo],
         min_amount: u64,
         min_return: u64,
-        performance_fee_percentage: u64,
+        performance_fee_bps: u64,
         perp_market_index: u8,
     ) -> Result<(), ProgramError> {
         const NUM_FIXED: usize = 8;
@@ -69,11 +76,11 @@ impl Fund {
             accounts;
 
         let mut fund_data = FundData::load_mut_checked(fund_state_ai, program_id)?;
-
+        check_eq!(fund_data.is_initialized(), false);
         check!(min_return >= 500, ProgramError::InvalidArgument);
         check!(min_amount >= 10000000, ProgramError::InvalidArgument);
         check!(
-            performance_fee_percentage >= 100 && performance_fee_percentage <= 4000,
+            performance_fee_bps >= 100 && performance_fee_bps <= 4000,
             ProgramError::InvalidArgument
         );
         check!(
@@ -94,10 +101,12 @@ impl Fund {
         // check for ownership of vault
         let fund_vault = parse_token_account(fund_vault_ai)?;
         let fund_mngo_vault = parse_token_account(fund_mngo_vault_ai)?;
-
+        check_eq!(fund_vault.amount, 0);
         check_eq!(fund_vault.owner, fund_data.fund_pda);
+        check_eq!(fund_vault.mint, usdc_token::ID);
         check_eq!(fund_mngo_vault.owner, fund_data.fund_pda);
-        check_eq!(&fund_mngo_vault.mint, &mngo_token::ID); // check for mngo mint
+        check_eq!(fund_mngo_vault.mint, mngo_token::ID); // check for mngo mint
+
 
         fund_data.vault_key = *fund_vault_ai.key;
         fund_data.mngo_vault_key = *fund_mngo_vault_ai.key;
@@ -127,7 +136,7 @@ impl Fund {
 
         fund_data.min_amount = min_amount;
         fund_data.min_return = U64F64::from_num(min_return / 100);
-        fund_data.performance_fee_percentage = U64F64::from_num(performance_fee_percentage / 100);
+        fund_data.performance_fee_percentage = U64F64::from_num(performance_fee_bps / 100);
 
         fund_data.total_amount = U64F64!(0);
         fund_data.prev_performance = U64F64!(1.00);
@@ -193,29 +202,29 @@ impl Fund {
         check_eq!(fund_data.vault_key, *fund_vault_ai.key);
         check_eq!(investin_vault::ID, *investin_vault_ai.key);
 
-        let protocol_fees = U64F64::to_num(
-            U64F64::from_num(amount)
-                .checked_mul(U64F64!(0.005))
-                .unwrap(),
-        );
+        // let protocol_fees = U64F64::to_num(
+        //     U64F64::from_num(amount)
+        //         .checked_mul(U64F64!(0.005))
+        //         .unwrap(),
+        // );
 
-        let adj_amount = amount.checked_sub(protocol_fees).unwrap();
-        invoke(
-            &(spl_token::instruction::transfer(
-                token_prog_ai.key,
-                investor_btoken_ai.key,
-                investin_vault_ai.key,
-                investor_ai.key,
-                &[&investor_ai.key],
-                protocol_fees,
-            ))?,
-            &[
-                investor_btoken_ai.clone(),
-                investin_vault_ai.clone(),
-                investor_ai.clone(),
-                token_prog_ai.clone(),
-            ],
-        )?;
+        // let adj_amount = amount.checked_sub(protocol_fees).unwrap();
+        // invoke(
+        //     &(spl_token::instruction::transfer(
+        //         token_prog_ai.key,
+        //         investor_btoken_ai.key,
+        //         investin_vault_ai.key,
+        //         investor_ai.key,
+        //         &[&investor_ai.key],
+        //         protocol_fees,
+        //     ))?,
+        //     &[
+        //         investor_btoken_ai.clone(),
+        //         investin_vault_ai.clone(),
+        //         investor_ai.clone(),
+        //         token_prog_ai.clone(),
+        //     ],
+        // )?;
 
         msg!("Depositing tokens..");
         let deposit_instruction = spl_token::instruction::transfer(
@@ -224,7 +233,7 @@ impl Fund {
             fund_vault_ai.key,
             investor_ai.key,
             &[&investor_ai.key],
-            adj_amount,
+            amount,
         )?;
         let deposit_accs = [
             investor_btoken_ai.clone(),
@@ -238,13 +247,13 @@ impl Fund {
         fund_data.vault_balance = parse_token_account(fund_vault_ai)?.amount;
         fund_data.total_amount = fund_data
             .total_amount
-            .checked_add(U64F64::from_num(adj_amount))
-            .unwrap();
-        fund_data.deposits = fund_data.deposits.checked_add(adj_amount).unwrap();
-        fund_data.no_of_investments += 1;
+            .checked_add(U64F64::from_num(amount))
+            .unwrap(); 
+        fund_data.deposits = fund_data.deposits.checked_add(amount).unwrap();
+        fund_data.no_of_investments = fund_data.no_of_investments.checked_add(1).unwrap();
 
         // update investor acc
-        investor_data.amount = adj_amount;
+        investor_data.amount = amount;
         investor_data.start_performance = fund_data.prev_performance;
         investor_data.mngo_debt = fund_data.mngo_per_share;
         msg!("Deposit done..");
@@ -1015,7 +1024,7 @@ impl Fund {
             FundInstruction::Initialize {
                 min_amount,
                 min_return,
-                performance_fee_percentage,
+                performance_fee_bps,
                 perp_market_index,
             } => {
                 msg!("FundInstruction::Initialize");
@@ -1024,7 +1033,7 @@ impl Fund {
                     accounts,
                     min_amount,
                     min_return,
-                    performance_fee_percentage,
+                    performance_fee_bps,
                     perp_market_index,
                 );
             }
