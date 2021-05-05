@@ -4,7 +4,7 @@ use solana_program::{
     pubkey::Pubkey,
 };
 
-pub fn Deposit {
+pub fn Deposit (
     program_id: &Pubkey,
 	accounts: &[AccountInfo],
 	instruction_data: &[u8],
@@ -18,5 +18,4 @@ pub fn Deposit {
     **program_id.try_borrow_mut_lamport()? += 5;
 
     ok(())
-    }
 }

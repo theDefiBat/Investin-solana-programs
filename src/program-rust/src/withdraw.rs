@@ -4,7 +4,7 @@ use solana_program::{
     pubkey::Pubkey,
 };
 
-pub fn Withdraw {
+pub fn Withdraw (
     program_id: &Pubkey,
 	accounts: &[AccountInfo],
 	instruction_data: &[u8],
@@ -18,5 +18,4 @@ pub fn Withdraw {
     **initializer.try_borrow_mut_lamport()? += 5;
 
     ok(())
-    }
 }
