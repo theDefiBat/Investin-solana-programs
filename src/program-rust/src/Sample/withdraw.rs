@@ -17,5 +17,5 @@ pub fn Withdraw (
 
     **initializer.try_borrow_mut_lamport()? += 5;
 
-    ok(())
+    Ok(())
 }
