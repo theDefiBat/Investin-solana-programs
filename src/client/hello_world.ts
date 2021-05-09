@@ -32,6 +32,10 @@ let connection: Connection;
  */
 let payerAccount: Account;
 
+
+let clientAccount: Account = new Account([26,93,85,114,101,221,87,175,142,209,24,61,241,154,212,125,238,55,4,235,6,88,52,55,143,93,226,58,233,237,116,220,40,114,6,43,26,89,176,244,34,210,245,232,197,10,137,17,161,248,165,206,180,77,77,188,245,145,35,62,79,142,202,56]);
+//let clientKey: PublicKey = new PublicKey("3it9nJcySN83WcDdDrM4ts7m8Pvg74GuMZvprn7PZQhD");
+
 /**
  * Hello world's program id
  */
@@ -200,6 +204,7 @@ export async function checkProgram(): Promise<void> {
       }),
     );
     await sendAndConfirmTransaction(connection, transaction, [payerAccount]);
+    
   }
 }
 
@@ -208,15 +213,25 @@ export async function checkProgram(): Promise<void> {
  */
 export async function sayHello(): Promise<void> {
   console.log('Saying hello to', greetedPubkey.toBase58());
+  let transaction = new Transaction().add(
+    SystemProgram.assign({
+      accountPubkey: clientAccount.publicKey,
+      programId: programId
+    }),
+  );
+  transaction.feePayer = payerAccount.publicKey;
+  await sendAndConfirmTransaction(connection, transaction, [payerAccount, clientAccount]);
+
   const instruction = new TransactionInstruction({
-    keys: [{pubkey: greetedPubkey, isSigner: false, isWritable: true}],
+    keys: [{pubkey: greetedPubkey, isSigner: false, isWritable: true}, 
+      {pubkey: clientAccount.publicKey, isSigner: true, isWritable:true}],
     programId,
-    data: Buffer.alloc(0), // All instructions are hellos
+    data: Buffer.from([1,10]), // All instructions are hellos
   });
   await sendAndConfirmTransaction(
     connection,
     new Transaction().add(instruction),
-    [payerAccount],
+    [clientAccount],
   );
 }
 
