@@ -84,6 +84,7 @@ const GreetingSchema = new Map([
   [GreetingAccount, {kind: 'struct', fields: [['counter', 'u32']]}],
 ]);
 
+
 /**
  * The expected size of each greeting account.
  */
@@ -173,7 +174,7 @@ export async function checkProgram(): Promise<void> {
   console.log(`Using program ${programId.toBase58()}`);
 
   // Derive the address of a greeting account from the program so that it's easy to find later.
-  const GREETING_SEED = 'hello';
+  const GREETING_SEED = 'demouts';
   greetedPubkey = await PublicKey.createWithSeed(
     payerAccount.publicKey,
     GREETING_SEED,
@@ -189,7 +190,8 @@ export async function checkProgram(): Promise<void> {
       'to say hello to',
     );
     const lamports = await connection.getMinimumBalanceForRentExemption(
-      GREETING_SIZE,
+      //GREETING_SIZE,
+      72,
     );
 
     const transaction = new Transaction().add(
@@ -199,7 +201,8 @@ export async function checkProgram(): Promise<void> {
         seed: GREETING_SEED,
         newAccountPubkey: greetedPubkey,
         lamports,
-        space: GREETING_SIZE,
+        // space: GREETING_SIZE,
+        space: 72,
         programId,
       }),
     );
@@ -213,14 +216,6 @@ export async function checkProgram(): Promise<void> {
 export async function sayHello(): Promise<void> {
   console.log('Saying hello to', greetedPubkey.toBase58());
 
-
-  // let transaction = new Transaction().add(
-  //     SystemProgram.assign({
-  //       accountPubkey: clientAccount.publicKey,
-  //       programId: programId
-  //     }),
-  // );
-  // await sendAndConfirmTransaction(connection, transaction, [payerAccount, clientAccount]);
 
   // console.log("ownership changed")
   // let tempAccount = new Account([76,162,14,102,97,153,129,172,124,60,75,15,239,229,202,112,217,91,253,85,244,116,5,197,13,164,80,118,55,40,173,181,168,244,248,237,205,181,4,21,112,99,3,82,42,216,225,44,44,61,155,162,11,100,136,85,92,20,6,126,145,196,106,252]);
@@ -240,21 +235,25 @@ export async function sayHello(): Promise<void> {
 
 // console.log("new account created: ", tempTokenAccount.publicKey.toBase58());
 
+
+
+
 const PDA = await PublicKey.findProgramAddress([Buffer.from("fund")], programId);
+const MPDA = await PublicKey.findProgramAddress([Buffer.from("manager")], programId);
 
 const instruction = new TransactionInstruction({
     keys: [
-      {pubkey: new PublicKey("4UCsKKcosY6bC8S2Jnm4absYk159StJURTCG3CD3NjDH"), isSigner: false, isWritable: true},
-      //{pubkey: greetedPubkey, isSigner: false, isWritable: true}, 
+      {pubkey: greetedPubkey, isSigner: false, isWritable: true}, 
       {pubkey: clientAccount.publicKey, isSigner: true, isWritable:true},
-      {pubkey: new PublicKey("5GtmfC4UTuUSzcZWovLBzvRGh8ozdnizhGGjfoYNuPcp"), isSigner: false, isWritable: true},
-      {pubkey: new PublicKey("2n7DVeeRNmGcp3zVRZuRktcSr7ML7En9KdeboXqaDPXr"), isSigner: false, isWritable: true},
-      {pubkey: new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"), isSigner: false, isWritable: true},
       {pubkey: new PublicKey("37hNAmbGNSKcAJgBfeSBS1239t9o992QqKhXo1VGJUdK"), isSigner: false, isWritable: true},
-      { pubkey: PDA[0], isSigner: false, isWritable: false}
+      {pubkey: new PublicKey("2n7DVeeRNmGcp3zVRZuRktcSr7ML7En9KdeboXqaDPXr"), isSigner: false, isWritable: true},
+      {pubkey: new PublicKey("zUw5ao6JFXdvHkb62m4hu4qLMPsYfG2d3JTKguPzM6y"), isSigner: false, isWritable: true},
+      { pubkey: PDA[0], isSigner: false, isWritable: false},
+      { pubkey: MPDA[0], isSigner: false, isWritable: false},
+      {pubkey: new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"), isSigner: false, isWritable: true},
     ],
     programId,
-    data: Buffer.from([1,50]), // All instructions are hellos
+    data: Buffer.from([1, 50]), // All instructions are hellos
   });
   await sendAndConfirmTransaction(
     connection,
