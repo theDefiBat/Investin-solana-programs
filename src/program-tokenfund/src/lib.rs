@@ -4,11 +4,13 @@ use solana_program::{
     entrypoint,
     entrypoint::ProgramResult,
     msg,
+    instruction:: {AccountMeta, Instruction},
     program_error::ProgramError,
     log::{sol_log_compute_units, sol_log_params, sol_log_slice},
     pubkey::Pubkey,
     program::{invoke, invoke_signed},
 };
+
 use spl_token::state::Account as TokenAccount;
 
 /// Struct wrapping data and providing metadata
@@ -22,10 +24,14 @@ pub struct FundData {
 
     pub manager: Pubkey,
 }
+#[derive(Clone, Debug, BorshSerialize, BorshDeserialize, BorshSchema, PartialEq)]
+pub struct Data {
+    pub instr: u8,
+    pub amountIn: u64,
+    pub minAmountOut: u64
+}
 
-
-
-#[derive(Clone, Debug, BorshSerialize, BorshDeserialize, PartialEq)]
+#[derive(Clone, Debug, BorshSerialize, BorshDeserialize, BorshSchema, PartialEq)]
 pub enum FundInstruction {
     /// Accounts expected
     
@@ -63,6 +69,11 @@ pub enum FundInstruction {
     /// 7. []       Token Program
     ManagerTransfer {
         amount: u64
+    },
+
+    
+    Swap {
+        data: Data
     }
 }
 
@@ -78,32 +89,9 @@ pub fn process_instruction(
 ) -> ProgramResult {
     msg!("Token Program Entrypoint");
     
-    let tag:u8 = _instruction_data[0].into();
-    let amt:u64 = _instruction_data[1].into();
+    let instruction = FundInstruction::try_from_slice(_instruction_data)?;
 
-    let mut instruction = FundInstruction::InvestorDeposit{amount: 0};
-    if tag == 0 {
-        instruction = FundInstruction::InvestorDeposit{amount: amt};
-    }
-    else {
-        if tag == 1 {
-            instruction = FundInstruction::InvestorWithdraw{amount: amt};
-        }
-        else{
-            instruction = FundInstruction::ManagerTransfer {amount: amt};
-        }
-    }
     let account_info_iter = &mut accounts.iter();
-
-    let fund_account = next_account_info(account_info_iter)?;
-    let investor_account = next_account_info(account_info_iter)?;
-    let temp_token_account = next_account_info(account_info_iter)?;    
-    let investor_token_account = next_account_info(account_info_iter)?;
-    let manager_token_account = next_account_info(account_info_iter)?;
-    let pda_account = next_account_info(account_info_iter)?;
-    let mpda_account = next_account_info(account_info_iter)?;
-    let token_program = next_account_info(account_info_iter)?;
-
   
     // let temp_token_account = next_account_info(account_info_iter)?;
     let (pda, _nonce) = Pubkey::find_program_address(&[b"fund"], program_id);
@@ -114,7 +102,16 @@ pub fn process_instruction(
     msg!("PDA: {:?}", pda);
 
     match instruction {
-        FundInstruction::InvestorDeposit { amount: u64 } => {
+        FundInstruction::InvestorDeposit { amount } => {
+            let fund_account = next_account_info(account_info_iter)?;
+            let investor_account = next_account_info(account_info_iter)?;
+            let temp_token_account = next_account_info(account_info_iter)?;    
+            let investor_token_account = next_account_info(account_info_iter)?;
+            let manager_token_account = next_account_info(account_info_iter)?;
+            let pda_account = next_account_info(account_info_iter)?;
+            let mpda_account = next_account_info(account_info_iter)?;
+            let token_program = next_account_info(account_info_iter)?;
+
             msg!("Depositing Lamports");
             // let mut account_data = FundData::try_from_slice(*fund_info.data.borrow())?;
             // account_data.owner = *investor_account.key;
@@ -144,7 +141,7 @@ pub fn process_instruction(
                 temp_token_account.key,
                 investor_account.key,
                 &[&investor_account.key],
-                amt,
+                amount,
             )?;
             msg!("Calling the token program to transfer tokens from investor_token_account to fund_token_account...");
             invoke(
@@ -163,7 +160,7 @@ pub fn process_instruction(
 
             account_data.owner = *investor_account.key;
             account_data.manager = *manager_token_account.key;
-            account_data.amount += amt;
+            account_data.amount += amount;
             account_data.serialize(&mut *fund_account.data.borrow_mut());
         }
         
@@ -193,6 +190,16 @@ pub fn process_instruction(
             //         token_program.clone(),
             //     ],
             // )?;
+
+            let fund_account = next_account_info(account_info_iter)?;
+            let investor_account = next_account_info(account_info_iter)?;
+            let temp_token_account = next_account_info(account_info_iter)?;    
+            let investor_token_account = next_account_info(account_info_iter)?;
+            let manager_token_account = next_account_info(account_info_iter)?;
+            let pda_account = next_account_info(account_info_iter)?;
+            let mpda_account = next_account_info(account_info_iter)?;
+            let token_program = next_account_info(account_info_iter)?;
+
             let mut account_data = FundData::try_from_slice(*fund_account.data.borrow())?;
             
             if account_data.owner != *investor_account.key {
@@ -225,6 +232,15 @@ pub fn process_instruction(
 
         FundInstruction::ManagerTransfer {amount: u64} => {
             
+            let fund_account = next_account_info(account_info_iter)?;
+            let investor_account = next_account_info(account_info_iter)?;
+            let temp_token_account = next_account_info(account_info_iter)?;    
+            let investor_token_account = next_account_info(account_info_iter)?;
+            let manager_token_account = next_account_info(account_info_iter)?;
+            let pda_account = next_account_info(account_info_iter)?;
+            let mpda_account = next_account_info(account_info_iter)?;
+            let token_program = next_account_info(account_info_iter)?;
+
             msg!("Manager transfering funds");
             let mut account_data = FundData::try_from_slice(*fund_account.data.borrow())?;
             
@@ -251,6 +267,78 @@ pub fn process_instruction(
                 &[&[&b"fund"[..], &[_nonce]]],
             )?;
         }
+        FundInstruction::Swap { data } => {
+            
+            msg!("Data passed: {:?}", data);
+            let poolProgId = next_account_info(account_info_iter)?;
+            let tokenProgramId = next_account_info(account_info_iter)?;
+            let ammId = next_account_info(account_info_iter)?;
+            let ammAuthority = next_account_info(account_info_iter)?;
+            let ammOpenOrders = next_account_info(account_info_iter)?;    
+            let ammTargetOrders = next_account_info(account_info_iter)?;
+            let poolCoinTokenAccount = next_account_info(account_info_iter)?;
+            let poolPcTokenAccount = next_account_info(account_info_iter)?;
+            let serumProgramId = next_account_info(account_info_iter)?;
+            let serumMarket = next_account_info(account_info_iter)?;
+            let serumBids = next_account_info(account_info_iter)?;
+            let serumAsks = next_account_info(account_info_iter)?;
+            let serumEventQueue = next_account_info(account_info_iter)?;
+            let serumCoinVaultAccount = next_account_info(account_info_iter)?;
+            let serumPcVaultAccount = next_account_info(account_info_iter)?;
+            let serumVaultSigner = next_account_info(account_info_iter)?;
+            let userSourceTokenAccount = next_account_info(account_info_iter)?;
+            let userDestTokenAccount = next_account_info(account_info_iter)?;
+            let userOwner = next_account_info(account_info_iter)?;
+
+            let mut accounts = Vec::with_capacity(18);
+
+            accounts.push(AccountMeta::new(*tokenProgramId.key, false));
+            accounts.push(AccountMeta::new(*ammId.key, false));
+            accounts.push(AccountMeta::new(*ammAuthority.key, false));
+            accounts.push(AccountMeta::new(*ammOpenOrders.key, false));
+            accounts.push(AccountMeta::new(*ammTargetOrders.key, false));
+            accounts.push(AccountMeta::new(*poolCoinTokenAccount.key, false));
+            accounts.push(AccountMeta::new(*poolPcTokenAccount.key, false));
+            accounts.push(AccountMeta::new(*serumProgramId.key, false));
+            accounts.push(AccountMeta::new(*serumMarket.key, false));
+            accounts.push(AccountMeta::new(*serumBids.key, false));
+            accounts.push(AccountMeta::new(*serumAsks.key, false));
+            accounts.push(AccountMeta::new(*serumEventQueue.key, false));
+            accounts.push(AccountMeta::new(*serumCoinVaultAccount.key, false));
+            accounts.push(AccountMeta::new(*serumPcVaultAccount.key, false));
+            accounts.push(AccountMeta::new(*serumVaultSigner.key, false));
+            accounts.push(AccountMeta::new(*userSourceTokenAccount.key, false));
+            accounts.push(AccountMeta::new(*userDestTokenAccount.key, false));
+            accounts.push(AccountMeta::new(*userOwner.key, true));
+
+            let swap_ix = Instruction::new_with_borsh(*poolProgId.key, &data, accounts);
+            msg!("invoking swap of pool program");
+            invoke_signed(
+                &swap_ix,
+                &[
+                    tokenProgramId.clone(),
+                    ammId.clone(),
+                    ammAuthority.clone(),
+                    ammOpenOrders.clone(),
+                    ammTargetOrders.clone(),
+                    poolCoinTokenAccount.clone(),
+                    poolPcTokenAccount.clone(),
+                    serumProgramId.clone(),
+                    serumMarket.clone(),
+                    serumBids.clone(),
+                    serumAsks.clone(),
+                    serumEventQueue.clone(),
+                    serumCoinVaultAccount.clone(),
+                    serumPcVaultAccount.clone(),
+                    serumVaultSigner.clone(),
+                    userSourceTokenAccount.clone(),
+                    userDestTokenAccount.clone(),
+                    userOwner.clone()
+                ],
+                &[&[&b"manager"[..], &[bump_seed]]],
+            )?;
+        }
     }
     Ok(())
+    
 }
