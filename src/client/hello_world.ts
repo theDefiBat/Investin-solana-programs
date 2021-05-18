@@ -10,17 +10,23 @@ import {
   TransactionInstruction,
   Transaction,
   sendAndConfirmTransaction,
+  Keypair,
 } from '@solana/web3.js';
-import fs from 'mz/fs';
+
+import {getPoolByTokenMintAddresses} from "./liquidity"
+import fs, { accessSync } from 'mz/fs';
 import path from 'path';
 import * as borsh from 'borsh';
-
+import { AccountLayout, Token, TOKEN_PROGRAM_ID } from "@solana/spl-token";
+// @ts-ignore
+import { u8, nu64, struct } from 'buffer-layout'
 import {
   getPayer,
   getRpcUrl,
   newAccountWithLamports,
   readAccountFromFile,
 } from './utils';
+import { swap , loadInfo} from './swap';
 
 /**
  * Connection to the network
@@ -32,10 +38,6 @@ let connection: Connection;
  */
 let payerAccount: Account;
 
-
-let clientAccount: Account = new Account([26,93,85,114,101,221,87,175,142,209,24,61,241,154,212,125,238,55,4,235,6,88,52,55,143,93,226,58,233,237,116,220,40,114,6,43,26,89,176,244,34,210,245,232,197,10,137,17,161,248,165,206,180,77,77,188,245,145,35,62,79,142,202,56]);
-//let clientKey: PublicKey = new PublicKey("3it9nJcySN83WcDdDrM4ts7m8Pvg74GuMZvprn7PZQhD");
-
 /**
  * Hello world's program id
  */
@@ -45,6 +47,9 @@ let programId: PublicKey;
  * The public key of the account we are saying hello to
  */
 let greetedPubkey: PublicKey;
+
+let clientAccount: Account = new Account([116,252,167,101,186,83,65,192,133,216,186,17,79,88,19,249,12,85,255,140,19,101,4,233,105,80,14,111,133,107,123,3,217,180,92,0,197,5,141,20,70,238,87,223,135,91,117,53,187,81,22,117,90,239,30,15,88,200,147,207,126,182,198,209]);
+//let clientKey: PublicKey = new PublicKey("3it9nJcySN83WcDdDrM4ts7m8Pvg74GuMZvprn7PZQhD");
 
 /**
  * Path to program files
@@ -83,6 +88,7 @@ class GreetingAccount {
 const GreetingSchema = new Map([
   [GreetingAccount, {kind: 'struct', fields: [['counter', 'u32']]}],
 ]);
+
 
 /**
  * The expected size of each greeting account.
@@ -173,7 +179,7 @@ export async function checkProgram(): Promise<void> {
   console.log(`Using program ${programId.toBase58()}`);
 
   // Derive the address of a greeting account from the program so that it's easy to find later.
-  const GREETING_SEED = 'hello';
+  const GREETING_SEED = 'demouts';
   greetedPubkey = await PublicKey.createWithSeed(
     payerAccount.publicKey,
     GREETING_SEED,
@@ -189,7 +195,8 @@ export async function checkProgram(): Promise<void> {
       'to say hello to',
     );
     const lamports = await connection.getMinimumBalanceForRentExemption(
-      GREETING_SIZE,
+      //GREETING_SIZE,
+      72,
     );
 
     const transaction = new Transaction().add(
@@ -199,12 +206,13 @@ export async function checkProgram(): Promise<void> {
         seed: GREETING_SEED,
         newAccountPubkey: greetedPubkey,
         lamports,
-        space: GREETING_SIZE,
+        // space: GREETING_SIZE,
+        space: 72,
         programId,
       }),
     );
+    console.log(greetedPubkey.toBase58())
     await sendAndConfirmTransaction(connection, transaction, [payerAccount]);
-    
   }
 }
 
@@ -213,25 +221,60 @@ export async function checkProgram(): Promise<void> {
  */
 export async function sayHello(): Promise<void> {
   console.log('Saying hello to', greetedPubkey.toBase58());
-  let transaction = new Transaction().add(
-    SystemProgram.assign({
-      accountPubkey: clientAccount.publicKey,
-      programId: programId
-    }),
-  );
-  transaction.feePayer = payerAccount.publicKey;
-  await sendAndConfirmTransaction(connection, transaction, [payerAccount, clientAccount]);
 
-  const instruction = new TransactionInstruction({
-    keys: [{pubkey: greetedPubkey, isSigner: false, isWritable: true}, 
-      {pubkey: clientAccount.publicKey, isSigner: true, isWritable:true}],
+
+  // console.log("ownership changed")
+//   let tempAccount = new Account([76,162,14,102,97,153,129,172,124,60,75,15,239,229,202,112,217,91,253,85,244,116,5,197,13,164,80,118,55,40,173,181,168,244,248,237,205,181,4,21,112,99,3,82,42,216,225,44,44,61,155,162,11,100,136,85,92,20,6,126,145,196,106,252]);
+//   const tempTokenAccount = new Account();
+//   const createTempTokenAccountIx = SystemProgram.createAccount({
+//     programId: TOKEN_PROGRAM_ID,
+//     space: AccountLayout.span,
+//     lamports: await connection.getMinimumBalanceForRentExemption(AccountLayout.span, 'singleGossip'),
+//     fromPubkey: clientAccount.publicKey,
+//     newAccountPubkey: tempTokenAccount.publicKey
+// });
+// const initTempAccountIx = Token.createInitAccountInstruction(TOKEN_PROGRAM_ID, new PublicKey("6SPZWybQ9hi63usgh9vFecp2hczKT8jLakmUUXZ2JhUp"), tempTokenAccount.publicKey, clientAccount.publicKey);
+
+// const tx = new Transaction().add(createTempTokenAccountIx, initTempAccountIx);
+
+// await connection.sendTransaction(tx, [clientAccount, tempTokenAccount], {skipPreflight: false, preflightCommitment: 'singleGossip'});
+
+// console.log("new account created: ", tempTokenAccount.publicKey.toBase58());
+
+
+
+const PDA = await PublicKey.findProgramAddress([Buffer.from("fund")], programId);
+const MPDA = await PublicKey.findProgramAddress([Buffer.from("manager")], programId);
+
+console.log("PDA:", PDA[0].toBase58())
+console.log("MPDA: ", MPDA[0].toBase58())
+const dataLayout = struct([u8('instruction'), nu64('amount')])
+const data = Buffer.alloc(dataLayout.span)
+  dataLayout.encode(
+    {
+      instruction: 1,
+      amount: 10*1000000
+    },
+    data
+  )
+const instruction = new TransactionInstruction({
+    keys: [
+      {pubkey: greetedPubkey, isSigner: false, isWritable: true}, 
+      {pubkey: clientAccount.publicKey, isSigner: true, isWritable:true},
+      {pubkey: new PublicKey("5AasjtqKzRsD98XsUGZfjW5eoq3MVHLn2VMNoEZZnqvK"), isSigner: false, isWritable: true},
+      {pubkey: new PublicKey("4LuQ3tEVtpMFQUUNi9EQbFeKCXJE1BtBVCkR9zHo4mES"), isSigner: false, isWritable: true},
+      {pubkey: new PublicKey("8FEaa7yPbe2X5YWhrxmNrXKJA1mGq9nZEBShaKNKSC8U"), isSigner: false, isWritable: true},
+      { pubkey: PDA[0], isSigner: false, isWritable: false},
+      { pubkey: MPDA[0], isSigner: false, isWritable: false},
+      {pubkey: new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"), isSigner: false, isWritable: true},
+    ],
     programId,
-    data: Buffer.from([1,10]), // All instructions are hellos
+    data
   });
   await sendAndConfirmTransaction(
     connection,
     new Transaction().add(instruction),
-    [clientAccount],
+    [payerAccount, clientAccount],
   );
 }
 
@@ -254,4 +297,124 @@ export async function reportGreetings(): Promise<void> {
     greeting.counter,
     'time(s)',
   );
+}
+
+export function swapInstruction(
+  programId: PublicKey,
+  RprogramId: PublicKey,
+  // tokenProgramId: PublicKey,
+  // amm
+  ammId: PublicKey,
+  ammAuthority: PublicKey,
+  ammOpenOrders: PublicKey,
+  ammTargetOrders: PublicKey,
+  poolCoinTokenAccount: PublicKey,
+  poolPcTokenAccount: PublicKey,
+  // serum
+  serumProgramId: PublicKey,
+  serumMarket: PublicKey,
+  serumBids: PublicKey,
+  serumAsks: PublicKey,
+  serumEventQueue: PublicKey,
+  serumCoinVaultAccount: PublicKey,
+  serumPcVaultAccount: PublicKey,
+  serumVaultSigner: PublicKey,
+  // user
+  userSourceTokenAccount: PublicKey,
+  userDestTokenAccount: PublicKey,
+  userOwner: PublicKey,
+
+  amountIn: number,
+  minAmountOut: number
+): TransactionInstruction {
+  
+  const dataLayout = struct([u8('instruction1'), u8('instruction'), nu64('amountIn'), nu64('minAmountOut')])
+
+  const keys = [
+    // raydium pool
+    { pubkey: RprogramId, isSigner: false, isWritable: true },
+    // spl token
+    { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: true },
+    // amm
+    { pubkey: ammId, isSigner: false, isWritable: true },
+    { pubkey: ammAuthority, isSigner: false, isWritable: true },
+    { pubkey: ammOpenOrders, isSigner: false, isWritable: true },
+    { pubkey: ammTargetOrders, isSigner: false, isWritable: true },
+    { pubkey: poolCoinTokenAccount, isSigner: false, isWritable: true },
+    { pubkey: poolPcTokenAccount, isSigner: false, isWritable: true },
+    // serum
+    { pubkey: serumProgramId, isSigner: false, isWritable: true },
+    { pubkey: serumMarket, isSigner: false, isWritable: true },
+    { pubkey: serumBids, isSigner: false, isWritable: true },
+    { pubkey: serumAsks, isSigner: false, isWritable: true },
+    { pubkey: serumEventQueue, isSigner: false, isWritable: true },
+    { pubkey: serumCoinVaultAccount, isSigner: false, isWritable: true },
+    { pubkey: serumPcVaultAccount, isSigner: false, isWritable: true },
+    { pubkey: serumVaultSigner, isSigner: false, isWritable: true },
+    { pubkey: userSourceTokenAccount, isSigner: false, isWritable: true },
+    { pubkey: userDestTokenAccount, isSigner: false, isWritable: true },
+    { pubkey: userOwner, isSigner: false, isWritable: true }
+  ]
+
+  const data = Buffer.alloc(dataLayout.span)
+  dataLayout.encode(
+    {
+      instruction1: 3,
+      instruction: 9,
+      amountIn,
+      minAmountOut
+    },
+    data
+  )
+
+  return new TransactionInstruction({
+    keys,
+    programId,
+    data
+  })
+}
+
+export async function swapToken() {
+
+  let programId = new PublicKey("ChmfNvH4Q15C7XXGC132UTbLbdUrQF5hUXFejyG22UZ2")
+  let wallet = new Account([116,252,167,101,186,83,65,192,133,216,186,17,79,88,19,249,12,85,255,140,19,101,4,233,105,80,14,111,133,107,123,3,217,180,92,0,197,5,141,20,70,238,87,223,135,91,117,53,187,81,22,117,90,239,30,15,88,200,147,207,126,182,198,209])
+
+  let pools = await loadInfo(connection)
+
+  const MPDA = await PublicKey.findProgramAddress([Buffer.from("manager")], programId);
+
+  let pool = getPoolByTokenMintAddresses("Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB", "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R")
+  if(pool) {
+    //let txid = await swap(connection, wallet, pools[pool.lp.mintAddress], "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB", "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R", 
+      //"4LuQ3tEVtpMFQUUNi9EQbFeKCXJE1BtBVCkR9zHo4mES", "3xBXRmLvyXy9a8F3kkgocExWok5yByYqFXRVbCmcsHz1", "10", 0.1)
+      //console.log("Txid: ", txid.toString())
+      const poolInfo = pools[pool.lp.mintAddress]
+      const transaction = new Transaction()
+      transaction.add(
+        swapInstruction(
+          programId,
+          new PublicKey(poolInfo.programId),
+          new PublicKey(poolInfo.ammId),
+          new PublicKey(poolInfo.ammAuthority),
+          new PublicKey(poolInfo.ammOpenOrders),
+          new PublicKey(poolInfo.ammTargetOrders),
+          new PublicKey(poolInfo.poolCoinTokenAccount),
+          new PublicKey(poolInfo.poolPcTokenAccount),
+          new PublicKey(poolInfo.serumProgramId),
+          new PublicKey(poolInfo.serumMarket),
+          new PublicKey(poolInfo.serumBids),
+          new PublicKey(poolInfo.serumAsks),
+          new PublicKey(poolInfo.serumEventQueue),
+          new PublicKey(poolInfo.serumCoinVaultAccount),
+          new PublicKey(poolInfo.serumPcVaultAccount),
+          new PublicKey(poolInfo.serumVaultSigner),
+          new PublicKey("8xhHD3ZBvU3HrUqr9bdRP1fGi8dJUNxM6vSBnUmgQoqt"),
+          new PublicKey("8FEaa7yPbe2X5YWhrxmNrXKJA1mGq9nZEBShaKNKSC8U"),
+          //wallet.publicKey,
+          MPDA[0],
+          Math.floor(0.51*(1000000)),
+          Math.floor(100)
+        ))
+        return await connection.sendTransaction(transaction, [wallet])
+  }
 }

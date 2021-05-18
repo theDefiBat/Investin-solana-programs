@@ -8,6 +8,7 @@ import {
   checkProgram,
   sayHello,
   reportGreetings,
+  swapToken,
 } from './hello_world';
 
 async function main() {
@@ -24,9 +25,9 @@ async function main() {
 
   // Say hello to an account
   await sayHello();
-
+  //await swapToken();
   // Find out how many times that account has been greeted
-  await reportGreetings();
+  //await reportGreetings();
 
   console.log('Success');
 }
