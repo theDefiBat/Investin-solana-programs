@@ -11,11 +11,12 @@ use solana_program::{
     program::{invoke, invoke_signed},
 };
 
-use spl_token::state::Account as TokenAccount;
+use spl_token::state::Account;
+
 
 /// Struct wrapping data and providing metadata
 #[derive(Clone, Debug, BorshSerialize, BorshDeserialize, BorshSchema, PartialEq)]
-pub struct FundData {
+pub struct InvestorData {
     /// The account allowed to update the data
     pub owner: Pubkey,
 
@@ -29,9 +30,9 @@ pub struct FundData {
 }
 
 #[derive(Clone, Debug, BorshSerialize, BorshDeserialize, BorshSchema, PartialEq)]
-pub struct AccountData {
+pub struct FundData {
     /// Account of the manager of the fund
-    pub manager: Pubkey,
+    pub managerAccount: Pubkey,
 
     /// Base Token Program
     pub baseToken: Pubkey,
@@ -46,7 +47,7 @@ pub struct AccountData {
     pub totalAmount: u64,
 
     /// Preformance in fund
-    pub performance: u64,
+    pub prevPerformance: u64,
 
     /// Number of Active Investments in fund
     pub numberOfActiveInvestments: u64,
@@ -170,37 +171,41 @@ pub fn process_instruction(
     match instruction {
         FundInstruction::Initialize { minAmount, minReturn } => {
             let fund_account = next_account_info(account_info_iter)?;
-            let mut account_data = AccountData::try_from_slice(*fund_account.data.borrow())?;
 
-            account_data.managerAccount = next_account_info(account_info_iter)?;
-            account_data.baseToken = next_account_info(account_info_iter)?;
+            let mut fund_data = FundData::try_from_slice(*fund_account.data.borrow())?;
 
-            account_data.minAmount = minAmount;
-            account_data.minReturn = minReturn;
+            fund_data.managerAccount = next_account_info(account_info_iter)?;
+            fund_data.baseToken = next_account_info(account_info_iter)?;
 
-            account_data.totalAmount = 0; 
-            account_data.performance = 1;
-            account_data.numberOfActiveInvestments = 0;
+            fund_data.minAmount = minAmount;
+            fund_data.minReturn = minReturn;
+
+            fund_data.totalAmount = 0; 
+            fund_data.performance = 1;
+            fund_data.numberOfActiveInvestments = 0;
+
+            fund_data.serialize(&mut *fund_account.data.borrow_mut());
         }
         
         FundInstruction::InvestorDeposit { amount } => {
             msg!("Depositing Lamports");
+            let fund_account = next_account_info(account_info_iter)?;
 
-            let mut fund_data = FundData::try_from_slice(*fund_account.data.borrow())?;
-            let mut account_data = AccountData::try_from_slice(*fund_account.data.borrow())?;
+            let mut investor_data = InvestorData::try_from_slice(*fund_account.data.borrow())?;
+            let mut investor_data = FundData::try_from_slice(*fund_account.data.borrow())?;
 
-            if amount <= account_data.minAmount  {
+            if amount <= fund_data.minAmount  {
                 return Err(ProgramError::InvalidAmount)
                 // msg!("Amount less than minimum Amount");
             }
             
-            let fund_account = next_account_info(account_info_iter)?;
+            
             let investor_account = next_account_info(account_info_iter)?;
             if !investor_account.is_signer {
                 return Err(ProgramError::MissingRequiredSignature);
             }
 
-            if *investor_account.key == fund_data.owner {
+            if *investor_account.key == investor_data.owner {
                 return Err(ProgramError::AccountAlreadyInitialized);
             }
 
@@ -213,7 +218,6 @@ pub fn process_instruction(
             let pda_account = next_account_info(account_info_iter)?;
             let mpda_account = next_account_info(account_info_iter)?;
             let token_program = next_account_info(account_info_iter)?;
-            
             
             let transfer_to_fund_ix = spl_token::instruction::transfer(
                 token_program.key,
@@ -236,19 +240,19 @@ pub fn process_instruction(
             msg!("Transfer done");
             msg!("Writing to state account: {:?}", *fund_account.key);
 
-            fund_data.owner = *investor_account.key;
-            fund_data.manager = *manager_token_account.key;
-            fund_data.amount += amount;
-            fund_data.serialize(&mut *fund_account.data.borrow_mut());
+            investor_data.owner = *investor_account.key;
+            investor_data.manager = *manager_token_account.key;
+            investor_data.amount += amount;
+            investor_data.serialize(&mut *fund_account.data.borrow_mut());
         }
         // update numberOfActiveInvestments, totalAmount, previousPerformance
         FundInstruction::InvestorWithdraw { amount: u64 } => {
             msg!("Withdraw Lamports");
+            let mut investor_data = InvestorData::try_from_slice(*fund_account.data.borrow())?;
             let mut fund_data = FundData::try_from_slice(*fund_account.data.borrow())?;
-            let mut account_data = AccountData::try_from_slice(*fund_account.data.borrow())?;
 
 
-            // if fund_data.amount <= amount {
+            // if investor_data.amount <= amount {
             //     /// return Err(ProgramError::InvalidAmount)
             // }
 
@@ -261,27 +265,22 @@ pub fn process_instruction(
             let mpda_account = next_account_info(account_info_iter)?;
             let token_program = next_account_info(account_info_iter)?;
             
-            if fund_data.owner != *investor_account.key {
+            if investor_data.owner != *investor_account.key {
                 return Err(FundError::InvestorMismatch)
                 // msg!("Owner mismatch");
             }
 
-            // ***get poolProgID and token_program
-            self::getAmountAndPerformance(
-                accounts: &[
-                // poolProgID.clone(),
-                token_program.clone(),
-                ], 
-                amount: u64,
-                program_id: &Pubkey
-            ); //totalAmount and performance gets updated
+            // ***pass poolProgID and token_program
+            (fund_data.totalAmount, fund_data:pervPerformance) = self::getAmountAndPerformance(token_program, manager_token_account);
+            fund_data.numberOfActiveInvestments -= 1;
+            fund_data.serialize(&mut *fund_account.data.borrow_mut());
 
-            let percentageReturn = account_data.performance / fund_data.startPerformance;
+            let percentageReturn = fund_data.pervPerformance / investor_data.startPerformance;
             msg!("percentage Return: ", percentageReturn);
             let investmentReturns;
 
-            let res = fund_data.amount * percentageReturn;
-            if percentageReturn >= account_data.minReturn {
+            let res = investor_data.amount * percentageReturn;
+            if percentageReturn >= fund_data.minReturn {
                 // calc manager's performance fee
                 investmentReturns = res;
             } else {
@@ -296,7 +295,7 @@ pub fn process_instruction(
                 &man_pda,
                 &[&man_pda],
                 investmentReturns,
-                // fund_data.amount,
+                // investor_data.amount,
             )?;
             msg!("Calling the token program to transfer tokens from fund_token_account to investor_token_account...");
             invoke_signed(
@@ -309,12 +308,9 @@ pub fn process_instruction(
                 ],
                 &[&[&b"manager"[..], &[bump_seed]]],
             )?;
-            fund_data.amount = 0;
-            fund_data.startPerformance = 0;
-            fund_data.serialize(&mut *fund_account.data.borrow_mut());
-
-            account_data.numberOfActiveInvestments -= 1;
-            
+            investor_data.amount = 0;
+            investor_data.startPerformance = 0;
+            investor_data.serialize(&mut *fund_account.data.borrow_mut());
         }
         
         FundInstruction::ManagerTransfer {amount: u64} => {
@@ -329,9 +325,9 @@ pub fn process_instruction(
             let token_program = next_account_info(account_info_iter)?;
 
             msg!("Manager transfering funds");
-            let mut fund_data = FundData::try_from_slice(*fund_account.data.borrow())?;
+            let mut investor_data = InvestorData::try_from_slice(*fund_account.data.borrow())?;
             
-            if fund_data.manager != *manager_token_account.key {
+            if investor_data.manager != *manager_token_account.key {
                 return Err(FundError::ManagerMismatch)
                 // msg!("Manager mismatch");
             }
@@ -341,7 +337,7 @@ pub fn process_instruction(
                 manager_token_account.key,
                 &pda,
                 &[&pda],
-                fund_data.amount
+                investor_data.amount
             )?;
             msg!("Calling the token program to transfer tokens from temp_token_account to manager_token_account...");
             invoke_signed(
@@ -355,19 +351,14 @@ pub fn process_instruction(
                 &[&[&b"fund"[..], &[_nonce]]],
             )?;
 
-            let mut account_data = AccountData::try_from_slice(*fund_account.data.borrow())?;
-            account_data.numberOfActiveInvestments += 1;
-            // ***get poolProgID and token_program
-            // self::getAmountAndPerformance(
-            //     accounts: &[
-            //     poolProgID.clone(),
-            //     token_program.clone(),
-            //     ], 
-            //     amount: u64,
-            //     program_id: &Pubkey
-            // ); //totalAmount and performance gets updated
-            let mut fund_data = FundData::try_from_slice(*fund_account.data.borrow())?;
-            fund_data.startPerformance = account_data.performance;
+            let mut fund_data = InvestorData::try_from_slice(*fund_account.data.borrow())?;
+            fund_data.numberOfActiveInvestments += 1;
+            // ****pass token_program, manager_token_account
+            (fund_data.totalAmount, fund_data:prevPerformance) = self::getAmountAndPerformance(token_program, manager_token_account);
+            fund_data.serialize(&mut *fund_account.data.borrow_mut());
+            let mut investor_data = InvestorData::try_from_slice(*fund_account.data.borrow())?;
+            investor_data.startPerformance = fund_data.pervPerformance;
+            investor_data.serialize(&mut *fund_account.data.borrow_mut());
         }
         FundInstruction::Swap { data } => {
             
@@ -443,39 +434,55 @@ pub fn process_instruction(
 
         FundInstruction::GetPerformance{amount: u64} => {
             msg!("Instruction: getPerformance");
-                Self::getAmountAndPerformance(accounts, amount, program_id)
+            let Amount;
+            let Performance;
+            // ****pass correct tokenProgram, token_account
+            (Amount, Performance) = Self::getAmountAndPerformance(tokenProgramId, token_account);
+            msg!("Amount: {:?}", Amount);
+            msg!("Performance: {:?}", Performance);
         }
     }
 
     fn getAmountAndPerformance(
         tokenProgramId: pubkey,
-    ) -> ProgramResult {
+        token_account: pubkey,
+    ) -> (u64, u64) {
         
         let baseTokenValue = 0;
-        baseTokenValue += FundData::baseToken.balance(); //get baseToken Balance
-        baseTokenValue += tokenProgramId.balance() * self::getTokenPrice(token0: tokenProgramId.key, token1: FundData::baseToken);; //get Balance
+        let baseTokenAccount = Account::unpack_from_slice(&token_account.data.borrow())?;
+        baseTokenValue += baseTokenAccount.amount;
+        baseTokenValue += tokenProgramId.balance() * self::getTokenPrice(token0: tokenProgramId.key, token1: InvestorData::baseToken);
         
-        let mut fund_data = FundData::try_from_slice(*fund_account.data.borrow())?;
-        
-        if FundData::numberOfActiveInvestments != 0 {
-            fund_data.previousPerformance = (baseTokenValue / fund_data.totalAmount) * fund_data.previousPerformance;
+        let perf = (baseTokenValue / investor_data.totalAmount) * investor_data.previousPerformance;
+
+        return (baseTokenValue, perf);            
         }
     }
+
+    // fn updateAmountAndPerformance (Amount: u64, Performance: u64) {
+    //     let investor_data = InvestorData::try_from_slice(*fund_account.data.borrow())?;
+    //     investor_data.Amount = Amount;
+        
+    //     if InvestorData::numberOfActiveInvestments != 0 {
+    //         investor_data.previousPerformance = Performance;
+    //     }
+    // }
 
     fn getTokenPrice(
         token0: &pubkey,
         token1: &pubkey,
+        // token_account: &pubkey,
     ) -> u8 {
         let tokenPrice = 0;
-        if token0 == tokenProgramId && token1 == FundData::baseToken {
-            const coinAmount = new TokenAmount(amount, token0.decimals, false); //get total reserve of coin in poolProgID
-            const pcAmount = new TokenAmount(amount, token1.decimals, false); //get total reserve of pc in poolProgID
-            tokenPrice = coinAmount / pcAmount;
-        } else {
-            const coinAmount = new TokenAmount(amount, token0.decimals, false); //get total reserve of coin in poolProgID
-            const pcAmount = new TokenAmount(amount, token1.decimals, false); //get total reserve of pc in poolProgID
-            tokenPrice = pcAmount / coinAmount;   
-        }
+        // if token1 == InvestorData::baseToken {
+            let token0Account = Account::unpack_from_slice(&token0.data.borrow())?;
+            let token1Account = Account::unpack_from_slice(&token1.data.borrow())?;
+            tokenPrice = token0Account.amount / token1Account.amount;
+        // } else {
+        //     let token0Account = Account::unpack_from_slice(&token0.data.borrow())?;
+        //     let token1Account = Account::unpack_from_slice(&token1.data.borrow())?;
+        //     tokenPrice = token1Account.amount / token0Account.amount;
+        // }
         return tokenPrice;
     }
     Ok(())
