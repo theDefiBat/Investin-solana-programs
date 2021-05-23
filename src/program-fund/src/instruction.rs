@@ -10,7 +10,8 @@ pub enum FundInstruction {
     /// 3..3+NUM_TOKENS [] Token mints to be whitelisted
     Initialize {
         min_amount: u64,
-        min_return: u64
+        min_return: u64,
+        performance_fee_percentage: u64
     },
 
     /// 0. [WRITE]  Fund State Account (derived from FA)
@@ -29,18 +30,22 @@ pub enum FundInstruction {
     /// 2. [SIGNER] Manager Wallet Account
     /// 3. []       Router Base Token Account
     /// 4. []       Fund Base Token Account
-    /// 5. []       PDA of Router
-    /// 6. []       Token Program
-    /// 7..7+2*NUM_TOKENS-1 Pool Token Accounts for each pair
+    /// 5. []       Manager Base Token Account
+    /// 6. []       Investin Base Token Account
+    /// 7. []       PDA of Router
+    /// 8. []       Token Program
+    /// 9..7+2*NUM_TOKENS-1 Pool Token Accounts for each pair
     ManagerTransfer,
     
     /// 0. [WRITE]  Fund State Account (derived from FA)    
     /// 1. [WRITE]  Investor State Account (derived from IPDA)
     /// 2. [SIGNER] Investor Wallet Account
-    /// 3. []       PDA of Router
-    /// 4. []       PDA of Manager
-    /// 5. []       Token Program
-    /// 6..6+NUM_TOKENS []  Investor Token Accounts
+    /// 3. []       Router Base Token Account
+    /// 4. []       Manager Base Token Account
+    /// 5. []       PDA of Router
+    /// 6. []       PDA of Manager
+    /// 7. []       Token Program
+    /// 8..6+NUM_TOKENS []  Investor Token Accounts
     /// 6+NUM_TOKENS.. 6+2*NUM_TOKENS  Fund Token Accounts
     /// 6+2*NUM_TOKENS..6+4*NUM_TOKENS Pool Token Accounts for each pair
     InvestorWithdraw {
