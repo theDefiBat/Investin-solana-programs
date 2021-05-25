@@ -28,7 +28,8 @@ impl Fund {
         program_id: &Pubkey,
         accounts: &[AccountInfo],
         min_amount: u64,
-        min_return: u64
+        min_return: u64,
+        performance_fee_percentage: u64
     ) -> Result<(), ProgramError> {
 
         const NUM_FIXED:usize = 3;
@@ -70,6 +71,7 @@ impl Fund {
         fund_data.decimals = 6;
         fund_data.min_amount = min_amount;
         fund_data.min_return = min_return;
+        fund_data.performance_fee_percentage = performance_fee_percentage;
 
         fund_data.total_amount = 0; 
         fund_data.prev_performance = 1000000;
@@ -107,7 +109,7 @@ impl Fund {
             token_prog_acc
         ] = accounts;
 
-        let fund_data = FundData::try_from_slice(&fund_state_acc.data.borrow())?;
+        let mut fund_data = FundData::try_from_slice(&fund_state_acc.data.borrow())?;
         let mut investor_data = InvestorData::try_from_slice(&investor_state_acc.data.borrow())?;
 
         // check if fund state acc passed is initialised
@@ -150,6 +152,7 @@ impl Fund {
 
         msg!("Deposit done..");
 
+        fund_data.amount_in_router += amount;
         investor_data.is_initialized = true;
         investor_data.owner = *investor_acc.key;
         investor_data.amount = amount;
@@ -159,6 +162,7 @@ impl Fund {
         // Store nonce for signing later
         investor_data.signer_nonce = nonce;
         investor_data.serialize(&mut *investor_state_acc.data.borrow_mut());
+        fund_data.serialize(&mut *fund_state_acc.data.borrow_mut());
 
         msg!("fund state:: {:?}", fund_data);
         msg!("investor state:: {:?}", investor_data);
@@ -173,8 +177,9 @@ impl Fund {
         accounts: &[AccountInfo],
     ) -> Result<(), ProgramError> {
 
-        const NUM_FIXED:usize = 7;
-        let accounts = array_ref![accounts, 0, NUM_FIXED + 2*(NUM_TOKENS-1)];
+        const NUM_FIXED:usize = 9;
+        let accounts = array_ref![accounts, 0, NUM_FIXED + 2*NUM_TOKENS];
+
         let (
             fixed_accs,
             pool_accs
@@ -186,6 +191,8 @@ impl Fund {
             manager_acc,
             router_btoken_acc,
             fund_btoken_acc,
+            manager_btoken_acc,
+            investin_btoken_acc,
             pda_inv_acc,
             token_prog_acc
         ] = fixed_accs;
@@ -196,15 +203,19 @@ impl Fund {
         let mut investor_data = InvestorData::try_from_slice(&investor_state_acc.data.borrow())?;
         let mut fund_data = FundData::try_from_slice(&fund_state_acc.data.borrow())?;
 
+        msg!("Invoking transfer instructions");
+        let transferable_amount: u64 = U64F64::to_num(U64F64::from_num(fund_data.amount_in_router)
+        .checked_mul(U64F64::from_num(98)).unwrap()
+        .checked_div(U64F64::from_num(100)).unwrap());
 
-        msg!("Invoking transfer instruction");
+
         let transfer_instruction = spl_token::instruction::transfer(
             token_prog_acc.key,
             router_btoken_acc.key,
             fund_btoken_acc.key,
             pda_inv_acc.key,
             &[pda_inv_acc.key],
-            investor_data.amount
+            transferable_amount
         )?;
         let transfer_accs = [
             router_btoken_acc.clone(),
@@ -214,17 +225,62 @@ impl Fund {
         ];
         let signer_seeds = [investor_data.owner.as_ref(), bytes_of(&investor_data.signer_nonce)];
         invoke_signed(&transfer_instruction, &transfer_accs, &[&signer_seeds]);
+      
+        msg!("Management Fee Transfer");
+        let management_fee: u64 = U64F64::to_num(U64F64::from_num(fund_data.amount_in_router)
+        .checked_div(U64F64::from_num(100)).unwrap());
 
-        msg!("Transfer completed");
-        let mut fund_data = FundData::try_from_slice(&fund_state_acc.data.borrow())?;
+        let transfer_instruction = spl_token::instruction::transfer(
+            token_prog_acc.key,
+            router_btoken_acc.key,
+            manager_btoken_acc.key,
+            pda_inv_acc.key,
+            &[pda_inv_acc.key],
+            management_fee
+        )?;
+        let transfer_accs = [
+            router_btoken_acc.clone(),
+            manager_btoken_acc.clone(),
+            pda_inv_acc.clone(),
+            token_prog_acc.clone()
+        ];
+        let signer_seeds = [investor_data.owner.as_ref(), bytes_of(&investor_data.signer_nonce)];
+        invoke_signed(&transfer_instruction, &transfer_accs, &[&signer_seeds])?;
+
+        msg!("Protocol Fee Transfer");
+        let protocol_fee: u64 = U64F64::to_num(U64F64::from_num(fund_data.amount_in_router)
+        .checked_div(U64F64::from_num(100)).unwrap());
+
+        let transfer_instruction = spl_token::instruction::transfer(
+            token_prog_acc.key,
+            router_btoken_acc.key,
+            investin_btoken_acc.key,
+            pda_inv_acc.key,
+            &[pda_inv_acc.key],
+            protocol_fee
+        )?;
+        let transfer_accs = [
+            router_btoken_acc.clone(),
+            investin_btoken_acc.clone(),
+            pda_inv_acc.clone(),
+            token_prog_acc.clone()
+        ];
+        let signer_seeds = [investor_data.owner.as_ref(), bytes_of(&investor_data.signer_nonce)];
+        invoke_signed(&transfer_instruction, &transfer_accs, &[&signer_seeds])?;
+
+        msg!("Transfers completed");
+        fund_data.tokens[0].balance += investor_data.amount;
+        update_amount_and_performance(fund_state_acc, pool_accs);
+
 
         if fund_data.number_of_active_investments > 0 {
         update_amount_and_performance(fund_state_acc, pool_accs);
         }
         // update start performance for investor
+        
         fund_data.number_of_active_investments += 1;
-        fund_data.tokens[0].balance += investor_data.amount;
-        fund_data.total_amount += investor_data.amount;
+        fund_data.amount_in_router = 0;
+
         investor_data.start_performance = fund_data.prev_performance;
         investor_data.serialize(&mut *investor_state_acc.data.borrow_mut());
         fund_data.serialize(&mut *fund_state_acc.data.borrow_mut());
@@ -242,8 +298,10 @@ impl Fund {
         amount: u64
     ) -> Result<(), ProgramError> {
 
-        const NUM_FIXED:usize = 6;
-        let accounts = array_ref![accounts, 0, NUM_FIXED + 4*NUM_TOKENS - 2];
+
+        const NUM_FIXED:usize = 8;
+        let accounts = array_ref![accounts, 0, NUM_FIXED + 4*NUM_TOKENS];
+
         let (
             fixed_accs,
             inv_token_accs,
@@ -255,6 +313,8 @@ impl Fund {
             fund_state_acc,
             investor_state_acc,
             investor_acc,
+            router_btoken_acc,
+            manager_btoken_acc,
             pda_inv_acc,
             pda_man_acc,
             token_prog_acc
@@ -273,55 +333,112 @@ impl Fund {
 
         // Manager has not transferred to vault
         if investor_data.start_performance == 0 {
-            // TODO
-        }
-
-        let perf_share = U64F64::from_num(fund_data.prev_performance)
-        .checked_div(U64F64::from_num(investor_data.start_performance)).unwrap();
-        
-        msg!("performance: {:?}", perf_share);
-        
-        let total_share = U64F64::from_num(investor_data.amount)
-        .checked_mul(perf_share).unwrap();
-        
-        // check if withdraw exceed
-        //check_assert(amount <= U64F64::to_num(total_share), ProgramError::InsufficientFunds);
-
-        // withdraw all for now
-        let share = U64F64::from_num(investor_data.amount)
-        .checked_div(U64F64::from_num(fund_data.total_amount)).unwrap();
-
-        for i in 0..NUM_TOKENS {
-            let withdraw_amount = U64F64::from_num(fund_data.tokens[i].balance)
-            .checked_mul(share).unwrap();
-            let withdraw_rounded = U64F64::to_num(withdraw_amount);
-            
-            if withdraw_rounded < 100 {
-                continue;
-            }
-
-            msg!("Invoking withdraw instruction");
             let withdraw_instruction = spl_token::instruction::transfer(
                 token_prog_acc.key,
-                fund_token_accs[i].key,
-                inv_token_accs[i].key,
+                router_btoken_acc.key,
+                inv_token_accs[0].key,
                 pda_man_acc.key,
                 &[pda_man_acc.key],
-                withdraw_rounded
+                investor_data.amount
             )?;
             let withdraw_accs = [
-                fund_token_accs[i].clone(),
-                inv_token_accs[i].clone(),
+                router_btoken_acc.clone(),
+                inv_token_accs[0].clone(),
                 pda_man_acc.clone(),
                 token_prog_acc.clone()
             ];
             let signer_seeds = [fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)];
             invoke_signed(&withdraw_instruction, &withdraw_accs, &[&signer_seeds])?;
+        } else {
+            let perf_share = U64F64::from_num(fund_data.prev_performance)
+            .checked_div(U64F64::from_num(investor_data.start_performance)).unwrap();
+        
+            msg!("performance: {:?}", perf_share);
 
-            msg!("withdraw instruction done");
+            let actual_amount: u64 = U64F64::to_num(U64F64::from_num(investor_data.amount)
+            .checked_mul(U64F64::from_num(98)).unwrap()
+            .checked_div(U64F64::from_num(100)).unwrap());
+        
+            let mut investment_return = U64F64::from_num(actual_amount)
+            .checked_mul(perf_share).unwrap();
+        
+            // check if withdraw exceed
+            //check_assert(amount <= U64F64::to_num(total_share), ProgramError::InsufficientFunds);
 
-            fund_data.tokens[i].balance = parse_token_account(&fund_token_accs[i])?.amount;
+            if fund_data.prev_performance >= fund_data.min_return {
+                let profit = U64F64::from_num(investment_return)
+                .checked_sub(U64F64::from_num(actual_amount)).unwrap();
+
+                // TODO: get performanceFeePercentage from fund_data
+                investment_return = U64F64::from_num(profit)
+                .checked_mul(
+                    (U64F64::from_num(100).checked_sub(U64F64::from_num(fund_data.performance_fee_percentage)).unwrap())
+                    .checked_div(U64F64::from_num(100)).unwrap()
+                    ).unwrap()
+                .checked_mul(U64F64::from_num(actual_amount)).unwrap();
+
+                let performanceFee = U64F64::to_num(U64F64::from_num(profit)
+                .checked_mul(
+                    U64F64::from_num(fund_data.performance_fee_percentage)
+                    .checked_div(U64F64::from_num(100)).unwrap()
+                ).unwrap()
+                .checked_mul(U64F64::from_num(actual_amount)).unwrap());
+
+                let transfer_instruction = spl_token::instruction::transfer(
+                    token_prog_acc.key,
+                    fund_token_accs[0].key,
+                    manager_btoken_acc.key,
+                    pda_man_acc.key,
+                    &[pda_man_acc.key],
+                    performanceFee
+                )?;
+                let withdraw_accs = [
+                    fund_token_accs[0].clone(),
+                    manager_btoken_acc.clone(),
+                    pda_man_acc.clone(),
+                    token_prog_acc.clone()
+                ];
+                let signer_seeds = [fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)];
+                invoke_signed(&transfer_instruction, &withdraw_accs, &[&signer_seeds])?;
+
+            }
+
+            let share = U64F64::from_num(investment_return)
+            .checked_div(U64F64::from_num(fund_data.total_amount)).unwrap();
+
+            for i in 0..NUM_TOKENS {
+                let withdraw_amount = U64F64::from_num(fund_data.tokens[i].balance)
+                .checked_mul(share).unwrap();
+                let withdraw_rounded = U64F64::to_num(withdraw_amount);
+            
+                if withdraw_rounded < 100 {
+                continue;
+                }
+
+                msg!("Invoking withdraw instruction");
+                let withdraw_instruction = spl_token::instruction::transfer(
+                    token_prog_acc.key,
+                    fund_token_accs[i].key,
+                    inv_token_accs[i].key,
+                    pda_man_acc.key,
+                    &[pda_man_acc.key],
+                    withdraw_rounded
+                )?;
+                let withdraw_accs = [
+                    fund_token_accs[i].clone(),
+                    inv_token_accs[i].clone(),
+                    pda_man_acc.clone(),
+                    token_prog_acc.clone()
+                ];
+                let signer_seeds = [fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)];
+                invoke_signed(&withdraw_instruction, &withdraw_accs, &[&signer_seeds])?;
+
+                msg!("withdraw instruction done");
+
+                fund_data.tokens[i].balance = parse_token_account(&fund_token_accs[i])?.amount;
+            }
         }
+        
         investor_data.amount = 0;
         investor_data.start_performance = 0;
 
@@ -442,9 +559,9 @@ impl Fund {
         msg!("Program Entrypoint");
         let instruction = FundInstruction::try_from_slice(data)?;
         match instruction {
-            FundInstruction::Initialize { min_amount, min_return } => {
+            FundInstruction::Initialize { min_amount, min_return, performance_fee_percentage } => {
                 msg!("FundInstruction::Initialize");
-                Self::initialize(program_id, accounts, min_amount, min_return);
+                Self::initialize(program_id, accounts, min_amount, min_return, performance_fee_percentage);
             }
             FundInstruction::InvestorDeposit { amount } => {
                 msg!("FundInstruction::InvestorDeposit");

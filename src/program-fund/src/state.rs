@@ -43,6 +43,9 @@ pub struct FundData {
     /// Minimum Return
     pub min_return: u64,
 
+    /// Performance Fee Percentage
+    pub performance_fee_percentage: u64,
+
     /// Total Amount in fund
     pub total_amount: u64,
 
@@ -54,6 +57,9 @@ pub struct FundData {
 
     /// Number of Active Investments in fund
     pub number_of_active_investments: u64,
+
+    /// Amount in Router
+    pub amount_in_router: u64,
 
     /// Tokens owned
     pub tokens: [TokenInfo; NUM_TOKENS]
