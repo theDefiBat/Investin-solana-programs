@@ -178,7 +178,7 @@ impl Fund {
     ) -> Result<(), ProgramError> {
 
         const NUM_FIXED:usize = 9;
-        let accounts = array_ref![accounts, 0, NUM_FIXED + 2*NUM_TOKENS];
+        let accounts = array_ref![accounts, 0, NUM_FIXED + 2*NUM_TOKENS - 2];
 
         let (
             fixed_accs,
@@ -269,12 +269,14 @@ impl Fund {
         invoke_signed(&transfer_instruction, &transfer_accs, &[&signer_seeds])?;
 
         msg!("Transfers completed");
-        fund_data.tokens[0].balance += investor_data.amount;
-        update_amount_and_performance(fund_state_acc, pool_accs);
-
+        fund_data.tokens[0].balance += transferable_amount;
 
         if fund_data.number_of_active_investments > 0 {
-        update_amount_and_performance(fund_state_acc, pool_accs);
+            update_amount_and_performance(fund_state_acc, pool_accs);
+        }
+        else {
+            fund_data.total_amount = transferable_amount;
+            fund_data.prev_performance = 1000000;
         }
         // update start performance for investor
         
@@ -300,7 +302,7 @@ impl Fund {
 
 
         const NUM_FIXED:usize = 8;
-        let accounts = array_ref![accounts, 0, NUM_FIXED + 4*NUM_TOKENS];
+        let accounts = array_ref![accounts, 0, NUM_FIXED + 4*NUM_TOKENS - 2];
 
         let (
             fixed_accs,
