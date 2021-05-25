@@ -7,6 +7,7 @@ use solana_program::{
     instruction:: {AccountMeta, Instruction},
     program_error::ProgramError,
     program_pack::{Pack, IsInitialized},
+    log::{sol_log_compute_units, sol_log_params, sol_log_slice},
     pubkey::Pubkey,
     program::{invoke, invoke_signed},
 };
@@ -31,11 +32,11 @@ impl Fund {
     ) -> Result<(), ProgramError> {
 
         const NUM_FIXED:usize = 3;
-        let accounts = array_ref![accounts, 0, NUM_FIXED + 2*NUM_TOKENS];
+        let accounts = array_ref![accounts, 0, NUM_FIXED + NUM_TOKENS];
         let (
             fixed_accs,
             mint_accs
-        ) = array_refs![accounts, NUM_FIXED, 2*NUM_TOKENS];
+        ) = array_refs![accounts, NUM_FIXED, NUM_TOKENS];
 
         let [
             fund_state_acc,
@@ -48,7 +49,7 @@ impl Fund {
         let mut fund_data = FundData::try_from_slice(&fund_state_acc.data.borrow())?;
 
         //  check if already init
-        check_assert(fund_data.is_initialized(), ProgramError::AccountAlreadyInitialized);
+        //check_assert(fund_data.is_initialized(), ProgramError::AccountAlreadyInitialized);
         // save manager's wallet address
         fund_data.manager_account = *manager_acc.key;
 
@@ -77,8 +78,13 @@ impl Fund {
         // get nonce for signing later
         let (_pda, nonce) = Pubkey::find_program_address(&[&*manager_acc.key.as_ref()], program_id);
         fund_data.signer_nonce = nonce;
+        fund_data.is_initialized = true;
 
+        msg!("Serialising data");
         fund_data.serialize(&mut *fund_state_acc.data.borrow_mut());
+
+        msg!("fund state:: {:?}", fund_data);
+        
 
         Ok(())
     }
@@ -118,7 +124,7 @@ impl Fund {
         // TODO: check if investor state account is derived from its address
 
         // check if investor_state_account is already initialised
-        check_assert(investor_data.is_initialized(), ProgramError::AccountAlreadyInitialized);
+        //check_assert(investor_data.is_initialized(), ProgramError::AccountAlreadyInitialized);
 
         check_assert(*token_prog_acc.key == spl_token::id(), ProgramError::IncorrectProgramId);
         
@@ -140,7 +146,7 @@ impl Fund {
             investor_acc.clone(),
             token_prog_acc.clone()
         ];
-        invoke(&deposit_instruction, &deposit_accs)?;
+        invoke(&deposit_instruction, &deposit_accs);
 
         msg!("Deposit done..");
 
@@ -154,6 +160,10 @@ impl Fund {
         investor_data.signer_nonce = nonce;
         investor_data.serialize(&mut *investor_state_acc.data.borrow_mut());
 
+        msg!("fund state:: {:?}", fund_data);
+        msg!("investor state:: {:?}", investor_data);
+        
+
         Ok(())
     }
 
@@ -164,11 +174,11 @@ impl Fund {
     ) -> Result<(), ProgramError> {
 
         const NUM_FIXED:usize = 7;
-        let accounts = array_ref![accounts, 0, NUM_FIXED + 2*NUM_TOKENS];
+        let accounts = array_ref![accounts, 0, NUM_FIXED + 2*(NUM_TOKENS-1)];
         let (
             fixed_accs,
             pool_accs
-        ) = array_refs![accounts, NUM_FIXED, 2*NUM_TOKENS];
+        ) = array_refs![accounts, NUM_FIXED, 2*(NUM_TOKENS-1)];
 
         let [
             fund_state_acc,
@@ -184,6 +194,8 @@ impl Fund {
         check_assert(manager_acc.is_signer, ProgramError::MissingRequiredSignature);
 
         let mut investor_data = InvestorData::try_from_slice(&investor_state_acc.data.borrow())?;
+        let mut fund_data = FundData::try_from_slice(&fund_state_acc.data.borrow())?;
+
 
         msg!("Invoking transfer instruction");
         let transfer_instruction = spl_token::instruction::transfer(
@@ -201,18 +213,25 @@ impl Fund {
             token_prog_acc.clone()
         ];
         let signer_seeds = [investor_data.owner.as_ref(), bytes_of(&investor_data.signer_nonce)];
-        invoke_signed(&transfer_instruction, &transfer_accs, &[&signer_seeds])?;
+        invoke_signed(&transfer_instruction, &transfer_accs, &[&signer_seeds]);
 
         msg!("Transfer completed");
-        
-        update_amount_and_performance(fund_state_acc, pool_accs);
-
-        // update start performance for investor
         let mut fund_data = FundData::try_from_slice(&fund_state_acc.data.borrow())?;
+
+        if fund_data.number_of_active_investments > 0 {
+        update_amount_and_performance(fund_state_acc, pool_accs);
+        }
+        // update start performance for investor
         fund_data.number_of_active_investments += 1;
+        fund_data.tokens[0].balance += investor_data.amount;
+        fund_data.total_amount += investor_data.amount;
         investor_data.start_performance = fund_data.prev_performance;
         investor_data.serialize(&mut *investor_state_acc.data.borrow_mut());
         fund_data.serialize(&mut *fund_state_acc.data.borrow_mut());
+
+        msg!("fund state:: {:?}", fund_data);
+        msg!("investor state:: {:?}", investor_data);
+        
 
         Ok(())
     }
@@ -224,13 +243,13 @@ impl Fund {
     ) -> Result<(), ProgramError> {
 
         const NUM_FIXED:usize = 6;
-        let accounts = array_ref![accounts, 0, NUM_FIXED + 4*NUM_TOKENS];
+        let accounts = array_ref![accounts, 0, NUM_FIXED + 4*NUM_TOKENS - 2];
         let (
             fixed_accs,
             inv_token_accs,
             fund_token_accs,
             pool_accs
-        ) = array_refs![accounts, NUM_FIXED, NUM_TOKENS, NUM_TOKENS, 2*NUM_TOKENS];
+        ) = array_refs![accounts, NUM_FIXED, NUM_TOKENS, NUM_TOKENS, 2*(NUM_TOKENS-1)];
 
         let [
             fund_state_acc,
@@ -244,10 +263,13 @@ impl Fund {
         // check if investor has signed the transaction
         check_assert(investor_acc.is_signer, ProgramError::MissingRequiredSignature);
 
-        update_amount_and_performance(fund_state_acc, pool_accs);
 
         let mut fund_data = FundData::try_from_slice(&fund_state_acc.data.borrow())?;
         let mut investor_data = InvestorData::try_from_slice(&investor_state_acc.data.borrow())?;
+
+        
+        
+        update_amount_and_performance(fund_state_acc, pool_accs);
 
         // Manager has not transferred to vault
         if investor_data.start_performance == 0 {
@@ -305,6 +327,9 @@ impl Fund {
 
         investor_data.serialize(&mut *investor_state_acc.data.borrow_mut());
         fund_data.serialize(&mut *fund_state_acc.data.borrow_mut());
+
+        msg!("fund state:: {:?}", fund_data);
+        msg!("investor state:: {:?}", investor_data);
         
         Ok(())
     }
@@ -414,6 +439,7 @@ impl Fund {
         accounts: &[AccountInfo],
         data: &[u8]
     ) -> Result<(), ProgramError> {
+        msg!("Program Entrypoint");
         let instruction = FundInstruction::try_from_slice(data)?;
         match instruction {
             FundInstruction::Initialize { min_amount, min_return } => {

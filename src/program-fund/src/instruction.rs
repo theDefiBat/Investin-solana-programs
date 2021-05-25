@@ -42,7 +42,7 @@ pub enum FundInstruction {
     /// 5. []       Token Program
     /// 6..6+NUM_TOKENS []  Investor Token Accounts
     /// 6+NUM_TOKENS.. 6+2*NUM_TOKENS  Fund Token Accounts
-    /// 6+2*NUM_TOKENS..6+4*NUM_TOKENS Pool Token Accounts for each pair
+    /// 6+2*NUM_TOKENS..6+4*NUM_TOKENS-2 Pool Token Accounts for each pair
     InvestorWithdraw {
         amount: u64
     },
