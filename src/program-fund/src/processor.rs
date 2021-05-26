@@ -18,7 +18,7 @@ use spl_token::state::{Account, Mint};
 
 use crate::error::{check_assert, FundError};
 use crate::instruction::{FundInstruction, Data};
-use crate::state::{NUM_TOKENS, FundData, InvestorData};
+use crate::state::{NUM_TOKENS, MAX_INVESTORS, FundData, InvestorData, PlatformData};
 
 pub struct Fund {}
 
@@ -32,7 +32,7 @@ impl Fund {
         performance_fee_percentage: u64
     ) -> Result<(), ProgramError> {
 
-        const NUM_FIXED:usize = 3;
+        const NUM_FIXED:usize = 4;
         let accounts = array_ref![accounts, 0, NUM_FIXED + NUM_TOKENS];
         let (
             fixed_accs,
@@ -40,17 +40,31 @@ impl Fund {
         ) = array_refs![accounts, NUM_FIXED, NUM_TOKENS];
 
         let [
+            platform_acc,
             fund_state_acc,
             manager_acc,
             fund_btoken_acc,
         ] = fixed_accs;
 
         // TODO: Add check that base_account is derived from manager_account
-
+        let mut platform_data = PlatformData::try_from_slice(&platform_acc.data.borrow())?;
         let mut fund_data = FundData::try_from_slice(&fund_state_acc.data.borrow())?;
 
         //  check if already init
-        //check_assert(fund_data.is_initialized(), ProgramError::AccountAlreadyInitialized);
+        check_assert(fund_data.is_initialized(), ProgramError::AccountAlreadyInitialized);
+
+        // check if platform_data is init
+        if !platform_data.is_initialized() {
+            let (router_pda, nonce) = 
+                Pubkey::find_program_address(&["router".as_ref()], program_id
+            );
+            platform_data.router = router_pda;
+            platform_data.router_nonce = nonce;
+            
+            platform_data.is_initialized = true;
+            platform_data.no_of_active_funds = 0;
+        }
+
         // save manager's wallet address
         fund_data.manager_account = *manager_acc.key;
 
@@ -85,8 +99,14 @@ impl Fund {
         msg!("Serialising data");
         fund_data.serialize(&mut *fund_state_acc.data.borrow_mut());
 
-        msg!("fund state:: {:?}", fund_data);
+        // update platform_data
+        platform_data.fund_managers[platform_data.no_of_active_funds as usize] = *manager_acc.key;
+        platform_data.no_of_active_funds += 1;
         
+        platform_data.serialize(&mut *platform_acc.data.borrow_mut());
+
+        msg!("fund state:: {:?}", fund_data);
+        msg!("investor state:: {:?}", platform_data);
 
         Ok(())
     }
@@ -152,22 +172,22 @@ impl Fund {
 
         msg!("Deposit done..");
 
-        fund_data.amount_in_router += amount;
         investor_data.is_initialized = true;
         investor_data.owner = *investor_acc.key;
         investor_data.amount = amount;
         investor_data.start_performance = 0;
         // Store manager's PDA
         investor_data.manager = *pda_man_acc.key;
-        // Store nonce for signing later
-        investor_data.signer_nonce = nonce;
         investor_data.serialize(&mut *investor_state_acc.data.borrow_mut());
+        
+        fund_data.amount_in_router += amount;
+        fund_data.investors[fund_data.no_of_investments as usize] = *investor_acc.key;
+        fund_data.no_of_investments += 1;
         fund_data.serialize(&mut *fund_state_acc.data.borrow_mut());
 
         msg!("fund state:: {:?}", fund_data);
         msg!("investor state:: {:?}", investor_data);
         
-
         Ok(())
     }
 
@@ -178,30 +198,34 @@ impl Fund {
     ) -> Result<(), ProgramError> {
 
         const NUM_FIXED:usize = 9;
-        let accounts = array_ref![accounts, 0, NUM_FIXED + 2*NUM_TOKENS - 2];
+        let accounts = array_ref![accounts, 0, NUM_FIXED + 2*(NUM_TOKENS-1) + MAX_INVESTORS];
 
         let (
             fixed_accs,
-            pool_accs
-        ) = array_refs![accounts, NUM_FIXED, 2*(NUM_TOKENS-1)];
+            pool_accs,
+            investor_state_accs
+        ) = array_refs![accounts, NUM_FIXED, 2*(NUM_TOKENS-1), MAX_INVESTORS];
 
         let [
+            platform_acc,
             fund_state_acc,
-            investor_state_acc,
             manager_acc,
             router_btoken_acc,
             fund_btoken_acc,
             manager_btoken_acc,
             investin_btoken_acc,
-            pda_inv_acc,
+            pda_router_acc,
             token_prog_acc
         ] = fixed_accs;
+
+        let mut platform_data = PlatformData::try_from_slice(&platform_acc.data.borrow())?;
+        let mut fund_data = FundData::try_from_slice(&fund_state_acc.data.borrow())?;
 
         // check if manager signed the tx
         check_assert(manager_acc.is_signer, ProgramError::MissingRequiredSignature);
 
-        let mut investor_data = InvestorData::try_from_slice(&investor_state_acc.data.borrow())?;
-        let mut fund_data = FundData::try_from_slice(&fund_state_acc.data.borrow())?;
+        // check if router PDA matches
+        check_assert(*pda_router_acc.key == platform_data.router, ProgramError::InvalidAccountData);
 
         msg!("Invoking transfer instructions");
         let transferable_amount: u64 = U64F64::to_num(U64F64::from_num(fund_data.amount_in_router)
@@ -213,17 +237,17 @@ impl Fund {
             token_prog_acc.key,
             router_btoken_acc.key,
             fund_btoken_acc.key,
-            pda_inv_acc.key,
-            &[pda_inv_acc.key],
+            pda_router_acc.key,
+            &[pda_router_acc.key],
             transferable_amount
         )?;
         let transfer_accs = [
             router_btoken_acc.clone(),
             fund_btoken_acc.clone(),
-            pda_inv_acc.clone(),
+            pda_router_acc.clone(),
             token_prog_acc.clone()
         ];
-        let signer_seeds = [investor_data.owner.as_ref(), bytes_of(&investor_data.signer_nonce)];
+        let signer_seeds = ["router".as_ref(), bytes_of(&platform_data.router_nonce)];
         invoke_signed(&transfer_instruction, &transfer_accs, &[&signer_seeds]);
       
         msg!("Management Fee Transfer");
@@ -234,17 +258,16 @@ impl Fund {
             token_prog_acc.key,
             router_btoken_acc.key,
             manager_btoken_acc.key,
-            pda_inv_acc.key,
-            &[pda_inv_acc.key],
+            pda_router_acc.key,
+            &[pda_router_acc.key],
             management_fee
         )?;
         let transfer_accs = [
             router_btoken_acc.clone(),
             manager_btoken_acc.clone(),
-            pda_inv_acc.clone(),
+            pda_router_acc.clone(),
             token_prog_acc.clone()
         ];
-        let signer_seeds = [investor_data.owner.as_ref(), bytes_of(&investor_data.signer_nonce)];
         invoke_signed(&transfer_instruction, &transfer_accs, &[&signer_seeds])?;
 
         msg!("Protocol Fee Transfer");
@@ -255,17 +278,16 @@ impl Fund {
             token_prog_acc.key,
             router_btoken_acc.key,
             investin_btoken_acc.key,
-            pda_inv_acc.key,
-            &[pda_inv_acc.key],
+            pda_router_acc.key,
+            &[pda_router_acc.key],
             protocol_fee
         )?;
         let transfer_accs = [
             router_btoken_acc.clone(),
             investin_btoken_acc.clone(),
-            pda_inv_acc.clone(),
+            pda_router_acc.clone(),
             token_prog_acc.clone()
         ];
-        let signer_seeds = [investor_data.owner.as_ref(), bytes_of(&investor_data.signer_nonce)];
         invoke_signed(&transfer_instruction, &transfer_accs, &[&signer_seeds])?;
 
         msg!("Transfers completed");
@@ -278,18 +300,20 @@ impl Fund {
             fund_data.total_amount = transferable_amount;
             fund_data.prev_performance = 1000000;
         }
-        // update start performance for investor
         
-        fund_data.number_of_active_investments += 1;
+        fund_data.number_of_active_investments = fund_data.no_of_investments;
         fund_data.amount_in_router = 0;
 
-        investor_data.start_performance = fund_data.prev_performance;
-        investor_data.serialize(&mut *investor_state_acc.data.borrow_mut());
-        fund_data.serialize(&mut *fund_state_acc.data.borrow_mut());
+        for i in 0..MAX_INVESTORS {
+            let investor_state_acc = &investor_state_accs[i];
+            let mut investor_data = FundData::try_from_slice(&investor_state_acc.data.borrow())?;
+            if investor_data.prev_performance == 0 {
+                investor_data.prev_performance = fund_data.prev_performance;
+                investor_data.serialize(&mut *investor_state_acc.data.borrow_mut());
+            }
+        }
 
-        msg!("fund state:: {:?}", fund_data);
-        msg!("investor state:: {:?}", investor_data);
-        
+        msg!("fund state:: {:?}", fund_data);  
 
         Ok(())
     }
@@ -301,7 +325,7 @@ impl Fund {
     ) -> Result<(), ProgramError> {
 
 
-        const NUM_FIXED:usize = 8;
+        const NUM_FIXED:usize = 7;
         let accounts = array_ref![accounts, 0, NUM_FIXED + 4*NUM_TOKENS - 2];
 
         let (
@@ -317,7 +341,6 @@ impl Fund {
             investor_acc,
             router_btoken_acc,
             manager_btoken_acc,
-            pda_inv_acc,
             pda_man_acc,
             token_prog_acc
         ] = fixed_accs;
@@ -329,8 +352,6 @@ impl Fund {
         let mut fund_data = FundData::try_from_slice(&fund_state_acc.data.borrow())?;
         let mut investor_data = InvestorData::try_from_slice(&investor_state_acc.data.borrow())?;
 
-        
-        
         update_amount_and_performance(fund_state_acc, pool_accs);
 
         // Manager has not transferred to vault
@@ -351,6 +372,7 @@ impl Fund {
             ];
             let signer_seeds = [fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)];
             invoke_signed(&withdraw_instruction, &withdraw_accs, &[&signer_seeds])?;
+
         } else {
             let perf_share = U64F64::from_num(fund_data.prev_performance)
             .checked_div(U64F64::from_num(investor_data.start_performance)).unwrap();
@@ -439,12 +461,14 @@ impl Fund {
 
                 fund_data.tokens[i].balance = parse_token_account(&fund_token_accs[i])?.amount;
             }
+            fund_data.number_of_active_investments -= 1;
         }
         
         investor_data.amount = 0;
         investor_data.start_performance = 0;
-
         investor_data.serialize(&mut *investor_state_acc.data.borrow_mut());
+        
+        fund_data.no_of_investments -= 1;
         fund_data.serialize(&mut *fund_state_acc.data.borrow_mut());
 
         msg!("fund state:: {:?}", fund_data);

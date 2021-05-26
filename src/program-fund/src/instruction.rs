@@ -4,10 +4,12 @@ use borsh::{BorshDeserialize, BorshSchema, BorshSerialize};
 pub enum FundInstruction {
 
     /// Accounts expected
-    /// 0. [WRITE]  Fund State Account (derived from FA)
-    /// 1. [SIGNER] Manager Wallet Account
-    /// 2. []       Fund Base Token Account
-    /// 3..3+NUM_TOKENS [] Token mints to be whitelisted
+    /// 0. [WRITE]  Platform State Account
+    /// 1. [WRITE]  Fund State Account (derived from FA)
+    /// 2. [SIGNER] Manager Wallet Account
+    /// 3. []       Fund Base Token Account
+    /// 4..4+NUM_TOKENS [] Token mints to be whitelisted
+
     Initialize {
         min_amount: u64,
         min_return: u64,
@@ -19,14 +21,14 @@ pub enum FundInstruction {
     /// 2. [SIGNER] Investor Wallet Account
     /// 3. []       Investor Base Token Account
     /// 4. []       Router Base Token Account (derived)
-    /// 5. []       PDA of Manager (Fund Address)
+    /// 5. []       PDA of Manager (Fund ]Address)
     /// 6. []       Token Program
     InvestorDeposit {
         amount: u64
     },
 
-    /// 0. [WRITE]  Fund State Account
-    /// 1. [WRITE]  Investor State Account
+    /// 0. []       Platform State Account
+    /// 1. [WRITE]  Fund State Account
     /// 2. [SIGNER] Manager Wallet Account
     /// 3. []       Router Base Token Account
     /// 4. []       Fund Base Token Account
@@ -34,7 +36,8 @@ pub enum FundInstruction {
     /// 6. []       Investin Base Token Account
     /// 7. []       PDA of Router
     /// 8. []       Token Program
-    /// 9..7+2*NUM_TOKENS-1 Pool Token Accounts for each pair
+    /// 9..9+2*(NUM_TOKENS-1) Pool Token Accounts for each pair
+    /// 13..13+MAX_INVESTORS Investor State Accounts for the fund
     ManagerTransfer,
     
     /// 0. [WRITE]  Fund State Account (derived from FA)    
@@ -42,16 +45,15 @@ pub enum FundInstruction {
     /// 2. [SIGNER] Investor Wallet Account
     /// 3. []       Router Base Token Account
     /// 4. []       Manager Base Token Account
-    /// 5. []       PDA of Router
-    /// 6. []       PDA of Manager
-    /// 7. []       Token Program
-    /// 8..6+NUM_TOKENS []  Investor Token Accounts
-    /// 6+NUM_TOKENS.. 6+2*NUM_TOKENS  Fund Token Accounts
-    /// 6+2*NUM_TOKENS..6+4*NUM_TOKENS-2 Pool Token Accounts for each pair
+    /// 5. []       PDA of Manager
+    /// 6. []       Token Program
+    /// 7..7+NUM_TOKENS []  Investor Token Accounts
+    /// 7+NUM_TOKENS.. 7+2*NUM_TOKENS  Fund Token Accounts
+    /// 7+2*NUM_TOKENS..7+4*NUM_TOKENS-2 Pool Token Accounts for each pair
     InvestorWithdraw {
         amount: u64
     },
-    
+
     /// 0. [WRITE] Fund State Account
     /// 1. [] Raydium Pool Program
     /// 2. [] Token Program

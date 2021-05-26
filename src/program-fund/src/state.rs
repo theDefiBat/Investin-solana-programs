@@ -4,9 +4,30 @@ use solana_program::program_pack::{IsInitialized, Sealed};
 
 
 pub const NUM_TOKENS:usize = 3;
+pub const MAX_INVESTORS:usize = 10;
+pub const MAX_FUNDS:usize = 10;
+
 
 /// Struct wrapping data and providing metadata
-/// Struct wrapping data and providing metadata
+/// 
+#[derive(Clone, Debug, BorshSerialize, BorshDeserialize, BorshSchema, PartialEq)]
+pub struct PlatformData {
+    pub is_initialized: bool,
+
+    // PDA of router
+    pub router: Pubkey,
+
+    // router nonce for signing
+    pub router_nonce: u8,
+
+    // keep track of active funds
+    pub no_of_active_funds: u8,
+
+    // Fund managers list
+    pub fund_managers: [Pubkey; MAX_FUNDS]
+
+}
+
 #[derive(Clone, Debug, BorshSerialize, BorshDeserialize, BorshSchema, PartialEq)]
 pub struct InvestorData {
     pub is_initialized: bool,
@@ -23,8 +44,6 @@ pub struct InvestorData {
     // Fund manager
     pub manager: Pubkey,
 
-    // nonce to sign transactions
-    pub signer_nonce: u8
 }
 
 #[derive(Clone, Debug, BorshSerialize, BorshDeserialize, BorshSchema, PartialEq)]
@@ -56,13 +75,19 @@ pub struct FundData {
     pub prev_performance: u64,
 
     /// Number of Active Investments in fund
-    pub number_of_active_investments: u64,
+    pub number_of_active_investments: u8,
+
+    /// Total Number of investments in fund
+    pub no_of_investments: u8,
 
     /// Amount in Router
     pub amount_in_router: u64,
 
     /// Tokens owned
-    pub tokens: [TokenInfo; NUM_TOKENS]
+    pub tokens: [TokenInfo; NUM_TOKENS],
+
+    // Store investor state account addresses
+    pub investors: [Pubkey; MAX_INVESTORS]
 }
 
 #[derive(Clone, Debug, Default, Copy, BorshSerialize, BorshDeserialize, BorshSchema, PartialEq)]
@@ -94,5 +119,13 @@ impl IsInitialized for FundData {
         self.is_initialized
     }
 }
+
+impl Sealed for PlatformData {}
+impl IsInitialized for PlatformData {
+    fn is_initialized(&self) -> bool {
+        self.is_initialized
+    }
+}
+
 
 
