@@ -146,7 +146,7 @@ impl Fund {
         // TODO: check if investor state account is derived from its address
 
         // check if investor_state_account is already initialised
-        //check_assert(investor_data.is_initialized(), ProgramError::AccountAlreadyInitialized);
+        check_assert(investor_data.is_initialized(), ProgramError::AccountAlreadyInitialized);
 
         check_assert(*token_prog_acc.key == spl_token::id(), ProgramError::IncorrectProgramId);
         
@@ -325,7 +325,7 @@ impl Fund {
     ) -> Result<(), ProgramError> {
 
 
-        const NUM_FIXED:usize = 7;
+        const NUM_FIXED:usize = 8;
         let accounts = array_ref![accounts, 0, NUM_FIXED + 4*NUM_TOKENS - 2];
 
         let (
@@ -341,6 +341,7 @@ impl Fund {
             investor_acc,
             router_btoken_acc,
             manager_btoken_acc,
+            investin_btoken_acc,
             pda_man_acc,
             token_prog_acc
         ] = fixed_accs;
@@ -348,7 +349,7 @@ impl Fund {
         // check if investor has signed the transaction
         check_assert(investor_acc.is_signer, ProgramError::MissingRequiredSignature);
 
-
+        // TODO: check if manager_btoken_acc and investin_btoken_acc is correct from states
         let mut fund_data = FundData::try_from_slice(&fund_state_acc.data.borrow())?;
         let mut investor_data = InvestorData::try_from_slice(&investor_state_acc.data.borrow())?;
 
@@ -393,7 +394,6 @@ impl Fund {
                 let profit = U64F64::from_num(investment_return)
                 .checked_sub(U64F64::from_num(actual_amount)).unwrap();
 
-                // TODO: get performanceFeePercentage from fund_data
                 investment_return = U64F64::from_num(profit)
                 .checked_mul(
                     (U64F64::from_num(100).checked_sub(U64F64::from_num(fund_data.performance_fee_percentage)).unwrap())
@@ -419,6 +419,26 @@ impl Fund {
                 let withdraw_accs = [
                     fund_token_accs[0].clone(),
                     manager_btoken_acc.clone(),
+                    pda_man_acc.clone(),
+                    token_prog_acc.clone()
+                ];
+                let signer_seeds = [fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)];
+                invoke_signed(&transfer_instruction, &withdraw_accs, &[&signer_seeds])?;
+
+                let platformFee = U64F64::to_num(U64F64::from_num(profit)
+                .checked_div(U64F64::from_num(10)).unwrap());
+
+                let transfer_instruction = spl_token::instruction::transfer(
+                    token_prog_acc.key,
+                    fund_token_accs[0].key,
+                    investin_btoken_acc.key,
+                    pda_man_acc.key,
+                    &[pda_man_acc.key],
+                    platformFee
+                )?;
+                let withdraw_accs = [
+                    fund_token_accs[0].clone(),
+                    investin_btoken_acc.clone(),
                     pda_man_acc.clone(),
                     token_prog_acc.clone()
                 ];
