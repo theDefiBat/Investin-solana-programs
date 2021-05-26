@@ -45,11 +45,12 @@ pub enum FundInstruction {
     /// 2. [SIGNER] Investor Wallet Account
     /// 3. []       Router Base Token Account
     /// 4. []       Manager Base Token Account
-    /// 5. []       PDA of Manager
-    /// 6. []       Token Program
-    /// 7..7+NUM_TOKENS []  Investor Token Accounts
-    /// 7+NUM_TOKENS.. 7+2*NUM_TOKENS  Fund Token Accounts
-    /// 7+2*NUM_TOKENS..7+4*NUM_TOKENS-2 Pool Token Accounts for each pair
+    /// 5. []       Investin Base Token Account
+    /// 6. []       PDA of Manager
+    /// 7. []       Token Program
+    /// 8..8+NUM_TOKENS []  Investor Token Accounts
+    /// 8+NUM_TOKENS.. 8+2*NUM_TOKENS  Fund Token Accounts
+    /// 8+2*NUM_TOKENS..8+4*NUM_TOKENS-2 Pool Token Accounts for each pair
     InvestorWithdraw {
         amount: u64
     },
