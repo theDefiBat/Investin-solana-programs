@@ -40,17 +40,19 @@ pub enum FundInstruction {
     /// 13..13+MAX_INVESTORS Investor State Accounts for the fund
     ManagerTransfer,
     
-    /// 0. [WRITE]  Fund State Account (derived from FA)    
-    /// 1. [WRITE]  Investor State Account (derived from IPDA)
-    /// 2. [SIGNER] Investor Wallet Account
-    /// 3. []       Router Base Token Account
-    /// 4. []       Manager Base Token Account
-    /// 5. []       Investin Base Token Account
-    /// 6. []       PDA of Manager
-    /// 7. []       Token Program
-    /// 8..8+NUM_TOKENS []  Investor Token Accounts
-    /// 8+NUM_TOKENS.. 8+2*NUM_TOKENS  Fund Token Accounts
-    /// 8+2*NUM_TOKENS..8+4*NUM_TOKENS-2 Pool Token Accounts for each pair
+    /// 0. [WRITE]  Platform State Account
+    /// 1. [WRITE]  Fund State Account (derived from FA)    
+    /// 2. [WRITE]  Investor State Account (derived from IPDA)
+    /// 3. [SIGNER] Investor Wallet Account
+    /// 4. []       Router Base Token Account
+    /// 5. []       Manager Base Token Account
+    /// 6. []       Investin Base Token Account
+    /// 7. []       PDA of Manager
+    /// 8. []       PDA of Router
+    /// 9. []       Token Program
+    /// 9..9+NUM_TOKENS []  Investor Token Accounts
+    /// 9+NUM_TOKENS.. 9+2*NUM_TOKENS  Fund Token Accounts
+    /// 9+2*NUM_TOKENS..9+4*NUM_TOKENS-2 Pool Token Accounts for each pair
     InvestorWithdraw {
         amount: u64
     },
