@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import { createAssociatedTokenAccount, createKeyIfNotExists, createTokenAccountIfNotExist, findAssociatedTokenAddress, setWalletTransaction, signAndSendTransaction } from '../utils/web3'
 import { connection, programId } from '../utils/constants'
 import { GlobalState } from '../store/globalState';
@@ -28,7 +28,7 @@ export const InitialisedFund = () => {
     console.log("handle initalise fund clicked")
     // ***what should be in the place of wallet provider in platformAccount
     const platformAccount = await createKeyIfNotExists(walletProvider, undefined, programId, 355)
-    const fundAccount = await createKeyIfNotExists(walletProvider, undefined, programId, 294)
+    const fundAccount = await createKeyIfNotExists(walletProvider, undefined, programId, (219 + 320 + 85))
 
     const fundPDA = await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId);
 
@@ -40,8 +40,8 @@ export const InitialisedFund = () => {
     const x = FUND_DATA.decode(fundData.data)
 
     console.log(`object :::: `, x)
-    if(!x.is_initialized){
-      const dataLayout = struct([u8('instruction'), nu64('min_amount'), nu64('min_return')])
+    if (!x.is_initialized) {
+      const dataLayout = struct([u8('instruction'), nu64('min_amount'), nu64('min_return'), nu64('performance_fee_percentage')])
 
       const data = Buffer.alloc(dataLayout.span)
       dataLayout.encode(
@@ -49,7 +49,7 @@ export const InitialisedFund = () => {
           instruction: 0,
           min_amount: min_amount * 1000000,
           min_return: min_return * 100,
-          platform_fee_percentage: platform_fee_percentage * 100,
+          performance_fee_percentage: platform_fee_percentage * 100,
         },
         data
       )
@@ -128,8 +128,6 @@ export const InitialisedFund = () => {
       const accData = await connection.getAccountInfo(fundAccount);
 
       console.log(`accData :::: `, accData)
-
-      
     }
 
     GlobalState.update(s => {
@@ -137,16 +135,21 @@ export const InitialisedFund = () => {
     })
   }
 
+  const [min_amount, setMin_amount] = useState(0);
+  const [min_return, setMin_return] = useState(0);
+  const [platform_fee_percentage, setPlatform_fee_percentage] = useState(0);
+
   return (
-    <div>
+    <div className="form-div">
+      <h4>Initialise Fund</h4>
       min_amount ::: {' '}
-      <input type="number" value={min_amount} onChange={(event) => setAmount(event.target.value)} />
+      <input type="number" value={min_amount} onChange={(event) => setMin_amount(event.target.value)} />
       <br />
       min_return ::: {' '}
-      <input type="number" value={min_return} onChange={(event) => setAmount(event.target.value)} />
+      <input type="number" value={min_return} onChange={(event) => setMin_return(event.target.value)} />
       <br />
       platform_fee_percentage ::: {' '}
-      <input type="number" value={platform_fee_percentage} onChange={(event) => setAmount(event.target.value)} />
+      <input type="number" value={platform_fee_percentage} onChange={(event) => setPlatform_fee_percentage(event.target.value)} />
       <br />
       <button onClick={handleInitialFund}>initialise fund</button>
     </div>

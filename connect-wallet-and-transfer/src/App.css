@@ -4,3 +4,9 @@
   padding: 10px;
   margin-bottom: 2px;
 }
+
+.form-div {
+  border: 1px solid black;
+  margin-top: 20px;
+  padding: 20px;
+}

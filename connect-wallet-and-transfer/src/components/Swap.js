@@ -200,8 +200,9 @@ export const Swap = () => {
   }
 
   return (
-    <div>
-      Swap ::: RAY TO USDT {' '}
+    <div className="form-div">
+      <h4>Swap</h4>
+      Swap ::: {selectedFirstToken}  
       <br />
 
       <label htmlFor="tokens">From Token:</label>

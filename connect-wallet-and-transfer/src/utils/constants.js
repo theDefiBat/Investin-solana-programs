@@ -1,9 +1,9 @@
 import { Connection, PublicKey } from "@solana/web3.js";
 
-export const cluster = "http://api.mainnet-beta.solana.com";
+export const cluster = "http://devnet.solana.com";
 export const connection = new Connection(cluster, "confirmed");
 
-export const programId = new PublicKey('FsESnCRZJNmauH5XwCGL8YbApQrAAYtBpfs5vyGzYCVt');
+export const programId = new PublicKey('67WU41Rxim1ykx5QgfVbiUfw5WPXKmsxghhdVpctRNoh');
 
 
 export const SYSTEM_PROGRAM_ID = new PublicKey('11111111111111111111111111111111')

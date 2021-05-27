@@ -11,6 +11,7 @@ import { SendGreating } from './components/SendGreating';
 import { Deposit } from './components/Deposit';
 import { InitialisedFund } from './components/InitialisedFund';
 import { Swap } from './components/Swap';
+import { Withdraw } from './components/Withdraw';
 
 function App() {
   const walletProvider = GlobalState.useState(s => s.walletProvider);
@@ -39,10 +40,10 @@ function App() {
           transactions && <TransactionsView transactions={transactions} />
         }
         <SendGreating />
-        <Deposit />
         <InitialisedFund />
-        <br />
+        <Deposit />
         <Swap />
+        <Withdraw />
       </Container>
     </div>
   );
