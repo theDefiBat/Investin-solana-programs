@@ -5,3 +5,5 @@
 .env
 src/client/util/store
 test-ledger/
+src/program-fund/target
+src/program-fund/cargo.lock
