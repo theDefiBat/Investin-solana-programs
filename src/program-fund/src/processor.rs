@@ -692,6 +692,104 @@ impl Fund {
 
     }
 
+    pub fn TestingDeposit (
+        program_id: &Pubkey,
+        accounts: &[AccountInfo],
+        amount: u64
+    ) -> Result<(), ProgramError> {
+        const NUM_FIXED:usize = 6;
+        let accounts = array_ref![accounts, 0, NUM_FIXED + 2*NUM_TOKENS - 2];
+        let (
+            fixed_accs,
+            pool_accs,
+            ) = array_refs![accounts, NUM_FIXED, 2*(NUM_TOKENS-1)];
+
+        let [
+            fund_state_acc,
+            manager_acc,
+            fund_btoken_acc,
+            manager_btoken_acc,
+            pda_man_acc,
+            token_prog_acc
+        ] = fixed_accs;
+
+        let fund_data = FundData::try_from_slice(&fund_state_acc.data.borrow())?;
+
+        // check if manager signed the tx
+        // check!(&manager_acc.is_signer, FundErrorCode::IncorrectSignature);
+
+        msg!("Invoking transfer instructions");
+        let deposit_instruction = spl_token::instruction::transfer(
+            token_prog_acc.key,
+            manager_btoken_acc.key,
+            fund_btoken_acc.key,
+            manager_acc.key,
+            &[&manager_acc.key],
+            amount
+        )?;
+        let deposit_accs = [
+            manager_btoken_acc.clone(),
+            fund_btoken_acc.clone(),
+            manager_acc.clone(),
+            token_prog_acc.clone()
+        ];
+        invoke(&deposit_instruction, &deposit_accs);
+
+        update_amount_and_performance(fund_state_acc, pool_accs);
+
+
+        Ok(())
+    }
+
+    pub fn TestingWithdraw (
+        program_id: &Pubkey,
+        accounts: &[AccountInfo],
+        amount: u64
+    ) -> Result<(), ProgramError> {
+        const NUM_FIXED:usize = 6;
+        let accounts = array_ref![accounts, 0, NUM_FIXED + 2*NUM_TOKENS - 2];
+        let (
+            fixed_accs,
+            pool_accs,
+            ) = array_refs![accounts, NUM_FIXED, 2*(NUM_TOKENS-1)];
+
+        let [
+            fund_state_acc,
+            manager_acc,
+            fund_btoken_acc,
+            manager_btoken_acc,
+            pda_man_acc,
+            token_prog_acc
+        ] = fixed_accs;
+
+        let fund_data = FundData::try_from_slice(&fund_state_acc.data.borrow())?;
+
+        // check if manager signed the tx
+        // check!(&manager_acc.is_signer, FundErrorCode::IncorrectSignature);
+
+        msg!("Invoking transfer instructions");
+        let transfer_instruction = spl_token::instruction::transfer(
+            token_prog_acc.key,
+            fund_btoken_acc.key,
+            manager_btoken_acc.key,
+            pda_man_acc.key,
+            &[pda_man_acc.key],
+            amount
+        )?;
+        let transfer_accs = [
+            fund_btoken_acc.clone(),
+            manager_btoken_acc.clone(),
+            pda_man_acc.clone(),
+            token_prog_acc.clone()
+        ];
+        let signer_seeds = [fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)];
+        invoke_signed(&transfer_instruction, &transfer_accs, &[&signer_seeds]);
+
+        update_amount_and_performance(fund_state_acc, pool_accs);
+
+        Ok(())
+    }
+
     // instruction processor
     pub fn process(
         program_id: &Pubkey,
@@ -724,6 +822,14 @@ impl Fund {
             FundInstruction::ClaimPerformanceFee {} => {
                 msg!("FundInstruction::ClaimPerformanceFee");
                 return Self::claim(program_id, accounts);
+            }
+            FundInstruction::TestingDeposit {amount} => {
+                msg!("FundInstruction::TestingDeposit");
+                return Self::TestingDeposit(program_id, accounts, amount);
+            }
+            FundInstruction::TestingWithdraw {amount} => {
+                msg!("FundInstruction::TestingWithdraw");
+                return Self::TestingWithdraw(program_id, accounts, amount);
             }
             _ => {
                 Ok(())

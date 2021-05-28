@@ -76,6 +76,28 @@ pub enum FundInstruction {
     /// 5. []       PDA of Manager
     /// 6. []       Token Program
     ClaimPerformanceFee,
+
+    /// 0. [WRITE] Fund State Account (derived from FA)
+    /// 1. [SIGNER] Manager Wallet Account 
+    /// 2. []       Fund Base Token Account
+    /// 3. []       Manager Base Token Account
+    /// 4. []       PDA of manager
+    /// 5. []       Token Program
+    /// 6..6+2*(NUM_TOKENS-1) Pool Token Accounts for each pair
+    TestingDeposit{
+        amount: u64
+    },
+
+    /// 0. [WRITE] Fund State Account (derived from FA)
+    /// 1. [SIGNER] Manager Wallet Account 
+    /// 2. []       Fund Base Token Account
+    /// 3. []       Manager Base Token Account
+    /// 4. []       PDA of manager
+    /// 5. []       Token Program
+    /// 6..6+2*(NUM_TOKENS-1) Pool Token Accounts for each pair
+    TestingWithdraw{
+        amount: u64,
+    }, 
 }
 
 #[derive(Clone, Debug, BorshSerialize, BorshDeserialize, BorshSchema, PartialEq)]
