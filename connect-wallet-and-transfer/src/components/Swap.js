@@ -154,7 +154,8 @@ export const Swap = () => {
 
   const [amountIn, setAmountIn] = useState(0);
   const [fundPDA, setFundPDA] = useState('');
-  const [selectedFirstToken, setSelectedFirstToken] = useState('RAY-USDT');
+  //const [selectedFirstToken, setSelectedFirstToken] = useState('RAY-USDT');
+  const [selectedFirstToken, setSelectedFirstToken] = useState('');
 
   const handleBuy = async () => {
     const poolInfo = pools.find(p => p.name === selectedFirstToken);
@@ -220,8 +221,7 @@ export const Swap = () => {
       <br />
       fundPDA : {' '}<input type="text" value={fundPDA} onChange={e => setFundPDA(e.target.value)} />
       <br />
-      <button onClick={handleBuy} >Buy</button>
-      <br />
+      <button margin-right="10px" onClick={handleBuy} >Buy</button>
       <button onClick={handleSell} >Sell</button>
     </div>
   )

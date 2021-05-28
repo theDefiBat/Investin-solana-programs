@@ -12,21 +12,22 @@ import { Deposit } from './components/Deposit';
 import { InitialisedFund } from './components/InitialisedFund';
 import { Swap } from './components/Swap';
 import { Withdraw } from './components/Withdraw';
+import { Transfer } from './components/Transfer';
 
 function App() {
   const walletProvider = GlobalState.useState(s => s.walletProvider);
   const address = GlobalState.useState(s => s.address);
   const [transactions, setTransactions] = useState([]);
 
-  useEffect(() => {
-    if (walletProvider?.publicKey) {
-      console.log(`walletProvider?.publicKey ::: `, walletProvider?.publicKey)
-      getTransactions(connection, walletProvider.publicKey).then((trans) => {
-        console.log(`trans ::: `, trans)
-        setTransactions(trans);
-      });
-    }
-  }, [walletProvider])
+  // useEffect(() => {
+  //   if (walletProvider?.publicKey) {
+  //     console.log(`walletProvider?.publicKey ::: `, walletProvider?.publicKey)
+  //     getTransactions(connection, walletProvider.publicKey).then((trans) => {
+  //       console.log(`trans ::: `, trans)
+  //       setTransactions(trans);
+  //     });
+  //   }
+  // }, [walletProvider])
 
   return (
     <div>
@@ -36,12 +37,13 @@ function App() {
           address &&
           <p>Connected to {address}</p>
         }
-        {
+        {/* {
           transactions && <TransactionsView transactions={transactions} />
-        }
+        } */}
         <SendGreating />
         <InitialisedFund />
         <Deposit />
+	      <Transfer />
         <Swap />
         <Withdraw />
       </Container>

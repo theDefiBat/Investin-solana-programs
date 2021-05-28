@@ -25,6 +25,27 @@ export const NATIVE_SOL = {
   decimals: 9
 }
 
+export const TEST_TOKENS = {
+  'USDP': {
+    symbol: 'USDP',
+    name: 'USDP Test Token',
+    mintAddress: 'DdzREMVFg6pa5825HBKVzeCrEi8EJiREfb8UrxSZB64w',
+    decimals: 9
+  },
+  'ALPHA': {
+    symbol: 'ALPHA',
+    name: 'ALPHA coin',
+    mintAddress: 'HUHuQCZUvxCiuFg54vRStrXSbCFeBhmXRqSuR5eEVB6o',
+    decimals: 9,
+  },
+  'BETA': {
+    symbol: 'BETA',
+    name: 'BETA coin',
+    mintAddress: 'HW18fiAHKzs7ZSaT5ibAhnSWVde25sazTSbMzss4Fcty',
+    decimals: 9  
+  },
+}
+
 export const TOKENS = {
   WSOL: {
     symbol: 'WSOL',

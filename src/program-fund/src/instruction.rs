@@ -21,7 +21,7 @@ pub enum FundInstruction {
     /// 2. [SIGNER] Investor Wallet Account
     /// 3. []       Investor Base Token Account
     /// 4. []       Router Base Token Account (derived)
-    /// 5. []       PDA of Manager (Fund ]Address)
+    /// 5. []       PDA of Manager (Fund Address)
     /// 6. []       Token Program
     InvestorDeposit {
         amount: u64

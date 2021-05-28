@@ -3,7 +3,7 @@ import React, { useState } from 'react'
 import { GlobalState } from '../store/globalState';
 import { connection, programId } from '../utils/constants';
 import { nu64, struct, u8 } from 'buffer-layout';
-import { createKeyIfNotExists, findAssociatedTokenAddress, setWalletTransaction, signAndSendTransaction, createAssociatedTokenAccount } from '../utils/web3';
+import { createKeyIfNotExists, findAssociatedTokenAddress, setWalletTransaction, signAndSendTransaction, createAssociatedTokenAccount, createAssociatedTokenAccountIfNotExist } from '../utils/web3';
 import { pools } from '../utils/pools';
 
 const getPoolAccounts = () => {
@@ -38,11 +38,11 @@ export const Withdraw = () => {
     const investerStateAccount = await createKeyIfNotExists(walletProvider, clientAccount, programId, (64 + 16 + 2))
     const transaction = new Transaction()
 
-    const routerAssociatedTokenAddress = await createAssociatedTokenAccount(key, new PublicKey('DdzREMVFg6pa5825HBKVzeCrEi8EJiREfb8UrxSZB64w'), PDA[0], transaction);
+    const routerAssociatedTokenAddress = await createAssociatedTokenAccountIfNotExist(key, new PublicKey('DdzREMVFg6pa5825HBKVzeCrEi8EJiREfb8UrxSZB64w'), PDA[0], transaction);
     // TODO: Manager Base Token Account
-    const managerAssociatedTokenAccount = await createAssociatedTokenAccount(key, new PublicKey('DdzREMVFg6pa5825HBKVzeCrEi8EJiREfb8UrxSZB64w'), PDA[0], transaction);
+    const managerAssociatedTokenAccount = await createAssociatedTokenAccountIfNotExist(key, new PublicKey('DdzREMVFg6pa5825HBKVzeCrEi8EJiREfb8UrxSZB64w'), PDA[0], transaction);
     // TODO: Investin Base Token Account
-    const investinAssociatedTokenAddress = await createAssociatedTokenAccount(key, new PublicKey('DdzREMVFg6pa5825HBKVzeCrEi8EJiREfb8UrxSZB64w'), PDA[0], transaction);
+    const investinAssociatedTokenAddress = await createAssociatedTokenAccountIfNotExist(key, new PublicKey('DdzREMVFg6pa5825HBKVzeCrEi8EJiREfb8UrxSZB64w'), PDA[0], transaction);
 
     const PDA = await PublicKey.findProgramAddress([key.toBuffer()], programId);
     const MPDA = new PublicKey('FqV8b3zWwLLT8SgkP3jQoZntbv5WAuxpNYmVk9HtR2yQ')
@@ -51,9 +51,9 @@ export const Withdraw = () => {
     const investorTokenAccount2 = await findAssociatedTokenAddress(key, new PublicKey('HUHuQCZUvxCiuFg54vRStrXSbCFeBhmXRqSuR5eEVB6o'));
     const investorTokenAccount3 = await findAssociatedTokenAddress(key, new PublicKey('HW18fiAHKzs7ZSaT5ibAhnSWVde25sazTSbMzss4Fcty'));
 
-    const fundAssociatedTokenAddress1 = await createAssociatedTokenAccount(key, new PublicKey('DdzREMVFg6pa5825HBKVzeCrEi8EJiREfb8UrxSZB64w'), MPDA[0], transaction);
-    const fundAssociatedTokenAddress2 = await createAssociatedTokenAccount(key, new PublicKey('HUHuQCZUvxCiuFg54vRStrXSbCFeBhmXRqSuR5eEVB6o'), MPDA[0], transaction);
-    const fundAssociatedTokenAddress3 = await createAssociatedTokenAccount(key, new PublicKey('HW18fiAHKzs7ZSaT5ibAhnSWVde25sazTSbMzss4Fcty'), MPDA[0], transaction);
+    const fundAssociatedTokenAddress1 = await createAssociatedTokenAccountIfNotExist(key, new PublicKey('DdzREMVFg6pa5825HBKVzeCrEi8EJiREfb8UrxSZB64w'), MPDA[0], transaction);
+    const fundAssociatedTokenAddress2 = await createAssociatedTokenAccountIfNotExist(key, new PublicKey('HUHuQCZUvxCiuFg54vRStrXSbCFeBhmXRqSuR5eEVB6o'), MPDA[0], transaction);
+    const fundAssociatedTokenAddress3 = await createAssociatedTokenAccountIfNotExist(key, new PublicKey('HW18fiAHKzs7ZSaT5ibAhnSWVde25sazTSbMzss4Fcty'), MPDA[0], transaction);
 
     const dataLayout = struct([u8('instruction'), nu64('amount')])
     const data = Buffer.alloc(dataLayout.span)

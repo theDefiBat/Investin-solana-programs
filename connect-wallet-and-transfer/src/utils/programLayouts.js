@@ -1,30 +1,15 @@
-import { bool, publicKey, struct, u32, u64, u8 } from '@project-serum/borsh'
+import { array, bool, publicKey, str, struct, u32, u64, u8 } from '@project-serum/borsh'
 
-export const INVESTOR_DATA = struct([
+export const NUM_TOKENS = 3
+export const MAX_INVESTORS = 10
+export const MAX_FUNDS = 10
+
+export const PLATFORM_DATA = struct([
   bool('is_initialized'),
-  u64('amount'),
-  u64('start_performance'),
-  publicKey('manager'),
-  u8('signer_nonce')
-])
-
-export const TOKEN_INFO = struct([
-  publicKey('mint1'),
-  u8('decimals1'),
-  publicKey('vault1'),
-  u64('balance1'),
-])
-export const TOKEN_INFO1 = struct([
-  publicKey('mint2'),
-  u8('decimals2'),
-  publicKey('vault2'),
-  u64('balance2'),
-])
-export const TOKEN_INFO2 = struct([
-  publicKey('mint3'),
-  u8('decimals3'),
-  publicKey('vault3'),
-  u64('balance3'),
+  publicKey('router'),
+  u8('router_nonce'),
+  u8('no_of_active_funds'),
+  array(publicKey('manager'), MAX_FUNDS, 'fund_managers')
 ])
 
 export const FUND_DATA = struct([
@@ -32,35 +17,33 @@ export const FUND_DATA = struct([
   publicKey('manager_account'),
   u8('signer_nonce'),
   u64('min_amount'),
-
-  /// Minimum Return
   u64('min_return'),
-
-  /// Total Amount in fund
+  u64('performance_fee_percentage'),
   u64('total_amount'),
-
-  // decimals
   u8('decimals'),
-
-  /// Preformance in fund
   u64('prev_performance'),
-  u64('number_of_active_investments'),
-
-  /// Tokens owned
-  // pub tokens: [TokenInfo; NUM_TOKENS]
-  publicKey('mint1'),
-  u8('decimals1'),
-  publicKey('vault1'),
-  u64('balance1'),
-  
-  publicKey('mint2'),
-  u8('decimals2'),
-  publicKey('vault2'),
-  u64('balance2'),
-
-  publicKey('mint3'),
-  u8('decimals3'),
-  publicKey('vault3'),
-  u64('balance3'),
-  
+  u8('number_of_active_investments'),
+  u8('no_of_investments'),
+  u64('amount_in_router'),
+  array(
+    struct([
+      publicKey('mint'),
+      u8('decimals'),
+      publicKey('vault'),
+      u64('balance')
+    ]),
+    NUM_TOKENS, 'tokens'
+  ),
+  array(publicKey('investor'), MAX_INVESTORS, 'investors')
 ])
+
+export const INVESTOR_DATA = struct([
+  bool('is_initialized'),
+  publicKey('owner'),
+  u64('amount'),
+  u64('start_performance'),
+  publicKey('manager'),
+])
+
+
+
