@@ -209,13 +209,13 @@ impl Fund {
     ) -> Result<(), ProgramError> {
 
         const NUM_FIXED:usize = 9;
-        let accounts = array_ref![accounts, 0, NUM_FIXED + 2*(NUM_TOKENS-1)]; //MAX_INVESTORS];
+        let accounts = array_ref![accounts, 0, NUM_FIXED + 2*(NUM_TOKENS-1) + MAX_INVESTORS];
 
         let (
             fixed_accs,
-            pool_accs
-            //investor_state_accs
-        ) = array_refs![accounts, NUM_FIXED, 2*(NUM_TOKENS-1)];//, MAX_INVESTORS];
+            pool_accs,
+            investor_state_accs
+        ) = array_refs![accounts, NUM_FIXED, 2*(NUM_TOKENS-1), MAX_INVESTORS];
 
         let [
             platform_acc,
@@ -229,7 +229,7 @@ impl Fund {
             token_prog_acc
         ] = fixed_accs;
 
-        let mut platform_data = PlatformData::try_from_slice(&platform_acc.data.borrow())?;
+        let platform_data = PlatformData::try_from_slice(&platform_acc.data.borrow())?;
         let mut fund_data = FundData::try_from_slice(&fund_state_acc.data.borrow())?;
 
         // check if manager signed the tx
@@ -240,71 +240,71 @@ impl Fund {
 
         msg!("Calculating transfer amount");
         let transferable_amount: u64 = U64F64::to_num(U64F64::from_num(fund_data.amount_in_router)
-        .checked_mul(U64F64::from_num(48*70)).unwrap()
-        .checked_div(U64F64::from_num(100*100)).unwrap());
+        .checked_mul(U64F64::from_num(98)).unwrap()
+        .checked_div(U64F64::from_num(100)).unwrap());
 
-        msg!("setting up instructions");
-
-
-        let transfer_instruction = spl_token::instruction::transfer(
-            token_prog_acc.key,
-            router_btoken_acc.key,
-            fund_btoken_acc.key,
-            pda_router_acc.key,
-            &[pda_router_acc.key],
-            transferable_amount
-        )?;
-        let transfer_accs = [
-            router_btoken_acc.clone(),
-            fund_btoken_acc.clone(),
-            pda_router_acc.clone(),
-            token_prog_acc.clone()
-        ];
         msg!("Calling transfer instructions");
 
-        let signer_seeds = ["router".as_ref(), bytes_of(&platform_data.router_nonce)];
-        invoke_signed(&transfer_instruction, &transfer_accs, &[&signer_seeds]);
+        invoke_signed(
+            &(spl_token::instruction::transfer(
+                token_prog_acc.key,
+                router_btoken_acc.key,
+                fund_btoken_acc.key,
+                pda_router_acc.key,
+                &[pda_router_acc.key],
+                transferable_amount
+            ))?,
+            &[
+                router_btoken_acc.clone(),
+                fund_btoken_acc.clone(),
+                pda_router_acc.clone(),
+                token_prog_acc.clone()
+            ],
+            &[&["router".as_ref(), bytes_of(&platform_data.router_nonce)]]
+        );
       
         msg!("Management Fee Transfer");
         let management_fee: u64 = U64F64::to_num(U64F64::from_num(fund_data.amount_in_router)
         .checked_div(U64F64::from_num(100)).unwrap());
 
-        let transfer_instruction = spl_token::instruction::transfer(
-            token_prog_acc.key,
-            router_btoken_acc.key,
-            manager_btoken_acc.key,
-            pda_router_acc.key,
-            &[pda_router_acc.key],
-            management_fee
-        )?;
-        let transfer_accs = [
-            router_btoken_acc.clone(),
-            manager_btoken_acc.clone(),
-            pda_router_acc.clone(),
-            token_prog_acc.clone()
-        ];
-        invoke_signed(&transfer_instruction, &transfer_accs, &[&signer_seeds])?;
-
+        invoke_signed(
+            &(spl_token::instruction::transfer(
+                token_prog_acc.key,
+                router_btoken_acc.key,
+                manager_btoken_acc.key,
+                pda_router_acc.key,
+                &[pda_router_acc.key],
+                management_fee
+            ))?,
+            &[
+                router_btoken_acc.clone(),
+                manager_btoken_acc.clone(),
+                pda_router_acc.clone(),
+                token_prog_acc.clone()
+            ],
+            &[&["router".as_ref(), bytes_of(&platform_data.router_nonce)]]
+        );
         msg!("Protocol Fee Transfer");
         let protocol_fee: u64 = U64F64::to_num(U64F64::from_num(fund_data.amount_in_router)
         .checked_div(U64F64::from_num(100)).unwrap());
 
-        let transfer_instruction = spl_token::instruction::transfer(
-            token_prog_acc.key,
-            router_btoken_acc.key,
-            investin_btoken_acc.key,
-            pda_router_acc.key,
-            &[pda_router_acc.key],
-            protocol_fee
-        )?;
-        let transfer_accs = [
-            router_btoken_acc.clone(),
-            investin_btoken_acc.clone(),
-            pda_router_acc.clone(),
-            token_prog_acc.clone()
-        ];
-        invoke_signed(&transfer_instruction, &transfer_accs, &[&signer_seeds])?;
-
+        invoke_signed(
+            &(spl_token::instruction::transfer(
+                token_prog_acc.key,
+                router_btoken_acc.key,
+                investin_btoken_acc.key,
+                pda_router_acc.key,
+                &[pda_router_acc.key],
+                protocol_fee
+            ))?,
+            &[
+                router_btoken_acc.clone(),
+                investin_btoken_acc.clone(),
+                pda_router_acc.clone(),
+                token_prog_acc.clone()
+            ],
+            &[&["router".as_ref(), bytes_of(&platform_data.router_nonce)]]
+        );
         msg!("Transfers completed");
         fund_data.tokens[0].balance += transferable_amount;
 
@@ -315,22 +315,23 @@ impl Fund {
             fund_data.total_amount = transferable_amount;
             fund_data.prev_performance = 1000000;
         }
-        
+
+        let in_queue = fund_data.no_of_investments - fund_data.number_of_active_investments;
+        for i in 0..in_queue {
+
+            let investor_state_acc = &investor_state_accs[i as usize];
+            let mut investor_data = InvestorData::try_from_slice(&investor_state_acc.data.borrow())?;
+            if investor_data.start_performance == 0 {
+                investor_data.start_performance = fund_data.prev_performance;
+                investor_data.serialize(&mut *investor_state_acc.data.borrow_mut());
+            }
+        }
+
         fund_data.number_of_active_investments = fund_data.no_of_investments;
         fund_data.amount_in_router = 0;
-
-        // for i in 0..MAX_INVESTORS {
-        //     let investor_state_acc = &investor_state_accs[i];
-        //     let mut investor_data = FundData::try_from_slice(&investor_state_acc.data.borrow())?;
-        //     if investor_data.prev_performance == 0 {
-        //         investor_data.prev_performance = fund_data.prev_performance;
-        //         investor_data.serialize(&mut *investor_state_acc.data.borrow_mut());
-        //     }
-        // }
-
         fund_data.serialize(&mut *fund_state_acc.data.borrow_mut());
         
-        msg!("fund state:: {:?}", fund_data);  
+        //msg!("fund state:: {:?}", fund_data);  
 
         Ok(())
     }
@@ -375,22 +376,23 @@ impl Fund {
 
         // Manager has not transferred to vault
         if investor_data.start_performance == 0 {
-            let withdraw_instruction = spl_token::instruction::transfer(
-                token_prog_acc.key,
-                router_btoken_acc.key,
-                inv_token_accs[0].key,
-                pda_router_acc.key,
-                &[pda_router_acc.key],
-                investor_data.amount
-            )?;
-            let withdraw_accs = [
-                router_btoken_acc.clone(),
-                inv_token_accs[0].clone(),
-                pda_router_acc.clone(),
-                token_prog_acc.clone()
-            ];
-            let signer_seeds = ["router".as_ref(), bytes_of(&platform_data.router_nonce)];
-            invoke_signed(&withdraw_instruction, &withdraw_accs, &[&signer_seeds])?;
+            invoke_signed(
+                &(spl_token::instruction::transfer(
+                    token_prog_acc.key,
+                    router_btoken_acc.key,
+                    inv_token_accs[0].key,
+                    pda_router_acc.key,
+                    &[pda_router_acc.key],
+                    investor_data.amount
+                ))?,
+                &[
+                    router_btoken_acc.clone(),
+                    inv_token_accs[0].clone(),
+                    pda_router_acc.clone(),
+                    token_prog_acc.clone()
+                ],
+                &[&["router".as_ref(), bytes_of(&platform_data.router_nonce)]]
+            );
 
         } else {
             update_amount_and_performance(fund_state_acc, pool_accs);
@@ -483,23 +485,23 @@ impl Fund {
                 }
 
                 msg!("Invoking withdraw instruction");
-                let withdraw_instruction = spl_token::instruction::transfer(
-                    token_prog_acc.key,
-                    fund_token_accs[i].key,
-                    inv_token_accs[i].key,
-                    pda_man_acc.key,
-                    &[pda_man_acc.key],
-                    withdraw_rounded
-                )?;
-                let withdraw_accs = [
-                    fund_token_accs[i].clone(),
-                    inv_token_accs[i].clone(),
-                    pda_man_acc.clone(),
-                    token_prog_acc.clone()
-                ];
-                let signer_seeds = [fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)];
-                invoke_signed(&withdraw_instruction, &withdraw_accs, &[&signer_seeds])?;
-
+                invoke_signed(
+                    &(spl_token::instruction::transfer(
+                        token_prog_acc.key,
+                        fund_token_accs[i].key,
+                        inv_token_accs[i].key,
+                        pda_man_acc.key,
+                        &[pda_man_acc.key],
+                        withdraw_rounded
+                    ))?,
+                    &[
+                        fund_token_accs[i].clone(),
+                        inv_token_accs[i].clone(),
+                        pda_man_acc.clone(),
+                        token_prog_acc.clone()
+                    ],
+                    &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
+                );
                 msg!("withdraw instruction done");
 
                 fund_data.tokens[i].balance = parse_token_account(&fund_token_accs[i])?.amount;
@@ -554,53 +556,53 @@ impl Fund {
         let mut fund_data = FundData::try_from_slice(&fund_state_acc.data.borrow())?;
 
         msg!("swap instruction call");
-        let swap_instruction = Instruction::new_with_borsh(
-            *pool_prog_acc.key,
-            &data,
-            vec![
-                AccountMeta::new(*token_prog_acc.key, false),
-                AccountMeta::new(*amm_id.key, false),
-                AccountMeta::new(*amm_authority.key, false),
-                AccountMeta::new(*amm_open_orders.key, false),
-                AccountMeta::new(*amm_target_orders.key, false),
-                AccountMeta::new(*pool_coin_token_acc.key, false),
-                AccountMeta::new(*pool_pc_token_acc.key, false),
-                AccountMeta::new(*dex_prog_acc.key, true),
-                AccountMeta::new(*dex_market_acc.key, false),
-                AccountMeta::new(*bids_acc.key, false),
-                AccountMeta::new(*asks_acc.key, false),
-                AccountMeta::new(*event_queue_acc.key, false),
-                AccountMeta::new(*coin_vault_acc.key, false),
-                AccountMeta::new(*pc_vault_acc.key, false),
-                AccountMeta::new(*signer_acc.key, false),
-                AccountMeta::new(*source_token_acc.key, false),
-                AccountMeta::new(*dest_token_acc.key, false),
-                AccountMeta::new(*owner_token_acc.key, true)
+        invoke_signed(
+            &(Instruction::new_with_borsh(
+                *pool_prog_acc.key,
+                &data,
+                vec![
+                    AccountMeta::new(*token_prog_acc.key, false),
+                    AccountMeta::new(*amm_id.key, false),
+                    AccountMeta::new(*amm_authority.key, false),
+                    AccountMeta::new(*amm_open_orders.key, false),
+                    AccountMeta::new(*amm_target_orders.key, false),
+                    AccountMeta::new(*pool_coin_token_acc.key, false),
+                    AccountMeta::new(*pool_pc_token_acc.key, false),
+                    AccountMeta::new(*dex_prog_acc.key, true),
+                    AccountMeta::new(*dex_market_acc.key, false),
+                    AccountMeta::new(*bids_acc.key, false),
+                    AccountMeta::new(*asks_acc.key, false),
+                    AccountMeta::new(*event_queue_acc.key, false),
+                    AccountMeta::new(*coin_vault_acc.key, false),
+                    AccountMeta::new(*pc_vault_acc.key, false),
+                    AccountMeta::new(*signer_acc.key, false),
+                    AccountMeta::new(*source_token_acc.key, false),
+                    AccountMeta::new(*dest_token_acc.key, false),
+                    AccountMeta::new(*owner_token_acc.key, true)
+                ],
+            )),
+            &[
+                token_prog_acc.clone(),
+                amm_id.clone(),
+                amm_authority.clone(),
+                amm_open_orders.clone(),
+                amm_target_orders.clone(),
+                pool_coin_token_acc.clone(),
+                pool_pc_token_acc.clone(),
+                dex_prog_acc.clone(),
+                dex_market_acc.clone(),
+                bids_acc.clone(),
+                asks_acc.clone(),
+                event_queue_acc.clone(),
+                coin_vault_acc.clone(),
+                pc_vault_acc.clone(),
+                signer_acc.clone(),
+                source_token_acc.clone(),
+                dest_token_acc.clone(),
+                owner_token_acc.clone()
             ],
+            &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
         );
-        let swap_accs = [
-            token_prog_acc.clone(),
-            amm_id.clone(),
-            amm_authority.clone(),
-            amm_open_orders.clone(),
-            amm_target_orders.clone(),
-            pool_coin_token_acc.clone(),
-            pool_pc_token_acc.clone(),
-            dex_prog_acc.clone(),
-            dex_market_acc.clone(),
-            bids_acc.clone(),
-            asks_acc.clone(),
-            event_queue_acc.clone(),
-            coin_vault_acc.clone(),
-            pc_vault_acc.clone(),
-            signer_acc.clone(),
-            source_token_acc.clone(),
-            dest_token_acc.clone(),
-            owner_token_acc.clone()
-        ];
-        let signer_seeds = [fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)];
-        invoke_signed(&swap_instruction, &swap_accs, &[&signer_seeds])?;
-
         msg!("swap instruction done");
         
         // update balances on fund_state_acc for source & dest
@@ -773,6 +775,7 @@ pub fn update_amount_and_performance(
 
     Ok(())
 }
+
 
 pub fn parse_token_account (account_info: &AccountInfo) -> Result<Account, ProgramError> {
     if account_info.owner != &spl_token::ID {
