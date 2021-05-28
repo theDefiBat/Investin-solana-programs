@@ -83,6 +83,9 @@ pub struct FundData {
     /// Amount in Router
     pub amount_in_router: u64,
 
+    /// Performance Fee
+    pub performance_fee: u64,
+
     /// Tokens owned
     pub tokens: [TokenInfo; NUM_TOKENS],
 

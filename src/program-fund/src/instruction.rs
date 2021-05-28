@@ -67,6 +67,15 @@ pub enum FundInstruction {
     Swap {
         data: Data
     },
+
+    /// 0. [WRITE] Fund State Account (derived from FA)
+    /// 1. [SIGNER] Manager Wallet Account 
+    /// 2. []       Fund Base Token Account
+    /// 3. []       Manager Base Token Account
+    /// 4. []       Investin Base Token Account
+    /// 5. []       PDA of Manager
+    /// 6. []       Token Program
+    ClaimPerformanceFee,
 }
 
 #[derive(Clone, Debug, BorshSerialize, BorshDeserialize, BorshSchema, PartialEq)]

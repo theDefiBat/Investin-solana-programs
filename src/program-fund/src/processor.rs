@@ -403,51 +403,52 @@ impl Fund {
                     ).unwrap()
                 .checked_add(U64F64::from_num(actual_amount)).unwrap();
 
-                let performanceFee:u64 = U64F64::to_num(U64F64::from_num(profit)
+                fund_data.performance_fee = U64F64::to_num(U64F64::from_num(fund_data.performance_fee)
+                .checked_add(U64F64::from_num(profit)
                 .checked_mul(
                     U64F64::from_num(fund_data.performance_fee_percentage)
                     .checked_div(U64F64::from_num(100)).unwrap()
-                ).unwrap()
+                ).unwrap()).unwrap()
                 );
-                let performanceFeeManager = U64F64::to_num(U64F64::from_num(performanceFee).checked_mul(U64F64::from_num(90)).unwrap()
-                    .checked_div(U64F64::from_num(100)).unwrap());
+                // let performanceFeeManager = U64F64::to_num(U64F64::from_num(performanceFee).checked_mul(U64F64::from_num(90)).unwrap()
+                //     .checked_div(U64F64::from_num(100)).unwrap());
                 
-                let transfer_instruction = spl_token::instruction::transfer(
-                    token_prog_acc.key,
-                    fund_token_accs[0].key,
-                    manager_btoken_acc.key,
-                    pda_man_acc.key,
-                    &[pda_man_acc.key],
-                    performanceFeeManager
-                )?;
-                let withdraw_accs = [
-                    fund_token_accs[0].clone(),
-                    manager_btoken_acc.clone(),
-                    pda_man_acc.clone(),
-                    token_prog_acc.clone()
-                ];
-                let signer_seeds = [fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)];
-                invoke_signed(&transfer_instruction, &withdraw_accs, &[&signer_seeds])?;
+                // let transfer_instruction = spl_token::instruction::transfer(
+                //     token_prog_acc.key,
+                //     fund_token_accs[0].key,
+                //     manager_btoken_acc.key,
+                //     pda_man_acc.key,
+                //     &[pda_man_acc.key],
+                //     performanceFeeManager
+                // )?;
+                // let withdraw_accs = [
+                //     fund_token_accs[0].clone(),
+                //     manager_btoken_acc.clone(),
+                //     pda_man_acc.clone(),
+                //     token_prog_acc.clone()
+                // ];
+                // let signer_seeds = [fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)];
+                // invoke_signed(&transfer_instruction, &withdraw_accs, &[&signer_seeds])?;
 
-                let platformFee = U64F64::to_num(U64F64::from_num(performanceFee)
-                .checked_div(U64F64::from_num(10)).unwrap());
+                // let platformFee = U64F64::to_num(U64F64::from_num(performanceFee)
+                // .checked_div(U64F64::from_num(10)).unwrap());
 
-                let transfer_instruction = spl_token::instruction::transfer(
-                    token_prog_acc.key,
-                    fund_token_accs[0].key,
-                    investin_btoken_acc.key,
-                    pda_man_acc.key,
-                    &[pda_man_acc.key],
-                    platformFee
-                )?;
-                let withdraw_accs = [
-                    fund_token_accs[0].clone(),
-                    investin_btoken_acc.clone(),
-                    pda_man_acc.clone(),
-                    token_prog_acc.clone()
-                ];
-                let signer_seeds = [fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)];
-                invoke_signed(&transfer_instruction, &withdraw_accs, &[&signer_seeds])?;
+                // let transfer_instruction = spl_token::instruction::transfer(
+                //     token_prog_acc.key,
+                //     fund_token_accs[0].key,
+                //     investin_btoken_acc.key,
+                //     pda_man_acc.key,
+                //     &[pda_man_acc.key],
+                //     platformFee
+                // )?;
+                // let withdraw_accs = [
+                //     fund_token_accs[0].clone(),
+                //     investin_btoken_acc.clone(),
+                //     pda_man_acc.clone(),
+                //     token_prog_acc.clone()
+                // ];
+                // let signer_seeds = [fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)];
+                // invoke_signed(&transfer_instruction, &withdraw_accs, &[&signer_seeds])?;
 
             }
 
@@ -600,6 +601,77 @@ impl Fund {
         Ok(())    
     }
 
+    // manager Performance Fee Claim
+    pub fn claim (
+        program_id: &Pubkey,
+        accounts: &[AccountInfo],
+    ) -> Result<(), ProgramError> {
+        const NUM_FIXED:usize = 7;
+        let accounts = array_ref![accounts, 0, NUM_FIXED];
+        let [
+            fund_state_acc,
+            manager_acc,
+            fund_btoken_acc,
+            manager_btoken_acc,
+            investin_btoken_acc,
+            pda_man_acc,
+            token_prog_acc
+        ] = accounts;
+
+        let mut fund_data = FundData::try_from_slice(&fund_state_acc.data.borrow())?;
+
+        // check if manager signed the tx
+        check_assert(manager_acc.is_signer, ProgramError::MissingRequiredSignature);
+
+        msg!("Invoking transfer instructions");
+        let performance_fee_manager: u64 = U64F64::to_num(U64F64::from_num(fund_data.performance_fee)
+        .checked_mul(U64F64::from_num(90)).unwrap()
+        .checked_div(U64F64::from_num(100)).unwrap());
+
+        let transfer_instruction = spl_token::instruction::transfer(
+            token_prog_acc.key,
+            fund_btoken_acc.key,
+            manager_btoken_acc.key,
+            pda_man_acc.key,
+            &[pda_man_acc.key],
+            performance_fee_manager
+        )?;
+        let transfer_accs = [
+            fund_btoken_acc.clone(),
+            manager_btoken_acc.clone(),
+            pda_man_acc.clone(),
+            token_prog_acc.clone()
+        ];
+        let signer_seeds = [fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)];
+        invoke_signed(&transfer_instruction, &transfer_accs, &[&signer_seeds]);
+
+        let performance_fee_investin: u64 = U64F64::to_num(U64F64::from_num(fund_data.performance_fee)
+        .checked_div(U64F64::from_num(10)).unwrap());
+        let transfer_instruction = spl_token::instruction::transfer(
+            token_prog_acc.key,
+            fund_btoken_acc.key,
+            investin_btoken_acc.key,
+            pda_man_acc.key,
+            &[pda_man_acc.key],
+            performance_fee_investin
+        )?;
+        let transfer_accs = [
+            fund_btoken_acc.clone(),
+            investin_btoken_acc.clone(),
+            pda_man_acc.clone(),
+            token_prog_acc.clone()
+        ];
+        let signer_seeds = [fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)];
+        invoke_signed(&transfer_instruction, &transfer_accs, &[&signer_seeds]);
+
+        msg!("Transfer Complete");
+        
+        fund_data.performance_fee = 0;
+        fund_data.serialize(&mut *fund_state_acc.data.borrow_mut());
+        Ok(())
+
+    }
+
     // instruction processor
     pub fn process(
         program_id: &Pubkey,
@@ -628,6 +700,10 @@ impl Fund {
             FundInstruction::Swap { data } => {
                 msg!("FundInstruction::Swap");
                 Self::swap(program_id, accounts, data);
+            }
+            FundInstruction::ClaimPerformanceFee => {
+                msg!("FundInstruction::ClaimPerformanceFee");
+                Self::claim(program_id, accounts);
             }
         }
         Ok(())
