@@ -2,15 +2,15 @@ import { PublicKey, Transaction, TransactionInstruction } from '@solana/web3.js'
 import { nu64, struct, u8 } from 'buffer-layout'
 import React, { useState } from 'react'
 import { GlobalState } from '../store/globalState'
-import { connection, TOKEN_PROGRAM_ID } from '../utils/constants'
-import { pools } from '../utils/pools'
+import { connection, TOKEN_PROGRAM_ID, FUND_ACCOUNT_KEY, LIQUIDITY_POOL_PROGRAM_ID_V4 } from '../utils/constants'
+import { devnet_pools } from '../utils/pools'
 import { TokenAmount } from '../utils/safe-math'
-import { NATIVE_SOL, TOKENS } from '../utils/tokens'
+import { NATIVE_SOL, TEST_TOKENS, TOKENS } from '../utils/tokens'
 import { createTokenAccountIfNotExist, findAssociatedTokenAddress, sendNewTransaction } from '../utils/web3'
 
 export const Swap = () => {
 
-  const swapInstruction = (
+  const swapInstruction = async (
     programId,
     // tokenProgramId,
     // amm
@@ -37,9 +37,25 @@ export const Swap = () => {
     amountIn,
     minAmountOut
   ) => {
-    const dataLayout = struct([u8('instruction'), nu64('amountIn'), nu64('minAmountOut')])
+
+    const key = walletProvider?.publicKey;  
+    if (!key ) {
+      alert("connect wallet")
+      return;
+    }
+
+    const fundStateAcc = await PublicKey.createWithSeed(
+      key,
+      FUND_ACCOUNT_KEY,
+      programId,
+    );
+
+    const dataLayout = struct([u8('instruction1'), u8('instruction'), nu64('amountIn'), nu64('minAmountOut')])
 
     const keys = [
+      { pubkey: fundStateAcc, isSigner: false, isWritable: true },
+      { pubkey: LIQUIDITY_POOL_PROGRAM_ID_V4, isSigner: false, isWritable: true },
+
       // spl token
       { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: true },
       // amm
@@ -58,6 +74,7 @@ export const Swap = () => {
       { pubkey: serumCoinVaultAccount, isSigner: false, isWritable: true },
       { pubkey: serumPcVaultAccount, isSigner: false, isWritable: true },
       { pubkey: serumVaultSigner, isSigner: false, isWritable: true },
+
       { pubkey: userSourceTokenAccount, isSigner: false, isWritable: true },
       { pubkey: userDestTokenAccount, isSigner: false, isWritable: true },
       { pubkey: userOwner, isSigner: true, isWritable: true }
@@ -66,6 +83,7 @@ export const Swap = () => {
     const data = Buffer.alloc(dataLayout.span)
     dataLayout.encode(
       {
+        instruction1: 4, 
         instruction: 9,
         amountIn,
         minAmountOut
@@ -158,7 +176,7 @@ export const Swap = () => {
   const [selectedFirstToken, setSelectedFirstToken] = useState('');
 
   const handleBuy = async () => {
-    const poolInfo = pools.find(p => p.name === selectedFirstToken);
+    const poolInfo = devnet_pools.find(p => p.name === selectedFirstToken);
     const fromCoinMint = poolInfo.coin.mintAddress;
     const toCoinMint = poolInfo.pc.mintAddress;
     console.log(`fundPDA :::: `, fundPDA)
@@ -177,7 +195,7 @@ export const Swap = () => {
   }
 
   const handleSell = async () => {
-    const poolInfo = pools.find(p => p.name === selectedFirstToken);
+    const poolInfo = devnet_pools.find(p => p.name === selectedFirstToken);
     const toCoinMint = poolInfo.coin.mintAddress;
     const fromCoinMint = poolInfo.pc.mintAddress;
     console.log(`fundPDA :::: `, fundPDA)
@@ -210,7 +228,7 @@ export const Swap = () => {
 
       <select name="tokens" onChange={handleFirstTokenSelect}>
         {
-          pools.map((pool) => {
+          devnet_pools.map((pool) => {
             return (<option key={pool.coin.name} value={pool.coin.symbol}>{pool.coin.name}</option>)
           })
         }
@@ -219,8 +237,7 @@ export const Swap = () => {
 
       amount : {' '}<input type="number" value={amountIn} onChange={(e) => setAmountIn(e.target.value)} />
       <br />
-      fundPDA : {' '}<input type="text" value={fundPDA} onChange={e => setFundPDA(e.target.value)} />
-      <br />
+    
       <button margin-right="10px" onClick={handleBuy} >Buy</button>
       <button onClick={handleSell} >Sell</button>
     </div>
