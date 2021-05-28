@@ -8,3 +8,4 @@ test-ledger/
 src/program-fund/target
 src/program-fund/Cargo.lock
 package-lock.json
+connect-wallet-and-transfer/node_modules

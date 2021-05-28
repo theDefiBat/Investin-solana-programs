@@ -25,6 +25,7 @@ export const FUND_DATA = struct([
   u8('number_of_active_investments'),
   u8('no_of_investments'),
   u64('amount_in_router'),
+  u64('performance_fee'),
   array(
     struct([
       publicKey('mint'),

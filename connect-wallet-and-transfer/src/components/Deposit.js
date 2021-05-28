@@ -36,12 +36,15 @@ export const Deposit = () => {
 
     const associatedTokenAddress1 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['USDP'].mintAddress), RPDA[0], transaction);    
 
-    const investerStateAccount = await createKeyIfNotExists(walletProvider, null, programId, "investorAcc", INVESTOR_DATA.span)
+    const investerStateAccount = await createKeyIfNotExists(walletProvider, null, programId, INVESTOR_ACCOUNT_KEY, INVESTOR_DATA.span)
     
 
     console.log("RPDA:", RPDA[0].toBase58())
     console.log("FPDA: ", FPDA.toBase58())
     console.log("fundStateAccountRead:: ", fundStateAccount)
+    console.log("investorStateAccountRead:: ", investerStateAccount.toBase58())
+
+    console.log("account size::: ", INVESTOR_DATA.span)
     console.log("associatedTokenaccount:: ", associatedTokenAddress1.toBase58())
 
     const dataLayout = struct([u8('instruction'), nu64('amount')])
@@ -70,8 +73,14 @@ export const Deposit = () => {
       programId,
       data
     });
+    // transaction.add(deposit_instruction);
+    // transaction.feePayer = key;
+    // let hash = await connection.getRecentBlockhash();
+    // console.log("blockhash", hash);
+    // transaction.recentBlockhash = hash.blockhash;
 
-    // let trans = await setWalletTransaction(instruction, key);
+    // const sign = await signAndSendTransaction(walletProvider, transaction);
+    // console.log("signature tx:: ", sign)
 
 
     const investorDataAcc = await connection.getAccountInfo(investerStateAccount);

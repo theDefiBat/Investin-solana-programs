@@ -365,7 +365,6 @@ impl Fund {
             pda_router_acc,
             token_prog_acc
         ] = fixed_accs;
-         
         // check if investor has signed the transaction
         check!(investor_acc.is_signer, FundErrorCode::IncorrectSignature);
 
@@ -411,10 +410,11 @@ impl Fund {
         
             // check if withdraw exceed
             // check!(amount <= U64F64::to_num(total_share), ProgramError::InsufficientFunds);
-
-            if fund_data.prev_performance >= fund_data.min_return {
-                let profit = U64F64::from_num(investment_return)
-                .checked_sub(U64F64::from_num(actual_amount)).unwrap();
+            let profit = U64F64::from_num(investment_return)
+            .checked_sub(U64F64::from_num(actual_amount)).unwrap();
+            let performance: u64 = U64F64::to_num(profit.checked_div(U64F64::from_num(actual_amount)).unwrap()
+            .checked_mul(U64F64::from_num(100)).unwrap());
+            if performance >= fund_data.min_return {
 
                 investment_return = U64F64::from_num(profit)
                 .checked_mul(

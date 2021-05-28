@@ -75,9 +75,9 @@ export const InitialisedFund = () => {
 
       console.log(`associatedTokenAccounts.value ::: `, associatedTokenAccounts.value)
     
-      const associatedTokenAddress1 = await createAssociatedTokenAccountIfNotExist(walletProvider?.publicKey, new PublicKey(...TEST_TOKENS.USDP.mintAddress), PDA[0]);
-      const associatedTokenAddress2 = await createAssociatedTokenAccountIfNotExist(walletProvider?.publicKey, new PublicKey(...TEST_TOKENS.ALPHA.mintAddress), PDA[0]);
-      const associatedTokenAddress3 = await createAssociatedTokenAccountIfNotExist(walletProvider?.publicKey, new PublicKey(...TEST_TOKENS.BETA.mintAddress), PDA[0]);
+      const associatedTokenAddress1 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['USDP'].mintAddress), PDA[0]);
+      const associatedTokenAddress2 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['ALPHA'].mintAddress), PDA[0]);
+      const associatedTokenAddress3 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['BETA'].mintAddress), PDA[0]);
 
      
       console.log(`associatedTokenAddress1 ::: `, associatedTokenAccounts)
@@ -88,7 +88,7 @@ export const InitialisedFund = () => {
       console.log(`platformAccount.toBase58() ::: `, platformAccount.toBase58())
       console.log(`fundAccount.toBase58() ::: `, fundAccount.toBase58())
       console.log(`walletProvider?.publicKey.toBase58() ::: `, walletProvider?.publicKey.toBase58())
-      console.log(`associatedTokenAddress1.toBase58() ::: `, associatedTokenAddresses[0].toBase58())
+      console.log(`associatedTokenAddress1.toBase58() ::: `, associatedTokenAddress1.toBase58())
 
       const instruction = new TransactionInstruction({
         keys: [
@@ -96,9 +96,9 @@ export const InitialisedFund = () => {
           { pubkey: fundAccount, isSigner: false, isWritable: true },
           { pubkey: walletProvider?.publicKey, isSigner: true, isWritable: true },
           { pubkey: associatedTokenAddresses[0], isSigner: false, isWritable: true },
-          { pubkey: new PublicKey(...TEST_TOKENS.USDP.mintAddress), isSigner: false, isWritable: true },
-          { pubkey: new PublicKey(...TEST_TOKENS.ALPHA.mintAddress), isSigner: false, isWritable: true },
-          { pubkey: new PublicKey(...TEST_TOKENS.BETA.mintAddress), isSigner: false, isWritable: true },
+          { pubkey: new PublicKey(TEST_TOKENS['USDP'].mintAddress), isSigner: false, isWritable: true },
+          { pubkey: new PublicKey(TEST_TOKENS['ALPHA'].mintAddress), isSigner: false, isWritable: true },
+          { pubkey: new PublicKey(TEST_TOKENS['BETA'].mintAddress), isSigner: false, isWritable: true },
         ],
         programId,
         data

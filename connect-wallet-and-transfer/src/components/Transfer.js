@@ -1,7 +1,7 @@
 import { PublicKey, Transaction, TransactionInstruction } from '@solana/web3.js';
 import React, { useState } from 'react'
 import { GlobalState } from '../store/globalState';
-import { adminAccount, connection, FUND_ACCOUNT_KEY, platformStateAccount, programId, TOKEN_PROGRAM_ID } from '../utils/constants';
+import { adminAccount, connection, FUND_ACCOUNT_KEY, INVESTOR_ACCOUNT_KEY, platformStateAccount, programId, TOKEN_PROGRAM_ID } from '../utils/constants';
 import { nu64, struct, u8 } from 'buffer-layout';
 import { createKeyIfNotExists, findAssociatedTokenAddress, setWalletTransaction, signAndSendTransaction, createAssociatedTokenAccountIfNotExist } from '../utils/web3';
 import { FUND_DATA } from '../utils/programLayouts';
@@ -74,17 +74,17 @@ export const Transfer = () => {
         {pubkey: new PublicKey(devnet_pools[1].poolCoinTokenAccount), isSigner: false, isWritable: true},
         {pubkey: new PublicKey(devnet_pools[1].poolPcTokenAccount), isSigner: false, isWritable: true},
         
-        // investor state accounts
-        // {pubkey: new PublicKey(fundInvestorAccs[0]), isSigner: false, isWritable:true},
-        // {pubkey: new PublicKey(fundInvestorAccs[1]), isSigner: false, isWritable:true},
-        // {pubkey: new PublicKey(fundInvestorAccs[2]), isSigner: false, isWritable:true},
-        // {pubkey: new PublicKey(fundInvestorAccs[3]), isSigner: false, isWritable:true},
-        // {pubkey: new PublicKey(fundInvestorAccs[4]), isSigner: false, isWritable:true},
-        // {pubkey: new PublicKey(fundInvestorAccs[5]), isSigner: false, isWritable:true},
-        // {pubkey: new PublicKey(fundInvestorAccs[6]), isSigner: false, isWritable:true},
-        // {pubkey: new PublicKey(fundInvestorAccs[7]), isSigner: false, isWritable:true},
-        // {pubkey: new PublicKey(fundInvestorAccs[8]), isSigner: false, isWritable:true},
-        // {pubkey: new PublicKey(fundInvestorAccs[9]), isSigner: false, isWritable:true},
+        //investor state accounts
+        {pubkey: new PublicKey(fundInvestorAccs[0]), isSigner: false, isWritable:true},
+        {pubkey: new PublicKey(fundInvestorAccs[1]), isSigner: false, isWritable:true},
+        {pubkey: new PublicKey(fundInvestorAccs[2]), isSigner: false, isWritable:true},
+        {pubkey: new PublicKey(fundInvestorAccs[3]), isSigner: false, isWritable:true},
+        {pubkey: new PublicKey(fundInvestorAccs[4]), isSigner: false, isWritable:true},
+        {pubkey: new PublicKey(fundInvestorAccs[5]), isSigner: false, isWritable:true},
+        {pubkey: new PublicKey(fundInvestorAccs[6]), isSigner: false, isWritable:true},
+        {pubkey: new PublicKey(fundInvestorAccs[7]), isSigner: false, isWritable:true},
+        {pubkey: new PublicKey(fundInvestorAccs[8]), isSigner: false, isWritable:true},
+        {pubkey: new PublicKey(fundInvestorAccs[9]), isSigner: false, isWritable:true},
 
       ],
       programId,
@@ -132,10 +132,11 @@ export const Transfer = () => {
       alert("fund not initialized!")
       return
     }
+    console.log(fundState)
     
     setAmountInRouter(parseInt(fundState.amount_in_router)/(10 ** fundState.tokens[0].decimals));
     setFundPerf(parseInt(fundState.prev_performance) / (10 ** fundState.decimals))
-    setFundAUM(parseInt(fundState.total_amount) / (10 ** fundState.decimals))
+    setFundAUM(parseInt(fundState.total_amount) / (10 ** fundState.tokens[0].decimals))
     
     let bal = []
     bal.push((parseInt(fundState.tokens[0].balance)/ (10**fundState.tokens[0].decimals)))
@@ -145,9 +146,15 @@ export const Transfer = () => {
     console.log(bal)
 
     let investors = []
-    fundState.investors.forEach((investor) => {
-      investors.push(investor.toString())
-    })
+    for(let i=0; i<10; i++) {
+      let acc =  await PublicKey.createWithSeed(
+        new PublicKey(fundState.investors[i].toString()),
+        INVESTOR_ACCOUNT_KEY,
+        programId
+      );
+      console.log(acc.toBase58())
+      investors.push(acc.toBase58())
+    }
     setFundInvestorAccs(investors);
   }
   return (
