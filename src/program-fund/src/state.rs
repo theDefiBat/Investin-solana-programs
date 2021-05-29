@@ -25,7 +25,6 @@ pub struct PlatformData {
 
     // Fund managers list
     pub fund_managers: [Pubkey; MAX_FUNDS]
-
 }
 
 #[derive(Clone, Debug, BorshSerialize, BorshDeserialize, BorshSchema, PartialEq)]

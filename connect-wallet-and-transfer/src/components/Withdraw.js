@@ -170,8 +170,9 @@ export const Withdraw = () => {
         fundStateAcc = await PublicKey.createWithSeed(manager, FUND_ACCOUNT_KEY, programId);
         fundManager = manager;
         setFundStateAccount(fundStateAcc)
-        console.log("fundState:: ", fundStateAcc)
-        console.log("fundManager:: ", fundManager)
+        console.log("PDA has matched")
+        console.log("fundState:: ", fundStateAcc.toBase58())
+        console.log("fundManager:: ", fundManager.toBase58())
       }
     }
     if(!fundStateAcc) {
@@ -185,6 +186,7 @@ export const Withdraw = () => {
       return
     }
     let fundState = FUND_DATA.decode(y.data);
+    console.log(fundState)
     setFundPerf(parseInt(fundState.prev_performance) / (10 ** fundState.decimals));
     setStartPerf(parseInt(invState.start_performance) / (10 ** fundState.decimals));
     setWithdrawableAmount(((parseInt(invState.amount) * 0.98) / (10 ** fundState.tokens[0].decimals)) 

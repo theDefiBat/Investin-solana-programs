@@ -305,8 +305,14 @@ impl Fund {
             ],
             &[&["router".as_ref(), bytes_of(&platform_data.router_nonce)]]
         );
+        
         msg!("Transfers completed");
-        fund_data.tokens[0].balance += transferable_amount;
+        let tc = parse_token_account(fund_btoken_acc)?;
+        
+        fund_data.tokens[0].balance += tc.amount;
+        fund_data.number_of_active_investments = fund_data.no_of_investments;
+        fund_data.amount_in_router = 0;
+        fund_data.serialize(&mut *fund_state_acc.data.borrow_mut());
 
         if fund_data.number_of_active_investments > 0 {
             update_amount_and_performance(fund_state_acc, pool_accs);
@@ -314,6 +320,7 @@ impl Fund {
         else {
             fund_data.total_amount = transferable_amount;
             fund_data.prev_performance = 1000000;
+            fund_data.serialize(&mut *fund_state_acc.data.borrow_mut());
         }
 
         let in_queue = fund_data.no_of_investments - fund_data.number_of_active_investments;
@@ -325,13 +332,8 @@ impl Fund {
                 investor_data.start_performance = fund_data.prev_performance;
                 investor_data.serialize(&mut *investor_state_acc.data.borrow_mut());
             }
-        }
-
-        fund_data.number_of_active_investments = fund_data.no_of_investments;
-        fund_data.amount_in_router = 0;
-        fund_data.serialize(&mut *fund_state_acc.data.borrow_mut());
-        
-        //msg!("fund state:: {:?}", fund_data);  
+        }        
+        msg!("fund state:: {:?}", fund_data);  
 
         Ok(())
     }
@@ -515,6 +517,7 @@ impl Fund {
         
         fund_data.no_of_investments -= 1;
         fund_data.serialize(&mut *fund_state_acc.data.borrow_mut());
+        update_amount_and_performance(fund_state_acc, pool_accs);
 
         msg!("fund state:: {:?}", fund_data);
         msg!("investor state:: {:?}", investor_data);

@@ -73,6 +73,12 @@ export const Deposit = () => {
       programId,
       data
     });
+
+    const transaction2 = await setWalletTransaction(instruction, walletProvider?.publicKey);
+    const signature = await signAndSendTransaction(walletProvider, transaction2);
+    let result = await connection.confirmTransaction(signature, "confirmed");
+    console.log("tx:: ", signature)
+    
     // transaction.add(deposit_instruction);
     // transaction.feePayer = key;
     // let hash = await connection.getRecentBlockhash();
@@ -83,18 +89,10 @@ export const Deposit = () => {
     // console.log("signature tx:: ", sign)
 
 
-    const investorDataAcc = await connection.getAccountInfo(investerStateAccount);
-    const investorData = INVESTOR_DATA.decode(investorDataAcc.data);
-    if(!investorData.is_initialized) {
-    
-      const transaction2 = await setWalletTransaction(instruction, walletProvider?.publicKey);
-      const signature = await signAndSendTransaction(walletProvider, transaction2);
-      let result = await connection.confirmTransaction(signature, "confirmed");
-
-      console.log("Tx confirmed:: ", signature);
-    }
+  const investorDataAcc = await connection.getAccountInfo(investerStateAccount);
+  const investorData = INVESTOR_DATA.decode(investorDataAcc.data);
   }
-
+    
   const handleFunds = async () => {
     let managers = []
     const platformDataAcc = await connection.getAccountInfo(platformStateAccount)
@@ -148,5 +146,3 @@ export const Deposit = () => {
     </div>
   )
 }
-
-
