@@ -146,12 +146,13 @@ export const Withdraw = () => {
       alert("investor account not found")
       return
     }
-    console.log(x);
     let invState = INVESTOR_DATA.decode(x.data)
     if (!invState.is_initialized) {
       alert("investor data not initialized!")
       return
     }
+    console.log(invState);
+
     let fundAddress = invState.manager.toString()
     console.log("fund address:: ", fundAddress)
     setFundPDA(fundAddress)
@@ -187,8 +188,8 @@ export const Withdraw = () => {
     }
     let fundState = FUND_DATA.decode(y.data);
     console.log(fundState)
-    setFundPerf(parseInt(fundState.prev_performance) / (10 ** fundState.decimals));
-    setStartPerf(parseInt(invState.start_performance) / (10 ** fundState.decimals));
+    setFundPerf(parseInt(fundState.prev_performance) / (10000));
+    setStartPerf(parseInt(invState.start_performance) / (10000));
     setWithdrawableAmount(((parseInt(invState.amount) * 0.98) / (10 ** fundState.tokens[0].decimals)) 
       *(parseInt(fundState.prev_performance) / parseInt(invState.start_performance))
     );

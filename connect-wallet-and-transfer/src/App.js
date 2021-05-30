@@ -14,6 +14,9 @@ import { Swap } from './components/Swap';
 import { Withdraw } from './components/Withdraw';
 import { Transfer } from './components/Transfer';
 import { Claim } from './components/ClaimFee';
+import { Testing } from './components/Testing';
+
+
 
 function App() {
   const walletProvider = GlobalState.useState(s => s.walletProvider);
@@ -46,6 +49,7 @@ function App() {
         <Deposit />
 	      <Transfer />
         <Swap />
+        <Testing />
         <Withdraw />
         <Claim />
       </Container>

@@ -62,8 +62,8 @@ export const InitialisedFund = () => {
         {
           instruction: 0,
           min_amount: min_amount * 1000000,
-          min_return: min_return * 100,
-          performance_fee_percentage: platform_fee_percentage * 100,
+          min_return: min_return * 10000,
+          performance_fee_percentage: platform_fee_percentage * 10000,
         },
         data
       )

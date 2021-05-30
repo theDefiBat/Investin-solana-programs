@@ -2,7 +2,7 @@ import { array, bool, publicKey, str, struct, u32, u64, u8 } from '@project-seru
 
 export const NUM_TOKENS = 3
 export const MAX_INVESTORS = 10
-export const MAX_FUNDS = 10
+export const MAX_FUNDS = 15
 
 export const PLATFORM_DATA = struct([
   bool('is_initialized'),

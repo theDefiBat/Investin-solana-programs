@@ -6,6 +6,7 @@ import { nu64, struct, u8 } from 'buffer-layout';
 import { findAssociatedTokenAddress, signAndSendTransaction, createAssociatedTokenAccountIfNotExist } from '../utils/web3';
 import { TEST_TOKENS } from '../utils/tokens'
 import { FUND_DATA } from '../utils/programLayouts';
+import { devnet_pools } from '../utils/pools'
 
 
 export const Claim = () => {
@@ -18,7 +19,8 @@ export const Claim = () => {
     const handleClaim = async () => {
     
         const key = walletProvider?.publicKey;
-
+        
+        const fundPDA = await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId);
         
 
         console.log("FUND STTE:: ", fundStateAccount.toBase58())
@@ -41,7 +43,7 @@ export const Claim = () => {
           return
         }
 
-        const fundBaseTokenAccount = await findAssociatedTokenAddress(new PublicKey(fundPDA), new PublicKey(TEST_TOKENS['USDP'].mintAddress));
+        const fundBaseTokenAccount = await findAssociatedTokenAddress(fundPDA[0], new PublicKey(TEST_TOKENS['USDP'].mintAddress));
         const managerBaseTokenAccount = await findAssociatedTokenAddress(key, new PublicKey(TEST_TOKENS['USDP'].mintAddress));
         const investinBaseTokenAccount = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['USDP'].mintAddress), adminAccount); 
         
@@ -58,13 +60,20 @@ export const Claim = () => {
         
         const claim_instruction = new TransactionInstruction({
         keys: [
-        {pubkey: new PublicKey(fundStateAccount), isSigner: false, isWritable: true},
+        {pubkey: fundStateAccount, isSigner: false, isWritable: true},
         {pubkey: key, isSigner: true, isWritable: true },
         {pubkey: fundBaseTokenAccount, isSigner: false, isWritable:true},
         {pubkey: managerBaseTokenAccount, isSigner: false, isWritable:true},
         {pubkey: investinBaseTokenAccount, isSigner: false, isWritable:true},
-        {pubkey: new PublicKey(fundPDA), isSigner: false, isWritable:true},
+        {pubkey: fundPDA[0], isSigner: false, isWritable:true},
         {pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: true},
+
+         // Pool Token accounts
+         {pubkey: new PublicKey(devnet_pools[0].poolCoinTokenAccount), isSigner: false, isWritable: true},
+         {pubkey: new PublicKey(devnet_pools[0].poolPcTokenAccount), isSigner: false, isWritable: true},
+         {pubkey: new PublicKey(devnet_pools[1].poolCoinTokenAccount), isSigner: false, isWritable: true},
+         {pubkey: new PublicKey(devnet_pools[1].poolPcTokenAccount), isSigner: false, isWritable: true},
+
     ],
     programId,
     data
@@ -77,6 +86,7 @@ export const Claim = () => {
     transaction.recentBlockhash = hash.blockhash;
 
     const sign = await signAndSendTransaction(walletProvider, transaction);
+    console.log("tx perf: ", sign)
   }
     
   const handleGetFee = async () => {
@@ -94,7 +104,7 @@ export const Claim = () => {
     );
 
     console.log("FUND STTE:: ", fundStateAcc.toBase58())
-    setFundStateAccount(fundStateAcc.toBase58())
+    setFundStateAccount(fundStateAcc)
 
     let x = await connection.getAccountInfo(fundStateAcc)
     if (x == null)

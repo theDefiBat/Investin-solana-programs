@@ -135,7 +135,7 @@ export const Transfer = () => {
     console.log(fundState)
     
     setAmountInRouter(parseInt(fundState.amount_in_router)/(10 ** fundState.tokens[0].decimals));
-    setFundPerf(parseInt(fundState.prev_performance) / (10 ** fundState.decimals))
+    setFundPerf(parseInt(fundState.prev_performance) / (10000))
     setFundAUM(parseInt(fundState.total_amount) / (10 ** fundState.tokens[0].decimals))
     
     let bal = []
