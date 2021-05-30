@@ -5,7 +5,7 @@ use solana_program::program_pack::{IsInitialized, Sealed};
 
 pub const NUM_TOKENS:usize = 3;
 pub const MAX_INVESTORS:usize = 10;
-pub const MAX_FUNDS:usize = 10;
+pub const MAX_FUNDS:usize = 15;
 
 
 /// Struct wrapping data and providing metadata
