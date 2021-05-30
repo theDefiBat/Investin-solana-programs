@@ -46,15 +46,15 @@ export const InitialisedFund = () => {
     const fundData = await connection.getAccountInfo(fundAccount, "max");
     const platformData = await connection.getAccountInfo(platformAccount, "max");
 
-    const x = FUND_DATA.decode(fundData.data)
-    console.log('funddata span', FUND_DATA.span)
-    console.log('platformData span', PLATFORM_DATA.span)
-    console.log(`fundData parsed`, x)
-    console.log(`platformData parsed`, PLATFORM_DATA.decode(platformData.data))
-    console.log("routerPDA: ", PLATFORM_DATA.decode(platformData.data).router.toBase58())
+    // const x = FUND_DATA.decode(fundData.data)
+    // console.log('funddata span', FUND_DATA.span)
+    // console.log('platformData span', PLATFORM_DATA.span)
+    // console.log(`fundData parsed`, x)
+    // console.log(`platformData parsed`, PLATFORM_DATA.decode(platformData.data))
+    // console.log("routerPDA: ", PLATFORM_DATA.decode(platformData.data).router.toBase58())
 
 
-    if (!x.is_initialized) {
+    if (1) {
       const dataLayout = struct([u8('instruction'), nu64('min_amount'), nu64('min_return'), nu64('performance_fee_percentage')])
 
       const data = Buffer.alloc(dataLayout.span)
