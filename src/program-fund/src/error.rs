@@ -41,6 +41,10 @@ pub enum FundError {
     /// Manager Mismatch
     #[error("Manager Mismatch")]
     ManagerMismatch,
+
+    /// Maximum Number of Depositors at a time reached
+    #[error("Wait for Manager Transfer")]
+    DepositLimitReached,
 }
 
 impl From<FundError> for ProgramError {
