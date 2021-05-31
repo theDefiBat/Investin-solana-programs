@@ -1,7 +1,7 @@
 import { PublicKey, Transaction, TransactionInstruction } from '@solana/web3.js';
 import React, { useState } from 'react'
 import { GlobalState } from '../store/globalState';
-import { connection, programId, platformStateAccount, FUND_ACCOUNT_KEY, INVESTOR_ACCOUNT_KEY, TOKEN_PROGRAM_ID } from '../utils/constants';
+import { connection, programId, platformStateAccount, FUND_ACCOUNT_KEY, TOKEN_PROGRAM_ID } from '../utils/constants';
 import { nu64, struct, u8 } from 'buffer-layout';
 import { createKeyIfNotExists, findAssociatedTokenAddress, setWalletTransaction, signAndSendTransaction, createAssociatedTokenAccountIfNotExist } from '../utils/web3';
 import { INVESTOR_DATA, PLATFORM_DATA } from '../utils/programLayouts';
@@ -37,7 +37,7 @@ export const Deposit = () => {
 
     const associatedTokenAddress1 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['USDP'].mintAddress), RPDA[0], transaction);    
 
-    const investerStateAccount = await createKeyIfNotExists(walletProvider, null, programId, INVESTOR_ACCOUNT_KEY, INVESTOR_DATA.span)
+    const investerStateAccount = await createKeyIfNotExists(walletProvider, null, programId, FPDA.toBase58().substr(0, 32), INVESTOR_DATA.span)
     
 
     console.log("RPDA:", RPDA[0].toBase58())

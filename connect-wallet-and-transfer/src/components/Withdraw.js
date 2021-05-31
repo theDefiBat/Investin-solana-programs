@@ -1,7 +1,7 @@
 import { PublicKey, Transaction, TransactionInstruction } from '@solana/web3.js';
 import React, { useState } from 'react'
 import { GlobalState } from '../store/globalState';
-import { connection, programId, INVESTOR_ACCOUNT_KEY, FUND_ACCOUNT_KEY, platformStateAccount, adminAccount, TOKEN_PROGRAM_ID } from '../utils/constants';
+import { connection, programId, FUND_ACCOUNT_KEY, platformStateAccount, adminAccount, TOKEN_PROGRAM_ID } from '../utils/constants';
 import { nu64, struct, u8 } from 'buffer-layout';
 import { createKeyIfNotExists, findAssociatedTokenAddress, setWalletTransaction, signAndSendTransaction, createAssociatedTokenAccount, createAssociatedTokenAccountIfNotExist } from '../utils/web3';
 import { devnet_pools } from '../utils/pools';
@@ -27,6 +27,7 @@ export const Withdraw = () => {
   const [fundPerf, setFundPerf] = useState(0);
   const [startPerf, setStartPerf] = useState(0);
   const [invShare, setInvShare] = useState(0);
+  const [funds, setFunds] = useState([]);
 
 
   const [fundBalances, setFundBalances] = useState([])
@@ -55,7 +56,7 @@ export const Withdraw = () => {
     const RPDA = await PublicKey.findProgramAddress([Buffer.from("router")], programId);
     const MPDA = new PublicKey(fundPDA)
 
-    const investerStateAccount = await createKeyIfNotExists(walletProvider, null, programId, INVESTOR_ACCOUNT_KEY, INVESTOR_DATA.span)
+    const investerStateAccount = await createKeyIfNotExists(walletProvider, null, programId, MPDA.toBase58().substr(0, 32), INVESTOR_DATA.span)
     
     const transaction = new Transaction()
 
@@ -127,23 +128,74 @@ export const Withdraw = () => {
     const sign = await signAndSendTransaction(walletProvider, transaction);
     console.log("tx::: ", sign)
   }
+  
+  const handleFunds = async () => {
+    const key = walletProvider?.publicKey;
+    let invFunds = []
+    const platformDataAcc = await connection.getAccountInfo(platformStateAccount)
+    const platformData = PLATFORM_DATA.decode(platformDataAcc.data)
+    console.log("platformData :: ", platformData)
+  
+    for(let i=0; i<platformData.no_of_active_funds; i++) {
+      let manager = platformData.fund_managers[i];
+      let PDA = await PublicKey.findProgramAddress([manager.toBuffer()], programId);
+      let fundState = await PublicKey.createWithSeed(manager, FUND_ACCOUNT_KEY, programId);
 
+      let invStateAccount = await PublicKey.createWithSeed(key, PDA[0].toBase58().substr(0, 32), programId);
+      let invState = await connection.getAccountInfo(invStateAccount);
+
+      if (invState == null) {
+        continue
+      }
+
+      let invStateData = INVESTOR_DATA.decode(invState.data)
+      console.log(invStateData)
+
+      if (!invStateData.is_initialized) {
+        continue
+      }
+      invFunds.push({
+        fundPDA: PDA[0].toBase58(),
+        fundManager: manager.toBase58(),
+        fundStateAccount: fundState.toBase58()
+      });
+    }
+    console.log(invFunds)
+    setFunds(invFunds);
+  }
+
+  const handleFundSelect = async(event) => {
+  
+    setFundPDA(event.target.value);
+    funds.forEach(fund => {
+      if (fund.fundPDA == event.target.value) 
+      {setFundStateAccount(fund.fundStateAccount)
+       console.log("set fundStateAcoount")}
+    });
+    console.log(`setting fundPDA :::: `, fundPDA)
+    console.log(`setting fundStateAccount :::: `, fundStateAccount)
+  }
+  
   const handleGetInvestments = async () => {
     const key = walletProvider?.publicKey;  
     if (!key ) {
       alert("connect wallet")
       return;
     }
+    if (!fundPDA) {
+      alert('no fund found')
+      return;
+    }
     const investorStateAccount = await PublicKey.createWithSeed(
       key,
-      INVESTOR_ACCOUNT_KEY,
+      fundPDA.substr(0, 32),
       programId,
     );
 
     let x = await connection.getAccountInfo(investorStateAccount)
     if (x == null)
     {
-      alert("investor account not found")
+      alert("investor account not found for selected fund")
       return
     }
     let invState = INVESTOR_DATA.decode(x.data)
@@ -152,35 +204,8 @@ export const Withdraw = () => {
       return
     }
     console.log(invState);
-
-    let fundAddress = invState.manager.toString()
-    console.log("fund address:: ", fundAddress)
-    setFundPDA(fundAddress)
     
-    const platformDataAcc = await connection.getAccountInfo(platformStateAccount)
-    const platformData = PLATFORM_DATA.decode(platformDataAcc.data)
-    console.log("platformData :: ", platformData)
-  
-    let fundStateAcc = null
-    let fundManager = null
-    for(let i=0; i<platformData.no_of_active_funds; i++) {
-      let manager = platformData.fund_managers[i];
-      let PDA = await PublicKey.findProgramAddress([manager.toBuffer()], programId);
-      
-      if (fundAddress == PDA[0].toBase58()) {
-        fundStateAcc = await PublicKey.createWithSeed(manager, FUND_ACCOUNT_KEY, programId);
-        fundManager = manager;
-        setFundStateAccount(fundStateAcc)
-        console.log("PDA has matched")
-        console.log("fundState:: ", fundStateAcc.toBase58())
-        console.log("fundManager:: ", fundManager.toBase58())
-      }
-    }
-    if(!fundStateAcc) {
-      alert("no funds found")
-      return
-    }
-    let y = await connection.getAccountInfo(fundStateAcc)
+    let y = await connection.getAccountInfo(new PublicKey(fundStateAccount))
     if (y == null)
     {
       alert("investor account not found")
@@ -208,12 +233,21 @@ export const Withdraw = () => {
   return (
     <div className="form-div">
       <h4>Withdraw</h4>
-      amount ::: {' '}
-      <input type="number" value={amount} onChange={(event) => setAmount(event.target.value)} />
-      <br />
       
+      <select name="funds" width = "100px" onClick={handleFundSelect}>
+        {
+          funds.map((fund) => {
+            return (<option key={fund.fundPDA} value={fund.fundPDA}>{fund.fundPDA}</option>)
+          })
+        }
+      </select>
+      <button onClick={handleFunds}>Load Investments</button>
+      <br />
+      <br />
+     
       <button onClick={handleWithdraw}>Withdraw All</button>
       <button onClick={handleGetInvestments}>GetInvestments</button>
+      
       <br />
       Assets Info::
       <br />

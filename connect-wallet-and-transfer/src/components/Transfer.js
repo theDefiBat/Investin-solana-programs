@@ -1,7 +1,7 @@
 import { PublicKey, Transaction, TransactionInstruction } from '@solana/web3.js';
 import React, { useState } from 'react'
 import { GlobalState } from '../store/globalState';
-import { adminAccount, connection, FUND_ACCOUNT_KEY, INVESTOR_ACCOUNT_KEY, platformStateAccount, programId, TOKEN_PROGRAM_ID } from '../utils/constants';
+import { adminAccount, connection, FUND_ACCOUNT_KEY, platformStateAccount, programId, TOKEN_PROGRAM_ID } from '../utils/constants';
 import { nu64, struct, u8 } from 'buffer-layout';
 import { createKeyIfNotExists, findAssociatedTokenAddress, setWalletTransaction, signAndSendTransaction, createAssociatedTokenAccountIfNotExist } from '../utils/web3';
 import { FUND_DATA } from '../utils/programLayouts';
@@ -149,7 +149,7 @@ export const Transfer = () => {
     for(let i=0; i<10; i++) {
       let acc =  await PublicKey.createWithSeed(
         new PublicKey(fundState.investors[i].toString()),
-        INVESTOR_ACCOUNT_KEY,
+        fundPDA[0].toBase58().substr(0, 32),
         programId
       );
       console.log(acc.toBase58())

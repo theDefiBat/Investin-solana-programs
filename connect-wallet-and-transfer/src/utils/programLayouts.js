@@ -1,4 +1,4 @@
-import { array, bool, publicKey, str, struct, u32, u64, u8 } from '@project-serum/borsh'
+import { array, bool, publicKey, str, struct, u32, u64, u8, f64 } from '@project-serum/borsh'
 
 export const NUM_TOKENS = 3
 export const MAX_INVESTORS = 10
