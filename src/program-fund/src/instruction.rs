@@ -23,7 +23,6 @@ pub enum FundInstruction {
     /// 4. []       Router Base Token Account (derived)
     /// 5. []       PDA of Manager (Fund Address)
     /// 6. []       Token Program
-    /// 7..7+2*(NUM_TOKENS-1) Pool accs
     InvestorDeposit {
         amount: u64
     },
