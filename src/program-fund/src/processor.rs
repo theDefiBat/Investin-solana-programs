@@ -15,13 +15,15 @@ use arrayref::{array_ref, array_refs};
 
 use spl_token::state::{Account, Mint};
 
-use crate::error::{check_assert, FundError, FundErrorCode};
+use crate::error::FundError;
 use crate::instruction::{FundInstruction, Data};
 use crate::state::{NUM_TOKENS, MAX_INVESTORS, FundData, InvestorData, PlatformData};
 
 macro_rules! check {
     ($cond:expr, $err:expr) => {
-        check_assert($cond, $err, line!())
+        if !($cond) {
+            return Err(($err).into())
+        }
     }
 }
 
@@ -62,7 +64,7 @@ impl Fund {
         let mut fund_data = FundData::try_from_slice(&fund_state_acc.data.borrow())?;
 
         //  check if already init
-        check!(!fund_data.is_initialized(), FundErrorCode::FundAccountAlreadyInit);
+        check!(!fund_data.is_initialized(), FundError::FundAccountAlreadyInit);
 
         // check if platform_data is init
         if !platform_data.is_initialized() {
@@ -129,7 +131,12 @@ impl Fund {
         amount: u64
     ) -> Result<(), ProgramError> {
         const NUM_FIXED:usize = 7;
-        let accounts = array_ref![accounts, 0, NUM_FIXED];
+        let accounts = array_ref![accounts, 0, NUM_FIXED + 2*(NUM_TOKENS-1)];
+        let (
+            fixed_accs,
+            pool_accs
+        ) = array_refs![accounts, NUM_FIXED, 2*(NUM_TOKENS-1)];
+
         let [
             fund_state_acc,
             investor_state_acc,
@@ -138,28 +145,46 @@ impl Fund {
             router_btoken_acc,
             pda_man_acc,
             token_prog_acc
-        ] = accounts;
+        ] = fixed_accs;
 
         let mut fund_data = FundData::try_from_slice(&fund_state_acc.data.borrow())?;
         let mut investor_data = InvestorData::try_from_slice(&investor_state_acc.data.borrow())?;
 
         // check if fund state acc passed is initialised
-        check!(!fund_data.is_initialized(), FundErrorCode::FundAccountAlreadyInit);
+        check!(fund_data.is_initialized(), FundError::InvalidStateAccount);
 
         // TODO: check if pda_man_acc is derived from fund_data.manager_account
         // TODO: check if router_btoken_acc is derived from pda_inv_acc
 
         // check if amount deposited is more than the minimum amount for the fund
-        check!(amount >= fund_data.min_amount, FundErrorCode::InvalidAmount);
+        check!(amount >= fund_data.min_amount, FundError::InvalidAmount);
 
         // check if investor has signed the transaction
-        check!(investor_acc.is_signer, FundErrorCode::IncorrectSignature);
+        check!(investor_acc.is_signer, FundError::IncorrectSignature);
         // TODO: check if investor state account is derived from its address
 
         // check if investor_state_account is already initialised
-        check!(investor_data.is_initialized(), FundErrorCode::InvestorAccountAlreadyInit);
+        //check!(investor_data.is_initialized(), FundError::InvestorAccountAlreadyInit);
 
-        check!(*token_prog_acc.key == spl_token::id(), FundErrorCode::IncorrectProgramId);
+        if investor_data.is_initialized && investor_data.start_performance != 0 {
+            update_amount_and_performance(&mut fund_data, pool_accs, true);
+
+            let investor_return:u64 = U64F64::to_num(U64F64::from_num(fund_data.prev_performance)
+            .checked_div(U64F64::from_num(investor_data.start_performance)).unwrap()
+            .checked_mul(U64F64::from_num(investor_data.amount)).unwrap());
+
+            investor_data.amount = investor_return;
+            investor_data.start_performance = fund_data.prev_performance;
+        }
+
+        // dont update queue if previous deposit already in router
+        if !(investor_data.is_initialized && investor_data.start_performance == 0) {
+            // calculate waiting queue index
+            let index = fund_data.no_of_investments - fund_data.number_of_active_investments;
+            fund_data.investors[index as usize] = *investor_acc.key;
+            fund_data.no_of_investments += 1;
+        }
+        check!(*token_prog_acc.key == spl_token::id(), FundError::IncorrectProgramId);
         
         // get nonce for signing later
         let (_pda, nonce) = Pubkey::find_program_address(&[&*investor_acc.key.as_ref()], program_id);
@@ -185,19 +210,13 @@ impl Fund {
 
         investor_data.is_initialized = true;
         investor_data.owner = *investor_acc.key;
-        investor_data.amount = amount;
-        investor_data.start_performance = 0;
+        investor_data.amount += amount;
         // Store manager's PDA
         investor_data.manager = *pda_man_acc.key;
         investor_data.serialize(&mut *investor_state_acc.data.borrow_mut());
         
         fund_data.amount_in_router += amount;
-
-        // calculate waiting queue index
-        let index = fund_data.no_of_investments - fund_data.number_of_active_investments;
-        fund_data.investors[index as usize] = *investor_acc.key;
-        fund_data.no_of_investments += 1;
-        
+    
         fund_data.serialize(&mut *fund_state_acc.data.borrow_mut());
 
         Ok(())
@@ -234,10 +253,10 @@ impl Fund {
         let mut fund_data = FundData::try_from_slice(&fund_state_acc.data.borrow())?;
 
         // check if manager signed the tx
-        check!(manager_acc.is_signer, FundErrorCode::IncorrectProgramId);
+        check!(manager_acc.is_signer, FundError::IncorrectProgramId);
 
         // check if router PDA matches
-        check!(*pda_router_acc.key == platform_data.router, FundErrorCode::IncorrectPDA);
+        check!(*pda_router_acc.key == platform_data.router, FundError::IncorrectPDA);
 
         msg!("Calculating transfer amount");
         let transferable_amount: u64 = U64F64::to_num(U64F64::from_num(fund_data.amount_in_router)
@@ -366,7 +385,7 @@ impl Fund {
             token_prog_acc
         ] = fixed_accs;
         // check if investor has signed the transaction
-        check!(investor_acc.is_signer, FundErrorCode::IncorrectSignature);
+        check!(investor_acc.is_signer, FundError::IncorrectSignature);
 
         // TODO: check if manager_btoken_acc and investin_btoken_acc is correct from states
         let platform_data = PlatformData::try_from_slice(&platform_acc.data.borrow())?;
@@ -411,66 +430,30 @@ impl Fund {
         
             // check if withdraw exceed
             // check!(amount <= U64F64::to_num(total_share), ProgramError::InsufficientFunds);
-            let profit = U64F64::from_num(investment_return)
-            .checked_sub(U64F64::from_num(actual_amount)).unwrap();
-            let performance: u64 = U64F64::to_num(profit.checked_div(U64F64::from_num(actual_amount)).unwrap()
-            .checked_mul(U64F64::from_num(1000000)).unwrap());
-            if performance >= fund_data.min_return {
 
-                investment_return = U64F64::from_num(profit)
-                .checked_mul(
-                    (U64F64::from_num(1000000).checked_sub(U64F64::from_num(fund_data.performance_fee_percentage)).unwrap())
-                    .checked_div(U64F64::from_num(1000000)).unwrap()
-                    ).unwrap()
-                .checked_add(U64F64::from_num(actual_amount)).unwrap();
-
-                fund_data.performance_fee = U64F64::to_num(U64F64::from_num(fund_data.performance_fee)
-                .checked_add(U64F64::from_num(profit)
-                .checked_mul(
-                    U64F64::from_num(fund_data.performance_fee_percentage)
-                    .checked_div(U64F64::from_num(1000000)).unwrap()
-                ).unwrap()).unwrap()
-                );
-                // let performanceFeeManager = U64F64::to_num(U64F64::from_num(performanceFee).checked_mul(U64F64::from_num(90)).unwrap()
-                //     .checked_div(U64F64::from_num(100)).unwrap());
-                
-                // let transfer_instruction = spl_token::instruction::transfer(
-                //     token_prog_acc.key,
-                //     fund_token_accs[0].key,
-                //     manager_btoken_acc.key,
-                //     pda_man_acc.key,
-                //     &[pda_man_acc.key],
-                //     performanceFeeManager
-                // )?;
-                // let withdraw_accs = [
-                //     fund_token_accs[0].clone(),
-                //     manager_btoken_acc.clone(),
-                //     pda_man_acc.clone(),
-                //     token_prog_acc.clone()
-                // ];
-                // let signer_seeds = [fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)];
-                // invoke_signed(&transfer_instruction, &withdraw_accs, &[&signer_seeds])?;
-
-                // let platformFee = U64F64::to_num(U64F64::from_num(performanceFee)
-                // .checked_div(U64F64::from_num(10)).unwrap());
-
-                // let transfer_instruction = spl_token::instruction::transfer(
-                //     token_prog_acc.key,
-                //     fund_token_accs[0].key,
-                //     investin_btoken_acc.key,
-                //     pda_man_acc.key,
-                //     &[pda_man_acc.key],
-                //     platformFee
-                // )?;
-                // let withdraw_accs = [
-                //     fund_token_accs[0].clone(),
-                //     investin_btoken_acc.clone(),
-                //     pda_man_acc.clone(),
-                //     token_prog_acc.clone()
-                // ];
-                // let signer_seeds = [fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)];
-                // invoke_signed(&transfer_instruction, &withdraw_accs, &[&signer_seeds])?;
-
+            // in case of profit
+            if investment_return > actual_amount {
+                let profit = U64F64::from_num(investment_return)
+                .checked_sub(U64F64::from_num(actual_amount)).unwrap();
+                let performance: u64 = U64F64::to_num(profit.checked_div(U64F64::from_num(actual_amount)).unwrap()
+                .checked_mul(U64F64::from_num(1000000)).unwrap());
+                // if performance exceeds min return; update manager performance fees
+                if performance >= fund_data.min_return {
+                    investment_return = U64F64::from_num(profit)
+                    .checked_mul(
+                        (U64F64::from_num(1000000).checked_sub(U64F64::from_num(fund_data.performance_fee_percentage)).unwrap())
+                        .checked_div(U64F64::from_num(1000000)).unwrap()
+                        ).unwrap()
+                    .checked_add(U64F64::from_num(actual_amount)).unwrap();
+    
+                    fund_data.performance_fee = U64F64::to_num(U64F64::from_num(fund_data.performance_fee)
+                    .checked_add(U64F64::from_num(profit)
+                    .checked_mul(
+                        U64F64::from_num(fund_data.performance_fee_percentage)
+                        .checked_div(U64F64::from_num(1000000)).unwrap()
+                    ).unwrap()).unwrap()
+                    );
+                }
             }
 
             let share = U64F64::from_num(investment_return)
@@ -512,6 +495,7 @@ impl Fund {
         
         investor_data.amount = 0;
         investor_data.start_performance = 0;
+        investor_data.is_initialized = false;
         investor_data.serialize(&mut *investor_state_acc.data.borrow_mut());
         
         fund_data.no_of_investments -= 1;
@@ -646,7 +630,7 @@ impl Fund {
         let mut fund_data = FundData::try_from_slice(&fund_state_acc.data.borrow())?;
 
         // check if manager signed the tx
-        check!(manager_acc.is_signer, FundErrorCode::IncorrectSignature);
+        check!(manager_acc.is_signer, FundError::IncorrectSignature);
 
         msg!("Invoking transfer instructions");
         let performance_fee_manager: u64 = U64F64::to_num(U64F64::from_num(fund_data.performance_fee)
@@ -725,7 +709,7 @@ impl Fund {
         let mut fund_data = FundData::try_from_slice(&fund_state_acc.data.borrow())?;
 
         // check if manager signed the tx
-        // check!(&manager_acc.is_signer, FundErrorCode::IncorrectSignature);
+        // check!(&manager_acc.is_signer, FundError::IncorrectSignature);
 
         msg!("Invoking transfer instructions");
         let deposit_instruction = spl_token::instruction::transfer(
@@ -859,6 +843,8 @@ pub fn update_amount_and_performance(
     update_perf: bool
 ) -> Result<(), ProgramError> {
     
+    msg!("called update_amount_and_performance");
+
     // add USDT balance (not decimal adjusted)
     let mut fund_val = U64F64::from_num(fund_data.tokens[0].balance);
     // Calculate prices for all tokens with balances
@@ -869,8 +855,8 @@ pub fn update_amount_and_performance(
         let pc_data = Account::unpack(&pc_acc.data.borrow())?;
 
         // match for token pair sequence
-        check!(coin_data.mint == fund_data.tokens[i+1].mint, FundErrorCode::InvalidTokenAccount);
-        check!(pc_data.mint == fund_data.tokens[0].mint, FundErrorCode::InvalidTokenAccount);
+        //check!(coin_data.mint == fund_data.tokens[i+1].mint, FundError::InvalidTokenAccount);
+        //check!(pc_data.mint == fund_data.tokens[0].mint, FundError::InvalidTokenAccount);
         
         // get reserves ratio
         let pc_res = U64F64::from_num(pc_data.amount);
@@ -883,20 +869,25 @@ pub fn update_amount_and_performance(
 
         fund_val = fund_val.checked_add(val).unwrap();
     }
-    if update_perf && fund_data.number_of_active_investments != 0 {
+    if update_perf {
         let mut perf = U64F64::from_num(fund_data.prev_performance);
-        perf = fund_val.checked_div(U64F64::from_num(fund_data.total_amount)).unwrap()
+        // only case where performance is not updated:
+        // when no investments and no performance fee for manager
+        if fund_data.number_of_active_investments != 0 || fund_data.performance_fee != 0 {
+            perf = fund_val.checked_div(U64F64::from_num(fund_data.total_amount)).unwrap()
             .checked_mul(U64F64::from_num(fund_data.prev_performance)).unwrap();
-        
+        }
         // adjust for manager performance fee
         fund_data.performance_fee = U64F64::to_num(U64F64::from_num(perf)
             .checked_div(U64F64::from_num(fund_data.prev_performance)).unwrap()
             .checked_mul(U64F64::from_num(fund_data.performance_fee)).unwrap());
-    
         fund_data.prev_performance = U64F64::to_num(perf);
     }
-
+    
     fund_data.total_amount = U64F64::to_num(fund_val);
+    
+    msg!("updated amount: {:?}", fund_data.total_amount);
+    
     Ok(())
 }
 

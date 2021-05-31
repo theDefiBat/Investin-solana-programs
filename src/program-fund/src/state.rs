@@ -1,16 +1,16 @@
-use borsh::{BorshDeserialize, BorshSchema, BorshSerialize};
+use borsh::{BorshDeserialize, BorshSerialize};
 use solana_program::pubkey::Pubkey;
 use solana_program::program_pack::{IsInitialized, Sealed};
 
 
 pub const NUM_TOKENS:usize = 3;
 pub const MAX_INVESTORS:usize = 10;
-pub const MAX_FUNDS:usize = 15;
+pub const MAX_FUNDS:usize = 20;
 
 
 /// Struct wrapping data and providing metadata
 /// 
-#[derive(Clone, Debug, BorshSerialize, BorshDeserialize, BorshSchema, PartialEq)]
+#[derive(Clone, Debug, BorshSerialize, BorshDeserialize, PartialEq)]
 pub struct PlatformData {
     pub is_initialized: bool,
 
@@ -21,13 +21,19 @@ pub struct PlatformData {
     pub router_nonce: u8,
 
     // keep track of active funds
-    pub no_of_active_funds: u8,
+    pub no_of_active_funds: u64,
+
+    // Investin admin
+    //pub investin_admin: Pubkey,
+
+    // vault for protocol fee
+    //pub investin_vault: Pubkey,
 
     // Fund managers list
     pub fund_managers: [Pubkey; MAX_FUNDS]
 }
 
-#[derive(Clone, Debug, BorshSerialize, BorshDeserialize, BorshSchema, PartialEq)]
+#[derive(Clone, Debug, BorshSerialize, BorshDeserialize, PartialEq)]
 pub struct InvestorData {
     pub is_initialized: bool,
 
@@ -45,7 +51,7 @@ pub struct InvestorData {
 
 }
 
-#[derive(Clone, Debug, BorshSerialize, BorshDeserialize, BorshSchema, PartialEq)]
+#[derive(Clone, Debug, BorshSerialize, BorshDeserialize, PartialEq)]
 pub struct FundData {
     pub is_initialized: bool,
 
@@ -92,7 +98,7 @@ pub struct FundData {
     pub investors: [Pubkey; MAX_INVESTORS]
 }
 
-#[derive(Clone, Debug, Default, Copy, BorshSerialize, BorshDeserialize, BorshSchema, PartialEq)]
+#[derive(Clone, Debug, Default, Copy, BorshSerialize, BorshDeserialize, PartialEq)]
 pub struct TokenInfo {
     // Token Mint
     pub mint: Pubkey,
