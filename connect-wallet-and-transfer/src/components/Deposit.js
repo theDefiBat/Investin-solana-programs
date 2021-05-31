@@ -6,6 +6,7 @@ import { nu64, struct, u8 } from 'buffer-layout';
 import { createKeyIfNotExists, findAssociatedTokenAddress, setWalletTransaction, signAndSendTransaction, createAssociatedTokenAccountIfNotExist } from '../utils/web3';
 import { INVESTOR_DATA, PLATFORM_DATA } from '../utils/programLayouts';
 import { TEST_TOKENS } from '../utils/tokens'
+import { devnet_pools } from '../utils/pools'
 
 export const Deposit = () => {
 
@@ -69,6 +70,13 @@ export const Deposit = () => {
         { pubkey: associatedTokenAddress1, isSigner: false, isWritable: true }, // Router Base Token Account
         { pubkey: FPDA, isSigner: false, isWritable: false },
         { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: true },
+
+         // Pool Token accounts
+        {pubkey: new PublicKey(devnet_pools[0].poolCoinTokenAccount), isSigner: false, isWritable: true},
+        {pubkey: new PublicKey(devnet_pools[0].poolPcTokenAccount), isSigner: false, isWritable: true},
+        {pubkey: new PublicKey(devnet_pools[1].poolCoinTokenAccount), isSigner: false, isWritable: true},
+        {pubkey: new PublicKey(devnet_pools[1].poolPcTokenAccount), isSigner: false, isWritable: true},
+      
       ],
       programId,
       data

@@ -2,13 +2,13 @@ import { array, bool, publicKey, str, struct, u32, u64, u8 } from '@project-seru
 
 export const NUM_TOKENS = 3
 export const MAX_INVESTORS = 10
-export const MAX_FUNDS = 15
+export const MAX_FUNDS = 20
 
 export const PLATFORM_DATA = struct([
   bool('is_initialized'),
   publicKey('router'),
   u8('router_nonce'),
-  u8('no_of_active_funds'),
+  u64('no_of_active_funds'),
   array(publicKey('manager'), MAX_FUNDS, 'fund_managers')
 ])
 
