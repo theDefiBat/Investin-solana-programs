@@ -46,6 +46,9 @@ pub struct InvestorData {
     /// The performance of the fund at the time of investment
     pub start_performance: u64,
 
+    /// Amount In Router for multiple investments
+    pub amount_in_router: u64,
+
     // Fund manager
     pub manager: Pubkey,
 
