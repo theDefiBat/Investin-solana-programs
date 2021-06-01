@@ -151,7 +151,7 @@ impl Fund {
 
         let depositors: u64 = U64F64::to_num(U64F64::from_num(fund_data.no_of_investments).checked_sub(U64F64::from_num(fund_data.number_of_active_investments)).unwrap());
 
-        check!(depositors > 10, FundError::DepositLimitReached);
+        check!(depositors < 10, FundError::DepositLimitReached);
 
         // TODO: check if pda_man_acc is derived from fund_data.manager_account
         // TODO: check if router_btoken_acc is derived from pda_inv_acc
@@ -170,20 +170,20 @@ impl Fund {
         if !investor_data.is_initialized {
             investor_data.is_initialized = true;
             investor_data.owner = *investor_acc.key;
-            investor_data.amount = amount;
             // Store manager's PDA
             investor_data.manager = *pda_man_acc.key;
-        } else {
-            investor_data.amount_in_router = amount;
         }
 
         // dont update queue if previous deposit already in router
-        if investor_data.amount_in_router != 0 {
+        if investor_data.amount_in_router == 0 {
             // calculate waiting queue index
             let index = fund_data.no_of_investments - fund_data.number_of_active_investments;
             fund_data.investors[index as usize] = *investor_acc.key;
             fund_data.no_of_investments += 1;
         }
+
+        investor_data.amount_in_router += amount;
+
         check!(*token_prog_acc.key == spl_token::id(), FundError::IncorrectProgramId);
         
         // get nonce for signing later
@@ -346,6 +346,7 @@ impl Fund {
         
                 investor_data.amount = U64F64::to_num(U64F64::from_num(investment_return)
                 .checked_add(U64F64::from_num(investor_data.amount_in_router)).unwrap());
+                investor_data.start_performance = fund_data.prev_performance;
                 
                 investor_data.amount_in_router = 0;
             }
@@ -401,7 +402,7 @@ impl Fund {
         let mut investor_data = InvestorData::try_from_slice(&investor_state_acc.data.borrow())?;
 
         // Manager has not transferred to vault
-        if investor_data.amount_in_router != 0 || (investor_data.amount != 0 && investor_data.start_performance == 0) {
+        if investor_data.amount_in_router != 0  {
             invoke_signed(
                 &(spl_token::instruction::transfer(
                     token_prog_acc.key,
@@ -422,26 +423,26 @@ impl Fund {
             fund_data.amount_in_router -= investor_data.amount_in_router;
 
         } 
-        if (investor_data.amount != 0 && investor_data.start_performance == 0) {
-            invoke_signed(
-                &(spl_token::instruction::transfer(
-                    token_prog_acc.key,
-                    router_btoken_acc.key,
-                    inv_token_accs[0].key,
-                    pda_router_acc.key,
-                    &[pda_router_acc.key],
-                    investor_data.amount
-                ))?,
-                &[
-                    router_btoken_acc.clone(),
-                    inv_token_accs[0].clone(),
-                    pda_router_acc.clone(),
-                    token_prog_acc.clone()
-                ],
-                &[&["router".as_ref(), bytes_of(&platform_data.router_nonce)]]
-            );
-            fund_data.amount_in_router -= investor_data.amount;
-        }
+        // if (investor_data.amount != 0 && investor_data.start_performance == 0) {
+        //     invoke_signed(
+        //         &(spl_token::instruction::transfer(
+        //             token_prog_acc.key,
+        //             router_btoken_acc.key,
+        //             inv_token_accs[0].key,
+        //             pda_router_acc.key,
+        //             &[pda_router_acc.key],
+        //             investor_data.amount
+        //         ))?,
+        //         &[
+        //             router_btoken_acc.clone(),
+        //             inv_token_accs[0].clone(),
+        //             pda_router_acc.clone(),
+        //             token_prog_acc.clone()
+        //         ],
+        //         &[&["router".as_ref(), bytes_of(&platform_data.router_nonce)]]
+        //     );
+        //     fund_data.amount_in_router -= investor_data.amount;
+        // }
         if (investor_data.amount != 0 && investor_data.start_performance != 0) {
             update_amount_and_performance(&mut fund_data, pool_accs, true);
 
@@ -515,7 +516,9 @@ impl Fund {
                     ],
                     &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
                 );
-                msg!("withdraw instruction done");
+                //msg!("withdraw!!");
+
+                //msg!("withdraw instruction done");
 
                 fund_data.tokens[i].balance = parse_token_account(&fund_token_accs[i])?.amount;
             }
@@ -524,6 +527,7 @@ impl Fund {
         
         investor_data.amount = 0;
         investor_data.start_performance = 0;
+        investor_data.amount_in_router = 0;
         investor_data.is_initialized = false;
         investor_data.serialize(&mut *investor_state_acc.data.borrow_mut());
         
@@ -660,6 +664,8 @@ impl Fund {
 
         // check if manager signed the tx
         check!(manager_acc.is_signer, FundError::IncorrectSignature);
+
+        update_amount_and_performance(&mut fund_data, pool_accs, true);
 
         msg!("Invoking transfer instructions");
         let performance_fee_manager: u64 = U64F64::to_num(U64F64::from_num(fund_data.performance_fee)
@@ -933,7 +939,8 @@ pub fn parse_token_account (account_info: &AccountInfo) -> Result<Account, Progr
     Ok(parsed)
 }
 
-// pub fn check_owner(account_info: &AccountInfo, key: &Pubkey) {
-//     let account = parse_token_account(account_info);
-//     check!(account.owner == *key, FundError::InvalidTokenAccount);
-// }
+pub fn check_owner(account_info: &AccountInfo, key: &Pubkey) -> Result<(), ProgramError>{
+    let owner = parse_token_account(account_info)?.owner;
+    check!(owner == *key, FundError::InvalidTokenAccount);
+    Ok(())
+}
