@@ -43,6 +43,7 @@ export const INVESTOR_DATA = struct([
   publicKey('owner'),
   u64('amount'),
   u64('start_performance'),
+  u64('amount_in_router'),
   publicKey('manager'),
 ])
 
