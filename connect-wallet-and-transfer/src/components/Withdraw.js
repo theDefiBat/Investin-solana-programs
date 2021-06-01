@@ -7,7 +7,7 @@ import { createKeyIfNotExists, findAssociatedTokenAddress, setWalletTransaction,
 import { devnet_pools } from '../utils/pools';
 import { keyBy } from 'lodash';
 import { INVESTOR_DATA, PLATFORM_DATA, FUND_DATA } from '../utils/programLayouts';
-import { TEST_TOKENS } from '../utils/tokens';
+import { TOKENS } from '../utils/tokens';
 
 
 const getPoolAccounts = () => {
@@ -61,21 +61,21 @@ export const Withdraw = () => {
     
     const transaction = new Transaction()
 
-    const routerAssociatedTokenAddress = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['USDR'].mintAddress), RPDA[0]);
+    const routerAssociatedTokenAddress = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TOKENS['USDC'].mintAddress), RPDA[0]);
     // TODO: Manager Base Token Account
-    const managerAssociatedTokenAccount = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['USDR'].mintAddress), RPDA[0]);
+    const managerAssociatedTokenAccount = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TOKENS['USDC'].mintAddress), RPDA[0]);
     // TODO: Investin Base Token Account
-    const investinAssociatedTokenAddress = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['USDR'].mintAddress), adminAccount);
+    const investinAssociatedTokenAddress = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TOKENS['USDC'].mintAddress), adminAccount);
 
 
 
-    const investorBaseTokenAccount = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['USDR'].mintAddress), key);
-    const investorTokenAccount2 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['RAYT'].mintAddress), key);
-    const investorTokenAccount3 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['ALPHA'].mintAddress), key);
+    const investorBaseTokenAccount = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TOKENS['USDC'].mintAddress), key);
+    const investorTokenAccount2 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TOKENS['WSOL'].mintAddress), key);
+    const investorTokenAccount3 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TOKENS['SRM'].mintAddress), key);
 
-    const fundAssociatedTokenAddress1 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['USDR'].mintAddress), MPDA);
-    const fundAssociatedTokenAddress2 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['RAYT'].mintAddress), MPDA);
-    const fundAssociatedTokenAddress3 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['ALPHA'].mintAddress), MPDA);
+    const fundAssociatedTokenAddress1 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TOKENS['USDC'].mintAddress), MPDA);
+    const fundAssociatedTokenAddress2 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TOKENS['WSOL'].mintAddress), MPDA);
+    const fundAssociatedTokenAddress3 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TOKENS['SRM'].mintAddress), MPDA);
 
     const dataLayout = struct([u8('instruction'), nu64('amount')])
     const data = Buffer.alloc(dataLayout.span)
@@ -227,7 +227,7 @@ export const Withdraw = () => {
     let bal = []
     bal.push((parseInt(fundState.tokens[0].balance)/ (10**fundState.tokens[0].decimals)) * share_ratio)
     bal.push((parseInt(fundState.tokens[1].balance)/ (10**fundState.tokens[1].decimals)) * share_ratio)
-    bal.push((parseInt(fundState.tokens[1].balance)/ (10**fundState.tokens[2].decimals)) * share_ratio)
+    bal.push((parseInt(fundState.tokens[2].balance)/ (10**fundState.tokens[2].decimals)) * share_ratio)
     setFundBalances(bal)
   }
 
@@ -262,11 +262,11 @@ export const Withdraw = () => {
       <br/>
       inv share ratio:: {invShare}
       <br />
-      USDR balance: {fundBalances[0]}
+      USDC balance: {fundBalances[0]}
       <br />
-      RAYT balance: {fundBalances[1]}
+      WSOL balance: {fundBalances[1]}
       <br />
-      ALPHA balance: {fundBalances[2]}
+      SRM balance: {fundBalances[2]}
     </div>
   )
 

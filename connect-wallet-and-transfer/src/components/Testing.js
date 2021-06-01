@@ -5,8 +5,8 @@ import { adminAccount, connection, FUND_ACCOUNT_KEY, platformStateAccount, progr
 import { nu64, struct, u8 } from 'buffer-layout';
 import { createKeyIfNotExists, findAssociatedTokenAddress, setWalletTransaction, signAndSendTransaction, createAssociatedTokenAccountIfNotExist } from '../utils/web3';
 import { FUND_DATA } from '../utils/programLayouts';
-import { devnet_pools } from '../utils/pools'
-import { TEST_TOKENS } from '../utils/tokens'
+import { pools } from '../utils/pools'
+import { TOKENS } from '../utils/tokens'
 import { u64 } from '@project-serum/borsh';
 
 export const Testing = () => {
@@ -33,8 +33,8 @@ export const Testing = () => {
             programId,
         );
 
-        const fundBaseTokenAccount = await findAssociatedTokenAddress(fundPDA[0], new PublicKey(TEST_TOKENS['USDR'].mintAddress));
-        const managerBaseTokenAccount = await findAssociatedTokenAddress(key, new PublicKey(TEST_TOKENS['USDR'].mintAddress));
+        const fundBaseTokenAccount = await findAssociatedTokenAddress(fundPDA[0], new PublicKey(TOKENS['USDC'].mintAddress));
+        const managerBaseTokenAccount = await findAssociatedTokenAddress(key, new PublicKey(TOKENS['USDC'].mintAddress));
         console.log("amount deposit: ", amount)
 
         const dataLayout = struct([u8('instruction'), nu64('amount')])
@@ -43,7 +43,7 @@ export const Testing = () => {
         dataLayout.encode(
             {
             instruction: 6,
-            amount: amount * (10 ** TEST_TOKENS['USDR'].decimals),
+            amount: amount * (10 ** TOKENS['USDC'].decimals),
             },
             data
         )
@@ -60,10 +60,10 @@ export const Testing = () => {
             {pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: true},
             
             // Pool Token accounts
-            {pubkey: new PublicKey(devnet_pools[0].poolCoinTokenAccount), isSigner: false, isWritable: true},
-            {pubkey: new PublicKey(devnet_pools[0].poolPcTokenAccount), isSigner: false, isWritable: true},
-            {pubkey: new PublicKey(devnet_pools[1].poolCoinTokenAccount), isSigner: false, isWritable: true},
-            {pubkey: new PublicKey(devnet_pools[1].poolPcTokenAccount), isSigner: false, isWritable: true},
+            {pubkey: new PublicKey(pools[0].poolCoinTokenAccount), isSigner: false, isWritable: true},
+            {pubkey: new PublicKey(pools[0].poolPcTokenAccount), isSigner: false, isWritable: true},
+            {pubkey: new PublicKey(pools[1].poolCoinTokenAccount), isSigner: false, isWritable: true},
+            {pubkey: new PublicKey(pools[1].poolPcTokenAccount), isSigner: false, isWritable: true},
 
         ],
         programId,
@@ -94,8 +94,8 @@ export const Testing = () => {
             programId,
         );
 
-        const fundBaseTokenAccount = await findAssociatedTokenAddress(fundPDA[0], new PublicKey(TEST_TOKENS['USDR'].mintAddress));
-        const managerBaseTokenAccount = await findAssociatedTokenAddress(key, new PublicKey(TEST_TOKENS['USDR'].mintAddress));
+        const fundBaseTokenAccount = await findAssociatedTokenAddress(fundPDA[0], new PublicKey(TOKENS['USDC'].mintAddress));
+        const managerBaseTokenAccount = await findAssociatedTokenAddress(key, new PublicKey(TOKENS['USDC'].mintAddress));
         
         console.log("amount withdraww: ", amount)
         const dataLayout = struct([u8('instruction'), nu64('amount')])
@@ -104,7 +104,7 @@ export const Testing = () => {
         dataLayout.encode(
             {
             instruction: 7,
-            amount: amount * (10 ** TEST_TOKENS['USDR'].decimals),
+            amount: amount * (10 ** TOKENS['USDC'].decimals),
             },
             data
         )
@@ -121,10 +121,10 @@ export const Testing = () => {
             {pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: true},
             
             // Pool Token accounts
-            {pubkey: new PublicKey(devnet_pools[0].poolCoinTokenAccount), isSigner: false, isWritable: true},
-            {pubkey: new PublicKey(devnet_pools[0].poolPcTokenAccount), isSigner: false, isWritable: true},
-            {pubkey: new PublicKey(devnet_pools[1].poolCoinTokenAccount), isSigner: false, isWritable: true},
-            {pubkey: new PublicKey(devnet_pools[1].poolPcTokenAccount), isSigner: false, isWritable: true},
+            {pubkey: new PublicKey(pools[0].poolCoinTokenAccount), isSigner: false, isWritable: true},
+            {pubkey: new PublicKey(pools[0].poolPcTokenAccount), isSigner: false, isWritable: true},
+            {pubkey: new PublicKey(pools[1].poolCoinTokenAccount), isSigner: false, isWritable: true},
+            {pubkey: new PublicKey(pools[1].poolPcTokenAccount), isSigner: false, isWritable: true},
 
         ],
         programId,

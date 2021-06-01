@@ -5,8 +5,7 @@ import { connection, programId, platformStateAccount, FUND_ACCOUNT_KEY, TOKEN_PR
 import { nu64, struct, u8 } from 'buffer-layout';
 import { createKeyIfNotExists, findAssociatedTokenAddress, setWalletTransaction, signAndSendTransaction, createAssociatedTokenAccountIfNotExist } from '../utils/web3';
 import { INVESTOR_DATA, PLATFORM_DATA } from '../utils/programLayouts';
-import { TEST_TOKENS } from '../utils/tokens'
-import { devnet_pools } from '../utils/pools'
+import { TOKENS } from '../utils/tokens'
 
 export const Deposit = () => {
 
@@ -28,14 +27,14 @@ export const Deposit = () => {
       return;
     };
   
-    const baseTokenAccount = await findAssociatedTokenAddress(key, new PublicKey(TEST_TOKENS['USDR'].mintAddress));
+    const baseTokenAccount = await findAssociatedTokenAddress(key, new PublicKey(TOKENS['USDC'].mintAddress));
 
     const transaction = new Transaction()
 
     const RPDA = await PublicKey.findProgramAddress([Buffer.from("router")], programId);
     const FPDA = new PublicKey(fundPDA);
 
-    const associatedTokenAddress1 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['USDR'].mintAddress), RPDA[0], transaction);    
+    const associatedTokenAddress1 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TOKENS['USDC'].mintAddress), RPDA[0], transaction);    
 
     const investerStateAccount = await createKeyIfNotExists(walletProvider, null, programId, FPDA.toBase58().substr(0, 32), INVESTOR_DATA.span)
     
@@ -55,7 +54,7 @@ export const Deposit = () => {
     dataLayout.encode(
       {
         instruction: 1,
-        amount: amount * ( 10 ** TEST_TOKENS['USDR'].decimals)
+        amount: amount * ( 10 ** TOKENS['USDC'].decimals)
       },
       data
     )

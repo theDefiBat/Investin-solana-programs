@@ -3,9 +3,9 @@ import { nu64, struct, u8 } from 'buffer-layout'
 import React, { useState } from 'react'
 import { GlobalState } from '../store/globalState'
 import { connection, programId, TOKEN_PROGRAM_ID, FUND_ACCOUNT_KEY, LIQUIDITY_POOL_PROGRAM_ID_V4 } from '../utils/constants'
-import { devnet_pools } from '../utils/pools'
+import { pools } from '../utils/pools'
 import { TokenAmount } from '../utils/safe-math'
-import { NATIVE_SOL, TEST_TOKENS, TOKENS } from '../utils/tokens'
+import { NATIVE_SOL, TOKENS } from '../utils/tokens'
 import { createTokenAccountIfNotExist, findAssociatedTokenAddress, sendNewTransaction, signAndSendTransaction } from '../utils/web3'
 
 export const Swap = () => {
@@ -185,7 +185,7 @@ export const Swap = () => {
   const [selectedFirstToken, setSelectedFirstToken] = useState('');
 
   const handleBuy = async () => {
-    const poolInfo = devnet_pools.find(p => p.name === selectedFirstToken);
+    const poolInfo = pools.find(p => p.name === selectedFirstToken);
     const fromCoinMint = poolInfo.pc.mintAddress;
     const toCoinMint = poolInfo.coin.mintAddress;
     const fundPDA = await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId);
@@ -206,7 +206,7 @@ export const Swap = () => {
   }
 
   const handleSell = async () => {
-    const poolInfo = devnet_pools.find(p => p.name === selectedFirstToken);
+    const poolInfo = pools.find(p => p.name === selectedFirstToken);
 
     console.log("pool info:: ", poolInfo)
     const toCoinMint = poolInfo.pc.mintAddress;
@@ -229,8 +229,8 @@ export const Swap = () => {
   }
 
   const handleFirstTokenSelect = (event) => {
-    setSelectedFirstToken(`${event.target.value}-USDR`);
-    console.log(`${event.target.value}-USDR :::: `, `${event.target.value}-USDR`)
+    setSelectedFirstToken(`${event.target.value}-USDC`);
+    console.log(`${event.target.value}-USDC :::: `, `${event.target.value}-USDC`)
   }
 
   return (
@@ -243,7 +243,7 @@ export const Swap = () => {
 
       <select name="tokens" onChange={handleFirstTokenSelect}>
         {
-          devnet_pools.map((pool) => {
+          pools.map((pool) => {
             return (<option key={pool.coin.name} value={pool.coin.symbol}>{pool.coin.name}</option>)
           })
         }
