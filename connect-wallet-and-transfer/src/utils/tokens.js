@@ -26,6 +26,41 @@ export const NATIVE_SOL = {
 }
 
 export const TEST_TOKENS = {
+  'USDR': {
+    symbol: 'USDR',
+    name: 'RAY Devnet Base Test Token',
+    mintAddress: 'FSRvxBNrQWX2Fy2qvKMLL3ryEdRtE3PUTZBcdKwASZTU',
+    decimals: 6
+  },
+
+  'RAYT': {
+    symbol: 'RAYT',
+    name: 'RAY Devnet Test Token',
+    mintAddress: 'BEcGFQK1T1tSu3kvHC17cyCkQ5dvXqAJ7ExB2bb5Do7a',
+    decimals: 6
+  },
+
+  'ALPHA': {
+    symbol: 'ALPHA',
+    name: 'ALPHA coin',
+    mintAddress: 'HUHuQCZUvxCiuFg54vRStrXSbCFeBhmXRqSuR5eEVB6o',
+    decimals: 9,
+  }
+}
+
+export const TEST_LP_TOKENS = {
+  'RAYT-USDR': {
+    symbol: 'RAYT-USDR',
+    name: 'RAYT-USDR LP',
+    coin: { ...TEST_TOKENS.RAYT },
+    pc: { ...TEST_TOKENS.USDR },
+
+    mintAddress: '14Wp3dxYTQpRMMz3AW7f2XGBTdaBrf1qb2NKjAN3Tb13',
+    decimals: TEST_TOKENS.USDR.decimals
+  },
+}
+
+export const TEST_TOKENS2 = {
   'USDP': {
     symbol: 'USDP',
     name: 'USDP Test Token',

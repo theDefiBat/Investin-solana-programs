@@ -28,14 +28,14 @@ export const Deposit = () => {
       return;
     };
   
-    const baseTokenAccount = await findAssociatedTokenAddress(key, new PublicKey(TEST_TOKENS['USDP'].mintAddress));
+    const baseTokenAccount = await findAssociatedTokenAddress(key, new PublicKey(TEST_TOKENS['USDR'].mintAddress));
 
     const transaction = new Transaction()
 
     const RPDA = await PublicKey.findProgramAddress([Buffer.from("router")], programId);
     const FPDA = new PublicKey(fundPDA);
 
-    const associatedTokenAddress1 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['USDP'].mintAddress), RPDA[0], transaction);    
+    const associatedTokenAddress1 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['USDR'].mintAddress), RPDA[0], transaction);    
 
     const investerStateAccount = await createKeyIfNotExists(walletProvider, null, programId, FPDA.toBase58().substr(0, 32), INVESTOR_DATA.span)
     
@@ -43,6 +43,8 @@ export const Deposit = () => {
     console.log("RPDA:", RPDA[0].toBase58())
     console.log("FPDA: ", FPDA.toBase58())
     console.log("fundStateAccountRead:: ", fundStateAccount)
+    console.log("baseTokenAccount:: ", baseTokenAccount)
+
     console.log("investorStateAccountRead:: ", investerStateAccount.toBase58())
 
     console.log("account size::: ", INVESTOR_DATA.span)
@@ -53,7 +55,7 @@ export const Deposit = () => {
     dataLayout.encode(
       {
         instruction: 1,
-        amount: amount * 1000000000
+        amount: amount * ( 10 ** TEST_TOKENS['USDR'].decimals)
       },
       data
     )

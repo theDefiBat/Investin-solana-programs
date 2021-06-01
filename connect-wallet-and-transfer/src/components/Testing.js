@@ -33,8 +33,8 @@ export const Testing = () => {
             programId,
         );
 
-        const fundBaseTokenAccount = await findAssociatedTokenAddress(fundPDA[0], new PublicKey(TEST_TOKENS['USDP'].mintAddress));
-        const managerBaseTokenAccount = await findAssociatedTokenAddress(key, new PublicKey(TEST_TOKENS['USDP'].mintAddress));
+        const fundBaseTokenAccount = await findAssociatedTokenAddress(fundPDA[0], new PublicKey(TEST_TOKENS['USDR'].mintAddress));
+        const managerBaseTokenAccount = await findAssociatedTokenAddress(key, new PublicKey(TEST_TOKENS['USDR'].mintAddress));
         console.log("amount deposit: ", amount)
 
         const dataLayout = struct([u8('instruction'), nu64('amount')])
@@ -43,7 +43,7 @@ export const Testing = () => {
         dataLayout.encode(
             {
             instruction: 6,
-            amount: amount * 1000000000,
+            amount: amount * (10 ** TEST_TOKENS['USDR'].decimals),
             },
             data
         )
@@ -94,8 +94,8 @@ export const Testing = () => {
             programId,
         );
 
-        const fundBaseTokenAccount = await findAssociatedTokenAddress(fundPDA[0], new PublicKey(TEST_TOKENS['USDP'].mintAddress));
-        const managerBaseTokenAccount = await findAssociatedTokenAddress(key, new PublicKey(TEST_TOKENS['USDP'].mintAddress));
+        const fundBaseTokenAccount = await findAssociatedTokenAddress(fundPDA[0], new PublicKey(TEST_TOKENS['USDR'].mintAddress));
+        const managerBaseTokenAccount = await findAssociatedTokenAddress(key, new PublicKey(TEST_TOKENS['USDR'].mintAddress));
         
         console.log("amount withdraww: ", amount)
         const dataLayout = struct([u8('instruction'), nu64('amount')])
@@ -104,7 +104,7 @@ export const Testing = () => {
         dataLayout.encode(
             {
             instruction: 7,
-            amount: amount * 1000000000,
+            amount: amount * (10 ** TEST_TOKENS['USDR'].decimals),
             },
             data
         )

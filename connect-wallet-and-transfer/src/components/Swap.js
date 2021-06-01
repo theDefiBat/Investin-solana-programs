@@ -2,16 +2,16 @@ import { PublicKey, Transaction, TransactionInstruction } from '@solana/web3.js'
 import { nu64, struct, u8 } from 'buffer-layout'
 import React, { useState } from 'react'
 import { GlobalState } from '../store/globalState'
-import { connection, TOKEN_PROGRAM_ID, FUND_ACCOUNT_KEY, LIQUIDITY_POOL_PROGRAM_ID_V4 } from '../utils/constants'
+import { connection, programId, TOKEN_PROGRAM_ID, FUND_ACCOUNT_KEY, LIQUIDITY_POOL_PROGRAM_ID_V4 } from '../utils/constants'
 import { devnet_pools } from '../utils/pools'
 import { TokenAmount } from '../utils/safe-math'
 import { NATIVE_SOL, TEST_TOKENS, TOKENS } from '../utils/tokens'
-import { createTokenAccountIfNotExist, findAssociatedTokenAddress, sendNewTransaction } from '../utils/web3'
+import { createTokenAccountIfNotExist, findAssociatedTokenAddress, sendNewTransaction, signAndSendTransaction } from '../utils/web3'
 
 export const Swap = () => {
 
   const swapInstruction = async (
-    programId,
+    poolProgramId,
     // tokenProgramId,
     // amm
     ammId,
@@ -54,7 +54,7 @@ export const Swap = () => {
 
     const keys = [
       { pubkey: fundStateAcc, isSigner: false, isWritable: true },
-      { pubkey: LIQUIDITY_POOL_PROGRAM_ID_V4, isSigner: false, isWritable: true },
+      { pubkey: poolProgramId, isSigner: false, isWritable: true },
 
       // spl token
       { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: true },
@@ -77,7 +77,7 @@ export const Swap = () => {
 
       { pubkey: userSourceTokenAccount, isSigner: false, isWritable: true },
       { pubkey: userDestTokenAccount, isSigner: false, isWritable: true },
-      { pubkey: userOwner, isSigner: true, isWritable: true }
+      { pubkey: userOwner, isSigner: false, isWritable: true }
     ]
 
     const data = Buffer.alloc(dataLayout.span)
@@ -91,9 +91,11 @@ export const Swap = () => {
       data
     )
 
+    console.log("prog_id:: ", programId)
+
     return new TransactionInstruction({
       keys,
-      programId,
+      programId: programId,
       data
     })
   }
@@ -114,6 +116,7 @@ export const Swap = () => {
     const signers = []
 
     const owner = wallet.publicKey
+    const fundPDA = await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId);
 
     // const { amountIn, amountOut } = getSwapOutAmount(poolInfo, fromCoinMint, toCoinMint, amount, slippage)
     let amountIn = new TokenAmount(amount, poolInfo.coin.decimals, false)
@@ -139,7 +142,7 @@ export const Swap = () => {
     const newFromTokenAccount = fromTokenAccount
     const newToTokenAccount = toTokenAccount
 
-    transaction.add(
+    let instruction = await
       swapInstruction(
         new PublicKey(poolInfo.programId),
         new PublicKey(poolInfo.ammId),
@@ -158,30 +161,38 @@ export const Swap = () => {
         new PublicKey(poolInfo.serumVaultSigner),
         newFromTokenAccount,
         newToTokenAccount,
-        owner,
+        fundPDA[0],
         Math.floor(amountIn.toWei().toNumber()),
         Math.floor(amountOut.toWei().toNumber())
       )
-    )
+    transaction.add(instruction)
+    transaction.feePayer = owner;
+    console.log("trnsaction:: ", transaction)
+    let hash = await connection.getRecentBlockhash();
+    console.log("blockhash", hash);
+    transaction.recentBlockhash = hash.blockhash;
 
-    return await sendNewTransaction(connection, wallet, transaction, signers)
+    const sign = await signAndSendTransaction(walletProvider, transaction);
+    console.log("signature tx:: ", sign)
+    //return await sendNewTransaction(connection, wallet, transaction, signers)
   }
 
   const walletProvider = GlobalState.useState(s => s.walletProvider);
 
 
   const [amountIn, setAmountIn] = useState(0);
-  const [fundPDA, setFundPDA] = useState('');
   //const [selectedFirstToken, setSelectedFirstToken] = useState('RAY-USDT');
   const [selectedFirstToken, setSelectedFirstToken] = useState('');
 
   const handleBuy = async () => {
     const poolInfo = devnet_pools.find(p => p.name === selectedFirstToken);
-    const fromCoinMint = poolInfo.coin.mintAddress;
-    const toCoinMint = poolInfo.pc.mintAddress;
+    const fromCoinMint = poolInfo.pc.mintAddress;
+    const toCoinMint = poolInfo.coin.mintAddress;
+    const fundPDA = await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId);
+
     console.log(`fundPDA :::: `, fundPDA)
-    const fromTokenAccount = await findAssociatedTokenAddress(new PublicKey(fundPDA), new PublicKey(fromCoinMint));
-    const toTokenAccount = await findAssociatedTokenAddress(new PublicKey(fundPDA), new PublicKey(toCoinMint));
+    const fromTokenAccount = await findAssociatedTokenAddress( fundPDA[0], new PublicKey(fromCoinMint));
+    const toTokenAccount = await findAssociatedTokenAddress(fundPDA[0], new PublicKey(toCoinMint));
 
     console.log(`poolInfo ::: `, poolInfo)
     console.log(`fromCoinMint ::: `, fromCoinMint)
@@ -196,11 +207,15 @@ export const Swap = () => {
 
   const handleSell = async () => {
     const poolInfo = devnet_pools.find(p => p.name === selectedFirstToken);
-    const toCoinMint = poolInfo.coin.mintAddress;
-    const fromCoinMint = poolInfo.pc.mintAddress;
+
+    console.log("pool info:: ", poolInfo)
+    const toCoinMint = poolInfo.pc.mintAddress;
+    const fromCoinMint = poolInfo.coin.mintAddress;
+    const fundPDA = await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId);
+
     console.log(`fundPDA :::: `, fundPDA)
-    const fromTokenAccount = await findAssociatedTokenAddress(new PublicKey(fundPDA), new PublicKey(fromCoinMint));
-    const toTokenAccount = await findAssociatedTokenAddress(new PublicKey(fundPDA), new PublicKey(toCoinMint));
+    const fromTokenAccount = await findAssociatedTokenAddress(fundPDA[0], new PublicKey(fromCoinMint));
+    const toTokenAccount = await findAssociatedTokenAddress(fundPDA[0], new PublicKey(toCoinMint));
 
     console.log(`poolInfo ::: `, poolInfo)
     console.log(`fromCoinMint ::: `, fromCoinMint)
@@ -214,8 +229,8 @@ export const Swap = () => {
   }
 
   const handleFirstTokenSelect = (event) => {
-    setSelectedFirstToken(`${event.target.value}-USDT`);
-    console.log(`${event.target.value}-USDT :::: `, `${event.target.value}-USDT`)
+    setSelectedFirstToken(`${event.target.value}-USDR`);
+    console.log(`${event.target.value}-USDR :::: `, `${event.target.value}-USDR`)
   }
 
   return (

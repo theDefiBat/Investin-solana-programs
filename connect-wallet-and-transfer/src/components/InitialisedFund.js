@@ -61,7 +61,7 @@ export const InitialisedFund = () => {
       dataLayout.encode(
         {
           instruction: 0,
-          min_amount: min_amount * 1000000,
+          min_amount: min_amount * (10 ** TEST_TOKENS['USDR'].decimals),
           min_return: min_return * 10000,
           performance_fee_percentage: platform_fee_percentage * 10000,
         },
@@ -75,9 +75,9 @@ export const InitialisedFund = () => {
 
       console.log(`associatedTokenAccounts.value ::: `, associatedTokenAccounts.value)
     
-      const associatedTokenAddress1 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['USDP'].mintAddress), PDA[0]);
-      const associatedTokenAddress2 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['ALPHA'].mintAddress), PDA[0]);
-      const associatedTokenAddress3 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['BETA'].mintAddress), PDA[0]);
+      const associatedTokenAddress1 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['USDR'].mintAddress), PDA[0]);
+      const associatedTokenAddress2 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['RAYT'].mintAddress), PDA[0]);
+      const associatedTokenAddress3 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['ALPHA'].mintAddress), PDA[0]);
 
      
       console.log(`associatedTokenAddress1 ::: `, associatedTokenAccounts)
@@ -96,9 +96,9 @@ export const InitialisedFund = () => {
           { pubkey: fundAccount, isSigner: false, isWritable: true },
           { pubkey: walletProvider?.publicKey, isSigner: true, isWritable: true },
           { pubkey: associatedTokenAddresses[0], isSigner: false, isWritable: true },
-          { pubkey: new PublicKey(TEST_TOKENS['USDP'].mintAddress), isSigner: false, isWritable: true },
+          { pubkey: new PublicKey(TEST_TOKENS['USDR'].mintAddress), isSigner: false, isWritable: true },
+          { pubkey: new PublicKey(TEST_TOKENS['RAYT'].mintAddress), isSigner: false, isWritable: true },
           { pubkey: new PublicKey(TEST_TOKENS['ALPHA'].mintAddress), isSigner: false, isWritable: true },
-          { pubkey: new PublicKey(TEST_TOKENS['BETA'].mintAddress), isSigner: false, isWritable: true },
         ],
         programId,
         data

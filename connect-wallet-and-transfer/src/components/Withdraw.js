@@ -7,6 +7,7 @@ import { createKeyIfNotExists, findAssociatedTokenAddress, setWalletTransaction,
 import { devnet_pools } from '../utils/pools';
 import { keyBy } from 'lodash';
 import { INVESTOR_DATA, PLATFORM_DATA, FUND_DATA } from '../utils/programLayouts';
+import { TEST_TOKENS } from '../utils/tokens';
 
 
 const getPoolAccounts = () => {
@@ -60,21 +61,21 @@ export const Withdraw = () => {
     
     const transaction = new Transaction()
 
-    const routerAssociatedTokenAddress = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey('DdzREMVFg6pa5825HBKVzeCrEi8EJiREfb8UrxSZB64w'), RPDA[0]);
+    const routerAssociatedTokenAddress = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['USDR'].mintAddress), RPDA[0]);
     // TODO: Manager Base Token Account
-    const managerAssociatedTokenAccount = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey('DdzREMVFg6pa5825HBKVzeCrEi8EJiREfb8UrxSZB64w'), RPDA[0]);
+    const managerAssociatedTokenAccount = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['USDR'].mintAddress), RPDA[0]);
     // TODO: Investin Base Token Account
-    const investinAssociatedTokenAddress = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey('DdzREMVFg6pa5825HBKVzeCrEi8EJiREfb8UrxSZB64w'), adminAccount);
+    const investinAssociatedTokenAddress = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['USDR'].mintAddress), adminAccount);
 
 
 
-    const investorBaseTokenAccount = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey('DdzREMVFg6pa5825HBKVzeCrEi8EJiREfb8UrxSZB64w'), key);
-    const investorTokenAccount2 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey('HUHuQCZUvxCiuFg54vRStrXSbCFeBhmXRqSuR5eEVB6o'), key);
-    const investorTokenAccount3 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey('HW18fiAHKzs7ZSaT5ibAhnSWVde25sazTSbMzss4Fcty'), key);
+    const investorBaseTokenAccount = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['USDR'].mintAddress), key);
+    const investorTokenAccount2 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['RAYT'].mintAddress), key);
+    const investorTokenAccount3 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['ALPHA'].mintAddress), key);
 
-    const fundAssociatedTokenAddress1 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey('DdzREMVFg6pa5825HBKVzeCrEi8EJiREfb8UrxSZB64w'), MPDA);
-    const fundAssociatedTokenAddress2 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey('HUHuQCZUvxCiuFg54vRStrXSbCFeBhmXRqSuR5eEVB6o'), MPDA);
-    const fundAssociatedTokenAddress3 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey('HW18fiAHKzs7ZSaT5ibAhnSWVde25sazTSbMzss4Fcty'), MPDA);
+    const fundAssociatedTokenAddress1 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['USDR'].mintAddress), MPDA);
+    const fundAssociatedTokenAddress2 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['RAYT'].mintAddress), MPDA);
+    const fundAssociatedTokenAddress3 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['ALPHA'].mintAddress), MPDA);
 
     const dataLayout = struct([u8('instruction'), nu64('amount')])
     const data = Buffer.alloc(dataLayout.span)
@@ -261,11 +262,11 @@ export const Withdraw = () => {
       <br/>
       inv share ratio:: {invShare}
       <br />
-      USDP balance: {fundBalances[0]}
+      USDR balance: {fundBalances[0]}
       <br />
-      ALPHA balance: {fundBalances[1]}
+      RAYT balance: {fundBalances[1]}
       <br />
-      BETA balance: {fundBalances[2]}
+      ALPHA balance: {fundBalances[2]}
     </div>
   )
 

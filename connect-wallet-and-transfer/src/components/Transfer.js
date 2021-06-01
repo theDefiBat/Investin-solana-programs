@@ -31,11 +31,11 @@ export const Transfer = () => {
       };
 
       const routerPDA = await PublicKey.findProgramAddress([Buffer.from("router")], programId);
-      const fundBaseTokenAccount = await findAssociatedTokenAddress(new PublicKey(fundPDA), new PublicKey(TEST_TOKENS['USDP'].mintAddress));
-      const routerBaseTokenAccount = await findAssociatedTokenAddress(routerPDA[0], new PublicKey(TEST_TOKENS['USDP'].mintAddress));
+      const fundBaseTokenAccount = await findAssociatedTokenAddress(new PublicKey(fundPDA), new PublicKey(TEST_TOKENS['USDR'].mintAddress));
+      const routerBaseTokenAccount = await findAssociatedTokenAddress(routerPDA[0], new PublicKey(TEST_TOKENS['USDR'].mintAddress));
 
-      const managerBaseTokenAccount = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['USDP'].mintAddress), key);
-      const investinBaseTokenAccount = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['USDP'].mintAddress), adminAccount);    
+      const managerBaseTokenAccount = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['USDR'].mintAddress), key);
+      const investinBaseTokenAccount = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['USDR'].mintAddress), adminAccount);    
 
       if (fundStateAccount == ''){
         alert("get info first!")
@@ -172,11 +172,11 @@ export const Transfer = () => {
       <br />
       fund performance:: {fundPerf}
       <br />
-      USDP balance: {fundBalances[0]}
+      USDR balance: {fundBalances[0]}
       <br />
-      ALPHA balance: {fundBalances[1]}
+      RAYT balance: {fundBalances[1]}
       <br />
-      BETA balance: {fundBalances[2]}
+      ALPHA balance: {fundBalances[2]}
 
     </div>
   )

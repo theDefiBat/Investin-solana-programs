@@ -43,9 +43,9 @@ export const Claim = () => {
           return
         }
 
-        const fundBaseTokenAccount = await findAssociatedTokenAddress(fundPDA[0], new PublicKey(TEST_TOKENS['USDP'].mintAddress));
-        const managerBaseTokenAccount = await findAssociatedTokenAddress(key, new PublicKey(TEST_TOKENS['USDP'].mintAddress));
-        const investinBaseTokenAccount = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['USDP'].mintAddress), adminAccount); 
+        const fundBaseTokenAccount = await findAssociatedTokenAddress(fundPDA[0], new PublicKey(TEST_TOKENS['USDR'].mintAddress));
+        const managerBaseTokenAccount = await findAssociatedTokenAddress(key, new PublicKey(TEST_TOKENS['USDR'].mintAddress));
+        const investinBaseTokenAccount = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['USDR'].mintAddress), adminAccount); 
         
         const transaction = new Transaction()
 

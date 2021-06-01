@@ -2,7 +2,7 @@ use borsh::{BorshDeserialize, BorshSerialize};
 use bytemuck::bytes_of;
 use fixed::types::U64F64;
 use solana_program::{
-    account_info::AccountInfo,
+    account_info::{AccountInfo, next_account_info},
     msg,
     instruction:: {AccountMeta, Instruction},
     program_error::ProgramError,
@@ -449,7 +449,7 @@ impl Fund {
             let perf_share = U64F64::from_num(fund_data.prev_performance)
             .checked_div(U64F64::from_num(investor_data.start_performance)).unwrap();
         
-            msg!("performance: {:?}", perf_share);
+            //msg!("performance: {:?}", perf_share);
 
             let actual_amount: u64 = U64F64::to_num(U64F64::from_num(investor_data.amount)
             .checked_mul(U64F64::from_num(98)).unwrap()
@@ -490,15 +490,13 @@ impl Fund {
             .checked_div(U64F64::from_num(fund_data.total_amount)).unwrap();
 
             for i in 0..NUM_TOKENS {
-                let withdraw_amount = U64F64::from_num(fund_data.tokens[i].balance)
-                .checked_mul(share).unwrap();
-                let withdraw_rounded = U64F64::to_num(withdraw_amount);
+                let withdraw_amount = U64F64::to_num(U64F64::from_num(fund_data.tokens[i].balance)
+                .checked_mul(share).unwrap());
             
-                if withdraw_rounded < 100 {
-                continue;
-                }
-
-                msg!("Invoking withdraw instruction");
+                // if withdraw_rounded < 100 {
+                // continue;
+                // }
+                msg!("Invoking withdraw instruction: {:?}", withdraw_amount);
                 invoke_signed(
                     &(spl_token::instruction::transfer(
                         token_prog_acc.key,
@@ -506,7 +504,7 @@ impl Fund {
                         inv_token_accs[i].key,
                         pda_man_acc.key,
                         &[pda_man_acc.key],
-                        withdraw_rounded
+                        withdraw_amount
                     ))?,
                     &[
                         fund_token_accs[i].clone(),
@@ -544,87 +542,13 @@ impl Fund {
         accounts: &[AccountInfo],
         data: Data
     ) -> Result<(), ProgramError> {
-        
-        const NUM_FIXED: usize = 20;
-        let accounts = array_ref![accounts, 0, NUM_FIXED];
-        let [
-            fund_state_acc,
-            pool_prog_acc,
-            token_prog_acc,
-            amm_id,
-            amm_authority,
-            amm_open_orders,
-            amm_target_orders,
-            pool_coin_token_acc,
-            pool_pc_token_acc,
-            dex_prog_acc,
-            dex_market_acc,
-            bids_acc,
-            asks_acc,
-            event_queue_acc,
-            coin_vault_acc,
-            pc_vault_acc,
-            signer_acc,
-            source_token_acc,
-            dest_token_acc,
-            owner_token_acc
-        ] = accounts;
-
+                
+        let accounts_iter = &mut accounts.iter();
+        // Get the first account
+        let fund_state_acc = next_account_info(accounts_iter)?;        
         let mut fund_data = FundData::try_from_slice(&fund_state_acc.data.borrow())?;
 
-        msg!("swap instruction call");
-        invoke_signed(
-            &(Instruction::new_with_borsh(
-                *pool_prog_acc.key,
-                &data,
-                vec![
-                    AccountMeta::new(*token_prog_acc.key, false),
-                    AccountMeta::new(*amm_id.key, false),
-                    AccountMeta::new(*amm_authority.key, false),
-                    AccountMeta::new(*amm_open_orders.key, false),
-                    AccountMeta::new(*amm_target_orders.key, false),
-                    AccountMeta::new(*pool_coin_token_acc.key, false),
-                    AccountMeta::new(*pool_pc_token_acc.key, false),
-                    AccountMeta::new(*dex_prog_acc.key, true),
-                    AccountMeta::new(*dex_market_acc.key, false),
-                    AccountMeta::new(*bids_acc.key, false),
-                    AccountMeta::new(*asks_acc.key, false),
-                    AccountMeta::new(*event_queue_acc.key, false),
-                    AccountMeta::new(*coin_vault_acc.key, false),
-                    AccountMeta::new(*pc_vault_acc.key, false),
-                    AccountMeta::new(*signer_acc.key, false),
-                    AccountMeta::new(*source_token_acc.key, false),
-                    AccountMeta::new(*dest_token_acc.key, false),
-                    AccountMeta::new(*owner_token_acc.key, true)
-                ],
-            )),
-            &[
-                token_prog_acc.clone(),
-                amm_id.clone(),
-                amm_authority.clone(),
-                amm_open_orders.clone(),
-                amm_target_orders.clone(),
-                pool_coin_token_acc.clone(),
-                pool_pc_token_acc.clone(),
-                dex_prog_acc.clone(),
-                dex_market_acc.clone(),
-                bids_acc.clone(),
-                asks_acc.clone(),
-                event_queue_acc.clone(),
-                coin_vault_acc.clone(),
-                pc_vault_acc.clone(),
-                signer_acc.clone(),
-                source_token_acc.clone(),
-                dest_token_acc.clone(),
-                owner_token_acc.clone()
-            ],
-            &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
-        );
-        msg!("swap instruction done");
-        
-        // update balances on fund_state_acc for source & dest
-        let source_info = parse_token_account(source_token_acc)?;
-        let dest_info = parse_token_account(dest_token_acc)?;
+        let (source_info, dest_info) = swap_instruction(&data, &fund_data, accounts)?;
 
         for i in 0..NUM_TOKENS {
             if fund_data.tokens[i].mint == source_info.mint {
@@ -943,4 +867,88 @@ pub fn check_owner(account_info: &AccountInfo, key: &Pubkey) -> Result<(), Progr
     let owner = parse_token_account(account_info)?.owner;
     check!(owner == *key, FundError::InvalidTokenAccount);
     Ok(())
+}
+
+pub fn swap_instruction(
+    data: &Data,
+    fund_data: &FundData,
+    accounts: &[AccountInfo]
+) -> Result<(Account, Account), ProgramError>{
+    let accounts = array_ref![accounts, 0, 20];
+    let [
+        fund_state_acc,
+        pool_prog_acc,
+        token_prog_acc,
+        amm_id,
+        amm_authority,
+        amm_open_orders,
+        amm_target_orders,
+        pool_coin_token_acc,
+        pool_pc_token_acc,
+        dex_prog_acc,
+        dex_market_acc,
+        bids_acc,
+        asks_acc,
+        event_queue_acc,
+        coin_vault_acc,
+        pc_vault_acc,
+        signer_acc,
+        source_token_acc,
+        dest_token_acc,
+        owner_token_acc
+    ] = accounts;
+
+    invoke_signed(
+        &(Instruction::new_with_borsh(
+            *pool_prog_acc.key,
+            &data,
+            vec![
+                AccountMeta::new(*token_prog_acc.key, false),
+                AccountMeta::new(*amm_id.key, false),
+                AccountMeta::new(*amm_authority.key, false),
+                AccountMeta::new(*amm_open_orders.key, false),
+                AccountMeta::new(*amm_target_orders.key, false),
+                AccountMeta::new(*pool_coin_token_acc.key, false),
+                AccountMeta::new(*pool_pc_token_acc.key, false),
+                AccountMeta::new(*dex_prog_acc.key, false),
+                AccountMeta::new(*dex_market_acc.key, false),
+                AccountMeta::new(*bids_acc.key, false),
+                AccountMeta::new(*asks_acc.key, false),
+                AccountMeta::new(*event_queue_acc.key, false),
+                AccountMeta::new(*coin_vault_acc.key, false),
+                AccountMeta::new(*pc_vault_acc.key, false),
+                AccountMeta::new(*signer_acc.key, false),
+                AccountMeta::new(*source_token_acc.key, false),
+                AccountMeta::new(*dest_token_acc.key, false),
+                AccountMeta::new(*owner_token_acc.key, true)
+            ],
+        )),
+        &[
+            token_prog_acc.clone(),
+            amm_id.clone(),
+            amm_authority.clone(),
+            amm_open_orders.clone(),
+            amm_target_orders.clone(),
+            pool_coin_token_acc.clone(),
+            pool_pc_token_acc.clone(),
+            dex_prog_acc.clone(),
+            dex_market_acc.clone(),
+            bids_acc.clone(),
+            asks_acc.clone(),
+            event_queue_acc.clone(),
+            coin_vault_acc.clone(),
+            pc_vault_acc.clone(),
+            signer_acc.clone(),
+            source_token_acc.clone(),
+            dest_token_acc.clone(),
+            owner_token_acc.clone(),
+        ],
+        &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
+    );
+    msg!("swap instruction done");
+
+    let source_info = parse_token_account(source_token_acc)?;
+    let dest_info = parse_token_account(dest_token_acc)?;
+
+    Ok((source_info, dest_info))
 }
