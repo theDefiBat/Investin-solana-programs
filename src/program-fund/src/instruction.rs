@@ -45,14 +45,12 @@ pub enum FundInstruction {
     /// 2. [WRITE]  Investor State Account (derived from IPDA)
     /// 3. [SIGNER] Investor Wallet Account
     /// 4. []       Router Base Token Account
-    /// 5. []       Manager Base Token Account
-    /// 6. []       Investin Base Token Account
-    /// 7. []       PDA of Manager
-    /// 8. []       PDA of Router
-    /// 9. []       Token Program
-    /// 9..9+NUM_TOKENS []  Investor Token Accounts
-    /// 9+NUM_TOKENS.. 9+2*NUM_TOKENS  Fund Token Accounts
-    /// 9+2*NUM_TOKENS..9+4*NUM_TOKENS-2 Pool Token Accounts for each pair
+    /// 5. []       PDA of Manager
+    /// 6. []       PDA of Router
+    /// 7. []       Token Program
+    /// 8..8+NUM_TOKENS []  Investor Token Accounts
+    /// 8+NUM_TOKENS.. 8+8*NUM_TOKENS  Fund Token Accounts
+    /// 8+2*NUM_TOKENS..8+4*NUM_TOKENS-2 Pool Token Accounts for each pair
     InvestorWithdraw {
         amount: u64
     },
