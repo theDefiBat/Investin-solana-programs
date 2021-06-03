@@ -168,7 +168,7 @@ export const Swap = () => {
     transaction.add(instruction)
     transaction.feePayer = owner;
     console.log("trnsaction:: ", transaction)
-    let hash = await connection.getRecentBlockhash();
+    let hash = await connection.getRecentBlockhash("finalized");
     console.log("blockhash", hash);
     transaction.recentBlockhash = hash.blockhash;
 

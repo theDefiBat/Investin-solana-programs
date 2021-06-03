@@ -11,7 +11,7 @@ export async function setWalletTransaction(
   const transaction = new Transaction();
   transaction.add(instruction);
   transaction.feePayer = publicKey;
-  let hash = await connection.getRecentBlockhash();
+  let hash = await connection.getRecentBlockhash('finalized');
   console.log("blockhash", hash);
   transaction.recentBlockhash = hash.blockhash;
   return transaction;
@@ -24,7 +24,10 @@ export async function signAndSendTransaction(
   console.log(`wallet :::`, wallet)
   let signedTrans = await wallet.signTransaction(transaction);
   console.log("sign transaction");
-  let signature = await connection.sendRawTransaction(signedTrans.serialize());
+  let signature = await connection.sendRawTransaction(signedTrans.serialize(),{
+    skipPreflight: true,
+    preflightCommitment: 'finalized'
+  });
   console.log("send raw transaction");
   return signature;
 }

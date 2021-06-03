@@ -93,7 +93,7 @@ export const Transfer = () => {
     
     transaction.add(transfer_instruction);
     transaction.feePayer = key;
-    let hash = await connection.getRecentBlockhash();
+    let hash = await connection.getRecentBlockhash("max");
     console.log("blockhash", hash);
     transaction.recentBlockhash = hash.blockhash;
 

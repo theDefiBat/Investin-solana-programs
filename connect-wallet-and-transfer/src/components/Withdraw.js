@@ -4,14 +4,14 @@ import { GlobalState } from '../store/globalState';
 import { connection, programId, FUND_ACCOUNT_KEY, platformStateAccount, adminAccount, TOKEN_PROGRAM_ID } from '../utils/constants';
 import { nu64, struct, u8 } from 'buffer-layout';
 import { createKeyIfNotExists, findAssociatedTokenAddress, setWalletTransaction, signAndSendTransaction, createAssociatedTokenAccount, createAssociatedTokenAccountIfNotExist } from '../utils/web3';
-import { devnet_pools } from '../utils/pools';
+import { pools } from '../utils/pools';
 import { keyBy } from 'lodash';
 import { INVESTOR_DATA, PLATFORM_DATA, FUND_DATA } from '../utils/programLayouts';
 import { TOKENS } from '../utils/tokens';
 
 
 const getPoolAccounts = () => {
-  return devnet_pools.map((p) => {
+  return pools.map((p) => {
     return [
       { pubkey: new PublicKey(p.poolCoinTokenAccount), isSigner: false, isWritable: true },
       { pubkey: new PublicKey(p.poolPcTokenAccount), isSigner: false, isWritable: true }
@@ -95,8 +95,8 @@ export const Withdraw = () => {
         { pubkey: key, isSigner: true, isWritable: true },
         
         { pubkey: routerAssociatedTokenAddress, isSigner: false, isWritable: true }, // Router Base Token Account
-        { pubkey: managerAssociatedTokenAccount, isSigner: false, isWritable: true }, // Manager Base Token Account
-        { pubkey: investinAssociatedTokenAddress, isSigner: false, isWritable: true }, // Investin Base Token Account
+      //  { pubkey: managerAssociatedTokenAccount, isSigner: false, isWritable: true }, // Manager Base Token Account
+       //  { pubkey: investinAssociatedTokenAddress, isSigner: false, isWritable: true }, // Investin Base Token Account
         
         { pubkey: MPDA, isSigner: false, isWritable: false },
         { pubkey: RPDA[0], isSigner: false, isWritable: false },
@@ -122,7 +122,7 @@ export const Withdraw = () => {
     console.log(`transaction ::: `, transaction)
     console.log(`walletProvider?.publicKey ::: `, walletProvider?.publicKey.toBase58())
     transaction.feePayer = key;
-    let hash = await connection.getRecentBlockhash();
+    let hash = await connection.getRecentBlockhash("finalized");
     console.log("blockhash", hash);
     transaction.recentBlockhash = hash.blockhash;
 

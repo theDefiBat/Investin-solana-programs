@@ -69,6 +69,12 @@ export const Testing = () => {
         programId,
         data
         });
+        console.log("pool0coin:", pools[0].poolCoinTokenAccount)
+        console.log("pool0pc:", pools[0].poolPcTokenAccount)
+
+        console.log("pool1coin:", pools[1].poolCoinTokenAccount)
+        console.log("pool1pc:", pools[1].poolPcTokenAccount)
+
         
         const transaction2 = await setWalletTransaction(instruction, walletProvider?.publicKey);
         const signature = await signAndSendTransaction(walletProvider, transaction2);

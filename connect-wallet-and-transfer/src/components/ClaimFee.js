@@ -3,10 +3,10 @@ import React, { useState } from 'react'
 import { GlobalState } from '../store/globalState';
 import { adminAccount, connection, programId, TOKEN_PROGRAM_ID, FUND_ACCOUNT_KEY } from '../utils/constants';
 import { nu64, struct, u8 } from 'buffer-layout';
-import { findAssociatedTokenAddress, signAndSendTransaction, createAssociatedTokenAccountIfNotExist } from '../utils/web3';
-import { TEST_TOKENS } from '../utils/tokens'
+import { findAssociatedTokenAddress, signAndSendTransaction, createAssociatedTokenAccountIfNotExist, commitment } from '../utils/web3';
+import { TOKENS } from '../utils/tokens'
 import { FUND_DATA } from '../utils/programLayouts';
-import { devnet_pools } from '../utils/pools'
+import { pools } from '../utils/pools'
 
 
 export const Claim = () => {
@@ -23,10 +23,10 @@ export const Claim = () => {
         const fundPDA = await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId);
         
 
-        console.log("FUND STTE:: ", fundStateAccount.toBase58())
-        setFundStateAccount(fundStateAccount.toBase58())
+        console.log("FUND STTE:: ", fundStateAccount)
+        setFundStateAccount(fundStateAccount)
 
-        let x = await connection.getAccountInfo(fundStateAccount)
+        let x = await connection.getAccountInfo(new PublicKey(fundStateAccount))
         if (x == null)
         {
           alert("fund account not found")
@@ -43,9 +43,9 @@ export const Claim = () => {
           return
         }
 
-        const fundBaseTokenAccount = await findAssociatedTokenAddress(fundPDA[0], new PublicKey(TEST_TOKENS['USDR'].mintAddress));
-        const managerBaseTokenAccount = await findAssociatedTokenAddress(key, new PublicKey(TEST_TOKENS['USDR'].mintAddress));
-        const investinBaseTokenAccount = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['USDR'].mintAddress), adminAccount); 
+        const fundBaseTokenAccount = await findAssociatedTokenAddress(fundPDA[0], new PublicKey(TOKENS['USDC'].mintAddress));
+        const managerBaseTokenAccount = await findAssociatedTokenAddress(key, new PublicKey(TOKENS['USDC'].mintAddress));
+        const investinBaseTokenAccount = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TOKENS['USDC'].mintAddress), adminAccount); 
         
         const transaction = new Transaction()
 
@@ -60,7 +60,7 @@ export const Claim = () => {
         
         const claim_instruction = new TransactionInstruction({
         keys: [
-        {pubkey: fundStateAccount, isSigner: false, isWritable: true},
+        {pubkey: new PublicKey(fundStateAccount), isSigner: false, isWritable: true},
         {pubkey: key, isSigner: true, isWritable: true },
         {pubkey: fundBaseTokenAccount, isSigner: false, isWritable:true},
         {pubkey: managerBaseTokenAccount, isSigner: false, isWritable:true},
@@ -69,10 +69,10 @@ export const Claim = () => {
         {pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: true},
 
          // Pool Token accounts
-         {pubkey: new PublicKey(devnet_pools[0].poolCoinTokenAccount), isSigner: false, isWritable: true},
-         {pubkey: new PublicKey(devnet_pools[0].poolPcTokenAccount), isSigner: false, isWritable: true},
-         {pubkey: new PublicKey(devnet_pools[1].poolCoinTokenAccount), isSigner: false, isWritable: true},
-         {pubkey: new PublicKey(devnet_pools[1].poolPcTokenAccount), isSigner: false, isWritable: true},
+         {pubkey: new PublicKey(pools[0].poolCoinTokenAccount), isSigner: false, isWritable: true},
+         {pubkey: new PublicKey(pools[0].poolPcTokenAccount), isSigner: false, isWritable: true},
+         {pubkey: new PublicKey(pools[1].poolCoinTokenAccount), isSigner: false, isWritable: true},
+         {pubkey: new PublicKey(pools[1].poolPcTokenAccount), isSigner: false, isWritable: true},
 
     ],
     programId,
@@ -81,7 +81,7 @@ export const Claim = () => {
     
     transaction.add(claim_instruction);
     transaction.feePayer = key;
-    let hash = await connection.getRecentBlockhash();
+    let hash = await connection.getRecentBlockhash('finalized');
     console.log("blockhash", hash);
     transaction.recentBlockhash = hash.blockhash;
 
@@ -104,7 +104,7 @@ export const Claim = () => {
     );
 
     console.log("FUND STTE:: ", fundStateAcc.toBase58())
-    setFundStateAccount(fundStateAcc)
+    setFundStateAccount(fundStateAcc.toBase58())
 
     let x = await connection.getAccountInfo(fundStateAcc)
     if (x == null)
