@@ -141,7 +141,7 @@ export const Transfer = () => {
     let bal = []
     bal.push((parseInt(fundState.tokens[0].balance)/ (10**fundState.tokens[0].decimals)))
     bal.push((parseInt(fundState.tokens[1].balance)/ (10**fundState.tokens[1].decimals)))
-    bal.push((parseInt(fundState.tokens[1].balance)/ (10**fundState.tokens[2].decimals)))
+    bal.push((parseInt(fundState.tokens[2].balance)/ (10**fundState.tokens[2].decimals)))
     setFundBalances(bal)
     console.log(bal)
 

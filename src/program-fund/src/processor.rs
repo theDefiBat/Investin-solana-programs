@@ -431,7 +431,7 @@ impl Fund {
                 if withdraw_amount < 100 {
                     continue;
                 }
-                msg!("Invoking withdraw instruction: {:?}", withdraw_amount);
+                //msg!("Invoking withdraw instruction: {:?}", withdraw_amount);
                 invoke_signed(
                     &(spl_token::instruction::transfer(
                         token_prog_acc.key,
@@ -755,6 +755,8 @@ pub fn update_amount_and_performance(
         let val: U64F64 = pc_res
         .checked_div(coin_res).unwrap()
         .checked_mul(U64F64::from_num(fund_data.tokens[i+1].balance)).unwrap();
+
+        msg!("price:: {:?}", val);
 
         fund_val = fund_val.checked_add(val).unwrap();
     }
