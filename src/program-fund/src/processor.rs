@@ -738,8 +738,8 @@ pub fn update_amount_and_performance(
     let mut fund_val = U64F64::from_num(fund_data.tokens[0].balance);
     // Calculate prices for all tokens with balances
     for i in 0..(NUM_TOKENS-1) {
-        let coin_acc = &pool_accs[i];
-        let pc_acc = &pool_accs[i+1];
+        let coin_acc = &pool_accs[2*i];
+        let pc_acc = &pool_accs[2*i+1];
         let coin_data = Account::unpack(&coin_acc.data.borrow())?;
         let pc_data = Account::unpack(&pc_acc.data.borrow())?;
 
