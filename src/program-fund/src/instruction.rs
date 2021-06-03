@@ -75,9 +75,16 @@ pub enum FundInstruction {
     /// 6. []       Token Program
     ClaimPerformanceFee,
 
-    // AdminControl{
-
-    // }
+    /// 0. [WRITE] Platform State Account
+    /// 1. [SIGNER] investin Wallet Account 
+    /// 2. []       Fund state Account / 2. []     Base Token Mint Address
+    AdminControl{
+        platform_is_initialized: bool,
+        fund_is_initialized: bool,
+        fund_min_amount: u64,
+        fund_min_return: u64,
+        fund_performance_fee_percentage: u64
+    },
 
     /// 0. [WRITE] Fund State Account (derived from FA)
     /// 1. [SIGNER] Manager Wallet Account 
@@ -87,7 +94,7 @@ pub enum FundInstruction {
     /// 5. []       Token Program
     /// 6..6+2*(NUM_TOKENS-1) Pool Token Accounts for each pair
     TestingDeposit{
-        amount: u64
+        amount: u64,
     },
 
     /// 0. [WRITE] Fund State Account (derived from FA)

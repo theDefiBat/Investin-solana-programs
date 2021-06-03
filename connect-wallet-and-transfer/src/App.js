@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 
 import { GlobalState } from './store/globalState'
 import { getTransactions } from './utils/getTransactions';
-import { connection } from './utils/constants';
+import { adminAccount, connection } from './utils/constants';
 import TransactionsView from './components/Transactions';
 import { SendGreating } from './components/SendGreating';
 import { Deposit } from './components/Deposit';
@@ -15,6 +15,7 @@ import { Withdraw } from './components/Withdraw';
 import { Transfer } from './components/Transfer';
 import { Claim } from './components/ClaimFee';
 import { Testing } from './components/Testing';
+import { AdminControl } from './components/AdminControl';
 
 
 
@@ -45,6 +46,7 @@ function App() {
           transactions && <TransactionsView transactions={transactions} />
         } */}
         <SendGreating />
+        <AdminControl/>
         <InitialisedFund />
         <Deposit />
 	      <Transfer />

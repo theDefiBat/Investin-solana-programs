@@ -24,7 +24,7 @@ pub struct PlatformData {
     pub no_of_active_funds: u64,
 
     // Investin admin
-    //pub investin_admin: Pubkey,
+    pub investin_admin: Pubkey,
 
     // vault for protocol fee
     //pub investin_vault: Pubkey,

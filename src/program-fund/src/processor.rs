@@ -574,6 +574,49 @@ impl Fund {
 
     }
 
+    pub fn AdminControl (
+        program_id: &Pubkey,
+        accounts: &[AccountInfo],
+        platform_is_initialized: bool,
+        fund_is_initialized: bool,
+        fund_min_amount: u64,
+        fund_min_return: u64,
+        fund_performance_fee_percentage: u64
+    ) -> Result<(), ProgramError> {
+        let accounts_iter = &mut accounts.iter();
+
+        let platform_state_acc = next_account_info(accounts_iter)?;
+        let investin_acc = next_account_info(accounts_iter)?;
+
+        let mut platform_data = PlatformData::try_from_slice(&platform_state_acc.data.borrow())?;
+        check!(investin_acc.is_signer, FundError::IncorrectSignature);
+
+        if !platform_data.is_initialized {
+            let (router_pda, nonce) = 
+                Pubkey::find_program_address(&["router".as_ref()], program_id
+            );
+            platform_data.router = router_pda;
+            platform_data.router_nonce = nonce;
+            
+            platform_data.is_initialized = true;
+            platform_data.no_of_active_funds = 0;
+            platform_data.investin_admin = *investin_acc.key;
+        } else {
+            let fund_state_acc = next_account_info(accounts_iter)?;
+            let mut fund_data = FundData::try_from_slice(&fund_state_acc.data.borrow())?;
+
+            platform_data.is_initialized = platform_is_initialized;
+            fund_data.is_initialized = fund_is_initialized;
+            fund_data.min_amount = fund_min_amount;
+            fund_data.min_return = fund_min_return;
+            fund_data.performance_fee_percentage = fund_performance_fee_percentage;
+            fund_data.serialize(&mut *fund_state_acc.data.borrow_mut())?;
+        }
+
+        platform_data.serialize(&mut *platform_state_acc.data.borrow_mut())?;
+        Ok(())
+    }
+
     pub fn TestingDeposit (
         program_id: &Pubkey,
         accounts: &[AccountInfo],
@@ -709,6 +752,10 @@ impl Fund {
             FundInstruction::ClaimPerformanceFee {} => {
                 msg!("FundInstruction::ClaimPerformanceFee");
                 return Self::claim(program_id, accounts);
+            }
+            FundInstruction::AdminControl {platform_is_initialized, fund_is_initialized, fund_min_amount, fund_min_return, fund_performance_fee_percentage} => {
+                msg!("FundInstruction::AdminControl");
+                return Self::AdminControl(program_id, accounts, platform_is_initialized, fund_is_initialized, fund_min_amount, fund_min_return, fund_performance_fee_percentage);
             }
             FundInstruction::TestingDeposit {amount} => {
                 msg!("FundInstruction::TestingDeposit");
