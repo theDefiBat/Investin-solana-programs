@@ -15,6 +15,8 @@ import { Withdraw } from './components/Withdraw';
 import { Transfer } from './components/Transfer';
 import { Claim } from './components/ClaimFee';
 import { Testing } from './components/Testing';
+import { GetPrices } from './components/GetPrices';
+
 
 
 
@@ -52,6 +54,7 @@ function App() {
         <Testing />
         <Withdraw />
         <Claim />
+        <GetPrices />
       </Container>
     </div>
   );

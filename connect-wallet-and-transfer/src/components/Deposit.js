@@ -7,6 +7,7 @@ import { createKeyIfNotExists, findAssociatedTokenAddress, setWalletTransaction,
 import { INVESTOR_DATA, PLATFORM_DATA } from '../utils/programLayouts';
 import { TEST_TOKENS } from '../utils/tokens'
 import { devnet_pools } from '../utils/pools'
+import { updatePoolPrices } from './updatePrices';
 
 export const Deposit = () => {
 
@@ -37,9 +38,10 @@ export const Deposit = () => {
 
     const associatedTokenAddress1 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['USDR'].mintAddress), RPDA[0], transaction);    
 
-    const investerStateAccount = await createKeyIfNotExists(walletProvider, null, programId, FPDA.toBase58().substr(0, 32), INVESTOR_DATA.span)
+    const investerStateAccount = await createKeyIfNotExists(walletProvider, null, programId, FPDA.toBase58().substr(0, 32), INVESTOR_DATA.span, transaction)
     
-
+    updatePoolPrices(transaction, devnet_pools)
+    
     console.log("RPDA:", RPDA[0].toBase58())
     console.log("FPDA: ", FPDA.toBase58())
     console.log("fundStateAccountRead:: ", fundStateAccount)
@@ -76,11 +78,18 @@ export const Deposit = () => {
       programId,
       data
     });
+    transaction.add(instruction)
+    transaction.feePayer = walletProvider?.publicKey;
+    let hash = await connection.getRecentBlockhash();
+    console.log("blockhash", hash);
+    transaction.recentBlockhash = hash.blockhash;
 
-    const transaction2 = await setWalletTransaction(instruction, walletProvider?.publicKey);
-    const signature = await signAndSendTransaction(walletProvider, transaction2);
-    let result = await connection.confirmTransaction(signature, "confirmed");
-    console.log("tx:: ", signature)
+    const sign = await signAndSendTransaction(walletProvider, transaction);
+    console.log("signature tx:: ", sign)
+    // const transaction2 = await setWalletTransaction(instruction, walletProvider?.publicKey);
+    // const signature = await signAndSendTransaction(walletProvider, transaction2);
+    // let result = await connection.confirmTransaction(signature, "confirmed");
+    // console.log("tx:: ", signature)
     
     // transaction.add(deposit_instruction);
     // transaction.feePayer = key;

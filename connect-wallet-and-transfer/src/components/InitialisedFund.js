@@ -29,13 +29,15 @@ export const InitialisedFund = () => {
   const handleInitialFund = async () => {
     console.log("handle initalise fund clicked")
 
+    const transaction = new Transaction()
+
     const fundPDA = await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId);
     const routerPDA = await PublicKey.findProgramAddress([Buffer.from("router")], programId);
 
     // ***what should be in the place of wallet provider in platformAccount
-    const platformAccount = platformStateAccount;
-    //const platformAccount = await createKeyIfNotExists(walletProvider, "", programId, PLATFORM_ACCOUNT_KEY, PLATFORM_DATA.span)
-    const fundAccount = await createKeyIfNotExists(walletProvider, "", programId, FUND_ACCOUNT_KEY, FUND_DATA.span)
+    //const platformAccount = platformStateAccount;
+    const platformAccount = await createKeyIfNotExists(walletProvider, "", programId, PLATFORM_ACCOUNT_KEY, PLATFORM_DATA.span, transaction)
+    const fundAccount = await createKeyIfNotExists(walletProvider, "", programId, FUND_ACCOUNT_KEY, FUND_DATA.span, transaction)
 
 
     console.log(`fundPDA::: `, fundPDA[0].toBase58())
@@ -75,9 +77,9 @@ export const InitialisedFund = () => {
 
       console.log(`associatedTokenAccounts.value ::: `, associatedTokenAccounts.value)
     
-      const associatedTokenAddress1 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['USDR'].mintAddress), PDA[0]);
-      const associatedTokenAddress2 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['RAYT'].mintAddress), PDA[0]);
-      const associatedTokenAddress3 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['ALPHA'].mintAddress), PDA[0]);
+      const associatedTokenAddress1 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['USDR'].mintAddress), PDA[0], transaction);
+      const associatedTokenAddress2 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['RAYT'].mintAddress), PDA[0], transaction);
+      const associatedTokenAddress3 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['ALPHA'].mintAddress), PDA[0], transaction);
 
      
       console.log(`associatedTokenAddress1 ::: `, associatedTokenAccounts)
@@ -99,14 +101,29 @@ export const InitialisedFund = () => {
           { pubkey: new PublicKey(TEST_TOKENS['USDR'].mintAddress), isSigner: false, isWritable: true },
           { pubkey: new PublicKey(TEST_TOKENS['RAYT'].mintAddress), isSigner: false, isWritable: true },
           { pubkey: new PublicKey(TEST_TOKENS['ALPHA'].mintAddress), isSigner: false, isWritable: true },
+          { pubkey: new PublicKey(TEST_TOKENS['ALPHA'].mintAddress), isSigner: false, isWritable: true },
+          { pubkey: new PublicKey(TEST_TOKENS['ALPHA'].mintAddress), isSigner: false, isWritable: true },
+          { pubkey: new PublicKey(TEST_TOKENS['ALPHA'].mintAddress), isSigner: false, isWritable: true },
+          { pubkey: new PublicKey(TEST_TOKENS['ALPHA'].mintAddress), isSigner: false, isWritable: true },
+          { pubkey: new PublicKey(TEST_TOKENS['ALPHA'].mintAddress), isSigner: false, isWritable: true },
+          { pubkey: new PublicKey(TEST_TOKENS['ALPHA'].mintAddress), isSigner: false, isWritable: true },
+          { pubkey: new PublicKey(TEST_TOKENS['ALPHA'].mintAddress), isSigner: false, isWritable: true },
+
         ],
         programId,
         data
       });
+      transaction.add(instruction)
+      transaction.feePayer = walletProvider?.publicKey;
+      let hash = await connection.getRecentBlockhash();
+      console.log("blockhash", hash);
+      transaction.recentBlockhash = hash.blockhash;
 
-      const transaction2 = await setWalletTransaction(instruction, walletProvider?.publicKey);
-      const signature = await signAndSendTransaction(walletProvider, transaction2);
-      console.log(`signature :::`, signature)
+      const sign = await signAndSendTransaction(walletProvider, transaction);
+      console.log("signature tx:: ", sign)
+      // const transaction2 = await setWalletTransaction(instruction, walletProvider?.publicKey);
+      // const signature = await signAndSendTransaction(walletProvider, transaction2);
+      // console.log(`signature :::`, signature)
 
 
       const accData = await connection.getAccountInfo(platformAccount);

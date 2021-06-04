@@ -1,12 +1,13 @@
-import { PublicKey, Transaction, TransactionInstruction } from '@solana/web3.js';
+import { PublicKey, SYSVAR_CLOCK_PUBKEY, Transaction, TransactionInstruction } from '@solana/web3.js';
 import React, { useState } from 'react'
 import { GlobalState } from '../store/globalState';
-import { adminAccount, connection, FUND_ACCOUNT_KEY, platformStateAccount, programId, TOKEN_PROGRAM_ID } from '../utils/constants';
+import { adminAccount, connection, FUND_ACCOUNT_KEY, priceStateAccount, programId, TOKEN_PROGRAM_ID } from '../utils/constants';
 import { nu64, struct, u8 } from 'buffer-layout';
 import { createKeyIfNotExists, findAssociatedTokenAddress, setWalletTransaction, signAndSendTransaction, createAssociatedTokenAccountIfNotExist } from '../utils/web3';
 import { FUND_DATA } from '../utils/programLayouts';
 import { devnet_pools } from '../utils/pools'
 import { TEST_TOKENS } from '../utils/tokens'
+import { updatePoolPrices } from './updatePrices';
 import { u64 } from '@project-serum/borsh';
 
 export const Testing = () => {
@@ -26,6 +27,9 @@ export const Testing = () => {
       
         
         const transaction = new Transaction()
+
+        updatePoolPrices(transaction, devnet_pools)
+
         const fundPDA = await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId);
         const fundStateAccount = await PublicKey.createWithSeed(
             key,
@@ -50,6 +54,8 @@ export const Testing = () => {
         const instruction = new TransactionInstruction({
         keys: [
             {pubkey: fundStateAccount, isSigner: false, isWritable:true},
+            {pubkey: priceStateAccount, isSigner: false, isWritable:true},
+            {pubkey: SYSVAR_CLOCK_PUBKEY, isSigner: false, isWritable:true},
             {pubkey: key, isSigner: true, isWritable: true},
         
             {pubkey: fundBaseTokenAccount, isSigner: false, isWritable:true},
@@ -59,21 +65,22 @@ export const Testing = () => {
 
             {pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: true},
             
-            // Pool Token accounts
-            {pubkey: new PublicKey(devnet_pools[0].poolCoinTokenAccount), isSigner: false, isWritable: true},
-            {pubkey: new PublicKey(devnet_pools[0].poolPcTokenAccount), isSigner: false, isWritable: true},
-            {pubkey: new PublicKey(devnet_pools[1].poolCoinTokenAccount), isSigner: false, isWritable: true},
-            {pubkey: new PublicKey(devnet_pools[1].poolPcTokenAccount), isSigner: false, isWritable: true},
-
         ],
         programId,
         data
         });
-        
-        const transaction2 = await setWalletTransaction(instruction, walletProvider?.publicKey);
-        const signature = await signAndSendTransaction(walletProvider, transaction2);
-        let result = await connection.confirmTransaction(signature, "confirmed");
-        console.log("tx:: ", signature)
+        transaction.add(instruction);
+        transaction.feePayer = key;
+        let hash = await connection.getRecentBlockhash();
+        console.log("blockhash", hash);
+        transaction.recentBlockhash = hash.blockhash;
+
+        const sign = await signAndSendTransaction(walletProvider, transaction);
+        console.log("signature tx:: ", sign)
+        // const transaction2 = await setWalletTransaction(instruction, walletProvider?.publicKey);
+        // const signature = await signAndSendTransaction(walletProvider, transaction2);
+        // let result = await connection.confirmTransaction(signature, "confirmed");
+        // console.log("tx:: ", signature)
     }
 
     const handleWithdraw = async () => {
@@ -87,6 +94,9 @@ export const Testing = () => {
       
         
         const transaction = new Transaction()
+
+        updatePoolPrices(transaction, devnet_pools)
+
         const fundPDA = await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId);
         const fundStateAccount = await PublicKey.createWithSeed(
             key,
@@ -111,8 +121,11 @@ export const Testing = () => {
         const instruction = new TransactionInstruction({
         keys: [
             {pubkey: fundStateAccount, isSigner: false, isWritable:true},
+            {pubkey: priceStateAccount, isSigner: false, isWritable:true},
+            {pubkey: SYSVAR_CLOCK_PUBKEY, isSigner: false, isWritable:true},
+            
             {pubkey: key, isSigner: true, isWritable: true},
-        
+
             {pubkey: fundBaseTokenAccount, isSigner: false, isWritable:true},
             {pubkey: managerBaseTokenAccount, isSigner: false, isWritable:true},
  
@@ -120,21 +133,24 @@ export const Testing = () => {
 
             {pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: true},
             
-            // Pool Token accounts
-            {pubkey: new PublicKey(devnet_pools[0].poolCoinTokenAccount), isSigner: false, isWritable: true},
-            {pubkey: new PublicKey(devnet_pools[0].poolPcTokenAccount), isSigner: false, isWritable: true},
-            {pubkey: new PublicKey(devnet_pools[1].poolCoinTokenAccount), isSigner: false, isWritable: true},
-            {pubkey: new PublicKey(devnet_pools[1].poolPcTokenAccount), isSigner: false, isWritable: true},
-
         ],
         programId,
         data
         });
         
-        const transaction2 = await setWalletTransaction(instruction, walletProvider?.publicKey);
-        const signature = await signAndSendTransaction(walletProvider, transaction2);
-        let result = await connection.confirmTransaction(signature, "confirmed");
-        console.log("tx:: ", signature)
+        transaction.add(instruction);
+        transaction.feePayer = key;
+        let hash = await connection.getRecentBlockhash();
+        console.log("blockhash", hash);
+        transaction.recentBlockhash = hash.blockhash;
+
+        const sign = await signAndSendTransaction(walletProvider, transaction);
+        console.log("signature tx:: ", sign)
+
+        // const transaction2 = await setWalletTransaction(instruction, walletProvider?.publicKey);
+        // const signature = await signAndSendTransaction(walletProvider, transaction2);
+        // let result = await connection.confirmTransaction(signature, "confirmed");
+        // console.log("tx:: ", signature)
 
     }
     return (

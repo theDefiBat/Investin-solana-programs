@@ -1,7 +1,8 @@
 import { Connection, PublicKey } from "@solana/web3.js";
 
-export const PLATFORM_ACCOUNT_KEY = "platAccKey_3";
-export const FUND_ACCOUNT_KEY = "fundAccKey_3";
+export const PLATFORM_ACCOUNT_KEY = "platAccKey_5";
+export const FUND_ACCOUNT_KEY = "fundAccKey_5";
+export const PRICE_ACCOUNT_KEY = "price_account_key_5";
 
 export const adminAccount = new PublicKey('Fepyuf4vy7mKZVgpzS52UoUeSLmVvGnoMDyraCsjYUqn')
 
@@ -11,7 +12,8 @@ export const connection = new Connection(cluster, "confirmed");
 export const programId = new PublicKey('BX8FpMj7MgTYr2YBan2kG9KX2UGimtBrECk2DabTYEYP');
 
 // change later
-export const platformStateAccount = new PublicKey('9J8eAnS61ieaA5VsVgu3hLoEXDwtFxtcuVKzsixAFFEo')
+export const platformStateAccount = new PublicKey('2LdhEgjKSiTbZ9YgfrJbhMufRRQfqiG8RJcPBwSrZtaS')
+export const priceStateAccount = new PublicKey('ARXWJc6FmrAB7zkL2LAeRWGgaAe3MUqD1MJUTZGyiRQn')
 
 export const SYSTEM_PROGRAM_ID = new PublicKey('11111111111111111111111111111111')
 export const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA')

@@ -1,12 +1,13 @@
-import { PublicKey, Transaction, TransactionInstruction } from '@solana/web3.js';
+import { PublicKey, SYSVAR_CLOCK_PUBKEY, Transaction, TransactionInstruction } from '@solana/web3.js';
 import React, { useState } from 'react'
 import { GlobalState } from '../store/globalState';
-import { adminAccount, connection, FUND_ACCOUNT_KEY, platformStateAccount, programId, TOKEN_PROGRAM_ID } from '../utils/constants';
+import { adminAccount, connection, FUND_ACCOUNT_KEY, platformStateAccount, priceStateAccount, programId, TOKEN_PROGRAM_ID } from '../utils/constants';
 import { nu64, struct, u8 } from 'buffer-layout';
 import { createKeyIfNotExists, findAssociatedTokenAddress, setWalletTransaction, signAndSendTransaction, createAssociatedTokenAccountIfNotExist } from '../utils/web3';
-import { FUND_DATA } from '../utils/programLayouts';
-import { devnet_pools } from '../utils/pools'
+import { FUND_DATA, INVESTOR_DATA, PLATFORM_DATA, PRICE_DATA } from '../utils/programLayouts';
+import { devnet_pools, pools } from '../utils/pools'
 import { TEST_TOKENS } from '../utils/tokens'
+import { updatePoolPrices } from './updatePrices';
 
 export const Transfer = () => {
 
@@ -44,6 +45,15 @@ export const Transfer = () => {
       
       const transaction = new Transaction()
 
+      updatePoolPrices(transaction, devnet_pools)
+      // transaction1.feePayer = walletProvider?.publicKey;
+      // let hash1 = await connection.getRecentBlockhash();
+      // console.log("blockhash", hash1);
+      // transaction1.recentBlockhash = hash1.blockhash;
+
+      // const sign1 = await signAndSendTransaction(walletProvider, transaction1);
+      // console.log("signature tx:: ", sign1)
+
       const dataLayout = struct([u8('instruction')])
 
       const data = Buffer.alloc(dataLayout.span)
@@ -57,6 +67,9 @@ export const Transfer = () => {
       keys: [
         {pubkey: platformStateAccount, isSigner: false, isWritable:true},
         {pubkey: new PublicKey(fundStateAccount), isSigner: false, isWritable: true},
+        {pubkey: priceStateAccount, isSigner: false, isWritable:true},
+        {pubkey: SYSVAR_CLOCK_PUBKEY, isSigner: false, isWritable:true},
+
         {pubkey: key, isSigner: true, isWritable: true },
         
         {pubkey: routerBaseTokenAccount, isSigner: false, isWritable:true},
@@ -67,12 +80,6 @@ export const Transfer = () => {
         {pubkey: routerPDA[0], isSigner: false, isWritable:true},
 
         {pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: true},
-        
-        // Pool Token accounts
-        {pubkey: new PublicKey(devnet_pools[0].poolCoinTokenAccount), isSigner: false, isWritable: true},
-        {pubkey: new PublicKey(devnet_pools[0].poolPcTokenAccount), isSigner: false, isWritable: true},
-        {pubkey: new PublicKey(devnet_pools[1].poolCoinTokenAccount), isSigner: false, isWritable: true},
-        {pubkey: new PublicKey(devnet_pools[1].poolPcTokenAccount), isSigner: false, isWritable: true},
         
         //investor state accounts
         {pubkey: new PublicKey(fundInvestorAccs[0]), isSigner: false, isWritable:true},
@@ -103,6 +110,12 @@ export const Transfer = () => {
   }
 
   const handleGetFunds = async () => {
+
+    console.log("size of plat data:: ", PLATFORM_DATA.span)
+    console.log("size of fund dta : ", FUND_DATA.span)
+    console.log('size of inv data:: ', INVESTOR_DATA.span)
+
+    console.log('size of price acc:: ', PRICE_DATA.span)
     const key = walletProvider?.publicKey;  
     if (!key ) {
       alert("connect wallet")

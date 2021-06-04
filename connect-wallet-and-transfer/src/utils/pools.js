@@ -53,7 +53,7 @@ export const devnet_pools = [
     ammQuantities: NATIVE_SOL.mintAddress,
 
     // dont care
-    poolCoinTokenAccount: '3qbeXHwh9Sz4zabJxbxvYGJc57DZHrFgYMCWnaeNJENT',
+    poolCoinTokenAccount: 'DUn4i71SXksHN7KtveP4uauWqsnfdSHa4PoEkzN8qqN6',
     poolPcTokenAccount: 'FrGPG5D4JZVF5ger7xSChFVFL8M9kACJckzyCz8tVowz',
     poolWithdrawQueue: 'DD9nUbJoUbuE3FampcJeLfDPb5zKGvR7Ho7HE5rpcBGx',
     poolTempLpTokenAccount: '249BW2tWhsvwEFtWabpTXXX17Vh7NQSeHS4W7Ku6b27R',

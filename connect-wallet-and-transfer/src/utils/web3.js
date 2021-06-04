@@ -29,7 +29,7 @@ export async function signAndSendTransaction(
   return signature;
 }
 
-export const createKeyIfNotExists = async (wallet, payerAccount, programId, seed, size) => {
+export const createKeyIfNotExists = async (wallet, payerAccount, programId, seed, size, transaction) => {
   const greetedPubkey = await PublicKey.createWithSeed(
     wallet.publicKey,
     seed,
@@ -56,7 +56,7 @@ export const createKeyIfNotExists = async (wallet, payerAccount, programId, seed
 
     // );
     console.log(`lamports :::: `, lamports)
-    const transaction = await setWalletTransaction(
+    transaction.add(
       SystemProgram.createAccountWithSeed({
         fromPubkey: wallet.publicKey,
         basePubkey: wallet.publicKey,
@@ -65,11 +65,11 @@ export const createKeyIfNotExists = async (wallet, payerAccount, programId, seed
         lamports,
         space: size,
         programId,
-      }), wallet.publicKey)
+      }))
 
     // await sendAndConfirmTransaction(connection, transaction, [payerAccount]);
 
-    await signAndSendTransaction(wallet, transaction)
+    //await signAndSendTransaction(wallet, transaction)
   }
   return greetedPubkey;
 }
@@ -169,6 +169,7 @@ export async function createAssociatedTokenAccountIfNotExist(
   wallet,
   tokenMintAddress,
   owner,
+  transaction
 ) {
   const associatedTokenAddress = await findAssociatedTokenAddress(owner, tokenMintAddress)
   
@@ -213,14 +214,13 @@ export async function createAssociatedTokenAccountIfNotExist(
         isWritable: false
       }
     ]
-    const transaction = await setWalletTransaction(
+    transaction.add(
       new TransactionInstruction({
         keys,
         programId: ASSOCIATED_TOKEN_PROGRAM_ID,
         data: Buffer.from([])
-      }),
-      wallet.publicKey)
-    await signAndSendTransaction(wallet, transaction)
+      }))
+    //await signAndSendTransaction(wallet, transaction)
   }
   return associatedTokenAddress
 }

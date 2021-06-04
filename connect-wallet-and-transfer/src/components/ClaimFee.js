@@ -1,12 +1,13 @@
-import { PublicKey, Transaction, TransactionInstruction } from '@solana/web3.js';
+import { PublicKey, SYSVAR_CLOCK_PUBKEY, Transaction, TransactionInstruction } from '@solana/web3.js';
 import React, { useState } from 'react'
 import { GlobalState } from '../store/globalState';
-import { adminAccount, connection, programId, TOKEN_PROGRAM_ID, FUND_ACCOUNT_KEY } from '../utils/constants';
+import { adminAccount, priceStateAccount, connection, programId, TOKEN_PROGRAM_ID, FUND_ACCOUNT_KEY } from '../utils/constants';
 import { nu64, struct, u8 } from 'buffer-layout';
 import { findAssociatedTokenAddress, signAndSendTransaction, createAssociatedTokenAccountIfNotExist } from '../utils/web3';
 import { TEST_TOKENS } from '../utils/tokens'
 import { FUND_DATA } from '../utils/programLayouts';
 import { devnet_pools } from '../utils/pools'
+import { updatePoolPrices } from './updatePrices';
 
 
 export const Claim = () => {
@@ -49,6 +50,8 @@ export const Claim = () => {
         
         const transaction = new Transaction()
 
+        updatePoolPrices(transaction, devnet_pools)
+
         const dataLayout = struct([u8('instruction')])
         const data = Buffer.alloc(dataLayout.span)
         dataLayout.encode(
@@ -61,18 +64,16 @@ export const Claim = () => {
         const claim_instruction = new TransactionInstruction({
         keys: [
         {pubkey: fundStateAccount, isSigner: false, isWritable: true},
+
+        {pubkey: priceStateAccount, isSigner: false, isWritable:true},
+        {pubkey: SYSVAR_CLOCK_PUBKEY, isSigner: false, isWritable:true},
+
         {pubkey: key, isSigner: true, isWritable: true },
         {pubkey: fundBaseTokenAccount, isSigner: false, isWritable:true},
         {pubkey: managerBaseTokenAccount, isSigner: false, isWritable:true},
         {pubkey: investinBaseTokenAccount, isSigner: false, isWritable:true},
         {pubkey: fundPDA[0], isSigner: false, isWritable:true},
         {pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: true},
-
-         // Pool Token accounts
-         {pubkey: new PublicKey(devnet_pools[0].poolCoinTokenAccount), isSigner: false, isWritable: true},
-         {pubkey: new PublicKey(devnet_pools[0].poolPcTokenAccount), isSigner: false, isWritable: true},
-         {pubkey: new PublicKey(devnet_pools[1].poolCoinTokenAccount), isSigner: false, isWritable: true},
-         {pubkey: new PublicKey(devnet_pools[1].poolPcTokenAccount), isSigner: false, isWritable: true},
 
     ],
     programId,
