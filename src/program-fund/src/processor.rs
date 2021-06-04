@@ -753,10 +753,16 @@ pub fn update_amount_and_performance(
         // get index of token
         let index = find_index(&price_data, fund_data.tokens[i+1].mint)?;
 
+<<<<<<< HEAD
+=======
+        let price = price_data.prices[index].token_price;
+>>>>>>> 8c3e9b66646482555e2887288b8b138c59748431
         if clock.unix_timestamp - price_data.prices[index].last_updated > 100 {
             msg!("price not up-to-date.. aborting");
             return Err(FundError::PriceStaleInAccount.into())
         }
+        msg!("price for token:: {:?}", price);
+        msg!("last updated at:: {:?}", price_data.prices[index].last_updated);
 
         // calculate price in terms of base token
         let val: U64F64 = U64F64::from_num(fund_data.tokens[i+1].balance)
