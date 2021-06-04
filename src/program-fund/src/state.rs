@@ -1,6 +1,8 @@
 use borsh::{BorshDeserialize, BorshSerialize};
 use solana_program::pubkey::Pubkey;
 use solana_program::program_pack::{IsInitialized, Sealed};
+use solana_program::clock::UnixTimestamp;
+
 
 
 pub const NUM_TOKENS:usize = 3;
@@ -136,6 +138,41 @@ impl IsInitialized for PlatformData {
     fn is_initialized(&self) -> bool {
         self.is_initialized
     }
+}
+
+pub const MAX_TOKENS:usize = 10;
+
+#[derive(Clone, Debug, Default, Copy, BorshSerialize, BorshDeserialize, PartialEq)]
+pub struct PriceInfo {
+    // mint address of the token
+    pub token_mint: Pubkey,
+
+    pub decimals: u8,
+
+    // pub pool_account: Pubkey,
+
+    // pub base_pool_account: Pubkey,
+
+    // price of token
+    pub token_price: u64,
+
+    // last updated timestamp
+    pub last_updated: UnixTimestamp
+}
+
+/// Define the type of state stored in accounts
+#[derive(Clone, Debug, BorshSerialize, BorshDeserialize, PartialEq)]
+pub struct PriceAccount {
+    pub is_initialized: bool,
+
+    /// number of tokens
+    pub count: u8,
+
+    /// decimals
+    pub decimals: u8,
+
+    /// token price info
+    pub prices: [PriceInfo; MAX_TOKENS]
 }
 
 

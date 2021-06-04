@@ -9,6 +9,8 @@ use solana_program::{
     program_pack::{Pack, IsInitialized},
     pubkey::Pubkey,
     program::{invoke, invoke_signed},
+    clock::Clock,
+    sysvar::Sysvar
 };
 
 use arrayref::{array_ref, array_refs};
@@ -17,7 +19,7 @@ use spl_token::state::{Account, Mint};
 
 use crate::error::FundError;
 use crate::instruction::{FundInstruction, Data};
-use crate::state::{NUM_TOKENS, MAX_INVESTORS, FundData, InvestorData, PlatformData};
+use crate::state::{NUM_TOKENS, MAX_INVESTORS, FundData, InvestorData, PlatformData, PriceAccount};
 
 macro_rules! check {
     ($cond:expr, $err:expr) => {
@@ -220,18 +222,19 @@ impl Fund {
         accounts: &[AccountInfo],
     ) -> Result<(), ProgramError> {
 
-        const NUM_FIXED:usize = 9;
-        let accounts = array_ref![accounts, 0, NUM_FIXED + 2*(NUM_TOKENS-1) + MAX_INVESTORS];
+        const NUM_FIXED:usize = 11;
+        let accounts = array_ref![accounts, 0, NUM_FIXED + MAX_INVESTORS];
 
         let (
             fixed_accs,
-            pool_accs,
             investor_state_accs
-        ) = array_refs![accounts, NUM_FIXED, 2*(NUM_TOKENS-1), MAX_INVESTORS];
+        ) = array_refs![accounts, NUM_FIXED, MAX_INVESTORS];
 
         let [
             platform_acc,
             fund_state_acc,
+            price_acc,
+            clock_sysvar_acc,
             manager_acc,
             router_btoken_acc,
             fund_btoken_acc,
@@ -325,7 +328,7 @@ impl Fund {
         msg!("Transfers completed");
         
         // dont update performance; just amount
-        update_amount_and_performance(&mut fund_data, pool_accs, true)?;
+        update_amount_and_performance(&mut fund_data, &price_acc, &clock_sysvar_acc, true)?;
 
         let in_queue = fund_data.no_of_investments - fund_data.number_of_active_investments;
         for i in 0..in_queue {
@@ -352,7 +355,7 @@ impl Fund {
         
         fund_data.tokens[0].balance = parse_token_account(&fund_btoken_acc)?.amount;
         // dont update performance now
-        update_amount_and_performance(&mut fund_data, pool_accs, false)?;
+        update_amount_and_performance(&mut fund_data, &price_acc, &clock_sysvar_acc, false)?;
         fund_data.number_of_active_investments = fund_data.no_of_investments;
         fund_data.amount_in_router = 0;
         
@@ -367,24 +370,23 @@ impl Fund {
         amount: u64
     ) -> Result<(), ProgramError> {
 
-        const NUM_FIXED:usize = 8;
-        let accounts = array_ref![accounts, 0, NUM_FIXED + 4*NUM_TOKENS - 2];
+        const NUM_FIXED:usize = 10;
+        let accounts = array_ref![accounts, 0, NUM_FIXED + 2*NUM_TOKENS];
 
         let (
             fixed_accs,
             inv_token_accs,
             fund_token_accs,
-            pool_accs
-        ) = array_refs![accounts, NUM_FIXED, NUM_TOKENS, NUM_TOKENS, 2*(NUM_TOKENS-1)];
+        ) = array_refs![accounts, NUM_FIXED, NUM_TOKENS, NUM_TOKENS];
 
         let [
             platform_acc,
             fund_state_acc,
             investor_state_acc,
+            price_acc,
+            clock_sysvar_acc,
             investor_acc,
             router_btoken_acc,
-         //   manager_btoken_acc,
-          //  investin_btoken_acc,
             pda_man_acc,
             pda_router_acc,
             token_prog_acc
@@ -421,7 +423,7 @@ impl Fund {
         } 
 
         if investor_data.amount != 0 && investor_data.start_performance != 0 {
-            update_amount_and_performance(&mut fund_data, pool_accs, true)?;
+            update_amount_and_performance(&mut fund_data, &price_acc, &clock_sysvar_acc, true)?;
             let share = get_share(&mut fund_data, &mut investor_data)?;
             for i in 0..NUM_TOKENS {
                 let withdraw_amount = U64F64::to_num(U64F64::from_num(fund_data.tokens[i].balance)
@@ -460,7 +462,7 @@ impl Fund {
         investor_data.serialize(&mut *investor_state_acc.data.borrow_mut())?;
         
         fund_data.no_of_investments -= 1;
-        update_amount_and_performance(&mut fund_data, pool_accs, false)?;
+        update_amount_and_performance(&mut fund_data, &price_acc, &clock_sysvar_acc, false)?;
 
         fund_data.serialize(&mut *fund_state_acc.data.borrow_mut())?;
         
@@ -497,29 +499,27 @@ impl Fund {
         program_id: &Pubkey,
         accounts: &[AccountInfo],
     ) -> Result<(), ProgramError> {
-        const NUM_FIXED:usize = 7;
-        let accounts = array_ref![accounts, 0, NUM_FIXED + 2*(NUM_TOKENS-1)];
-        let (
-            fixed_accs,
-            pool_accs
-        ) = array_refs![accounts, NUM_FIXED, 2*(NUM_TOKENS-1)];
-        
+        const NUM_FIXED:usize = 9;
+        let accounts = array_ref![accounts, 0, NUM_FIXED];
+
         let [
             fund_state_acc,
+            price_acc,
+            clock_sysvar_acc,
             manager_acc,
             fund_btoken_acc,
             manager_btoken_acc,
             investin_btoken_acc,
             pda_man_acc,
             token_prog_acc
-        ] = fixed_accs;
+        ] = accounts;
 
         let mut fund_data = FundData::try_from_slice(&fund_state_acc.data.borrow())?;
 
         // check if manager signed the tx
         check!(manager_acc.is_signer, FundError::IncorrectSignature);
 
-        update_amount_and_performance(&mut fund_data, pool_accs, true)?;
+        update_amount_and_performance(&mut fund_data, &price_acc, &clock_sysvar_acc, true)?;
 
         msg!("Invoking transfer instructions");
         let performance_fee_manager: u64 = U64F64::to_num(U64F64::from_num(fund_data.performance_fee)
@@ -566,7 +566,7 @@ impl Fund {
         fund_data.tokens[0].balance = parse_token_account(&fund_btoken_acc)?.amount;
         fund_data.performance_fee = 0;
 
-        update_amount_and_performance(&mut fund_data, pool_accs, false)?;
+        update_amount_and_performance(&mut fund_data, &price_acc, &clock_sysvar_acc, false)?;
 
         fund_data.serialize(&mut *fund_state_acc.data.borrow_mut())?;
         
@@ -579,21 +579,18 @@ impl Fund {
         accounts: &[AccountInfo],
         amount: u64
     ) -> Result<(), ProgramError> {
-        const NUM_FIXED:usize = 6;
-        let accounts = array_ref![accounts, 0, NUM_FIXED + 2*NUM_TOKENS - 2];
-        let (
-            fixed_accs,
-            pool_accs,
-            ) = array_refs![accounts, NUM_FIXED, 2*(NUM_TOKENS-1)];
-
+        const NUM_FIXED:usize = 8;
+        let accounts = array_ref![accounts, 0, NUM_FIXED];
         let [
             fund_state_acc,
+            price_acc,
+            clock_sysvar_acc,
             manager_acc,
             fund_btoken_acc,
             manager_btoken_acc,
             pda_man_acc,
             token_prog_acc
-        ] = fixed_accs;
+        ] = accounts;
 
         let mut fund_data = FundData::try_from_slice(&fund_state_acc.data.borrow())?;
 
@@ -618,7 +615,7 @@ impl Fund {
         invoke(&deposit_instruction, &deposit_accs)?;
 
         fund_data.tokens[0].balance = parse_token_account(&fund_btoken_acc)?.amount;
-        update_amount_and_performance(&mut fund_data, pool_accs, true).unwrap();
+        update_amount_and_performance(&mut fund_data, &price_acc, &clock_sysvar_acc, true).unwrap();
 
         fund_data.serialize(&mut *fund_state_acc.data.borrow_mut())?;
 
@@ -630,21 +627,18 @@ impl Fund {
         accounts: &[AccountInfo],
         amount: u64
     ) -> Result<(), ProgramError> {
-        const NUM_FIXED:usize = 6;
-        let accounts = array_ref![accounts, 0, NUM_FIXED + 2*NUM_TOKENS - 2];
-        let (
-            fixed_accs,
-            pool_accs,
-            ) = array_refs![accounts, NUM_FIXED, 2*(NUM_TOKENS-1)];
-
+        const NUM_FIXED:usize = 8;
+        let accounts = array_ref![accounts, 0, NUM_FIXED];
         let [
             fund_state_acc,
+            price_acc,
+            clock_sysvar_acc,
             manager_acc,
             fund_btoken_acc,
             manager_btoken_acc,
             pda_man_acc,
             token_prog_acc
-        ] = fixed_accs;
+        ] = accounts;
 
         let mut fund_data = FundData::try_from_slice(&fund_state_acc.data.borrow())?;
 
@@ -670,7 +664,7 @@ impl Fund {
         invoke_signed(&transfer_instruction, &transfer_accs, &[&signer_seeds])?;
 
         fund_data.tokens[0].balance = parse_token_account(&fund_btoken_acc)?.amount;
-        update_amount_and_performance(&mut fund_data, pool_accs, true)?;
+        update_amount_and_performance(&mut fund_data, &price_acc, &clock_sysvar_acc, true)?;
 
         fund_data.serialize(&mut *fund_state_acc.data.borrow_mut())?;
 
@@ -725,36 +719,49 @@ impl Fund {
     }
 }
 
+pub fn find_index (
+    price_data: &PriceAccount,
+    mint: Pubkey
+) -> Result<usize, ProgramError> {
+    for i in 0..price_data.count {
+        if price_data.prices[i as usize].token_mint == mint {
+            return Ok(i as usize)
+        }
+    }
+    return Err(ProgramError::InvalidArgument)
+}
+
 // calculate prices, get fund valuation and performance
 pub fn update_amount_and_performance(
     fund_data: &mut FundData,
-    pool_accs: &[AccountInfo],
+    price_acc: &AccountInfo,
+    clock_sysvar_acc: &AccountInfo,
     update_perf: bool
 ) -> Result<(), ProgramError> {
     
     msg!("called update_amount_and_performance");
 
+    // get price account info
+    let price_data = PriceAccount::try_from_slice(&price_acc.data.borrow())?;
+    let clock = &Clock::from_account_info(clock_sysvar_acc)?;
+
     // add USDT balance (not decimal adjusted)
     let mut fund_val = U64F64::from_num(fund_data.tokens[0].balance);
     // Calculate prices for all tokens with balances
     for i in 0..(NUM_TOKENS-1) {
-        let coin_acc = &pool_accs[2*i];
-        let pc_acc = &pool_accs[2*i+1];
-        let coin_data = Account::unpack(&coin_acc.data.borrow())?;
-        let pc_data = Account::unpack(&pc_acc.data.borrow())?;
-
-        // match for token pair sequence
-        check!(coin_data.mint == fund_data.tokens[i+1].mint, FundError::InvalidTokenAccount);
-        check!(pc_data.mint == fund_data.tokens[0].mint, FundError::InvalidTokenAccount);
         
-        // get reserves ratio
-        let pc_res = U64F64::from_num(pc_data.amount);
-        let coin_res = U64F64::from(coin_data.amount);
+        // get index of token
+        let index = find_index(&price_data, fund_data.tokens[i+1].mint)?;
+
+        if clock.unix_timestamp - price_data.prices[index].last_updated > 100 {
+            msg!("price not up-to-date.. aborting");
+            return Err(FundError::PriceStaleInAccount.into())
+        }
 
         // calculate price in terms of base token
-        let val: U64F64 = pc_res
-        .checked_div(coin_res).unwrap()
-        .checked_mul(U64F64::from_num(fund_data.tokens[i+1].balance)).unwrap();
+        let val: U64F64 = U64F64::from_num(fund_data.tokens[i+1].balance)
+        .checked_mul(U64F64::from_num(price_data.prices[index].token_price)).unwrap()
+        .checked_div(U64F64::from_num(10u64.pow(fund_data.tokens[i+1].decimals as u32))).unwrap();
 
         fund_val = fund_val.checked_add(val).unwrap();
     }
