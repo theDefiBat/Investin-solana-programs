@@ -1,5 +1,7 @@
-use borsh::{BorshDeserialize, BorshSerialize};
+use std::cell::{Ref, RefMut};
+use std::mem::size_of;
 use fixed::types::U64F64;
+use arrayref::{array_ref, array_refs};
 use solana_program::{
     account_info::{AccountInfo, next_account_info},
     entrypoint::ProgramResult,
@@ -8,51 +10,72 @@ use solana_program::{
     program_error::ProgramError,
     program_pack::{Pack, IsInitialized},
     pubkey::Pubkey,
-    clock::Clock,
+    clock::{Clock, UnixTimestamp},
     sysvar::Sysvar
 };
-
+use bytemuck::{from_bytes, from_bytes_mut, Pod, Zeroable};
 use spl_token::state::{Account, Mint};
 
-use solana_program::clock::UnixTimestamp;
-pub const MAX_TOKENS:usize = 10;
+pub trait Loadable: Pod {
+    fn load_mut<'a>(account: &'a AccountInfo) -> Result<RefMut<'a, Self>, ProgramError> {
+        // TODO verify if this checks for size
+        Ok(RefMut::map(account.try_borrow_mut_data()?, |data| from_bytes_mut(data)))
+    }
+    fn load<'a>(account: &'a AccountInfo) -> Result<Ref<'a, Self>, ProgramError> {
+        Ok(Ref::map(account.try_borrow_data()?, |data| from_bytes(data)))
+    }
 
-#[derive(Clone, Debug, Default, Copy, BorshSerialize, BorshDeserialize, PartialEq)]
+    fn load_from_bytes(data: &[u8]) -> Result<&Self, ProgramError> {
+        Ok(from_bytes(data))
+    }
+}
+
+pub const MAX_TOKENS:usize = 50;
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
 pub struct PriceInfo {
     // mint address of the token
     pub token_mint: Pubkey,
 
-    pub decimals: u8,
+    pub pool_account: Pubkey,
 
-    // pub pool_account: Pubkey,
+    pub base_pool_account: Pubkey,
 
-    // pub base_pool_account: Pubkey,
+    // decimals for token
+    pub decimals: u64,
 
     // price of token
     pub token_price: u64,
 
     // last updated timestamp
-    pub last_updated: UnixTimestamp
+    pub last_updated: UnixTimestamp,
+
 }
+unsafe impl Zeroable for PriceInfo{}
+unsafe impl Pod for PriceInfo {}
 
 /// Define the type of state stored in accounts
-#[derive(Clone, Debug, BorshSerialize, BorshDeserialize, PartialEq)]
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
 pub struct PriceAccount {
-    pub is_initialized: bool,
-
     /// number of tokens
-    pub count: u8,
+    pub count: u32,
 
     /// decimals
-    pub decimals: u8,
+    pub decimals: u32,
 
     /// token price info
     pub prices: [PriceInfo; MAX_TOKENS]
 }
+unsafe impl Zeroable for PriceAccount {}
+unsafe impl Pod for PriceAccount {}
+impl Loadable for PriceAccount {}
+
 
 // instruction.rs
-
-#[derive(Clone, Debug, BorshSerialize, BorshDeserialize, PartialEq)]
+#[repr(C)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum AggInstruction {
     
     /// Accounts Expected
@@ -78,6 +101,28 @@ pub enum AggInstruction {
         count: u8 // count of tokens
     }
 }
+
+impl AggInstruction {
+    pub fn unpack(input: &[u8]) -> Option<Self> {
+        let (&op, data) = array_refs![input, 1; ..;];
+        let op = u8::from_le_bytes(op);
+        Some(match op {
+            0 => {
+                let data = array_ref![data, 0, 1];
+                AggInstruction::AddToken {
+                    count: u8::from_le_bytes(*data)
+                }
+            }
+            1 => {
+                let data = array_ref![data, 0, 1];
+                AggInstruction::UpdateTokenPrices {
+                    count: u8::from_le_bytes(*data)
+                }
+            }
+            _ => { return None; }
+        })
+    }
+}
 // Declare and export the program's entrypoint
 entrypoint!(process_instruction);
 
@@ -88,21 +133,23 @@ pub fn process_instruction(
     _instruction_data: &[u8], // Ignored, all helloworld instructions are hellos
 ) -> ProgramResult {
 
-    msg!("Aggregator entrypoint");
-    let instruction = AggInstruction::try_from_slice(_instruction_data)?;
+    msg!("entrypoint");
+    let instruction = AggInstruction::unpack(_instruction_data).ok_or(ProgramError::InvalidInstructionData)?;
 
+    msg!("instruction unpacked");
     // Iterating accounts is safer then indexing
     let accounts_iter = &mut accounts.iter();
 
     let price_account = next_account_info(accounts_iter)?;
-    let mut price_data = PriceAccount::try_from_slice(&price_account.data.borrow())?;
+
+    msg!("size of account:: {:?}, size of data:: {:?}", size_of::<PriceAccount>(), price_account.data_len());
+    let mut price_data = PriceAccount::load_mut(price_account)?;
 
     let clock_sysvar_info = next_account_info(accounts_iter)?;
     let clock = &Clock::from_account_info(clock_sysvar_info)?;
 
     match instruction {
         AggInstruction::AddToken { count } => {
-            msg!("add tokens callled");
             let mut cnt = count;
             let admin_account = next_account_info(accounts_iter)?;
             if !admin_account.is_signer{
@@ -113,34 +160,28 @@ pub fn process_instruction(
                 let pool_coin_account = next_account_info(accounts_iter)?;
                 let pool_pc_account = next_account_info(accounts_iter)?;
                 
-
                 let mint_data = Mint::unpack(&mint_account.data.borrow())?;
-                msg!("mint accounts parsed");
-                msg!("parsing account:: {:?}", *pool_coin_account.key);
-
                 let pool_coin_data = parse_token_account(pool_coin_account)?;
-                msg!("coin token accounts parsed");
-
                 let pool_pc_data = parse_token_account(pool_pc_account)?;
 
-                msg!(" pool tokens accounts parsed");
-
                 if pool_coin_data.mint != *mint_account.key {
-                    msg!("error in mint: {:?}", pool_coin_data.mint);
                     return Err(ProgramError::InvalidAccountData);
                 }
                 
-                if !price_data.is_initialized {
-                    price_data.is_initialized = true;
+                if price_data.count == 0 {
                     price_data.decimals = 6;
-                    price_data.count = 0;
                 }
-                price_data.prices[price_data.count as usize].token_mint = *mint_account.key;
-                price_data.prices[price_data.count as usize].decimals = mint_data.decimals;
-                // price_data.prices[price_data.count as usize].pool_account = *pool_coin_account.key;
-                // price_data.prices[price_data.count as usize].base_pool_account = *pool_pc_account.key;
 
-                update_price(&mut price_data.prices[price_data.count as usize], pool_pc_data.amount, pool_coin_data.amount, clock.unix_timestamp)?;
+                // panic if token already present
+                find_index(&price_data, pool_coin_data.mint).unwrap_err();
+                
+                let index = price_data.count as usize;
+                price_data.prices[index].token_mint = *mint_account.key;
+                price_data.prices[index].decimals = mint_data.decimals.into();
+                price_data.prices[index].pool_account = *pool_coin_account.key;
+                price_data.prices[index].base_pool_account = *pool_pc_account.key;
+
+                update_price(&mut price_data.prices[index], pool_pc_data.amount, pool_coin_data.amount, clock.unix_timestamp)?;
 
                 price_data.count += 1;
                 cnt -= 1;
@@ -151,10 +192,20 @@ pub fn process_instruction(
             let mut cnt = count;
             loop {
 
-                let pool_coin_data = Account::unpack(&(next_account_info(accounts_iter)?).data.borrow())?;
-                let pool_pc_data = Account::unpack(&(next_account_info(accounts_iter)?).data.borrow())?;
+                let pool_coin_account = next_account_info(accounts_iter)?;
+                let pool_pc_account = next_account_info(accounts_iter)?;
+                
+                let pool_coin_data = parse_token_account(pool_coin_account)?;
+                let pool_pc_data = parse_token_account(pool_pc_account)?;
 
                 let index = find_index(&price_data, pool_coin_data.mint)?;
+                if price_data.prices[index].pool_account != *pool_coin_account.key {
+                    return Err(ProgramError::InvalidAccountData);
+                }
+                if price_data.prices[index].base_pool_account != *pool_pc_account.key {
+                    return Err(ProgramError::InvalidAccountData);
+                }
+
                 update_price(&mut price_data.prices[index], pool_pc_data.amount, pool_coin_data.amount, clock.unix_timestamp)?;
 
                 cnt -= 1;
@@ -162,8 +213,6 @@ pub fn process_instruction(
             }
         }
     }
-    price_data.serialize(&mut *price_account.data.borrow_mut())?;
-
     Ok(())
 }
 

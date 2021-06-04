@@ -9,9 +9,9 @@ homepage = "https://solana.com/"
 edition = "2018"
 
 [dependencies]
-borsh = "0.8.1"
-borsh-derive = "0.8.1"
 solana-program = "=1.6.8"
+bytemuck = "^1.4.1"
+arrayref = "^0.3.6"
 spl-token = {version = "3.0.1", features = ["no-entrypoint"]}
 fixed = { version = "^1.7.0", features=["serde"] }
 fixed-macro = "^1.1.1"
