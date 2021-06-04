@@ -7,5 +7,7 @@ src/client/util/store
 test-ledger/
 src/program-fund/target
 src/program-fund/Cargo.lock
+src/program-aggregator/Cargo.lock
+src/program-aggregator/target
 package-lock.json
 connect-wallet-and-transfer/node_modules

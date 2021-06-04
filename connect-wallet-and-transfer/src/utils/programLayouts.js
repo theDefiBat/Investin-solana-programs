@@ -1,4 +1,4 @@
-import { array, bool, publicKey, str, struct, u32, u64, u8, f64, u128 } from '@project-serum/borsh'
+import { array, bool, publicKey, str, struct, u32, u64, u8, f64, u128, i64 } from '@project-serum/borsh'
 
 export const NUM_TOKENS = 3
 export const MAX_INVESTORS = 10
@@ -102,4 +102,22 @@ export const AMM_INFO_LAYOUT_V4 = struct([
   publicKey('poolTempLpTokenAccount'),
   publicKey('ammOwner'),
   publicKey('pnlOwner')
+])
+
+
+export const MAX_TOKENS = 10
+// Aggregator Accounts
+export const PRICE_DATA = struct([
+  bool('is_initialized'),
+  u8('count'),
+  u8('decimals'),
+  array(
+    struct([
+      publicKey('token_mint'),
+      u8('decimals'),
+      u64('token_price'),
+      i64('last_updated')
+    ]),
+    MAX_TOKENS, 'prices'
+  ),
 ])

@@ -5,13 +5,16 @@ export const FUND_ACCOUNT_KEY = "fundAccountKey";
 
 export const adminAccount = new PublicKey('Fepyuf4vy7mKZVgpzS52UoUeSLmVvGnoMDyraCsjYUqn')
 
-export const cluster = "https://api.mainnet-beta.solana.com";
+export const adminAccount = new PublicKey('Fepyuf4vy7mKZVgpzS52UoUeSLmVvGnoMDyraCsjYUqn')
+export const cluster = "https://solana-api.projectserum.com";
 export const connection = new Connection(cluster, "confirmed");
 
 export const programId = new PublicKey('BX8FpMj7MgTYr2YBan2kG9KX2UGimtBrECk2DabTYEYP');
 
 // change later
 export const platformStateAccount = new PublicKey('8qnxdsxfkd6aTgPbQB9Yet58yQhYsWhNb2EWPMb9UApo')
+
+export const priceStateAccount = new PublicKey('AqmhwPoxBA9bJPd3kdet3RRFqk2Er2S5CCGpGGRcLWQD')
 
 export const SYSTEM_PROGRAM_ID = new PublicKey('11111111111111111111111111111111')
 export const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA')
