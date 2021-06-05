@@ -2,10 +2,30 @@ use num_derive::FromPrimitive;
 use solana_program::program_error::ProgramError;
 use thiserror::Error;
 
-pub type FundResult<T = ()> = Result<T, FundError>;
-
 #[derive(Clone, Debug, Eq, Error, FromPrimitive, PartialEq)]
 pub enum FundError {
+
+    #[error("FundAccount is Already Initialised")]
+    FundAccountAlreadyInit,
+
+    #[error("InvestorAccount is Already Initialised")]
+    InvestorAccountAlreadyInit,
+
+    #[error("Invorrect signature")]
+    IncorrectSignature,
+
+    #[error("Incorrect program id passed")]
+    IncorrectProgramId,
+
+    #[error("Incorrect PDA passed")]
+    IncorrectPDA,
+
+    #[error("Invalid Token Accounts passed")]
+    InvalidTokenAccount,
+
+    #[error("Invalid State Accounts passed")]
+    InvalidStateAccount,
+
     /// Invalid instruction
     #[error("Invalid Instruction")]
     InvalidInstruction,
@@ -21,22 +41,18 @@ pub enum FundError {
     /// Manager Mismatch
     #[error("Manager Mismatch")]
     ManagerMismatch,
+
+    /// Maximum Number of Depositors at a time reached
+    #[error("Wait for Manager Transfer")]
+    DepositLimitReached,
+
+    #[error("Stale price in account")]
+    PriceStaleInAccount,
+
 }
 
 impl From<FundError> for ProgramError {
     fn from(e: FundError) -> Self {
         ProgramError::Custom(e as u32)
-    }
-}
-
-#[inline]
-pub fn check_assert(
-    cond: bool,
-    error: ProgramError
-) -> Result<(), ProgramError> {
-    if cond {
-        Ok(())
-    } else {
-        Err(error)
     }
 }

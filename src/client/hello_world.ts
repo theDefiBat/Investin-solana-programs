@@ -48,7 +48,12 @@ let programId: PublicKey;
  */
 let greetedPubkey: PublicKey;
 
-let clientAccount: Account = new Account([116,252,167,101,186,83,65,192,133,216,186,17,79,88,19,249,12,85,255,140,19,101,4,233,105,80,14,111,133,107,123,3,217,180,92,0,197,5,141,20,70,238,87,223,135,91,117,53,187,81,22,117,90,239,30,15,88,200,147,207,126,182,198,209]);
+//manager
+let managerAccount: Account = new Account([142,48,169,223,116,118,74,198,181,33,16,241,71,161,255,161,189,31,165,187,161,225,174,147,186,2,4,129,198,210,139,17,187,37,223,190,56,78,101,226,148,129,225,191,8,131,56,117,170,139,238,111,33,64,72,108,10,228,157,224,4,119,11,130]);
+
+//investor
+let investorAccount: Account = new Account([61,252,135,81,45,197,116,152,177,87,55,210,211,101,70,8,214,216,177,248,1,207,211,70,85,2,69,140,108,6,12,165,187,249,56,245,35,32,4,79,52,73,160,238,132,123,110,27,159,70,164,35,208,189,36,110,176,28,110,71,37,2,226,211]);
+
 //let clientKey: PublicKey = new PublicKey("3it9nJcySN83WcDdDrM4ts7m8Pvg74GuMZvprn7PZQhD");
 
 /**
@@ -179,7 +184,7 @@ export async function checkProgram(): Promise<void> {
   console.log(`Using program ${programId.toBase58()}`);
 
   // Derive the address of a greeting account from the program so that it's easy to find later.
-  const GREETING_SEED = 'demouts';
+  const GREETING_SEED = 'inv';
   greetedPubkey = await PublicKey.createWithSeed(
     payerAccount.publicKey,
     GREETING_SEED,
@@ -196,7 +201,7 @@ export async function checkProgram(): Promise<void> {
     );
     const lamports = await connection.getMinimumBalanceForRentExemption(
       //GREETING_SIZE,
-      72,
+      82,
     );
 
     const transaction = new Transaction().add(
@@ -207,7 +212,7 @@ export async function checkProgram(): Promise<void> {
         newAccountPubkey: greetedPubkey,
         lamports,
         // space: GREETING_SIZE,
-        space: 72,
+        space: 82,
         programId,
       }),
     );
@@ -243,40 +248,101 @@ export async function sayHello(): Promise<void> {
 
 
 
-const PDA = await PublicKey.findProgramAddress([Buffer.from("fund")], programId);
-const MPDA = await PublicKey.findProgramAddress([Buffer.from("manager")], programId);
+const IPDA = await PublicKey.findProgramAddress([Buffer.from(investorAccount.publicKey.toBuffer())], programId);
+const MPDA = await PublicKey.findProgramAddress([Buffer.from(managerAccount.publicKey.toBuffer())], programId);
 
-console.log("PDA:", PDA[0].toBase58())
+console.log("IPDA:", IPDA[0].toBase58())
 console.log("MPDA: ", MPDA[0].toBase58())
+
+//const dataLayout = struct([u8('instruction'), nu64('min_amount'), nu64('min_return')])
 const dataLayout = struct([u8('instruction'), nu64('amount')])
+//const dataLayout = struct([u8('instruction')])
+
+
 const data = Buffer.alloc(dataLayout.span)
   dataLayout.encode(
     {
-      instruction: 1,
-      amount: 10*1000000
+      instruction: 0,
+      amount: 50*1000000000,
     },
     data
   )
-const instruction = new TransactionInstruction({
-    keys: [
-      {pubkey: greetedPubkey, isSigner: false, isWritable: true}, 
-      {pubkey: clientAccount.publicKey, isSigner: true, isWritable:true},
-      {pubkey: new PublicKey("5AasjtqKzRsD98XsUGZfjW5eoq3MVHLn2VMNoEZZnqvK"), isSigner: false, isWritable: true},
-      {pubkey: new PublicKey("4LuQ3tEVtpMFQUUNi9EQbFeKCXJE1BtBVCkR9zHo4mES"), isSigner: false, isWritable: true},
-      {pubkey: new PublicKey("8FEaa7yPbe2X5YWhrxmNrXKJA1mGq9nZEBShaKNKSC8U"), isSigner: false, isWritable: true},
-      { pubkey: PDA[0], isSigner: false, isWritable: false},
-      { pubkey: MPDA[0], isSigner: false, isWritable: false},
-      {pubkey: new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"), isSigner: false, isWritable: true},
-    ],
-    programId,
-    data
-  });
-  await sendAndConfirmTransaction(
-    connection,
-    new Transaction().add(instruction),
-    [payerAccount, clientAccount],
-  );
-}
+// const fund_init_instruction = new TransactionInstruction({
+//     keys: [
+//       {pubkey: new PublicKey("BynAsYCwhgWX5ZJ6zP8XyNwuxEQW4YbPhQcafzce72m2"), isSigner: false, isWritable: true},
+//       {pubkey: managerAccount.publicKey, isSigner: true, isWritable:true},
+//       {pubkey: new PublicKey("HZbjd49KyzuyvH5X4xrn5AfJqzsQLCS93SdTHzXCWkVu"), isSigner: false, isWritable: true},
+//       {pubkey: new PublicKey("DdzREMVFg6pa5825HBKVzeCrEi8EJiREfb8UrxSZB64w"), isSigner: false, isWritable: true},
+//       {pubkey: new PublicKey("HUHuQCZUvxCiuFg54vRStrXSbCFeBhmXRqSuR5eEVB6o"), isSigner: false, isWritable: true},
+//       {pubkey: new PublicKey("HW18fiAHKzs7ZSaT5ibAhnSWVde25sazTSbMzss4Fcty"), isSigner: false, isWritable: true},
+
+//       //{ pubkey: PDA[0], isSigner: false, isWritable: false},
+//       //{pubkey: new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"), isSigner: false, isWritable: true},
+//     ],
+//     programId,
+//     data
+//   });
+// const deposit_instruction = new TransactionInstruction({
+//   keys: [
+//     {pubkey: new PublicKey("BynAsYCwhgWX5ZJ6zP8XyNwuxEQW4YbPhQcafzce72m2"), isSigner: false, isWritable: true},
+//     {pubkey: greetedPubkey, isSigner: false, isWritable: true}, 
+//     {pubkey: investorAccount.publicKey, isSigner: true, isWritable:true},
+//     {pubkey: new PublicKey("9ZnCPHwmyR1L7PECksHJvQSey1M86MRzn2Lzb5tdqiwW"), isSigner: false, isWritable: true},
+//     {pubkey: new PublicKey("6bDEyN5mkZvB2DPzNuiqscBTPcrbKLJ4boMrL1qc82m2"), isSigner: false, isWritable: true},
+//     {pubkey: new PublicKey("Hq6VsU1BJzpsgAjugUNkLWjjVfKAQG9S1JmuPeyyZMN9"), isSigner: false, isWritable: true},
+//     {pubkey: new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"), isSigner: false, isWritable: true},
+//   ],
+//   programId,
+//   data
+// });
+// const transfer_instruction = new TransactionInstruction({
+//   keys: [
+//     {pubkey: new PublicKey("BynAsYCwhgWX5ZJ6zP8XyNwuxEQW4YbPhQcafzce72m2"), isSigner: false, isWritable: true},
+//     {pubkey: new PublicKey("DEKKJY7gH1tg5wAwaYLN6NtJXn8XmtDMaZ8W25n4oSsB"), isSigner: false, isWritable: true},
+//     {pubkey: managerAccount.publicKey, isSigner: true, isWritable:true},
+//     {pubkey: new PublicKey("6bDEyN5mkZvB2DPzNuiqscBTPcrbKLJ4boMrL1qc82m2"), isSigner: false, isWritable: true},
+//     {pubkey: new PublicKey("HZbjd49KyzuyvH5X4xrn5AfJqzsQLCS93SdTHzXCWkVu"), isSigner: false, isWritable: true},
+//     {pubkey: new PublicKey("dfamYzFRT7q6uqDkR74MiQkgjeLoUvQYdMv9saDtqaV"), isSigner: false, isWritable: true},
+//     {pubkey: new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"), isSigner: false, isWritable: true},
+//     {pubkey: new PublicKey("DUn4i71SXksHN7KtveP4uauWqsnfdSHa4PoEkzN8qqN6"), isSigner: false, isWritable: true},
+//     {pubkey: new PublicKey("BUdDS4AUMSsvQ1QyHe4LLagvkFfUU4TW17udvxaDJaxR"), isSigner: false, isWritable: true},
+//     {pubkey: new PublicKey("2Ab9oAp9XcarKgdthdAtTitAHctuEkafKHh2GtzSJRyt"), isSigner: false, isWritable: true},
+//     {pubkey: new PublicKey("BUdDS4AUMSsvQ1QyHe4LLagvkFfUU4TW17udvxaDJaxR"), isSigner: false, isWritable: true},
+
+//   ],
+//   programId,
+//   data
+// });
+// const withdraw_instruction = new TransactionInstruction({
+//   keys: [
+//     {pubkey: new PublicKey("BynAsYCwhgWX5ZJ6zP8XyNwuxEQW4YbPhQcafzce72m2"), isSigner: false, isWritable: true},
+//     {pubkey: new PublicKey("DEKKJY7gH1tg5wAwaYLN6NtJXn8XmtDMaZ8W25n4oSsB"), isSigner: false, isWritable: true},
+//     {pubkey: investorAccount.publicKey, isSigner: true, isWritable:true},
+//     {pubkey: new PublicKey("dfamYzFRT7q6uqDkR74MiQkgjeLoUvQYdMv9saDtqaV"), isSigner: false, isWritable: true},
+//     {pubkey: new PublicKey("Hq6VsU1BJzpsgAjugUNkLWjjVfKAQG9S1JmuPeyyZMN9"), isSigner: false, isWritable: true},
+//     {pubkey: new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"), isSigner: false, isWritable: true},
+//     {pubkey: new PublicKey("9ZnCPHwmyR1L7PECksHJvQSey1M86MRzn2Lzb5tdqiwW"), isSigner: false, isWritable: true},
+//     {pubkey: new PublicKey("FvKGR2tTFjYbhyLXntfMEqiQD9ZLdNG7kNZfgQFuH6wk"), isSigner: false, isWritable: true},
+//     {pubkey: new PublicKey("H4fBGszDsMQrW3dg8gLk5cwq1GwtNGSKb3iqaHpt9yYr"), isSigner: false, isWritable: true},
+//     {pubkey: new PublicKey("HZbjd49KyzuyvH5X4xrn5AfJqzsQLCS93SdTHzXCWkVu"), isSigner: false, isWritable: true},
+//     {pubkey: new PublicKey("HZbjd49KyzuyvH5X4xrn5AfJqzsQLCS93SdTHzXCWkVu"), isSigner: false, isWritable: true},
+//     {pubkey: new PublicKey("HZbjd49KyzuyvH5X4xrn5AfJqzsQLCS93SdTHzXCWkVu"), isSigner: false, isWritable: true},
+//     {pubkey: new PublicKey("DUn4i71SXksHN7KtveP4uauWqsnfdSHa4PoEkzN8qqN6"), isSigner: false, isWritable: true},
+//     {pubkey: new PublicKey("BUdDS4AUMSsvQ1QyHe4LLagvkFfUU4TW17udvxaDJaxR"), isSigner: false, isWritable: true},
+//     {pubkey: new PublicKey("2Ab9oAp9XcarKgdthdAtTitAHctuEkafKHh2GtzSJRyt"), isSigner: false, isWritable: true},
+//     {pubkey: new PublicKey("BUdDS4AUMSsvQ1QyHe4LLagvkFfUU4TW17udvxaDJaxR"), isSigner: false, isWritable: true},
+    
+//   ],
+//   programId,
+//   data
+// });
+//   let x = await sendAndConfirmTransaction(
+//     connection,
+//     new Transaction().add(withdraw_instruction),
+//     [investorAccount],
+//   );
+//   console.log(x);
+// }
 
 /**
  * Report the number of times the greeted account has been said hello to
