@@ -1,6 +1,9 @@
-use borsh::{BorshDeserialize, BorshSchema, BorshSerialize};
+use arrayref::{array_ref, array_refs};
+use borsh::BorshSerialize;
 
-#[derive(Clone, Debug, BorshSerialize, BorshDeserialize, PartialEq)]
+
+#[repr(C)]
+#[derive(Clone)]
 pub enum FundInstruction {
 
     /// Accounts expected
@@ -109,9 +112,73 @@ pub enum FundInstruction {
 
 }
 
-#[derive(Clone, Debug, BorshSerialize, BorshDeserialize, BorshSchema, PartialEq)]
+#[derive(Clone, BorshSerialize)]
 pub struct Data {
     pub instr: u8,
     pub amount_in: u64,
     pub min_amount_out: u64
+}
+
+impl FundInstruction {
+    pub fn unpack(input: &[u8]) -> Option<Self> {
+        let (&op, data) = array_refs![input, 1; ..;];
+        let op = u8::from_le_bytes(op);
+        Some(match op {
+            0 => {
+                let data = array_ref![data, 0, 8 + 8 + 8];
+                let (
+                    min_amount,
+                    min_return,
+                    performance_fee_percentage
+                ) = array_refs![data, 8, 8, 8];
+
+                FundInstruction::Initialize {
+                    min_amount: u64::from_le_bytes(*min_amount),
+                    min_return: u64::from_le_bytes(*min_return),
+                    performance_fee_percentage: u64::from_le_bytes(*performance_fee_percentage),
+                }
+            },
+            1 => {
+                let amount = array_ref![data, 0, 8];
+                FundInstruction::InvestorDeposit {
+                    amount: u64::from_le_bytes(*amount)
+                }
+            },
+            2 => {
+                FundInstruction::ManagerTransfer
+            },
+            3 => {
+                let data = array_ref![data, 0, 1 + 1 + 8 + 8];
+                let (
+                    instruction1,
+                    instruction,
+                    amount_in,
+                    min_amount_out
+                ) = array_refs![data, 1, 1, 8, 8];
+                FundInstruction::Swap {
+                    data: Data {
+                        instr: u8::from_le_bytes(*instruction),
+                        amount_in: u64::from_le_bytes(*amount_in),
+                        min_amount_out: u64::from_le_bytes(*min_amount_out)
+                    }
+                }
+            },
+            4 => {
+                FundInstruction::ClaimPerformanceFee
+            },
+            5 => {
+                let amount = array_ref![data, 0, 8];
+                FundInstruction::TestingDeposit {
+                    amount: u64::from_le_bytes(*amount)
+                }
+            },
+            6 => {
+                let amount = array_ref![data, 0, 8];
+                FundInstruction::TestingWithdraw {
+                    amount: u64::from_le_bytes(*amount)
+                }
+            }
+            _ => { return None; }
+        })
+    }
 }

@@ -1,4 +1,3 @@
-use borsh::{BorshDeserialize, BorshSerialize};
 use std::mem::size_of;
 use bytemuck::bytes_of;
 use fixed::types::U64F64;
@@ -21,6 +20,7 @@ use spl_token::state::{Account, Mint};
 use crate::error::FundError;
 use crate::instruction::{FundInstruction, Data};
 use crate::state::{NUM_TOKENS, MAX_INVESTORS, FundData, InvestorData, TokenInfo, PlatformData, PriceAccount};
+use crate::state::Loadable;
 
 macro_rules! check {
     ($cond:expr, $err:expr) => {
@@ -63,8 +63,8 @@ impl Fund {
         ] = fixed_accs;
 
         // TODO: Add check that base_account is derived from manager_account
-        let mut platform_data = PlatformData::try_from_slice(&platform_acc.data.borrow())?;
-        let mut fund_data = FundData::try_from_slice(&fund_state_acc.data.borrow())?;
+        let mut platform_data = PlatformData::load_mut(platform_acc)?;
+        let mut fund_data = FundData::load_mut(fund_state_acc)?;
 
         //  check if already init
         check!(!fund_data.is_initialized(), FundError::FundAccountAlreadyInit);
@@ -112,17 +112,10 @@ impl Fund {
         fund_data.signer_nonce = nonce.into();
         fund_data.is_initialized = true;
 
-        msg!("Serialising data");
-        fund_data.serialize(&mut *fund_state_acc.data.borrow_mut())?;
-
         // update platform_data
-        platform_data.fund_managers[platform_data.no_of_active_funds as usize] = *manager_acc.key;
+        let index = platform_data.no_of_active_funds as usize;
+        platform_data.fund_managers[index] = *manager_acc.key;
         platform_data.no_of_active_funds += 1;
-        
-        platform_data.serialize(&mut *platform_acc.data.borrow_mut())?;
-
-        msg!("fund state:: {:?}", fund_data);
-        //msg!("investor state:: {:?}", platform_data);
 
         Ok(())
     }
@@ -146,8 +139,8 @@ impl Fund {
             token_prog_acc
         ] = accounts;
 
-        let mut fund_data = FundData::try_from_slice(&fund_state_acc.data.borrow())?;
-        let mut investor_data = InvestorData::try_from_slice(&investor_state_acc.data.borrow())?;
+        let mut fund_data = FundData::load_mut(fund_state_acc)?;
+        let mut investor_data = InvestorData::load_mut(investor_state_acc)?;
 
         // check if fund state acc passed is initialised
         check!(fund_data.is_initialized(), FundError::InvalidStateAccount);
@@ -207,13 +200,9 @@ impl Fund {
         invoke(&deposit_instruction, &deposit_accs)?;
 
         msg!("Deposit done..");
-
-        investor_data.serialize(&mut *investor_state_acc.data.borrow_mut())?;
         
         fund_data.amount_in_router += amount;
     
-        fund_data.serialize(&mut *fund_state_acc.data.borrow_mut())?;
-
         Ok(())
     }
 
@@ -245,8 +234,8 @@ impl Fund {
             token_prog_acc
         ] = fixed_accs;
 
-        let platform_data = PlatformData::try_from_slice(&platform_acc.data.borrow())?;
-        let mut fund_data = FundData::try_from_slice(&fund_state_acc.data.borrow())?;
+        let platform_data = PlatformData::load(platform_acc)?;
+        let mut fund_data = FundData::load_mut(fund_state_acc)?;
 
         // check if manager signed the tx
         check!(manager_acc.is_signer, FundError::IncorrectProgramId);
@@ -335,7 +324,7 @@ impl Fund {
         for i in 0..in_queue {
 
             let investor_state_acc = &investor_state_accs[i as usize];
-            let mut investor_data = InvestorData::try_from_slice(&investor_state_acc.data.borrow())?;
+            let mut investor_data = InvestorData::load_mut(investor_state_acc)?;
             if investor_data.start_performance == 0 {
                 investor_data.start_performance = fund_data.prev_performance;
             }
@@ -351,7 +340,6 @@ impl Fund {
                 
                 investor_data.amount_in_router = 0;
             }
-            investor_data.serialize(&mut *investor_state_acc.data.borrow_mut())?;
         }
         
         fund_data.tokens[0].balance = parse_token_account(&fund_btoken_acc)?.amount;
@@ -359,8 +347,6 @@ impl Fund {
         update_amount_and_performance(&mut fund_data, &price_acc, &clock_sysvar_acc, false)?;
         fund_data.number_of_active_investments = fund_data.no_of_investments;
         fund_data.amount_in_router = 0;
-        
-        fund_data.serialize(&mut *fund_state_acc.data.borrow_mut())?;
 
         Ok(())
     }
@@ -396,9 +382,9 @@ impl Fund {
         check!(investor_acc.is_signer, FundError::IncorrectSignature);
 
         // TODO: check if manager_btoken_acc and investin_btoken_acc is correct from states
-        let platform_data = PlatformData::try_from_slice(&platform_acc.data.borrow())?;
-        let mut fund_data = FundData::try_from_slice(&fund_state_acc.data.borrow())?;
-        let mut investor_data = InvestorData::try_from_slice(&investor_state_acc.data.borrow())?;
+        let platform_data = PlatformData::load(platform_acc)?;
+        let mut fund_data = FundData::load_mut(fund_state_acc)?;
+        let mut investor_data = InvestorData::load_mut(investor_state_acc)?;
 
         // Manager has not transferred to vault
         if investor_data.amount_in_router != 0  {
@@ -460,12 +446,9 @@ impl Fund {
         investor_data.start_performance = 0;
         investor_data.amount_in_router = 0;
         investor_data.is_initialized = false;
-        investor_data.serialize(&mut *investor_state_acc.data.borrow_mut())?;
         
         fund_data.no_of_investments -= 1;
         update_amount_and_performance(&mut fund_data, &price_acc, &clock_sysvar_acc, false)?;
-
-        fund_data.serialize(&mut *fund_state_acc.data.borrow_mut())?;
         
         Ok(())
     }
@@ -479,7 +462,7 @@ impl Fund {
         let accounts_iter = &mut accounts.iter();
         // Get the first account
         let fund_state_acc = next_account_info(accounts_iter)?;        
-        let mut fund_data = FundData::try_from_slice(&fund_state_acc.data.borrow())?;
+        let mut fund_data = FundData::load_mut(fund_state_acc)?;
 
         let (source_info, dest_info) = swap_instruction(&data, &fund_data, accounts)?;
 
@@ -491,7 +474,6 @@ impl Fund {
                 fund_data.tokens[i].balance = dest_info.amount;
             }
         }
-        fund_data.serialize(&mut *fund_state_acc.data.borrow_mut())?;
         Ok(())    
     }
 
@@ -515,7 +497,7 @@ impl Fund {
             token_prog_acc
         ] = accounts;
 
-        let mut fund_data = FundData::try_from_slice(&fund_state_acc.data.borrow())?;
+        let mut fund_data = FundData::load_mut(fund_state_acc)?;
 
         // check if manager signed the tx
         check!(manager_acc.is_signer, FundError::IncorrectSignature);
@@ -568,8 +550,6 @@ impl Fund {
         fund_data.performance_fee = 0;
 
         update_amount_and_performance(&mut fund_data, &price_acc, &clock_sysvar_acc, false)?;
-
-        fund_data.serialize(&mut *fund_state_acc.data.borrow_mut())?;
         
         Ok(())
 
@@ -593,7 +573,7 @@ impl Fund {
             token_prog_acc
         ] = accounts;
 
-        let mut fund_data = FundData::try_from_slice(&fund_state_acc.data.borrow())?;
+        let mut fund_data = FundData::load_mut(fund_state_acc)?;
 
         // check if manager signed the tx
         // check!(&manager_acc.is_signer, FundError::IncorrectSignature);
@@ -618,8 +598,6 @@ impl Fund {
         fund_data.tokens[0].balance = parse_token_account(&fund_btoken_acc)?.amount;
         update_amount_and_performance(&mut fund_data, &price_acc, &clock_sysvar_acc, true).unwrap();
 
-        fund_data.serialize(&mut *fund_state_acc.data.borrow_mut())?;
-
         Ok(())
     }
 
@@ -641,7 +619,7 @@ impl Fund {
             token_prog_acc
         ] = accounts;
 
-        let mut fund_data = FundData::try_from_slice(&fund_state_acc.data.borrow())?;
+        let mut fund_data = FundData::load_mut(fund_state_acc)?;
 
         // check if manager signed the tx
         // check!(&manager_acc.is_signer, FundErrorCode::IncorrectSignature);
@@ -667,8 +645,6 @@ impl Fund {
         fund_data.tokens[0].balance = parse_token_account(&fund_btoken_acc)?.amount;
         update_amount_and_performance(&mut fund_data, &price_acc, &clock_sysvar_acc, true)?;
 
-        fund_data.serialize(&mut *fund_state_acc.data.borrow_mut())?;
-
         Ok(())
     }
 
@@ -686,7 +662,7 @@ impl Fund {
         msg!("size of fund data:: {:?}", size_of::<FundData>());
         msg!("size of token data:: {:?}", size_of::<TokenInfo>());
 
-        let instruction = FundInstruction::try_from_slice(data)?;
+        let instruction = FundInstruction::unpack(data).ok_or(ProgramError::InvalidInstructionData)?;
         match instruction {
             FundInstruction::Initialize { min_amount, min_return, performance_fee_percentage } => {
                 msg!("FundInstruction::Initialize");
@@ -750,7 +726,7 @@ pub fn update_amount_and_performance(
     msg!("called update_amount_and_performance");
 
     // get price account info
-    let price_data = PriceAccount::try_from_slice(&price_acc.data.borrow())?;
+    let price_data = PriceAccount::load_mut(price_acc)?;
     let clock = &Clock::from_account_info(clock_sysvar_acc)?;
 
     // add USDT balance (not decimal adjusted)

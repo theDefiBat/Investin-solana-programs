@@ -1,18 +1,30 @@
-use borsh::{BorshDeserialize, BorshSerialize};
+use std::cell::{Ref, RefMut};
 use solana_program::pubkey::Pubkey;
+use solana_program::account_info::AccountInfo;
 use solana_program::program_pack::{IsInitialized, Sealed};
+use solana_program::program_error::ProgramError;
 use solana_program::clock::UnixTimestamp;
+use bytemuck::{from_bytes, from_bytes_mut, Pod, Zeroable};
 
-
-
-pub const NUM_TOKENS:usize = 3;
+pub const NUM_TOKENS:usize = 10;
 pub const MAX_INVESTORS:usize = 10;
-pub const MAX_FUNDS:usize = 20;
+pub const MAX_FUNDS:usize = 200;
 
+pub trait Loadable: Pod {
+    fn load_mut<'a>(account: &'a AccountInfo) -> Result<RefMut<'a, Self>, ProgramError> {
+        Ok(RefMut::map(account.try_borrow_mut_data()?, |data| from_bytes_mut(data)))
+    }
+    fn load<'a>(account: &'a AccountInfo) -> Result<Ref<'a, Self>, ProgramError> {
+        Ok(Ref::map(account.try_borrow_data()?, |data| from_bytes(data)))
+    }
+    fn load_from_bytes(data: &[u8]) -> Result<&Self, ProgramError> {
+        Ok(from_bytes(data))
+    }
+}
 
 /// Struct wrapping data and providing metadata
 #[repr(C)]
-#[derive(Clone, Debug, BorshSerialize, BorshDeserialize, PartialEq)]
+#[derive(Clone, Copy)]
 pub struct PlatformData {
 
     pub is_initialized: bool,
@@ -26,7 +38,7 @@ pub struct PlatformData {
     pub router: Pubkey,
 
     // Investin admin
-    //pub investin_admin: Pubkey,
+    pub investin_admin: Pubkey,
 
     // vault for protocol fee
     //pub investin_vault: Pubkey,
@@ -34,9 +46,13 @@ pub struct PlatformData {
     // Fund managers list
     pub fund_managers: [Pubkey; MAX_FUNDS]
 }
+unsafe impl Zeroable for PlatformData {}
+unsafe impl Pod for PlatformData {}
+impl Loadable for PlatformData {}
+
 
 #[repr(C)]
-#[derive(Clone, Debug, BorshSerialize, BorshDeserialize, PartialEq)]
+#[derive(Clone, Copy)]
 pub struct InvestorData {
 
     pub is_initialized: bool,
@@ -58,9 +74,12 @@ pub struct InvestorData {
     pub manager: Pubkey,
 
 }
+unsafe impl Zeroable for InvestorData {}
+unsafe impl Pod for InvestorData {}
+impl Loadable for InvestorData {}
 
 #[repr(C)]
-#[derive(Clone, Debug, BorshSerialize, BorshDeserialize, PartialEq)]
+#[derive(Clone, Copy)]
 pub struct FundData {
 
     pub is_initialized: bool,
@@ -103,9 +122,12 @@ pub struct FundData {
     // Store investor state account addresses
     pub investors: [Pubkey; MAX_INVESTORS]
 }
+unsafe impl Zeroable for FundData {}
+unsafe impl Pod for FundData {}
+impl Loadable for FundData {}
 
 #[repr(C)]
-#[derive(Clone, Debug, Default, Copy, BorshSerialize, BorshDeserialize, PartialEq)]
+#[derive(Clone, Copy)]
 pub struct TokenInfo {
     // Token Mint
     pub mint: Pubkey,
@@ -120,6 +142,8 @@ pub struct TokenInfo {
     pub balance: u64,
 
 }
+unsafe impl Zeroable for TokenInfo {}
+unsafe impl Pod for TokenInfo {}
 
 impl Sealed for InvestorData {}
 impl IsInitialized for InvestorData {
@@ -142,40 +166,47 @@ impl IsInitialized for PlatformData {
     }
 }
 
-pub const MAX_TOKENS:usize = 10;
+pub const MAX_TOKENS:usize = 50;
 
-#[derive(Clone, Debug, Default, Copy, BorshSerialize, BorshDeserialize, PartialEq)]
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
 pub struct PriceInfo {
     // mint address of the token
     pub token_mint: Pubkey,
 
-    pub decimals: u8,
+    pub pool_account: Pubkey,
 
-    // pub pool_account: Pubkey,
+    pub base_pool_account: Pubkey,
 
-    // pub base_pool_account: Pubkey,
+    // decimals for token
+    pub decimals: u64,
 
     // price of token
     pub token_price: u64,
 
     // last updated timestamp
-    pub last_updated: UnixTimestamp
+    pub last_updated: UnixTimestamp,
+
 }
+unsafe impl Zeroable for PriceInfo{}
+unsafe impl Pod for PriceInfo {}
 
 /// Define the type of state stored in accounts
-#[derive(Clone, Debug, BorshSerialize, BorshDeserialize, PartialEq)]
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
 pub struct PriceAccount {
-    pub is_initialized: bool,
-
     /// number of tokens
-    pub count: u8,
+    pub count: u32,
 
     /// decimals
-    pub decimals: u8,
+    pub decimals: u32,
 
     /// token price info
     pub prices: [PriceInfo; MAX_TOKENS]
 }
+unsafe impl Zeroable for PriceAccount {}
+unsafe impl Pod for PriceAccount {}
+impl Loadable for PriceAccount {}
 
 
 
