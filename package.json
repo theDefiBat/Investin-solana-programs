@@ -1,29 +1,21 @@
 {
-  "name": "helloworld",
+  "name": "investin",
   "version": "0.0.1",
   "description": "",
   "repository": {
     "type": "git",
-    "url": "https://github.com/solana-labs/example-helloworld"
+    "url": "https://github.com/Investin-pro/Solana"
   },
   "keywords": [],
   "author": "",
   "license": "MIT",
   "scripts": {
-    "start": "ts-node src/client/main.ts",
-    "start-with-test-validator": "start-server-and-test 'solana-test-validator --reset --quiet' http://localhost:8899/health start",
-    "lint": "eslint --ext .ts src/client/* && prettier --check \"src/client/**/*.ts\"",
-    "lint:fix": "eslint --ext .ts src/client/* --fix && prettier --write \"src/client/**/*.ts\"",
-    "clean": "npm run clean:program-c && npm run clean:program-rust",
-    "build:program-c": "V=1 make -C ./src/program-c helloworld",
-    "clean:program-c": "V=1 make -C ./src/program-c clean",
-    "build:program-rust": "cargo build-bpf --manifest-path=./src/program-rust/Cargo.toml --bpf-out-dir=dist/program",
-    "build:program-aggregator": "cargo build-bpf --manifest-path=./src/program-aggregator/Cargo.toml --bpf-out-dir=dist/program",
-    "build:program-fund": "cargo build-bpf --manifest-path=./src/program-fund/Cargo.toml --bpf-out-dir=dist/program",
-    "clean:program-aggregator": "cargo clean --manifest-path=./src/program-aggregator/Cargo.toml && rm -rf ./dist",
-    "test:program-rust": "cargo test-bpf --manifest-path=./src/program-rust/Cargo.toml",
-    "pretty": "prettier --write '{,src/**/}*.ts'",
-    "postinstall": "cargo update --manifest-path=src/program-fund/Cargo.toml"
+    "clean": "npm run clean:program-fund && npm run clean:program-aggregator",
+    "build:program-aggregator": "cargo build-bpf --manifest-path=./programs/program-aggregator/Cargo.toml --bpf-out-dir=dist/program-aggregator",
+    "build:program-fund": "cargo build-bpf --manifest-path=./programs/program-fund/Cargo.toml --bpf-out-dir=dist/program-fund",
+    "clean:program-aggregator": "cargo clean --manifest-path=./programs/program-aggregator/Cargo.toml && rm -rf ./dist/program-aggregator",
+    "clean:program-fund": "cargo clean --manifest-path=./programs/program-fund/Cargo.toml && rm -rf ./dist/program-fund",
+    "postinstall": "cargo update --manifest-path=programs/program-fund/Cargo.toml"
   },
   "dependencies": {
     "@project-serum/borsh": "^0.2.2",

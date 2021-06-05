@@ -1,11 +1,10 @@
 [package]
-name = "solana-bpf-helloworld"
+name = "fund"
 version = "0.0.1"
-description = "Example template program written in Rust"
-authors = ["Solana Maintainers <maintainers@solana.com>"]
-repository = "https://github.com/solana-labs/solana"
+description = "Investin Fund Contract"
+repository = "https://github.com/Investin-pro/Solana"
 license = "Apache-2.0"
-homepage = "https://solana.com/"
+homepage = "https://investin.pro/"
 edition = "2018"
 
 [features]
@@ -31,5 +30,5 @@ solana-program-test = "=1.6.8"
 solana-sdk = "=1.6.8"
 
 [lib]
-name = "helloworld"
+name = "fund"
 crate-type = ["cdylib", "lib"]

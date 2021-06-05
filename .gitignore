@@ -5,9 +5,9 @@
 .env
 src/client/util/store
 test-ledger/
-src/program-fund/target
-src/program-fund/Cargo.lock
-src/program-aggregator/Cargo.lock
-src/program-aggregator/target
+programs/program-fund/target
+programs/program-fund/Cargo.lock
+programs/program-aggregator/Cargo.lock
+programs/program-aggregator/target
 package-lock.json
 connect-wallet-and-transfer/node_modules
