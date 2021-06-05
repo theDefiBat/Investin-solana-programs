@@ -1,4 +1,5 @@
 use borsh::{BorshDeserialize, BorshSerialize};
+use std::mem::size_of;
 use bytemuck::bytes_of;
 use fixed::types::U64F64;
 use solana_program::{
@@ -19,7 +20,7 @@ use spl_token::state::{Account, Mint};
 
 use crate::error::FundError;
 use crate::instruction::{FundInstruction, Data};
-use crate::state::{NUM_TOKENS, MAX_INVESTORS, FundData, InvestorData, PlatformData, PriceAccount};
+use crate::state::{NUM_TOKENS, MAX_INVESTORS, FundData, InvestorData, TokenInfo, PlatformData, PriceAccount};
 
 macro_rules! check {
     ($cond:expr, $err:expr) => {
@@ -93,7 +94,7 @@ impl Fund {
             let mint_acc = &mint_accs[i];
             let mint = Mint::unpack(&mint_acc.data.borrow())?;
             fund_data.tokens[i].mint = *mint_acc.key;
-            fund_data.tokens[i].decimals = mint.decimals;
+            fund_data.tokens[i].decimals = mint.decimals.into();
             fund_data.tokens[i].balance = 0;
         }
 
@@ -108,7 +109,7 @@ impl Fund {
 
         // get nonce for signing later
         let (_pda, nonce) = Pubkey::find_program_address(&[&*manager_acc.key.as_ref()], program_id);
-        fund_data.signer_nonce = nonce;
+        fund_data.signer_nonce = nonce.into();
         fund_data.is_initialized = true;
 
         msg!("Serialising data");
@@ -678,6 +679,13 @@ impl Fund {
         data: &[u8]
     ) -> Result<(), ProgramError> {
         msg!("Program Entrypoint");
+
+        msg!("size of platform data:: {:?}", size_of::<PlatformData>());
+        msg!("size of investor data:: {:?}", size_of::<InvestorData>());
+
+        msg!("size of fund data:: {:?}", size_of::<FundData>());
+        msg!("size of token data:: {:?}", size_of::<TokenInfo>());
+
         let instruction = FundInstruction::try_from_slice(data)?;
         match instruction {
             FundInstruction::Initialize { min_amount, min_return, performance_fee_percentage } => {
@@ -749,21 +757,14 @@ pub fn update_amount_and_performance(
     let mut fund_val = U64F64::from_num(fund_data.tokens[0].balance);
     // Calculate prices for all tokens with balances
     for i in 0..(NUM_TOKENS-1) {
-        
+
         // get index of token
         let index = find_index(&price_data, fund_data.tokens[i+1].mint)?;
 
-<<<<<<< HEAD
-=======
-        let price = price_data.prices[index].token_price;
->>>>>>> 8c3e9b66646482555e2887288b8b138c59748431
         if clock.unix_timestamp - price_data.prices[index].last_updated > 100 {
             msg!("price not up-to-date.. aborting");
             return Err(FundError::PriceStaleInAccount.into())
         }
-        msg!("price for token:: {:?}", price);
-        msg!("last updated at:: {:?}", price_data.prices[index].last_updated);
-
         // calculate price in terms of base token
         let val: U64F64 = U64F64::from_num(fund_data.tokens[i+1].balance)
         .checked_mul(U64F64::from_num(price_data.prices[index].token_price)).unwrap()
