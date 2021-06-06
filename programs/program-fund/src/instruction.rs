@@ -82,9 +82,16 @@ pub enum FundInstruction {
     /// 8. []       Token Program
     ClaimPerformanceFee,
 
-    // AdminControl{
-
-    // }
+    /// 0. [WRITE] Platform State Account
+    /// 1. [SIGNER] investin Wallet Account 
+    /// 2. []       Fund state Account / 2. []     Base Token Mint Address
+    AdminControl{
+        platform_is_initialized: u8,
+        fund_is_initialized: u8,
+        fund_min_amount: u64,
+        fund_min_return: u64,
+        fund_performance_fee_percentage: u64
+    },
 
     /// 0. [WRITE]  Fund State Account (derived from FA)
     /// 1. [READ]   Price Account
@@ -148,13 +155,19 @@ impl FundInstruction {
                 FundInstruction::ManagerTransfer
             },
             3 => {
-                let data = array_ref![data, 0, 1 + 1 + 8 + 8];
+                let amount = array_ref![data, 0, 8];
+                FundInstruction::InvestorWithdraw {
+                    amount: u64::from_le_bytes(*amount)
+                }
+            },
+            4 => {
+                let data = array_ref![data, 0, 1 + 8 + 8];
                 let (
-                    instruction1,
                     instruction,
                     amount_in,
                     min_amount_out
-                ) = array_refs![data, 1, 1, 8, 8];
+                ) = array_refs![data, 1, 8, 8];
+
                 FundInstruction::Swap {
                     data: Data {
                         instr: u8::from_le_bytes(*instruction),
@@ -163,16 +176,34 @@ impl FundInstruction {
                     }
                 }
             },
-            4 => {
+            5 => {
                 FundInstruction::ClaimPerformanceFee
             },
-            5 => {
+            6 => {
+                let data = array_ref![data, 0, 1 + 1 + 8 + 8 + 8];
+                let (
+                    platform_is_initialized,
+                    fund_is_initialized,
+                    fund_min_amount,
+                    fund_min_return,
+                    fund_performance_fee_percentage
+                ) = array_refs![data, 1, 1, 8, 8, 8];
+
+                FundInstruction::AdminControl {
+                    platform_is_initialized: u8::from_le_bytes(*platform_is_initialized),
+                    fund_is_initialized: u8::from_le_bytes(*fund_is_initialized),
+                    fund_min_amount: u64::from_le_bytes(*fund_min_amount),
+                    fund_min_return: u64::from_le_bytes(*fund_min_return),
+                    fund_performance_fee_percentage: u64::from_le_bytes(*fund_performance_fee_percentage)
+                }
+            },   
+            7 => {
                 let amount = array_ref![data, 0, 8];
                 FundInstruction::TestingDeposit {
                     amount: u64::from_le_bytes(*amount)
                 }
             },
-            6 => {
+            8 => {
                 let amount = array_ref![data, 0, 8];
                 FundInstruction::TestingWithdraw {
                     amount: u64::from_le_bytes(*amount)
