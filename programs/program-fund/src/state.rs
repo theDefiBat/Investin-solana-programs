@@ -90,7 +90,9 @@ pub struct FundData {
     /// Total Number of investments in fund
     pub no_of_investments: u8,
     // nonce to sign transactions
-    pub signer_nonce: u32,
+    pub signer_nonce: u8,
+    // padding
+    pub padding: [u8; 3],
 
     /// Minimum Amount
     pub min_amount: u64,
