@@ -4,6 +4,8 @@
 /dist
 .env
 src/client/util/store
+src/program-fund/target
+src/program-fund/Cargo.lock
 test-ledger/
 programs/program-fund/target
 programs/program-fund/Cargo.lock
