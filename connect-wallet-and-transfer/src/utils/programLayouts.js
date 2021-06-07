@@ -20,7 +20,8 @@ export const FUND_DATA = struct([
   u8('decimals'),
   u8('number_of_active_investments'),
   u8('no_of_investments'),
-  u32('signer_nonce'),
+  u8('signer_nonce'),
+  array(u8('padding'), 3),
 
   u64('min_amount'),
   u64('min_return'),

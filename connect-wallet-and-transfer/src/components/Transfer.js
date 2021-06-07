@@ -30,20 +30,20 @@ export const Transfer = () => {
         alert("connect wallet")
         return;
       };
+      const transaction = new Transaction()
 
       const routerPDA = await PublicKey.findProgramAddress([Buffer.from("router")], programId);
       const fundBaseTokenAccount = await findAssociatedTokenAddress(new PublicKey(fundPDA), new PublicKey(TEST_TOKENS['USDR'].mintAddress));
       const routerBaseTokenAccount = await findAssociatedTokenAddress(routerPDA[0], new PublicKey(TEST_TOKENS['USDR'].mintAddress));
 
-      const managerBaseTokenAccount = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['USDR'].mintAddress), key);
-      const investinBaseTokenAccount = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['USDR'].mintAddress), adminAccount);    
+      const managerBaseTokenAccount = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['USDR'].mintAddress), key, transaction);
+      const investinBaseTokenAccount = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['USDR'].mintAddress), adminAccount, transaction);    
 
       if (fundStateAccount == ''){
         alert("get info first!")
         return
       }
       
-      const transaction = new Transaction()
 
       updatePoolPrices(transaction, devnet_pools)
       // transaction1.feePayer = walletProvider?.publicKey;

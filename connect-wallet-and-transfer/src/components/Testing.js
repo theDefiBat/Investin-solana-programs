@@ -46,7 +46,7 @@ export const Testing = () => {
         const data = Buffer.alloc(dataLayout.span)
         dataLayout.encode(
             {
-            instruction: 6,
+            instruction: 7,
             amount: amount * (10 ** TEST_TOKENS['USDR'].decimals),
             },
             data
@@ -113,7 +113,7 @@ export const Testing = () => {
         const data = Buffer.alloc(dataLayout.span)
         dataLayout.encode(
             {
-            instruction: 7,
+            instruction: 8,
             amount: amount * (10 ** TEST_TOKENS['USDR'].decimals),
             },
             data

@@ -64,21 +64,21 @@ export const Withdraw = () => {
 
     updatePoolPrices(transaction, devnet_pools)
 
-    const routerAssociatedTokenAddress = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['USDR'].mintAddress), RPDA[0]);
+    const routerAssociatedTokenAddress = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['USDR'].mintAddress), RPDA[0], transaction);
     // TODO: Manager Base Token Account
-    const managerAssociatedTokenAccount = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['USDR'].mintAddress), RPDA[0]);
+    const managerAssociatedTokenAccount = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['USDR'].mintAddress), RPDA[0], transaction);
     // TODO: Investin Base Token Account
-    const investinAssociatedTokenAddress = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['USDR'].mintAddress), adminAccount);
+    const investinAssociatedTokenAddress = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['USDR'].mintAddress), adminAccount, transaction);
 
 
 
-    const investorBaseTokenAccount = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['USDR'].mintAddress), key);
-    const investorTokenAccount2 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['RAYT'].mintAddress), key);
-    const investorTokenAccount3 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['ALPHA'].mintAddress), key);
+    const investorBaseTokenAccount = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['USDR'].mintAddress), key, transaction);
+    const investorTokenAccount2 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['RAYT'].mintAddress), key, transaction);
+    const investorTokenAccount3 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['ALPHA'].mintAddress), key, transaction);
 
-    const fundAssociatedTokenAddress1 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['USDR'].mintAddress), MPDA);
-    const fundAssociatedTokenAddress2 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['RAYT'].mintAddress), MPDA);
-    const fundAssociatedTokenAddress3 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['ALPHA'].mintAddress), MPDA);
+    const fundAssociatedTokenAddress1 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['USDR'].mintAddress), MPDA, transaction);
+    const fundAssociatedTokenAddress2 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['RAYT'].mintAddress), MPDA, transaction);
+    const fundAssociatedTokenAddress3 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['ALPHA'].mintAddress), MPDA, transaction);
 
     const dataLayout = struct([u8('instruction'), nu64('amount')])
     const data = Buffer.alloc(dataLayout.span)
@@ -111,10 +111,28 @@ export const Withdraw = () => {
         { pubkey: investorBaseTokenAccount, isSigner: false, isWritable: true }, // Investor Token Accounts
         { pubkey: investorTokenAccount2, isSigner: false, isWritable: true },
         { pubkey: investorTokenAccount3, isSigner: false, isWritable: true },
+        
+        { pubkey: investorTokenAccount3, isSigner: false, isWritable: true },
+        { pubkey: investorTokenAccount3, isSigner: false, isWritable: true },
+        { pubkey: investorTokenAccount3, isSigner: false, isWritable: true },
+        { pubkey: investorTokenAccount3, isSigner: false, isWritable: true },
+        { pubkey: investorTokenAccount3, isSigner: false, isWritable: true },
+        { pubkey: investorTokenAccount3, isSigner: false, isWritable: true },
+        { pubkey: investorTokenAccount3, isSigner: false, isWritable: true },
+
 
         { pubkey: fundAssociatedTokenAddress1, isSigner: false, isWritable: true }, // Fund Token Accounts
         { pubkey: fundAssociatedTokenAddress2, isSigner: false, isWritable: true },
         { pubkey: fundAssociatedTokenAddress3, isSigner: false, isWritable: true },
+        
+        { pubkey: fundAssociatedTokenAddress3, isSigner: false, isWritable: true },
+        { pubkey: fundAssociatedTokenAddress3, isSigner: false, isWritable: true },
+        { pubkey: fundAssociatedTokenAddress3, isSigner: false, isWritable: true },
+        { pubkey: fundAssociatedTokenAddress3, isSigner: false, isWritable: true },
+        { pubkey: fundAssociatedTokenAddress3, isSigner: false, isWritable: true },
+        { pubkey: fundAssociatedTokenAddress3, isSigner: false, isWritable: true },
+        { pubkey: fundAssociatedTokenAddress3, isSigner: false, isWritable: true },
+
       ],
       programId,
       data
