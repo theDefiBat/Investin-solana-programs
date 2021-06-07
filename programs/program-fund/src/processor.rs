@@ -109,7 +109,7 @@ impl Fund {
 
         // get nonce for signing later
         let (_pda, nonce) = Pubkey::find_program_address(&[&*manager_acc.key.as_ref()], program_id);
-        fund_data.signer_nonce = nonce.into();
+        fund_data.signer_nonce = nonce;
         fund_data.is_initialized = true;
 
         // update platform_data
