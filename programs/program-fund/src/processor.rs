@@ -555,6 +555,120 @@ impl Fund {
 
     }
 
+    pub fn dynamic_claim (
+        program_id: &Pubkey,
+        accounts: &[AccountInfo],
+        in_queue: u8,
+    ) -> Result<(), ProgramError> {
+
+        const NUM_FIXED:usize = 10;
+        let accounts = array_ref![accounts, 0, NUM_FIXED + MAX_INVESTORS];
+
+        let (
+            fixed_accs,
+            investor_state_accs
+        ) = array_refs![accounts, NUM_FIXED, MAX_INVESTORS];
+
+        let [
+            platform_acc,
+            fund_state_acc,
+            price_acc,
+            clock_sysvar_acc,
+            manager_acc,
+            fund_btoken_acc,
+            manager_btoken_acc,
+            investin_btoken_acc,
+            pda_man_acc,
+            token_prog_acc
+        ] = fixed_accs;
+
+        let platform_data = PlatformData::load(platform_acc)?;
+        let mut fund_data = FundData::load_mut(fund_state_acc)?;
+
+        // check if manager signed the tx
+        check!(manager_acc.is_signer, FundError::IncorrectProgramId);
+
+        update_amount_and_performance(&mut fund_data, &price_acc, &clock_sysvar_acc, true)?;
+
+        let mut total_performance_fee = 0;
+        for i in 0..in_queue {
+            let investor_state_acc = &investor_state_accs[i as usize];
+            let mut investor_data = InvestorData::load_mut(investor_state_acc)?;
+            let percentage_return: u64 = U64F64::to_num(U64F64::from_num(fund_data.prev_performance)
+            .checked_mul(U64F64::from_num(10000)).unwrap() //cehck decimal
+            .checked_div(U64F64::from_num(investor_data.start_performance)).unwrap());
+
+            if percentage_return >= fund_data.min_return {
+                let actual_amount: u64 = U64F64::to_num(U64F64::from_num(investor_data.amount)
+                .checked_mul(U64F64::from_num(98)).unwrap()
+                .checked_div(U64F64::from_num(100)).unwrap());
+                let res: u64 = U64F64::to_num(U64F64::from_num(investor_data.amount)
+                .checked_mul(U64F64::from_num(percentage_return)).unwrap());
+                let perf_fee: u64 = U64F64::to_num((U64F64::from_num(res)
+                .checked_sub(U64F64::from_num(actual_amount)).unwrap())
+                .checked_mul(U64F64::from_num(fund_data.performance_fee_percentage)).unwrap());
+                total_performance_fee = U64F64::to_num(U64F64::from_num(total_performance_fee)
+                .checked_add(U64F64::from_num(perf_fee)).unwrap());
+                investor_data.amount = U64F64::to_num(U64F64::from_num(res)
+                .checked_sub(U64F64::from_num(perf_fee)).unwrap());
+                investor_data.start_performance = fund_data.prev_performance;
+            }
+        }
+        check!(total_performance_fee > 0, FundError::InvalidAmount);
+        fund_data.performance_fee = U64F64::to_num(U64F64::from_num(fund_data.performance_fee)
+        .checked_add(U64F64::from_num(total_performance_fee)).unwrap());
+
+        msg!("Invoking transfer instructions");
+        let performance_fee_manager: u64 = U64F64::to_num(U64F64::from_num(fund_data.performance_fee)
+        .checked_mul(U64F64::from_num(90)).unwrap()
+        .checked_div(U64F64::from_num(100)).unwrap());
+
+        let transfer_instruction = spl_token::instruction::transfer(
+            token_prog_acc.key,
+            fund_btoken_acc.key,
+            manager_btoken_acc.key,
+            pda_man_acc.key,
+            &[pda_man_acc.key],
+            performance_fee_manager
+        )?;
+        let transfer_accs = [
+            fund_btoken_acc.clone(),
+            manager_btoken_acc.clone(),
+            pda_man_acc.clone(),
+            token_prog_acc.clone()
+        ];
+        let signer_seeds = [fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)];
+        invoke_signed(&transfer_instruction, &transfer_accs, &[&signer_seeds])?;
+
+        let performance_fee_investin: u64 = U64F64::to_num(U64F64::from_num(fund_data.performance_fee)
+        .checked_div(U64F64::from_num(10)).unwrap());
+        let transfer_instruction = spl_token::instruction::transfer(
+            token_prog_acc.key,
+            fund_btoken_acc.key,
+            investin_btoken_acc.key,
+            pda_man_acc.key,
+            &[pda_man_acc.key],
+            performance_fee_investin
+        )?;
+        let transfer_accs = [
+            fund_btoken_acc.clone(),
+            investin_btoken_acc.clone(),
+            pda_man_acc.clone(),
+            token_prog_acc.clone()
+        ];
+        let signer_seeds = [fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)];
+        invoke_signed(&transfer_instruction, &transfer_accs, &[&signer_seeds])?;
+        msg!("Transfer Complete");
+
+        fund_data.tokens[0].balance = parse_token_account(&fund_btoken_acc)?.amount;
+        fund_data.performance_fee = 0;
+
+        update_amount_and_performance(&mut fund_data, &price_acc, &clock_sysvar_acc, false)?;
+        
+        Ok(())
+
+    }
+
     pub fn admin_control (
         program_id: &Pubkey,
         accounts: &[AccountInfo],
@@ -733,6 +847,10 @@ impl Fund {
             FundInstruction::ClaimPerformanceFee {} => {
                 msg!("FundInstruction::ClaimPerformanceFee");
                 return Self::claim(program_id, accounts);
+            }
+            FundInstruction::DynamicClaim {in_queue} => {
+                msg!("FundInstruction::DynamicClaim");
+                return Self::dynamic_claim(program_id, accounts, in_queue);
             }
             FundInstruction::AdminControl {platform_is_initialized, fund_is_initialized, fund_min_amount, fund_min_return, fund_performance_fee_percentage} => {
                 msg!("FundInstruction::AdminControl");
