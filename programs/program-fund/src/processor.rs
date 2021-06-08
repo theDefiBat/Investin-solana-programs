@@ -784,6 +784,9 @@ pub fn update_amount_and_performance(
     // Calculate prices for all tokens with balances
     for i in 0..(NUM_TOKENS-1) {
 
+        // dont update if token balance == 0
+        if fund_data.tokens[i+1].balance == 0 { continue; }
+
         // get index of token
         let index = find_index(&price_data, fund_data.tokens[i+1].mint)?;
 
