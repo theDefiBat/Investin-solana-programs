@@ -82,6 +82,21 @@ pub enum FundInstruction {
     /// 8. []       Token Program
     ClaimPerformanceFee,
 
+    /// 0. []       Platform State Account
+    /// 1. [WRITE]  Fund State Account
+    /// 2. [READ]   Price Account
+    /// 3. [READ]   Clock Sysvar Account
+    /// 4. [SIGNER] Manager Wallet Account       
+    /// 5. []       Fund Base Token Account
+    /// 6. []       Manager Base Token Account
+    /// 7. []       Investin Base Token Account
+    /// 8. []       PDA of Manager
+    /// 9. []       Token Program
+    /// 10..10+MAX_INVESTORS Investor State Accounts for the fund
+    DynamicClaim {
+        in_queue: u8
+    },
+
     /// 0. [WRITE] Platform State Account
     /// 1. [SIGNER] investin Wallet Account 
     /// 2. []       Fund state Account / 2. []     Base Token Mint Address
