@@ -379,6 +379,15 @@ export const TOKENS = {
       Telegram: 'https://t.me/MercurialFi',
       Medium: 'https://mercurialfi.medium.com/'
     }
+  },
+  TULIP: {
+    symbol: 'TULIP',
+    name: 'TULIP',
+    mintAddress: 'TuLipcqtGVXP9XR62wM8WWCm6a9vhLs7T1uoWBk6FDs',
+    decimals: 6,
+    referrer: '',
+    official: true,
+    showDefault: true
   }
 }
 

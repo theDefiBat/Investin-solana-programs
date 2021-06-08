@@ -4,14 +4,21 @@ import { GlobalState } from '../store/globalState';
 import { createKeyIfNotExists, signAndSendTransaction } from '../utils/web3'
 import { adminAccount, connection, TOKEN_PROGRAM_ID, PRICE_ACCOUNT_KEY, programId, priceStateAccount } from '../utils/constants';
 import { nu64, struct, u8 } from 'buffer-layout';
-import { TEST_TOKENS } from '../utils/tokens'
+import { TEST_TOKENS, TOKENS } from '../utils/tokens'
 import { PRICE_DATA } from '../utils/programLayouts';
-import { devnet_pools } from '../utils/pools';
+import { devnet_pools, pools } from '../utils/pools';
 
 const priceProgramId = new PublicKey('HACWxPihVtqqvyf9T6i77VDAT7s9hFse8vHRVsinP3NG')
 const tokensList = [
-    TEST_TOKENS['RAYT'],
-    TEST_TOKENS['ALPHA'],
+    TOKENS['WSOL'],
+    TOKENS['SRM'],
+    TOKENS['STEP'],
+    TOKENS['ALEPH'],
+    TOKENS['ROPE'],
+    TOKENS['MEDIA'],
+    TOKENS['MER'],
+    TOKENS['COPE'],
+    TOKENS['TULIP']
 ]
 export const GetPrices = () => {
     const [priceAccount, setPriceAccount] = useState('');
@@ -22,9 +29,10 @@ export const GetPrices = () => {
 
     const handleAddToken = async () => {
        
+        let transaction = new Transaction()
 
-        const priceAccount = priceStateAccount;
-        //const priceAccount = await createKeyIfNotExists(walletProvider, "", priceProgramId, PRICE_ACCOUNT_KEY, PRICE_DATA.span)
+        //const priceAccount = priceStateAccount;
+        const priceAccount = await createKeyIfNotExists(walletProvider, "", priceProgramId, PRICE_ACCOUNT_KEY, PRICE_DATA.span, transaction)
         console.log('pool ', poolName)
         console.log('account size:: ', PRICE_DATA.span)
         console.log('priceAccount::', priceAccount.toBase58())
@@ -33,7 +41,7 @@ export const GetPrices = () => {
             alert("no token pool found")
             return
         }
-        const poolInfo = devnet_pools.find(p => p.name === poolName);
+        const poolInfo = pools.find(p => p.name === poolName);
         console.log(poolInfo)
         const dataLayout = struct([u8('instruction'), u8('count')])
 
@@ -57,7 +65,6 @@ export const GetPrices = () => {
             programId: priceProgramId,
             data
         });
-        let transaction = new Transaction()
         transaction.add(instruction)
         transaction.feePayer = walletProvider?.publicKey;
         console.log("trnsaction:: ", transaction)
@@ -81,7 +88,7 @@ export const GetPrices = () => {
             alert("no token pool found")
             return
         }
-        const poolInfo = devnet_pools.find(p => p.name === poolName);
+        const poolInfo = pools.find(p => p.name === poolName);
         console.log(poolInfo)
         const dataLayout = struct([u8('instruction'), u8('count')])
 
@@ -122,7 +129,7 @@ export const GetPrices = () => {
         console.log("price data::: ", data)
     }
     const handleTokenSelect = async(event) => {
-        setPoolName(`${event.target.value}-USDR`)
+        setPoolName(`${event.target.value}-USDC`)
       }
 
     return (
