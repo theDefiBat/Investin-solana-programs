@@ -30,5 +30,7 @@ $ solana program deploy dist/program-fund/fund.so
 $ solana program deploy dist/program-aggregator/aggregator.so
 
 ```
-
+### Basic UI
+A basic UI for testing is available in web/ folder.
+The main UI is maintained in another repo
 ```
