@@ -21,6 +21,7 @@ use crate::error::FundError;
 use crate::instruction::{FundInstruction, Data};
 use crate::state::{NUM_TOKENS, MAX_INVESTORS, FundData, InvestorData, TokenInfo, PlatformData, PriceAccount};
 use crate::state::Loadable;
+use crate::mango_utils::*;
 
 macro_rules! check {
     ($cond:expr, $err:expr) => {
@@ -737,6 +738,22 @@ impl Fund {
             FundInstruction::AdminControl {platform_is_initialized, fund_is_initialized, fund_min_amount, fund_min_return, fund_performance_fee_percentage} => {
                 msg!("FundInstruction::AdminControl");
                 return Self::admin_control(program_id, accounts, platform_is_initialized, fund_is_initialized, fund_min_amount, fund_min_return, fund_performance_fee_percentage);
+            }
+            FundInstruction::MangoDeposit { quantity } => {
+                msg!("FundInstruction::MangoDeposit");
+                return mango_deposit(program_id, accounts, quantity);
+            }
+            FundInstruction::MangoPlaceAndSettle { order } => {
+                msg!("FundInstruction::MangoPlaceAndSettle");
+                return mango_place_and_settle(program_id, accounts, order);
+            }
+            FundInstruction::MangoWithdrawToFund { quantity } => {
+                msg!("FundInstruction::MangoWithdrawToFund");
+                return mango_withdraw_to_fund(program_id, accounts, quantity);
+            }
+            FundInstruction::MangoWithdrawInvestor { quantity } => {
+                msg!("FundInstruction::MangoWithdrawInvestor");
+                return mango_withdraw_investor(program_id, accounts, quantity);
             }
             FundInstruction::TestingDeposit {amount} => {
                 msg!("FundInstruction::TestingDeposit");
