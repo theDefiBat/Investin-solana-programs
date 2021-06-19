@@ -132,9 +132,12 @@ pub enum FundInstruction {
     ///
     /// Accounts expected by this instruction (19 + 2 * NUM_MARKETS):
     ///
-    /// 0.  [signer]    manager_acc - Manager Account
+    /// 0.  [writable]  fund_state_acc - Fund State Account
+    /// 1.  [signer]    manager_acc - Manager Account to sign
+    /// 2.  []          fund_pda_acc - Fund PDA Account
+    /// 3.  []          mango_prog_acc - Mango Program Account
+    /// 
     /// 1. `[writable]` mango_group_acc - MangoGroup that this margin account is for
-    /// 2. `[]` owner_acc - MarginAccount owner
     /// 3. `[writable]` margin_account_acc - MarginAccount
     /// 4. `[]` clock_acc - Clock sysvar account
     /// 5. `[]` dex_prog_acc - program id of serum dex
@@ -164,11 +167,13 @@ pub enum FundInstruction {
     /// Accounts expected by this instruction (8 + 2 * NUM_MARKETS):
     ///
     /// 0.  [writable]  fund_state_acc - Fund State Account
-    /// 1.  [signer]    manager_acc - Manager Account
+    /// 1.  []          price_acc - Aggregator Price Account
+    /// 1.  [signer]    manager_acc - Manager Account to sign
+    /// 2.  []          fund_pda_acc - Fund PDA Account
+    /// 3.  []          mango_prog_acc - Mango Program Account
     /// 
     /// 0. `[writable]` mango_group_acc - MangoGroup that this margin account is for
     /// 1. `[writable]` margin_account_acc - the margin account for this user
-    /// 2. `[signer]` owner_acc - Solana account of owner of the margin account
     /// 3. `[writable]` token_account_acc - TokenAccount owned by user which will be receiving the funds
     /// 4. `[writable]` vault_acc - TokenAccount owned by MangoGroup which will be sending
     /// 5. `[]` signer_acc - acc pointed to by signer_key
@@ -311,37 +316,40 @@ impl FundInstruction {
                 }
             },
             7 => {
+                FundInstruction::InitMarginAccount
+            },
+            8 => {
                 let quantity = array_ref![data, 0, 8];
                 FundInstruction::MangoDeposit{
                     quantity: u64::from_le_bytes(*quantity)
                 }
             },
-            8 => {
+            9 => {
                 let data_arr = array_ref![data, 0, 46];
                 let order = unpack_dex_new_order_v3(data_arr)?;
                 FundInstruction::MangoPlaceAndSettle {
                     order
                 }
             },
-            9 => {
+            10 => {
                 let quantity = array_ref![data, 0, 8];
                 FundInstruction::MangoWithdrawToFund{
                     quantity: u64::from_le_bytes(*quantity)
                 }
             },
-            10 => {
+            11 => {
                 let quantity = array_ref![data, 0, 8];
                 FundInstruction::MangoWithdrawInvestor{
                     quantity: u64::from_le_bytes(*quantity)
                 }
             },
-            11 => {
+            12 => {
                 let amount = array_ref![data, 0, 8];
                 FundInstruction::TestingDeposit {
                     amount: u64::from_le_bytes(*amount)
                 }
             },
-            12 => {
+            13 => {
                 let amount = array_ref![data, 0, 8];
                 FundInstruction::TestingWithdraw {
                     amount: u64::from_le_bytes(*amount)
