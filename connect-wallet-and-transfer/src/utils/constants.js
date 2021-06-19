@@ -26,4 +26,8 @@ export const ASSOCIATED_TOKEN_PROGRAM_ID = new PublicKey('ATokenGPvbdGVxr1b2hvZb
 //export const SERUM_PROGRAM_ID_V3 = '9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PusVFin'
 export const LIQUIDITY_POOL_PROGRAM_ID_V4 = '9rpQHSyFVM1dkkHFQ2TtTzPEW7DVmEyPmN8wVniqJtuC'
 export const SERUM_PROGRAM_ID_V3 = 'DESVgJVGajEgKGXhb6XmqDHGz3VjdgP7rEVESBgxmroY'
+
+export const MANGO_PROGRAM_ID_V2 = '9XzhtAtDXxW2rjbeVFhTq4fnhD8dqzr154r5b2z6pxEp'
+export const MANGO_GROUP_ACCOUNT = 'B9Uddrao7b7sCjNZp1BJSQqFzqhMEmBxD2SvYTs2TSBn'
+export const MANGO_VAULT_ACCOUNT_USDC = 'CRZemtdc8FjHYWqLDVPwYK5PGbVSxPCKoyf6fyEFkfjq'
  
