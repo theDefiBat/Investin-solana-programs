@@ -735,6 +735,10 @@ impl Fund {
                 msg!("FundInstruction::ClaimPerformanceFee");
                 return Self::claim(program_id, accounts);
             }
+            FundInstruction::MangoInitialize  => {
+                msg!("FundInstruction::MangoInitialize");
+                return mango_init_margin_account(program_id, accounts);
+            }
             FundInstruction::AdminControl {platform_is_initialized, fund_is_initialized, fund_min_amount, fund_min_return, fund_performance_fee_percentage} => {
                 msg!("FundInstruction::AdminControl");
                 return Self::admin_control(program_id, accounts, platform_is_initialized, fund_is_initialized, fund_min_amount, fund_min_return, fund_performance_fee_percentage);

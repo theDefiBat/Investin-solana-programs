@@ -109,7 +109,7 @@ pub enum FundInstruction {
     /// 0. `[]` mango_group_acc - MangoGroup that this margin account is for
     /// 1. `[writable]` margin_account_acc - the margin account data
     /// 3. `[]` rent_acc - Rent sysvar account
-    InitMarginAccount,
+    MangoInitialize,
 
     /// Proxy to Deposit instruction on Mango
     /// 
@@ -316,7 +316,7 @@ impl FundInstruction {
                 }
             },
             7 => {
-                FundInstruction::InitMarginAccount
+                FundInstruction::MangoInitialize
             },
             8 => {
                 let quantity = array_ref![data, 0, 8];

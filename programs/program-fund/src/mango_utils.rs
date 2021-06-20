@@ -39,7 +39,6 @@ macro_rules! check {
 pub fn mango_init_margin_account (
     program_id: &Pubkey,
     accounts: &[AccountInfo],
-    quantity: u64
 ) -> Result<(), ProgramError>
 
 {
