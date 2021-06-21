@@ -7,7 +7,7 @@ import { PublicKey, Transaction, TransactionInstruction } from '@solana/web3.js'
 import { TOKEN_PROGRAM_ID } from '@project-serum/serum/lib/token-instructions';
 import { FUND_DATA, PLATFORM_DATA } from '../utils/programLayouts';
 import { Badge } from 'reactstrap';
-import { TEST_TOKENS } from "../utils/tokens";
+import { MANGO_TOKENS } from "../utils/tokens";
 
 export const InitialisedFund = () => {
 
@@ -36,7 +36,7 @@ export const InitialisedFund = () => {
 
     // ***what should be in the place of wallet provider in platformAccount
     const platformAccount = platformStateAccount;
-    //const platformAccount = await createKeyIfNotExists(walletProvider, "", programId, PLATFORM_ACCOUNT_KEY, PLATFORM_DATA.span, transaction)
+    // const platformAccount = await createKeyIfNotExists(walletProvider, "", programId, PLATFORM_ACCOUNT_KEY, PLATFORM_DATA.span, transaction)
     const fundAccount = await createKeyIfNotExists(walletProvider, "", programId, FUND_ACCOUNT_KEY, FUND_DATA.span, transaction)
 
 
@@ -63,7 +63,7 @@ export const InitialisedFund = () => {
       dataLayout.encode(
         {
           instruction: 0,
-          min_amount: min_amount * (10 ** TEST_TOKENS['USDR'].decimals),
+          min_amount: min_amount * (10 ** MANGO_TOKENS['USDC'].decimals),
           min_return: min_return * 10000,
           performance_fee_percentage: platform_fee_percentage * 10000,
         },
@@ -77,9 +77,9 @@ export const InitialisedFund = () => {
 
       console.log(`associatedTokenAccounts.value ::: `, associatedTokenAccounts.value)
     
-      const associatedTokenAddress1 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['USDR'].mintAddress), PDA[0], transaction);
-      const associatedTokenAddress2 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['RAYT'].mintAddress), PDA[0], transaction);
-      const associatedTokenAddress3 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['ALPHA'].mintAddress), PDA[0], transaction);
+      const associatedTokenAddress1 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(MANGO_TOKENS['USDC'].mintAddress), PDA[0], transaction);
+      const associatedTokenAddress2 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(MANGO_TOKENS['BTC'].mintAddress), PDA[0], transaction);
+      const associatedTokenAddress3 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(MANGO_TOKENS['ETH'].mintAddress), PDA[0], transaction);
 
      
       console.log(`associatedTokenAddress1 ::: `, associatedTokenAccounts)
@@ -97,17 +97,17 @@ export const InitialisedFund = () => {
           { pubkey: platformAccount, isSigner: false, isWritable: true },
           { pubkey: fundAccount, isSigner: false, isWritable: true },
           { pubkey: walletProvider?.publicKey, isSigner: true, isWritable: true },
-          { pubkey: associatedTokenAddresses[0], isSigner: false, isWritable: true },
-          { pubkey: new PublicKey(TEST_TOKENS['USDR'].mintAddress), isSigner: false, isWritable: true },
-          { pubkey: new PublicKey(TEST_TOKENS['RAYT'].mintAddress), isSigner: false, isWritable: true },
-          { pubkey: new PublicKey(TEST_TOKENS['ALPHA'].mintAddress), isSigner: false, isWritable: true },
-          { pubkey: new PublicKey(TEST_TOKENS['ALPHA'].mintAddress), isSigner: false, isWritable: true },
-          { pubkey: new PublicKey(TEST_TOKENS['ALPHA'].mintAddress), isSigner: false, isWritable: true },
-          { pubkey: new PublicKey(TEST_TOKENS['ALPHA'].mintAddress), isSigner: false, isWritable: true },
-          { pubkey: new PublicKey(TEST_TOKENS['ALPHA'].mintAddress), isSigner: false, isWritable: true },
-          { pubkey: new PublicKey(TEST_TOKENS['ALPHA'].mintAddress), isSigner: false, isWritable: true },
-          { pubkey: new PublicKey(TEST_TOKENS['ALPHA'].mintAddress), isSigner: false, isWritable: true },
-          { pubkey: new PublicKey(TEST_TOKENS['ALPHA'].mintAddress), isSigner: false, isWritable: true },
+          { pubkey: associatedTokenAddress1, isSigner: false, isWritable: true },
+          { pubkey: new PublicKey(MANGO_TOKENS['USDC'].mintAddress), isSigner: false, isWritable: true },
+          { pubkey: new PublicKey(MANGO_TOKENS['BTC'].mintAddress), isSigner: false, isWritable: true },
+          { pubkey: new PublicKey(MANGO_TOKENS['ETH'].mintAddress), isSigner: false, isWritable: true },
+          { pubkey: new PublicKey(MANGO_TOKENS['SOL'].mintAddress), isSigner: false, isWritable: true },
+          { pubkey: new PublicKey(MANGO_TOKENS['SRM'].mintAddress), isSigner: false, isWritable: true },
+          { pubkey: new PublicKey(MANGO_TOKENS['SOL'].mintAddress), isSigner: false, isWritable: true },
+          { pubkey: new PublicKey(MANGO_TOKENS['SOL'].mintAddress), isSigner: false, isWritable: true },
+          { pubkey: new PublicKey(MANGO_TOKENS['SOL'].mintAddress), isSigner: false, isWritable: true },
+          { pubkey: new PublicKey(MANGO_TOKENS['SOL'].mintAddress), isSigner: false, isWritable: true },
+          { pubkey: new PublicKey(MANGO_TOKENS['SOL'].mintAddress), isSigner: false, isWritable: true },
 
         ],
         programId,
@@ -126,11 +126,11 @@ export const InitialisedFund = () => {
       // console.log(`signature :::`, signature)
 
 
-      const accData = await connection.getAccountInfo(platformAccount);
-      console.log(`platformData :::: `, PLATFORM_DATA.decode(accData.data));
-      const accData2 = await connection.getAccountInfo(fundAccount);
-      console.log(`fundData :::: `, FUND_DATA.decode(accData2.data));
-      console.log("")
+      // const accData = await connection.getAccountInfo(platformAccount);
+      // console.log(`platformData :::: `, PLATFORM_DATA.decode(accData.data));
+      // const accData2 = await connection.getAccountInfo(fundAccount);
+      // console.log(`fundData :::: `, FUND_DATA.decode(accData2.data));
+      // console.log("")
 
     }
 
