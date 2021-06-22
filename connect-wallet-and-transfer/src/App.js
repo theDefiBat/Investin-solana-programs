@@ -16,8 +16,9 @@ import { Transfer } from './components/Transfer';
 import { Claim } from './components/ClaimFee';
 import { Testing } from './components/Testing';
 import { GetPrices } from './components/GetPrices';
-
-
+import { MangoInitialize } from './components/MangoInitialize';
+import { MangoDeposit } from './components/MangoDeposit';
+import { MangoWithdrawToFund } from './components/MangoWithdrawToFund';
 
 
 function App() {
@@ -55,6 +56,9 @@ function App() {
         <Withdraw />
         <Claim />
         <GetPrices />
+        <MangoInitialize />
+        <MangoDeposit />
+        <MangoWithdrawToFund />
       </Container>
     </div>
   );
