@@ -1,7 +1,7 @@
 import { PublicKey, Transaction, TransactionInstruction } from '@solana/web3.js';
 import React, { useState } from 'react'
 import { GlobalState } from '../store/globalState';
-import { adminAccount, connection, FUND_ACCOUNT_KEY, programId, TOKEN_PROGRAM_ID , CLOCK_PROGRAM_ID, MANGO_PROGRAM_ID_V2, MANGO_GROUP_ACCOUNT, MANGO_VAULT_ACCOUNT_USDC, priceStateAccount, ORACLE_BTC_DEVNET, ORACLE_ETH_DEVNET, ORACLE_SOL_DEVNET, ORACLE_SRM_DEVNET} from '../utils/constants';
+import { adminAccount, connection, FUND_ACCOUNT_KEY, programId, TOKEN_PROGRAM_ID , CLOCK_PROGRAM_ID, MANGO_PROGRAM_ID_V2, MANGO_GROUP_ACCOUNT, MANGO_VAULT_ACCOUNT_USDC, priceStateAccount, ORACLE_BTC_DEVNET, ORACLE_ETH_DEVNET, ORACLE_SOL_DEVNET, ORACLE_SRM_DEVNET, MARGIN_ACCOUNT_KEY} from '../utils/constants';
 import { nu64, struct, u8 } from 'buffer-layout';
 import { createKeyIfNotExists, findAssociatedTokenAddress, setWalletTransaction, signAndSendTransaction, createAssociatedTokenAccountIfNotExist } from '../utils/web3';
 import { FUND_DATA } from '../utils/programLayouts';
@@ -26,6 +26,8 @@ export const MangoWithdrawToFund = () => {
         return;
       };
       const transaction = new Transaction()
+
+      const signer_acc = ""
 
       const fundBaseTokenAccount = await findAssociatedTokenAddress(new PublicKey(fundPDA), new PublicKey(TEST_TOKENS['USDR'].mintAddress));
       const margin_account_acc = await createKeyIfNotExists(walletProvider, "", MANGO_PROGRAM_ID_V2, MARGIN_ACCOUNT_KEY, MarginAccountLayout.span, transaction)
@@ -140,7 +142,7 @@ export const MangoWithdrawToFund = () => {
     
     return (
         <div className="form-div">
-            <h4>Mango Deposit</h4>
+            <h4>Mango Withdraw To Fund</h4>
             Quantity ::: {' '}
             <input type="number" value={quantity} onChange={(event) => setQuantity(event.target.value)} />
             <br />
