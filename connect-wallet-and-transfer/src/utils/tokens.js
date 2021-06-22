@@ -65,7 +65,7 @@ export const MANGO_TOKENS = {
     symbol: 'USDC',
     name: 'USDC MANGO Base Test Token',
     mintAddress: 'EMjjdsqERN4wJUR9jMBax2pzqQPeGLNn5NeucbHpDUZK',
-    decimals: 6
+    decimals: 9
   },
 
   'BTC': {

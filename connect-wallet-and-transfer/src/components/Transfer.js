@@ -6,7 +6,7 @@ import { nu64, struct, u8 } from 'buffer-layout';
 import { createKeyIfNotExists, findAssociatedTokenAddress, setWalletTransaction, signAndSendTransaction, createAssociatedTokenAccountIfNotExist } from '../utils/web3';
 import { FUND_DATA, INVESTOR_DATA, PLATFORM_DATA, PRICE_DATA } from '../utils/programLayouts';
 import { devnet_pools, pools } from '../utils/pools'
-import { TEST_TOKENS } from '../utils/tokens'
+import {  MANGO_TOKENS } from '../utils/tokens'
 import { updatePoolPrices } from './updatePrices';
 
 export const Transfer = () => {
@@ -33,11 +33,11 @@ export const Transfer = () => {
       const transaction = new Transaction()
 
       const routerPDA = await PublicKey.findProgramAddress([Buffer.from("router")], programId);
-      const fundBaseTokenAccount = await findAssociatedTokenAddress(new PublicKey(fundPDA), new PublicKey(TEST_TOKENS['USDR'].mintAddress));
-      const routerBaseTokenAccount = await findAssociatedTokenAddress(routerPDA[0], new PublicKey(TEST_TOKENS['USDR'].mintAddress));
+      const fundBaseTokenAccount = await findAssociatedTokenAddress(new PublicKey(fundPDA), new PublicKey(MANGO_TOKENS['USDC'].mintAddress));
+      const routerBaseTokenAccount = await findAssociatedTokenAddress(routerPDA[0], new PublicKey(MANGO_TOKENS['USDC'].mintAddress));
 
-      const managerBaseTokenAccount = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['USDR'].mintAddress), key, transaction);
-      const investinBaseTokenAccount = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['USDR'].mintAddress), adminAccount, transaction);    
+      const managerBaseTokenAccount = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(MANGO_TOKENS['USDC'].mintAddress), key, transaction);
+      const investinBaseTokenAccount = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(MANGO_TOKENS['USDC'].mintAddress), adminAccount, transaction);    
 
       if (fundStateAccount == ''){
         alert("get info first!")

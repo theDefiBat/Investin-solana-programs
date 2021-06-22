@@ -10,15 +10,16 @@ import { devnet_pools, pools } from '../utils/pools'
 import { MANGO_TOKENS } from '../utils/tokens'
 import { updatePoolPrices } from './updatePrices';
 
-export const MangoDeposit = () => {
+import {placeAndSettle} from './utils/mango'
 
-  const [quantity, setQuantity] = useState(0);
-  const [fundPDA, setFundPDA] = useState('')
-  const [fundStateAccount, setFundStateAccount] = useState('')
+export const MangoPlaceOrder = () => {
+    const [quantity, setQuantity] = useState(0);
+    const [fundPDA, setFundPDA] = useState('')
+    const [fundStateAccount, setFundStateAccount] = useState('')
+  
+    const walletProvider = GlobalState.useState(s => s.walletProvider);
 
-  const walletProvider = GlobalState.useState(s => s.walletProvider);
-
-    const handleMangoDeposit = async () => {
+    const handleMangoPlace = async () => {
     
         const key = walletProvider?.publicKey;
 
@@ -45,7 +46,7 @@ export const MangoDeposit = () => {
       const data = Buffer.alloc(dataLayout.span)
       dataLayout.encode(
         {
-          instruction: 8,
+          instruction: 9,
           quantity: quantity * ( 10 ** MANGO_TOKENS['USDC'].decimals)
         },
         data
@@ -113,14 +114,14 @@ export const MangoDeposit = () => {
         }
         console.log(fundState)
     }
-    
+
     return (
         <div className="form-div">
             <h4>Mango Deposit</h4>
             Quantity ::: {' '}
             <input type="number" value={quantity} onChange={(event) => setQuantity(event.target.value)} />
             <br />
-          <button onClick={handleMangoDeposit}>Mango Deposit</button>
+          <button onClick={handleMangoPlace}>Mango Place Order</button>
           <br />
           <button onClick={handleGetFunds}>GetFundInfo</button>
           <br />

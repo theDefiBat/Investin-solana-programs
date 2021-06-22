@@ -6,8 +6,8 @@ import { nu64, struct, u8 } from 'buffer-layout';
 import { createKeyIfNotExists, findAssociatedTokenAddress, setWalletTransaction, signAndSendTransaction, createAssociatedTokenAccountIfNotExist } from '../utils/web3';
 import { FUND_DATA } from '../utils/programLayouts';
 import { devnet_pools, pools } from '../utils/pools'
-import { TEST_TOKENS } from '../utils/tokens'
-import { MarginAccountLayout } from '../utils/MangoLayout';
+import { MANGO_TOKENS} from '../utils/tokens'
+import { MangoGroupLayout, MarginAccountLayout } from '../utils/MangoLayout';
 
 export const MangoWithdrawToFund = () => {
 
@@ -27,9 +27,13 @@ export const MangoWithdrawToFund = () => {
       };
       const transaction = new Transaction()
 
-      const signer_acc = ""
+      let mango_group_acc = await connection.getAccountInfo(MANGO_GROUP_ACCOUNT)
+      let mango_data = MangoGroupLayout.decode(mango_group_acc.data)
 
-      const fundBaseTokenAccount = await findAssociatedTokenAddress(new PublicKey(fundPDA), new PublicKey(TEST_TOKENS['USDR'].mintAddress));
+      const signer_acc = mango_data.signerKey;
+      console.log("signer acc::", signer_acc)
+
+      const fundBaseTokenAccount = await findAssociatedTokenAddress(new PublicKey(fundPDA), new PublicKey(MANGO_TOKENS['USDC'].mintAddress));
       const margin_account_acc = await createKeyIfNotExists(walletProvider, "", MANGO_PROGRAM_ID_V2, MARGIN_ACCOUNT_KEY, MarginAccountLayout.span, transaction)
       let x = await connection.getAccountInfo(margin_account_acc)
     if (x == null)
@@ -56,8 +60,8 @@ export const MangoWithdrawToFund = () => {
       const data = Buffer.alloc(dataLayout.span)
       dataLayout.encode(
         {
-          instruction: 8,
-          quantity: quantity * ( 10 ** TEST_TOKENS['USDR'].decimals)
+          instruction: 10,
+          quantity: quantity * ( 10 ** MANGO_TOKENS['USDC'].decimals)
         },
         data
       )
