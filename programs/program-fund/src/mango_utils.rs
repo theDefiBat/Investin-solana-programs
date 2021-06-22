@@ -97,8 +97,10 @@ pub fn mango_deposit (
         clock_acc,
     ] = accounts;
 
-    let mut margin_account = MarginAccount::load_mut(margin_account_acc)?;
+    // let mut margin_account = MarginAccount::load_mut(margin_account_acc)?;
     let mut fund_data = FundData::load_mut(fund_state_acc)?;
+
+    msg!("fund_data");
 
     check!(manager_acc.is_signer, ProgramError::MissingRequiredSignature);
 
@@ -116,6 +118,8 @@ pub fn mango_deposit (
         ],
         &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
     )?;
+
+    msg!("invoke done");
 
     let token_account = parse_token_account(token_account_acc)?;
     
@@ -169,7 +173,7 @@ pub fn mango_place_and_settle (
 
     check!(manager_acc.is_signer, ProgramError::MissingRequiredSignature);
 
-    let mut margin_account = MarginAccount::load_mut(margin_account_acc)?;
+    // let mut margin_account = MarginAccount::load_mut(margin_account_acc)?;
     let mut fund_data = FundData::load_mut(fund_state_acc)?;
 
     // TODO:: check if leverage <= 2
@@ -240,8 +244,6 @@ pub fn mango_withdraw_to_fund (
     check!(manager_acc.is_signer, ProgramError::MissingRequiredSignature);
 
     let mut fund_data = FundData::load_mut(fund_state_acc)?;
-    let mango_group_data = MangoGroup::load_checked(mango_group_acc, mango_prog_acc.key)?;
-    let margin_account_data = MarginAccount::load_checked(mango_prog_acc.key, margin_account_acc, mango_group_acc.key)?;
 
     invoke_signed(
         &withdraw(mango_prog_acc.key, mango_group_acc.key, margin_account_acc.key, fund_pda_acc.key, token_account_acc.key, vault_acc.key, signer_acc.key,
@@ -269,7 +271,14 @@ pub fn mango_withdraw_to_fund (
     check!(token_account.mint == fund_data.tokens[0].mint, FundError::InvalidTokenAccount);
     fund_data.tokens[0].balance = token_account.amount;
 
+    let mango_group_data = MangoGroup::load_checked(mango_group_acc, mango_prog_acc.key)?;
+    let margin_account_data = MarginAccount::load_checked(mango_prog_acc.key, margin_account_acc, mango_group_acc.key)?;
+
     mango_margin_valuation(&mut fund_data, &mango_group_data, &margin_account_data, oracle_accs, open_orders_accs, true)?;
+
+    fund_data.total_amount += fund_data.tokens[0].balance;
+    // fund_data.total_amount = U64F64::to_num(U64F64::from_num(fund_data.total_amount)
+            // .checked_add(U64F64::from_num(fund_data.prev_performance)).unwrap()
     
     Ok(())
 }
@@ -296,14 +305,17 @@ pub fn mango_margin_valuation (
 
     let prices = get_prices(mango_group, oracle_accs)?;
     let val = margin_account.get_equity(mango_group, &prices, open_orders_acc)?;
-    let fund_val = val.checked_mul(U64F64::from_num(10u64.pow(fund_data.decimals as u32))).unwrap();
+    // let fund_val = val.checked_mul(U64F64::from_num(10u64.pow(fund_data.decimals as u32))).unwrap();
+
+    msg!("val:: {:?}", val);
+    // msg!("fund_val:: {:?}", fund_val);
     
     if update_perf {
         let mut perf = U64F64::from_num(fund_data.prev_performance);
         // only case where performance is not updated:
         // when no investments and no performance fee for manager
         if fund_data.number_of_active_investments != 0 || fund_data.performance_fee != 0 {
-            perf = fund_val.checked_div(U64F64::from_num(fund_data.total_amount)).unwrap()
+            perf = val.checked_div(U64F64::from_num(fund_data.total_amount)).unwrap()
             .checked_mul(U64F64::from_num(fund_data.prev_performance)).unwrap();
         }
         // adjust for manager performance fee
@@ -313,7 +325,7 @@ pub fn mango_margin_valuation (
         fund_data.prev_performance = U64F64::to_num(perf);
     }
 
-    fund_data.total_amount = U64F64::to_num(fund_val);
+    fund_data.total_amount = U64F64::to_num(val); // U64F64::to_num(fund_val);
 
     Ok(())
 }
