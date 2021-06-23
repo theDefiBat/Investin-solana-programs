@@ -13,6 +13,8 @@ use solana_program::{
     sysvar::Sysvar
 };
 
+
+
 use arrayref::{array_ref, array_refs};
 
 use spl_token::state::{Account, Mint};
@@ -25,7 +27,7 @@ use crate::processor::{ parse_token_account, update_amount_and_performance};
 
 use mango::state::{MarginAccount, MangoGroup, AccountFlag, NUM_MARKETS};
 use mango::state::Loadable as OtherLoadable;
-use mango::instruction::{init_margin_account, deposit, withdraw, settle_borrow, place_and_settle};
+use mango::instruction::{init_margin_account, deposit, withdraw, settle_borrow, place_and_settle, MangoInstruction};
 use mango::processor::get_prices;
 
 macro_rules! check {
@@ -182,7 +184,7 @@ pub fn mango_place_and_settle (
     let size = order.max_coin_qty;
 
     invoke_signed(
-        &place_and_settle(mango_prog_acc.key,
+        &instruction_place_and_settle(mango_prog_acc.key,
             mango_group_acc.key, fund_pda_acc.key, margin_account_acc.key,
             dex_prog_acc.key,spot_market_acc.key, dex_request_queue_acc.key,
             dex_event_queue_acc.key, bids_acc.key, asks_acc.key, base_vault_acc.key,
@@ -293,6 +295,74 @@ pub fn mango_withdraw_investor (
 
     Ok(())
 }
+
+pub fn instruction_place_and_settle(
+    program_id: &Pubkey,
+    mango_group_pk: &Pubkey,
+    owner_pk: &Pubkey,
+    margin_account_pk: &Pubkey,
+    dex_prog_id: &Pubkey,
+    spot_market_pk: &Pubkey,
+    dex_request_queue_pk: &Pubkey,
+    dex_event_queue_pk: &Pubkey,
+    bids_pk: &Pubkey,
+    asks_pk: &Pubkey,
+    base_vault_pk: &Pubkey,
+    quote_vault_pk: &Pubkey,
+    signer_pk: &Pubkey,
+    dex_base_pk: &Pubkey,
+    dex_quote_pk: &Pubkey,
+    srm_vault_pk: &Pubkey,
+    dex_signer_pk: &Pubkey,
+    open_orders_pks: &[Pubkey],
+    oracle_pks: &[Pubkey],
+    order: serum_dex::instruction::NewOrderInstructionV3
+) -> Result<Instruction, ProgramError> {
+
+    let mut accounts = vec![
+        AccountMeta::new(*mango_group_pk, false),
+        AccountMeta::new_readonly(*owner_pk, true),
+        AccountMeta::new(*margin_account_pk, false),
+        AccountMeta::new_readonly(solana_program::sysvar::clock::ID, false),
+        AccountMeta::new_readonly(*dex_prog_id, false),
+        AccountMeta::new(*spot_market_pk, false),
+        AccountMeta::new(*dex_request_queue_pk, false),
+        AccountMeta::new(*dex_event_queue_pk, false),
+        AccountMeta::new(*bids_pk, false),
+        AccountMeta::new(*asks_pk, false),
+        AccountMeta::new(*base_vault_pk, false),
+        AccountMeta::new(*quote_vault_pk, false),
+        AccountMeta::new_readonly(*signer_pk, false),
+        AccountMeta::new(*dex_base_pk, false),
+        AccountMeta::new(*dex_quote_pk, false),
+        AccountMeta::new_readonly(spl_token::ID, false),
+        AccountMeta::new_readonly(solana_program::sysvar::rent::ID, false),
+        AccountMeta::new(*srm_vault_pk, false),
+        AccountMeta::new_readonly(*dex_signer_pk, false),
+    ];
+
+
+    accounts.extend(open_orders_pks.iter().map(
+        |pk| 
+        if *pk == Pubkey::default(){
+            AccountMeta::new_readonly(*pk, false)
+        } else {
+            AccountMeta::new(*pk, false)
+        })
+    );
+    accounts.extend(oracle_pks.iter().map(
+        |pk| AccountMeta::new_readonly(*pk, false))
+    );
+
+    let instr = MangoInstruction::PlaceAndSettle { order };
+    let data = instr.pack();
+    Ok(Instruction {
+        program_id: *program_id,
+        accounts,
+        data
+    })
+}
+
 
 pub fn mango_margin_valuation (
     fund_data: &mut FundData,
