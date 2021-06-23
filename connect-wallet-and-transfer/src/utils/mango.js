@@ -4,8 +4,26 @@ import {
     Market,
     OpenOrders,
   } from '@project-serum/serum'
-import { Order } from '@project-serum/serum/lib/market'
+import { Order, ORDERBOOK_LAYOUT } from '@project-serum/serum/lib/market'
 import { connection, programId, TOKEN_PROGRAM_ID , CLOCK_PROGRAM_ID, MANGO_PROGRAM_ID_V2, SERUM_PROGRAM_ID_V3, MANGO_GROUP_ACCOUNT, MANGO_VAULT_ACCOUNT_USDC, MARGIN_ACCOUNT_KEY} from '../utils/constants';
+import { nu64, struct, u8, u32, u16 } from 'buffer-layout';
+import BN from 'bn.js';
+import {
+    encodeMangoInstruction,
+    NUM_MARKETS,
+    NUM_TOKENS,
+  } from '@blockworks-foundation/mango-client/lib/layout'
+  import {
+    MangoClient,
+    MangoGroup,
+    MarginAccount
+  } from '@blockworks-foundation/mango-client'
+import {
+    createAccountInstruction,
+    nativeToUi,
+    uiToNative,
+    zeroKey,
+  } from '@blockworks-foundation/mango-client/lib/utils'
 
 import {
     Account,
@@ -19,17 +37,9 @@ import {
     TransactionInstruction,
     TransactionSignature,
   } from '@solana/web3.js'
-  import {
-    makeBorrowInstruction,
-    makeSettleBorrowInstruction,
-    makeSettleFundsInstruction,
-    makeWithdrawInstruction,
-  } from '@blockworks-foundation/mango-client/lib/instruction'
-import { MANGO_PROGRAM_ID_V2 } from './constants'
-import { MarginAccountLayout } from './MangoLayout';
-import { u32 } from 'buffer-layout';
 
-import { orderTypeLayout, sideLayout, selfTradeBehaviorLayout } from '@blockworks-foundation/mango-client/lib/layout'
+import { MarginAccountLayout } from './MangoLayout';
+import { createKeyIfNotExists } from './web3';
 
 
 export const calculateMarketPrice = (
@@ -40,7 +50,7 @@ export const calculateMarketPrice = (
     let acc = 0
     let selectedOrder
     for (const order of orderBook) {
-      acc += order[1]
+      acc += order.size
       if (acc >= size) {
         selectedOrder = order
         break
@@ -48,9 +58,9 @@ export const calculateMarketPrice = (
     }
   
     if (side === 'buy') {
-      return selectedOrder[0] * 1.05
+      return selectedOrder.price * 1.05
     } else {
-      return selectedOrder[0] * 0.95
+      return selectedOrder.price * 0.95
     }
   }
   
@@ -69,15 +79,19 @@ export const calculateMarketPrice = (
     clientId,
     transaction
   ){
+    const client = new MangoClient()
 
-    let marginAccount = await connection.getAccountInfo(marginAcc)
-    marginAccount = MarginAccountLayout.decode(marginAccount.data)
+    let marginAccount = await client.getMarginAccount(connection, marginAcc, SERUM_PROGRAM_ID_V3)
+    let mangoGroup = await client.getMangoGroup(connection, MANGO_GROUP_ACCOUNT )
+    console.log("mango group::", mangoGroup)
 
-    let spotMarket = Market.load(connection, serumMarket, null , SERUM_PROGRAM_ID_V3 )
+    console.log("margin acc::", marginAccount)
+
+    let spotMarket = await Market.load(connection, serumMarket, {} , SERUM_PROGRAM_ID_V3 )
     console.log("spot market:: ", spotMarket)
     console.log("margin acc:: ", marginAccount)
 
-    orderType = 'limit'
+    let orderType = 'limit'
     let orderbook
     if (side === 'buy') {
         orderbook = await spotMarket.loadAsks(connection)
@@ -85,6 +99,7 @@ export const calculateMarketPrice = (
     else {
         orderbook = await spotMarket.loadBids(connection)
     }
+    console.log("orderbook", orderbook)
     let price = calculateMarketPrice(orderbook, size, side)
     console.log("price:: ", price)
 
@@ -93,7 +108,7 @@ export const calculateMarketPrice = (
   
     const feeTier = getFeeTier(
       0,
-      nativeToUi(mangoGroup.nativeSrm || 0, SRM_DECIMALS)
+      nativeToUi(mangoGroup.nativeSrm || 0, 6)
     )
     const rates = getFeeRates(feeTier)
     const maxQuoteQuantity = new BN(
@@ -130,6 +145,26 @@ export const calculateMarketPrice = (
   
     // Create a Solana account for the open orders account if it's missing
     const openOrdersKeys = []
+
+    const openOrdersSpace = OpenOrders.getLayout(mangoGroup.dexProgramId).span
+    const openOrdersLamports =
+      await connection.getMinimumBalanceForRentExemption(
+        openOrdersSpace,
+        'singleGossip'
+      )
+    // const accInstr = await createKeyIfNotExists(
+    //   wallet,
+    //   "",
+    //   mangoGroup.dexProgramId,
+    //   "seed",
+    //   openOrdersSpace,
+    //   transaction
+    // )
+    // openOrdersKeys.push(accInstr)
+    // openOrdersKeys.push(accInstr)
+    // openOrdersKeys.push(accInstr)
+    // openOrdersKeys.push(accInstr)
+
     for (let i = 0; i < marginAccount.openOrders.length; i++) {
       if (
         i === marketIndex &&
@@ -142,23 +177,21 @@ export const calculateMarketPrice = (
             openOrdersSpace,
             'singleGossip'
           )
-        const accInstr = await createAccountInstruction(
-          connection,
-          wallet.publicKey,
-          openOrdersSpace,
+        const accInstr = await createKeyIfNotExists(
+          wallet,
+          "",
           mangoGroup.dexProgramId,
-          openOrdersLamports
+          "seed",
+          openOrdersSpace,
+          transaction
         )
-  
-        transaction.add(accInstr.instruction)
-        signers.push(accInstr.account)
-        openOrdersKeys.push(accInstr.account.publicKey)
+        openOrdersKeys.push(accInstr)
       } else {
         openOrdersKeys.push(marginAccount.openOrders[i])
       }
     }
   
-    // Only send a pre-settle instruction if open orders account already exists
+    //Only send a pre-settle instruction if open orders account already exists
     // if (!marginAccount.openOrders[marketIndex].equals(zeroKey)) {
     //   const settleFundsInstr = makeSettleFundsInstruction(
     //     programId,
@@ -179,8 +212,8 @@ export const calculateMarketPrice = (
     // }
   
     const keys = [
-        { isSigner: false, isWritable: true, pubkey: fundStateAccount.publicKey },
-        { isSigner: true, isWritable: true, pubkey: wallet.publicKey },
+        { isSigner: false, isWritable: true, pubkey: fundStateAccount },
+        { isSigner: true, isWritable: true, pubkey: wallet?.publicKey },
         { isSigner: false, isWritable: true, pubkey: fundPDA },
         { isSigner: false, isWritable: true, pubkey: MANGO_PROGRAM_ID_V2 },
 
@@ -238,26 +271,27 @@ export const calculateMarketPrice = (
         pubkey,
       })),
     ]
-    const dataLayout = struct([u8('instruction1'),
-    sideLayout('side'),
-    u64('limitPrice'),
-    u64('maxBaseQuantity'),
-    u64('maxQuoteQuantity'),
-    selfTradeBehaviorLayout('selfTradeBehavior'),
-    orderTypeLayout('orderType'),
-    u64('clientId'),
-    u16('limit'),
+    const dataLayout = struct([
+        u8('instruction'),
+        u32('side'),
+        nu64('limitPrice'),
+        nu64('maxBaseQuantity'),
+        nu64('maxQuoteQuantity'),
+        u32('selfTradeBehavior'),
+        u32('orderType'),
+        nu64('clientId'),
+        u16('limit'),
     ])
     const data = Buffer.alloc(dataLayout.span)
     dataLayout.encode(
         {
           instruction: 9,
-          side,
+          side: (side == 'buy') ? 0 : 1,
           limitPrice,
           maxBaseQuantity,
           maxQuoteQuantity,
-          selfTradeBehavior,
-          orderType,
+          selfTradeBehavior: 0,
+          orderType: 0,
           clientId: 0,
           limit: 65535,
         },

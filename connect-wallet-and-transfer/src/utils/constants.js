@@ -27,8 +27,8 @@ export const ASSOCIATED_TOKEN_PROGRAM_ID = new PublicKey('ATokenGPvbdGVxr1b2hvZb
 
 //export const LIQUIDITY_POOL_PROGRAM_ID_V4 = '675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8'
 //export const SERUM_PROGRAM_ID_V3 = '9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PusVFin'
-export const LIQUIDITY_POOL_PROGRAM_ID_V4 = '9rpQHSyFVM1dkkHFQ2TtTzPEW7DVmEyPmN8wVniqJtuC'
-export const SERUM_PROGRAM_ID_V3 = 'DESVgJVGajEgKGXhb6XmqDHGz3VjdgP7rEVESBgxmroY'
+export const LIQUIDITY_POOL_PROGRAM_ID_V4 = new PublicKey('9rpQHSyFVM1dkkHFQ2TtTzPEW7DVmEyPmN8wVniqJtuC')
+export const SERUM_PROGRAM_ID_V3 = new PublicKey('DESVgJVGajEgKGXhb6XmqDHGz3VjdgP7rEVESBgxmroY')
 
 export const MANGO_PROGRAM_ID_V2 = new PublicKey('9XzhtAtDXxW2rjbeVFhTq4fnhD8dqzr154r5b2z6pxEp')
 export const MANGO_GROUP_ACCOUNT = new PublicKey('B9Uddrao7b7sCjNZp1BJSQqFzqhMEmBxD2SvYTs2TSBn')
@@ -38,3 +38,5 @@ export const ORACLE_BTC_DEVNET = new PublicKey("FuEnReoxhqW8Li6EMLoaaUWbWAEjTfSR
 export const ORACLE_ETH_DEVNET = new PublicKey("GzfYWGM1oeVrha9zvM1awnTJEUAuinpnVRUyYQYELzqg")
 export const ORACLE_SOL_DEVNET = new PublicKey("AshULbjkGvse8YW2ojjeqHdMbFGigLy2xxiGVhsLqX5T")
 export const ORACLE_SRM_DEVNET = new PublicKey("B3nWGxqNQzJeRfpYSXU8qJaTQxspZmqAt91FRAhfoFQL")
+
+export const SOL_USDC_MARKET = new PublicKey("4Rf4qZYwBVo6RsxisBnm8RJCRMehiZ2TsDwfyoR9X4dF")
