@@ -751,6 +751,14 @@ impl Fund {
                 msg!("FundInstruction::MangoPlaceAndSettle");
                 return mango_place_and_settle(program_id, accounts, order);
             }
+            FundInstruction::MangoPlaceOrder { order } => {
+                msg!("FundInstruction::MangoPlaceOrder");
+                return mango_place_order(program_id, accounts, order);
+            }
+            FundInstruction::MangoSettleFunds => {
+                msg!("FundInstruction::MangoSettleFunds");
+                return mango_settle_funds(program_id, accounts);
+            }
             FundInstruction::MangoWithdrawToFund { quantity } => {
                 msg!("FundInstruction::MangoWithdrawToFund");
                 return mango_withdraw_to_fund(program_id, accounts, quantity);
