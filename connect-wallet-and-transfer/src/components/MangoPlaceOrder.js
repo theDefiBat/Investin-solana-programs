@@ -10,7 +10,7 @@ import { devnet_pools, pools } from '../utils/pools'
 import { MANGO_TOKENS } from '../utils/tokens'
 import { updatePoolPrices } from './updatePrices';
 
-import {placeAndSettle} from '../utils/mango'
+import {placeAndSettle, placeOrder} from '../utils/mango'
 
 export const MangoPlaceOrder = () => {
     const [size, setSize] = useState(0);
@@ -44,7 +44,7 @@ export const MangoPlaceOrder = () => {
         return
       }
 
-      await placeAndSettle(connection, margin_account_acc, fundStateAccount, fundPDA[0], walletProvider, SOL_USDC_MARKET, side, size, null, transaction)
+      await placeOrder(connection, margin_account_acc, fundStateAccount, fundPDA[0], walletProvider, SOL_USDC_MARKET, side, size, null, transaction)
       console.log("transaction::", transaction)
       transaction.feePayer = key;
       let hash = await connection.getRecentBlockhash();

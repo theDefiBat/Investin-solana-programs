@@ -60,7 +60,7 @@ export const MangoWithdrawToFund = () => {
       const data = Buffer.alloc(dataLayout.span)
       dataLayout.encode(
         {
-          instruction: 10,
+          instruction: 12,
           quantity: quantity * ( 10 ** MANGO_TOKENS['USDC'].decimals)
         },
         data
