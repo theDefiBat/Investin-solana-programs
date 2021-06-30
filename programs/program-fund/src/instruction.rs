@@ -173,7 +173,6 @@ pub enum FundInstruction {
     /// 3.  []          mango_prog_acc - Mango Program Account
     /// 
     /// 0. `[writable]` mango_group_acc - MangoGroup that this margin account is for
-    /// 1. `[signer]` owner_acc - MarginAccount owner
     /// 2. `[writable]` margin_account_acc - MarginAccount
     /// 3. `[]` clock_acc - Clock sysvar account
     /// 4. `[]` dex_prog_acc - program id of serum dex
@@ -246,26 +245,59 @@ pub enum FundInstruction {
 
     /// Withdraw funds that were deposited earlier.
     ///
-    /// Accounts expected by this instruction (8 + 2 * NUM_MARKETS):
+    /// Accounts expected by this instruction (11 + 2 * NUM_TOKENS + 2 * NUM_MARKETS):
     ///
     /// 0.  [writable]  fund_state_acc - Fund State Account
     /// 1.  []          inv_state_acc - Investor State Account
-    /// 2.  []          price_acc - Aggregator Price Account
-    /// 3.  [signer]    manager_acc - Manager Account
+    /// 3.  []          fund_pda_acc- Fund PDA Account
+    /// 4.  [signer]    investor_acc - Investor Account
+    /// 5.  []          mango_prog_acc - Mango Program Account
     /// 
     /// 0. `[writable]` mango_group_acc - MangoGroup that this margin account is for
     /// 1. `[writable]` margin_account_acc - the margin account for this user
-    /// 2. `[signer]` owner_acc - Solana account of owner of the margin account
     /// 3. `[writable]` token_account_acc - TokenAccount owned by user which will be receiving the funds
     /// 4. `[writable]` vault_acc - TokenAccount owned by MangoGroup which will be sending
-    /// 5. `[]` signer_acc - acc pointed to by signer_key
-    /// 6. `[]` token_prog_acc - acc pointed to by SPL token program id
-    /// 7. `[]` clock_acc - Clock sysvar account
-    /// 8..8+NUM_MARKETS `[]` open_orders_accs - open orders for each of the spot market
-    /// 8+NUM_MARKETS..8+2*NUM_MARKETS `[]`
-    ///     oracle_accs - flux aggregator feed accounts
+    /// 2. `[]` signer_acc - acc pointed to by signer_key
+    /// 3. `[]` token_prog_acc - acc pointed to by SPL token program id
+    /// 4. `[]` clock_acc - Clock sysvar account
+    /// 
+    /// 16..19 (NUM_MARKETS) `[]` open_orders_accs - open orders for each of the spot market
+    /// 20..23 (NUM_MARKETS) `[]` oracle_accs - flux aggregator feed accounts
     MangoWithdrawInvestor {
-        quantity: u64
+        token_index: usize
+    },
+
+    /// Place an order on the Serum Dex and settle funds from the open orders account
+    ///
+    /// Accounts expected by this instruction (19 + 2 * NUM_MARKETS):
+    ///
+    /// 0.  [writable]  fund_state_acc - Fund State Account
+    /// 1.  []          inv_state_acc - Investor State Account
+    /// 1.  [signer]    investor_acc - Manager Account to sign
+    /// 2.  []          fund_pda_acc - Fund PDA Account
+    /// 3.  []          mango_prog_acc - Mango Program Account
+    /// 
+    /// 0. `[writable]` mango_group_acc - MangoGroup that this margin account is for
+    /// 2. `[writable]` margin_account_acc - MarginAccount
+    /// 3. `[]` clock_acc - Clock sysvar account
+    /// 4. `[]` dex_prog_acc - program id of serum dex
+    /// 5. `[writable]` spot_market_acc - serum dex MarketState
+    /// 6. `[writable]` dex_request_queue_acc - serum dex request queue for this market
+    /// 7. `[writable]` dex_event_queue - serum dex event queue for this market
+    /// 8. `[writable]` bids_acc - serum dex bids for this market
+    /// 9. `[writable]` asks_acc - serum dex asks for this market
+    /// 10. `[writable]` vault_acc - mango's vault for this currency (quote if buying, base if selling)
+    /// 11. `[]` signer_acc - mango signer key
+    /// 12. `[writable]` dex_base_acc - serum dex market's vault for base (coin) currency
+    /// 13. `[writable]` dex_quote_acc - serum dex market's vault for quote (pc) currency
+    /// 14. `[]` spl token program
+    /// 15. `[]` the rent sysvar
+    /// 16. `[writable]` srm_vault_acc - MangoGroup's srm_vault used for fee reduction
+    /// 17..17+NUM_MARKETS `[writable]` open_orders_accs - open orders for each of the spot market
+    /// 17+NUM_MARKETS..17+2*NUM_MARKETS `[]`
+    ///     oracle_accs - flux aggregator feed accounts
+    MangoWithdrawInvestorPlaceOrder {
+        order: serum_dex::instruction::NewOrderInstructionV3
     },
 
 
@@ -406,18 +438,25 @@ impl FundInstruction {
                 }
             },
             13 => {
-                let quantity = array_ref![data, 0, 8];
+                let token_index = array_ref![data, 0, 8];
                 FundInstruction::MangoWithdrawInvestor{
-                    quantity: u64::from_le_bytes(*quantity)
+                    token_index: usize::from_le_bytes(*token_index)
                 }
             },
             14 => {
+                let data_arr = array_ref![data, 0, 46];
+                let order = unpack_dex_new_order_v3(data_arr)?;
+                FundInstruction::MangoWithdrawInvestorPlaceOrder {
+                    order
+                }
+            },
+            15 => {
                 let amount = array_ref![data, 0, 8];
                 FundInstruction::TestingDeposit {
                     amount: u64::from_le_bytes(*amount)
                 }
             },
-            15 => {
+            16 => {
                 let amount = array_ref![data, 0, 8];
                 FundInstruction::TestingWithdraw {
                     amount: u64::from_le_bytes(*amount)

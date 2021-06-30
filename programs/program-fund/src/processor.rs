@@ -763,9 +763,13 @@ impl Fund {
                 msg!("FundInstruction::MangoWithdrawToFund");
                 return mango_withdraw_to_fund(program_id, accounts, quantity);
             }
-            FundInstruction::MangoWithdrawInvestor { quantity } => {
+            FundInstruction::MangoWithdrawInvestor { token_index } => {
                 msg!("FundInstruction::MangoWithdrawInvestor");
-                return mango_withdraw_investor(program_id, accounts, quantity);
+                return mango_withdraw_investor(program_id, accounts, token_index);
+            }
+            FundInstruction::MangoWithdrawInvestorPlaceOrder { order } => {
+                msg!("FundInstruction::MangoWithdrawInvestorPlaceOrder");
+                return mango_place_order(program_id, accounts, order);
             }
             FundInstruction::TestingDeposit {amount} => {
                 msg!("FundInstruction::TestingDeposit");
