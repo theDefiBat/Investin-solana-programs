@@ -463,8 +463,11 @@ pub fn mango_withdraw_place_order (
 
     let inv_share = get_share(&mut fund_data, &mut investor_data)?;
 
-    let margin_data = MarginAccount::load_checked(mango_prog_acc.key, margin_account_acc, mango_group_acc.key)?;
-    let mango_group = MangoGroup::load_checked(mango_group_acc, mango_prog_acc.key)?;
+    let margin_acc_acc = margin_account_acc.clone();
+    let mango_grp_acc = mango_group_acc.clone();
+
+    let margin_data = MarginAccount::load(&margin_acc_acc)?;
+    let mango_group = MangoGroup::load(&mango_grp_acc)?;
     
     let market_i = mango_group.get_market_index(spot_market_acc.key).unwrap();
 

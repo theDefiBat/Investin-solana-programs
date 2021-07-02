@@ -769,7 +769,7 @@ impl Fund {
             }
             FundInstruction::MangoWithdrawInvestorPlaceOrder { order } => {
                 msg!("FundInstruction::MangoWithdrawInvestorPlaceOrder");
-                return mango_place_order(program_id, accounts, order);
+                return mango_withdraw_place_order(program_id, accounts, order);
             }
             FundInstruction::TestingDeposit {amount} => {
                 msg!("FundInstruction::TestingDeposit");
