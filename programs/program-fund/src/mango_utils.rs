@@ -454,41 +454,13 @@ pub fn mango_withdraw_place_order (
         srm_vault_acc,
     ] = fixed_accs;
 
-    check!(investor_acc.is_signer, ProgramError::MissingRequiredSignature);
-
     let mut fund_data = FundData::load_mut(fund_state_acc)?;
-    let mut investor_data = InvestorData::load_mut(investor_state_acc)?;
-    
-    check!(investor_data.owner == *investor_acc.key, FundError::InvestorMismatch);
-
-    let inv_share = get_share(&mut fund_data, &mut investor_data)?;
-
-    let margin_acc_acc = margin_account_acc.clone();
-    let mango_grp_acc = mango_group_acc.clone();
-
-    let margin_data = MarginAccount::load(&margin_acc_acc)?;
-    let mango_group = MangoGroup::load(&mango_grp_acc)?;
-    
-    let market_i = mango_group.get_market_index(spot_market_acc.key).unwrap();
 
     let mut m_order = order;
 
-    //TODO: add base quantity
+    check!(investor_acc.is_signer, ProgramError::MissingRequiredSignature);
 
-    match m_order.side {
-        Side::Bid => {
-            let liabs = margin_data.get_liabs(&mango_group)?;
-            m_order.max_coin_qty = NonZeroU64::new(
-                U64F64::to_num(inv_share.checked_mul(liabs[market_i]).unwrap())).ok_or_else(|| 0
-            )?;
-        },
-        Side::Ask => {
-            let assets = margin_data.get_assets(&mango_group, open_orders_accs)?;
-            m_order.max_coin_qty = NonZeroU64::new(
-                U64F64::to_num(inv_share.checked_mul(assets[market_i]).unwrap())).ok_or_else(|| 0
-            )?;
-        }
-    };
+    fill_order_withdraw(&mut fund_data, investor_state_acc, margin_account_acc, mango_group_acc, spot_market_acc, open_orders_accs, &mut m_order)?;
 
     invoke_signed(
         &instruction_place_order(mango_prog_acc.key,
@@ -518,6 +490,46 @@ pub fn mango_withdraw_place_order (
     Ok(())
 
 }
+
+pub fn fill_order_withdraw (
+    fund_data: &mut FundData,
+    inv_acc: &AccountInfo,
+    margin_acc: &AccountInfo,
+    mango_group_acc: &AccountInfo,
+    spot_market_acc: &AccountInfo,
+    open_orders_accs: &[AccountInfo; 4],
+    order: &mut serum_dex::instruction::NewOrderInstructionV3
+) -> Result<(), ProgramError> {
+    let mut investor_data = InvestorData::load_mut(inv_acc)?;
+    
+    check!(investor_data.owner == *inv_acc.key, FundError::InvestorMismatch);
+
+    let inv_share = get_share(fund_data, &mut investor_data)?;
+
+    let margin_data = MarginAccount::load(&margin_acc)?;
+    let mango_group = MangoGroup::load(&mango_group_acc)?;
+    
+    let market_i = mango_group.get_market_index(spot_market_acc.key).unwrap();
+
+    //TODO: add base quantity
+
+    match order.side {
+        Side::Bid => {
+            let liabs = margin_data.get_liabs(&mango_group)?;
+            order.max_coin_qty = NonZeroU64::new(
+                U64F64::to_num(inv_share.checked_mul(liabs[market_i]).unwrap())).ok_or_else(|| 0
+            )?;
+        },
+        Side::Ask => {
+            let assets = margin_data.get_assets(&mango_group, open_orders_accs)?;
+            order.max_coin_qty = NonZeroU64::new(
+                U64F64::to_num(inv_share.checked_mul(assets[market_i]).unwrap())).ok_or_else(|| 0
+            )?;
+        }
+    };
+    Ok(())
+}
+
 pub fn mango_withdraw_investor (
     program_id: &Pubkey,
     accounts: &[AccountInfo],
