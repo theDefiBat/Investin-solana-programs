@@ -565,18 +565,8 @@ pub fn mango_withdraw_investor (
 
     let mut fund_data = FundData::load_mut(fund_state_acc)?;
     let mut investor_data = InvestorData::load_mut(inv_state_acc)?;
-    let margin_data = MarginAccount::load_checked(mango_prog_acc.key, margin_account_acc, mango_group_acc.key)?;
-    let mango_group = MangoGroup::load_checked(mango_group_acc, mango_prog_acc.key)?;
-
-    let prices = get_prices(&mango_group, oracle_accs)?;
-    let equity = margin_data.get_equity(&mango_group, &prices, open_orders_accs)?;
-
-    let inv_share = get_share(&mut fund_data, &mut investor_data)?;
-    let withdraw_amount = U64F64::to_num(inv_share.checked_mul(equity).unwrap());
-    let settle_amount = U64F64::to_num(margin_data.deposits[token_index] * mango_group.indexes[token_index].deposit);
-
-    check!(margin_data.deposits[token_index] > 100, ProgramError::InvalidArgument);
-    check!(margin_data.borrows[token_index] > 100, ProgramError::InvalidArgument);
+    
+    let ( withdraw_amount, settle_amount ) = get_withdraw_amounts(fund_data, inv_data, margin_account_acc, mango_group_acc, open_orders_accs, token_index)?;
 
     invoke_signed(
         &withdraw(mango_prog_acc.key, mango_group_acc.key, margin_account_acc.key, fund_pda_acc.key, token_account_acc.key, vault_acc.key, signer_acc.key,
@@ -616,6 +606,30 @@ pub fn mango_withdraw_investor (
     Ok(())
 }
 
+pub fn get_withdraw_amounts (
+    fund_data: &mut FundData,
+    inv_data: &mut InvestorData,
+    margin_acc: &AccountInfo,
+    mango_group_acc: &AccountInfo,
+    open_orders_accs: &[AccountInfo; 4],
+    token_index: usize
+) -> Result<(U64F64, U64F64), ProgramError> {
+    
+    let margin_data = MarginAccount::load(&margin_acc)?;
+    let mango_group = MangoGroup::load(&mango_group_acc)?;
+
+    let prices = get_prices(&mango_group, oracle_accs)?;
+    let equity = margin_data.get_equity(&mango_group, &prices, open_orders_accs)?;
+
+    let inv_share = get_share(fund_data, investor_data)?;
+    let withdraw_amount = U64F64::to_num(inv_share.checked_mul(equity).unwrap());
+    let settle_amount = U64F64::to_num(margin_data.deposits[token_index] * mango_group.indexes[token_index].deposit);
+
+    check!(margin_data.deposits[token_index] > 100, ProgramError::InvalidArgument);
+    check!(margin_data.borrows[token_index] > 100, ProgramError::InvalidArgument);
+    
+    return Ok(withdraw_amount, settle_amount)
+}
 pub fn instruction_place_and_settle(
     program_id: &Pubkey,
     mango_group_pk: &Pubkey,
