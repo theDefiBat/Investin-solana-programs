@@ -249,8 +249,9 @@ pub enum FundInstruction {
     ///
     /// 0.  [writable]  fund_state_acc - Fund State Account
     /// 1.  []          inv_state_acc - Investor State Account
+    /// 2.  [signer]    investor_acc - Investor Account
     /// 3.  []          fund_pda_acc- Fund PDA Account
-    /// 4.  [signer]    investor_acc - Investor Account
+    
     /// 5.  []          mango_prog_acc - Mango Program Account
     /// 
     /// 0. `[writable]` mango_group_acc - MangoGroup that this margin account is for

@@ -502,7 +502,7 @@ pub fn fill_order_withdraw (
 ) -> Result<(), ProgramError> {
     let mut investor_data = InvestorData::load_mut(inv_acc)?;
     
-    check!(investor_data.owner == *inv_acc.key, FundError::InvestorMismatch);
+    // check!(investor_data.owner == *inv_acc.key, FundError::InvestorMismatch);
 
     let inv_share = get_share(fund_data, &mut investor_data)?;
 
@@ -513,17 +513,20 @@ pub fn fill_order_withdraw (
 
     //TODO: add base quantity
 
+    // msg!("max_coin_qty")
     match order.side {
         Side::Bid => {
             let liabs = margin_data.get_liabs(&mango_group)?;
             order.max_coin_qty = NonZeroU64::new(
-                U64F64::to_num(inv_share.checked_mul(liabs[market_i]).unwrap())).ok_or_else(|| 0
+                U64F64::to_num(inv_share.checked_mul(liabs[market_i]).unwrap()
+                .checked_div(U64F64::from_num(10u64.pow(2))).unwrap())).ok_or_else(|| 0
             )?;
         },
         Side::Ask => {
             let assets = margin_data.get_assets(&mango_group, open_orders_accs)?;
             order.max_coin_qty = NonZeroU64::new(
-                U64F64::to_num(inv_share.checked_mul(assets[market_i]).unwrap())).ok_or_else(|| 0
+                U64F64::to_num(inv_share.checked_mul(assets[market_i]).unwrap()
+                .checked_div(U64F64::from_num(10u64.pow(2))).unwrap())).ok_or_else(|| 0
             )?;
         }
     };
@@ -566,7 +569,24 @@ pub fn mango_withdraw_investor (
     let mut fund_data = FundData::load_mut(fund_state_acc)?;
     let mut investor_data = InvestorData::load_mut(inv_state_acc)?;
     
-    let ( withdraw_amount, settle_amount ) = get_withdraw_amounts(fund_data, inv_data, margin_account_acc, mango_group_acc, open_orders_accs, token_index)?;
+    let ( withdraw_amount, settle_amount ) = get_withdraw_amounts(&mut fund_data, &mut investor_data, margin_account_acc, mango_group_acc, open_orders_accs, oracle_accs, token_index)?;
+
+    msg!("withdraw_amount {:?}", withdraw_amount);
+    msg!("settle_amount {:?}", settle_amount);
+
+    // settle borrows
+    invoke_signed(
+        &settle_borrow(mango_prog_acc.key, mango_group_acc.key, margin_account_acc.key, fund_pda_acc.key, token_index,
+            settle_amount)?,
+        &[
+            mango_prog_acc.clone(),
+            mango_group_acc.clone(),
+            margin_account_acc.clone(),
+            fund_pda_acc.clone(),
+            clock_acc.clone(),
+        ],
+        &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
+    )?;
 
     invoke_signed(
         &withdraw(mango_prog_acc.key, mango_group_acc.key, margin_account_acc.key, fund_pda_acc.key, token_account_acc.key, vault_acc.key, signer_acc.key,
@@ -589,19 +609,6 @@ pub fn mango_withdraw_investor (
         &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
     )?;
 
-    // settle borrows
-    invoke_signed(
-        &settle_borrow(mango_prog_acc.key, mango_group_acc.key, margin_account_acc.key, fund_pda_acc.key, token_index,
-            settle_amount)?,
-        &[
-            mango_prog_acc.clone(),
-            mango_group_acc.clone(),
-            margin_account_acc.clone(),
-            fund_pda_acc.clone(),
-            clock_acc.clone(),
-        ],
-        &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
-    )?;
 
     Ok(())
 }
@@ -612,8 +619,9 @@ pub fn get_withdraw_amounts (
     margin_acc: &AccountInfo,
     mango_group_acc: &AccountInfo,
     open_orders_accs: &[AccountInfo; 4],
+    oracle_accs: &[AccountInfo; 4],
     token_index: usize
-) -> Result<(U64F64, U64F64), ProgramError> {
+) -> Result<(u64, u64), ProgramError> {
     
     let margin_data = MarginAccount::load(&margin_acc)?;
     let mango_group = MangoGroup::load(&mango_group_acc)?;
@@ -621,14 +629,14 @@ pub fn get_withdraw_amounts (
     let prices = get_prices(&mango_group, oracle_accs)?;
     let equity = margin_data.get_equity(&mango_group, &prices, open_orders_accs)?;
 
-    let inv_share = get_share(fund_data, investor_data)?;
+    let inv_share = get_share(fund_data, inv_data)?;
     let withdraw_amount = U64F64::to_num(inv_share.checked_mul(equity).unwrap());
     let settle_amount = U64F64::to_num(margin_data.deposits[token_index] * mango_group.indexes[token_index].deposit);
 
     check!(margin_data.deposits[token_index] > 100, ProgramError::InvalidArgument);
     check!(margin_data.borrows[token_index] > 100, ProgramError::InvalidArgument);
     
-    return Ok(withdraw_amount, settle_amount)
+    return Ok((withdraw_amount, settle_amount))
 }
 pub fn instruction_place_and_settle(
     program_id: &Pubkey,
