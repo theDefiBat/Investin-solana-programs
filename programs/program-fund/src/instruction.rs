@@ -204,7 +204,6 @@ pub enum FundInstruction {
     /// 3.  []          mango_prog_acc - Mango Program Account
     /// 
     /// 0. `[writable]` mango_group_acc - MangoGroup that this margin account is for
-    /// 1. `[signer]` owner_acc - MarginAccount owner
     /// 2. `[writable]` margin_account_acc - MarginAccount
     /// 3. `[]` clock_acc - Clock sysvar account
     /// 4. `[]` dex_prog_acc - program id of serum dex
@@ -299,6 +298,43 @@ pub enum FundInstruction {
     ///     oracle_accs - flux aggregator feed accounts
     MangoWithdrawInvestorPlaceOrder {
         order: serum_dex::instruction::NewOrderInstructionV3
+    },
+
+    /// Place an order on the Serum Dex and settle funds from the open orders account
+    ///
+    /// Accounts expected by this instruction (19 + 2 * NUM_MARKETS):
+    ///
+    /// 0.  [writable]  fund_state_acc - Fund State Account
+    /// 1.  []          inv_state_acc - Investor State Account
+    /// 1.  [signer]    investor_acc - Manager Account to sign
+    /// 2.  []          fund_pda_acc - Fund PDA Account
+    /// 3.  []          mango_prog_acc - Mango Program Account
+    /// 
+    /// 0. `[writable]` mango_group_acc - MangoGroup that this margin account is for
+    /// 2. `[writable]` margin_account_acc - MarginAccount
+    /// 3. `[]` clock_acc - Clock sysvar account
+    /// 4. `[]` dex_prog_acc - program id of serum dex
+    /// 5. `[writable]` spot_market_acc - serum dex MarketState
+    /// 6. `[writable]` dex_request_queue_acc - serum dex request queue for this market
+    /// 7. `[writable]` dex_event_queue - serum dex event queue for this market
+    /// 8. `[writable]` bids_acc - serum dex bids for this market
+    /// 9. `[writable]` asks_acc - serum dex asks for this market
+    /// 10. `[writable]` vault_acc - mango's vault for this currency (quote if buying, base if selling)
+    /// 11. `[]` signer_acc - mango signer key
+    /// 12. `[writable]` dex_base_acc - serum dex market's vault for base (coin) currency
+    /// 13. `[writable]` dex_quote_acc - serum dex market's vault for quote (pc) currency
+    /// 12. `[]` dex_signer_acc - dex Market signer account
+    /// 14. `[]` spl token program
+    /// 15. `[]` the rent sysvar
+    /// 10. `[writable]` base_vault_acc - MangoGroup base vault acc
+    /// 11. `[writable]` quote_vault_acc - MangoGroup quote vault acc
+    /// 16. `[writable]` srm_vault_acc - MangoGroup's srm_vault used for fee reduction
+    /// 17..17+NUM_MARKETS `[writable]` open_orders_accs - open orders for each of the spot market
+    /// 17+NUM_MARKETS..17+2*NUM_MARKETS `[]`
+    ///     oracle_accs - flux aggregator feed accounts
+    MangoWithdrawInvestorPlaceAndSettle {
+        order: serum_dex::instruction::NewOrderInstructionV3,
+        token_index: usize
     },
 
 
@@ -452,12 +488,24 @@ impl FundInstruction {
                 }
             },
             15 => {
+                let data_arr = array_ref![data, 0, 46 + 8];
+                let (
+                    order,
+                    token_index 
+                ) = array_refs![data_arr, 46, 8];
+                let order = unpack_dex_new_order_v3(order)?;
+                FundInstruction::MangoWithdrawInvestorPlaceAndSettle {
+                    order,
+                    token_index: usize::from_le_bytes(*token_index)
+                }
+            },
+            16 => {
                 let amount = array_ref![data, 0, 8];
                 FundInstruction::TestingDeposit {
                     amount: u64::from_le_bytes(*amount)
                 }
             },
-            16 => {
+            17 => {
                 let amount = array_ref![data, 0, 8];
                 FundInstruction::TestingWithdraw {
                     amount: u64::from_le_bytes(*amount)
