@@ -710,26 +710,26 @@ pub fn mango_withdraw_investor (
         &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
     )?;
 
-    // invoke_signed(
-    //     &withdraw(mango_prog_acc.key, mango_group_acc.key, margin_account_acc.key, fund_pda_acc.key, token_account_acc.key, vault_acc.key, signer_acc.key,
-    //         &[*open_orders_accs[0].key, *open_orders_accs[1].key, *open_orders_accs[2].key, *open_orders_accs[3].key],
-    //         &[*oracle_accs[0].key, *oracle_accs[1].key, *oracle_accs[2].key, *oracle_accs[3].key],
-    //         withdraw_amount)?,
-    //     &[
-    //         mango_prog_acc.clone(),
-    //         mango_group_acc.clone(),
-    //         margin_account_acc.clone(),
-    //         fund_pda_acc.clone(),
-    //         token_account_acc.clone(),
-    //         vault_acc.clone(),
-    //         signer_acc.clone(),
-    //         token_prog_acc.clone(),
-    //         clock_acc.clone(),
-    //         open_orders_accs[0].clone(), open_orders_accs[1].clone(), open_orders_accs[2].clone(), open_orders_accs[3].clone(),
-    //         oracle_accs[0].clone(), oracle_accs[1].clone(), oracle_accs[2].clone(), oracle_accs[3].clone(),
-    //     ],
-    //     &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
-    // )?;
+    invoke_signed(
+        &withdraw(mango_prog_acc.key, mango_group_acc.key, margin_account_acc.key, fund_pda_acc.key, token_account_acc.key, vault_acc.key, signer_acc.key,
+            &[*open_orders_accs[0].key, *open_orders_accs[1].key, *open_orders_accs[2].key, *open_orders_accs[3].key],
+            &[*oracle_accs[0].key, *oracle_accs[1].key, *oracle_accs[2].key, *oracle_accs[3].key],
+            withdraw_amount)?,
+        &[
+            mango_prog_acc.clone(),
+            mango_group_acc.clone(),
+            margin_account_acc.clone(),
+            fund_pda_acc.clone(),
+            token_account_acc.clone(),
+            vault_acc.clone(),
+            signer_acc.clone(),
+            token_prog_acc.clone(),
+            clock_acc.clone(),
+            open_orders_accs[0].clone(), open_orders_accs[1].clone(), open_orders_accs[2].clone(), open_orders_accs[3].clone(),
+            oracle_accs[0].clone(), oracle_accs[1].clone(), oracle_accs[2].clone(), oracle_accs[3].clone(),
+        ],
+        &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
+    )?;
 
 
     Ok(())
