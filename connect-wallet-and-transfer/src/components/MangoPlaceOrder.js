@@ -44,7 +44,7 @@ export const MangoPlaceOrder = () => {
         return
       }
 
-      await placeOrder(connection, margin_account_acc, fundStateAccount, fundPDA[0], walletProvider, SOL_USDC_MARKET, side, size, null, transaction)
+      await placeOrder(connection, margin_account_acc, fundStateAccount, fundPDA[0], walletProvider, SOL_USDC_MARKET, side, size, null, transaction, false)
       console.log("transaction::", transaction)
       transaction.feePayer = key;
       let hash = await connection.getRecentBlockhash();

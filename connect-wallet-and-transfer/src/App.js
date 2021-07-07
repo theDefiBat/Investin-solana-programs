@@ -20,6 +20,8 @@ import { MangoInitialize } from './components/MangoInitialize';
 import { MangoDeposit } from './components/MangoDeposit';
 import { MangoWithdrawToFund } from './components/MangoWithdrawToFund';
 import { MangoPlaceOrder } from './components/MangoPlaceOrder';
+import { MangoWithdrawInvestor } from './components/MangoWithdrawInvestor';
+
 
 
 
@@ -62,6 +64,8 @@ function App() {
         <MangoDeposit />
         <MangoWithdrawToFund />
         <MangoPlaceOrder />
+        <MangoWithdrawInvestor />
+
       </Container>
     </div>
   );
