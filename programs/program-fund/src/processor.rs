@@ -771,6 +771,10 @@ impl Fund {
                 msg!("FundInstruction::MangoWithdrawInvestorPlaceOrder");
                 return mango_withdraw_place_order(program_id, accounts, order);
             }
+            FundInstruction::MangoWithdrawInvestorSettle { token_index } => {
+                msg!("FundInstruction::MangoWithdrawInvestorSettle");
+                return mango_withdraw_settle(program_id, accounts, token_index);
+            }
             FundInstruction::MangoWithdrawInvestorPlaceAndSettle { order, token_index } => {
                 msg!("FundInstruction::MangoWithdrawInvestorPlaceAndSettle");
                 return mango_withdraw_place_and_settle(program_id, accounts, order, token_index);

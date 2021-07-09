@@ -535,107 +535,56 @@ pub fn fill_order_withdraw (
     Ok(())
 }
 
-pub fn mango_withdraw_place_and_settle (
+pub fn mango_withdraw_settle (
     program_id: &Pubkey,
     accounts: &[AccountInfo],
-    order: serum_dex::instruction::NewOrderInstructionV3,
     token_index: usize
-) -> Result<(), ProgramError> {
+) -> Result<(), ProgramError>
 
-    const NUM_FIXED: usize = 24;
-    let accounts = array_ref![accounts, 0, NUM_FIXED + 2 * NUM_MARKETS];
-    let (
-        fixed_accs,
-        open_orders_accs,
-        oracle_accs,
-    ) = array_refs![accounts, NUM_FIXED, NUM_MARKETS, NUM_MARKETS];
-
+{
+    const NUM_FIXED: usize = 17;
+    let accounts = array_ref![accounts, 0, NUM_FIXED];
     let [
         fund_state_acc,
-        investor_state_acc,
         investor_acc,
         fund_pda_acc,
         mango_prog_acc,
+
         mango_group_acc,
         margin_account_acc,
         clock_acc,
         dex_prog_acc,
         spot_market_acc,
-        dex_request_queue_acc,
-        dex_event_queue_acc,
-        bids_acc,
-        asks_acc,
-        vault_acc,
+        open_orders_acc,
         signer_acc,
         dex_base_acc,
         dex_quote_acc,
-        dex_signer_acc,
-        token_prog_acc,
-        rent_acc,
         base_vault_acc,
         quote_vault_acc,
-        srm_vault_acc,
-    ] = fixed_accs;
+        dex_signer_acc,
+        token_prog_acc,
+    ] = accounts;
 
-    let mut fund_data = FundData::load_mut(fund_state_acc)?;
-
-    let mut m_order = order;
+    // let mut margin_account = MarginAccount::load_mut(margin_account_acc)?;
+    let fund_data = FundData::load(fund_state_acc)?;
 
     check!(investor_acc.is_signer, ProgramError::MissingRequiredSignature);
 
-    fill_order_withdraw(&mut fund_data, investor_state_acc, margin_account_acc, mango_group_acc, spot_market_acc, open_orders_accs, &mut m_order)?;
-
-    msg!("sol_log_compute_units 1: ");
-    sol_log_compute_units();
-    invoke_signed(
-        &instruction_place_order(mango_prog_acc.key,
-            mango_group_acc.key, fund_pda_acc.key, margin_account_acc.key,
-            dex_prog_acc.key,spot_market_acc.key, dex_request_queue_acc.key,
-            dex_event_queue_acc.key, bids_acc.key, asks_acc.key, vault_acc.key,
-            signer_acc.key, dex_base_acc.key, dex_quote_acc.key, srm_vault_acc.key,
-            &[*open_orders_accs[0].key, *open_orders_accs[1].key, *open_orders_accs[2].key, *open_orders_accs[3].key],
-            &[*oracle_accs[0].key, *oracle_accs[1].key, *oracle_accs[2].key, *oracle_accs[3].key],
-            m_order)?,
-        &[
-            mango_prog_acc.clone(),
-            mango_group_acc.clone(),
-            margin_account_acc.clone(),
-            fund_pda_acc.clone(),
-            dex_prog_acc.clone(),
-            spot_market_acc.clone(),
-            dex_request_queue_acc.clone(),
-            dex_event_queue_acc.clone(), bids_acc.clone(), asks_acc.clone(), vault_acc.clone(),
-            signer_acc.clone(), dex_base_acc.clone(), dex_quote_acc.clone(), srm_vault_acc.clone(),
-            open_orders_accs[0].clone(), open_orders_accs[1].clone(), open_orders_accs[2].clone(), open_orders_accs[3].clone(),
-            oracle_accs[0].clone(), oracle_accs[1].clone(), oracle_accs[2].clone(), oracle_accs[3].clone(),
-            clock_acc.clone(), token_prog_acc.clone(), rent_acc.clone()
-        ],
-        &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
-    )?;
- 
-    msg!("sol_log_compute_units 2: ");
-    sol_log_compute_units();
     invoke_signed(
         &settle_funds(mango_prog_acc.key, mango_group_acc.key, fund_pda_acc.key, margin_account_acc.key,
-            dex_prog_acc.key, spot_market_acc.key, open_orders_accs[0].key, signer_acc.key, // TODO: change open_order_accs index
+            dex_prog_acc.key, spot_market_acc.key, open_orders_acc.key, signer_acc.key,
             dex_base_acc.key, dex_quote_acc.key, base_vault_acc.key, quote_vault_acc.key, dex_signer_acc.key)?,
         &[
             mango_prog_acc.clone(), mango_group_acc.clone(), fund_pda_acc.clone(), margin_account_acc.clone(),
-            dex_prog_acc.clone(), spot_market_acc.clone(), open_orders_accs[0].clone(), signer_acc.clone(),
+            dex_prog_acc.clone(), spot_market_acc.clone(), open_orders_acc.clone(), signer_acc.clone(),
             dex_base_acc.clone(), dex_quote_acc.clone(), base_vault_acc.clone(), quote_vault_acc.clone(),
             dex_signer_acc.clone(), clock_acc.clone(), token_prog_acc.clone()
         ],
         &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
     )?;
 
-    let mut investor_data = InvestorData::load_mut(investor_state_acc)?;
-    let ( withdraw_amount, settle_amount ) = get_withdraw_amounts(&mut fund_data, &mut investor_data, margin_account_acc, mango_group_acc, open_orders_accs, oracle_accs, token_index)?;
+    let settle_amount = get_settle_amounts(margin_account_acc, mango_group_acc, token_index)?;
 
-    msg!("withdraw_amount {:?}", withdraw_amount);
-    msg!("settle_amount {:?}", settle_amount);
-
-    msg!("sol_log_compute_units 3: ");
-    sol_log_compute_units();
     // settle borrows
     invoke_signed(
         &settle_borrow(mango_prog_acc.key, mango_group_acc.key, margin_account_acc.key, fund_pda_acc.key, token_index,
@@ -650,8 +599,150 @@ pub fn mango_withdraw_place_and_settle (
         &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
     )?;
 
-    msg!("sol_log_compute_units 4: ");
-    sol_log_compute_units();  
+
+    Ok(())
+}
+
+
+pub fn get_settle_amounts (
+    margin_acc: &AccountInfo,
+    mango_group_acc: &AccountInfo,
+    token_index: usize
+) -> Result<(u64), ProgramError> {
+    
+    let margin_data = MarginAccount::load(&margin_acc)?;
+    let mango_group = MangoGroup::load(&mango_group_acc)?;
+
+    // let prices = get_prices(&mango_group, oracle_accs)?;
+    // let equity = margin_data.get_equity(&mango_group, &prices, open_orders_accs)?;
+
+    // let inv_share = get_share(fund_data, inv_data)?;
+    // let withdraw_amount = U64F64::to_num(inv_share.checked_mul(equity).unwrap());
+    let settle_amount = U64F64::to_num(margin_data.deposits[token_index] * mango_group.indexes[token_index].deposit);
+
+    check!(margin_data.deposits[token_index] > 100, ProgramError::InvalidArgument);
+    check!(margin_data.borrows[token_index] > 100, ProgramError::InvalidArgument);
+    
+    return Ok((settle_amount))
+}
+
+pub fn mango_withdraw_place_and_settle (
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    order: serum_dex::instruction::NewOrderInstructionV3,
+    token_index: usize
+) -> Result<(), ProgramError> {
+
+//     const NUM_FIXED: usize = 24;
+//     let accounts = array_ref![accounts, 0, NUM_FIXED + 2 * NUM_MARKETS];
+//     let (
+//         fixed_accs,
+//         open_orders_accs,
+//         oracle_accs,
+//     ) = array_refs![accounts, NUM_FIXED, NUM_MARKETS, NUM_MARKETS];
+
+//     let [
+//         fund_state_acc,
+//         investor_state_acc,
+//         investor_acc,
+//         fund_pda_acc,
+//         mango_prog_acc,
+//         mango_group_acc,
+//         margin_account_acc,
+//         clock_acc,
+//         dex_prog_acc,
+//         spot_market_acc,
+//         dex_request_queue_acc,
+//         dex_event_queue_acc,
+//         bids_acc,
+//         asks_acc,
+//         vault_acc,
+//         signer_acc,
+//         dex_base_acc,
+//         dex_quote_acc,
+//         dex_signer_acc,
+//         token_prog_acc,
+//         rent_acc,
+//         base_vault_acc,
+//         quote_vault_acc,
+//         srm_vault_acc,
+//     ] = fixed_accs;
+
+//     let mut fund_data = FundData::load_mut(fund_state_acc)?;
+
+//     let mut m_order = order;
+
+//     check!(investor_acc.is_signer, ProgramError::MissingRequiredSignature);
+
+//     fill_order_withdraw(&mut fund_data, investor_state_acc, margin_account_acc, mango_group_acc, spot_market_acc, open_orders_accs, &mut m_order)?;
+
+//     msg!("sol_log_compute_units 1: ");
+//     sol_log_compute_units();
+//     invoke_signed(
+//         &instruction_place_order(mango_prog_acc.key,
+//             mango_group_acc.key, fund_pda_acc.key, margin_account_acc.key,
+//             dex_prog_acc.key,spot_market_acc.key, dex_request_queue_acc.key,
+//             dex_event_queue_acc.key, bids_acc.key, asks_acc.key, vault_acc.key,
+//             signer_acc.key, dex_base_acc.key, dex_quote_acc.key, srm_vault_acc.key,
+//             &[*open_orders_accs[0].key, *open_orders_accs[1].key, *open_orders_accs[2].key, *open_orders_accs[3].key],
+//             &[*oracle_accs[0].key, *oracle_accs[1].key, *oracle_accs[2].key, *oracle_accs[3].key],
+//             m_order)?,
+//         &[
+//             mango_prog_acc.clone(),
+//             mango_group_acc.clone(),
+//             margin_account_acc.clone(),
+//             fund_pda_acc.clone(),
+//             dex_prog_acc.clone(),
+//             spot_market_acc.clone(),
+//             dex_request_queue_acc.clone(),
+//             dex_event_queue_acc.clone(), bids_acc.clone(), asks_acc.clone(), vault_acc.clone(),
+//             signer_acc.clone(), dex_base_acc.clone(), dex_quote_acc.clone(), srm_vault_acc.clone(),
+//             open_orders_accs[0].clone(), open_orders_accs[1].clone(), open_orders_accs[2].clone(), open_orders_accs[3].clone(),
+//             oracle_accs[0].clone(), oracle_accs[1].clone(), oracle_accs[2].clone(), oracle_accs[3].clone(),
+//             clock_acc.clone(), token_prog_acc.clone(), rent_acc.clone()
+//         ],
+//         &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
+//     )?;
+ 
+//     msg!("sol_log_compute_units 2: ");
+//     sol_log_compute_units();
+//     invoke_signed(
+//         &settle_funds(mango_prog_acc.key, mango_group_acc.key, fund_pda_acc.key, margin_account_acc.key,
+//             dex_prog_acc.key, spot_market_acc.key, open_orders_accs[0].key, signer_acc.key, // TODO: change open_order_accs index
+//             dex_base_acc.key, dex_quote_acc.key, base_vault_acc.key, quote_vault_acc.key, dex_signer_acc.key)?,
+//         &[
+//             mango_prog_acc.clone(), mango_group_acc.clone(), fund_pda_acc.clone(), margin_account_acc.clone(),
+//             dex_prog_acc.clone(), spot_market_acc.clone(), open_orders_accs[0].clone(), signer_acc.clone(),
+//             dex_base_acc.clone(), dex_quote_acc.clone(), base_vault_acc.clone(), quote_vault_acc.clone(),
+//             dex_signer_acc.clone(), clock_acc.clone(), token_prog_acc.clone()
+//         ],
+//         &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
+//     )?;
+
+//     let mut investor_data = InvestorData::load_mut(investor_state_acc)?;
+//     let ( withdraw_amount, settle_amount ) = get_withdraw_amounts(&mut fund_data, &mut investor_data, margin_account_acc, mango_group_acc, open_orders_accs, oracle_accs, token_index)?;
+
+//     msg!("withdraw_amount {:?}", withdraw_amount);
+//     msg!("settle_amount {:?}", settle_amount);
+
+//     msg!("sol_log_compute_units 3: ");
+//     sol_log_compute_units();
+//     // settle borrows
+//     invoke_signed(
+//         &settle_borrow(mango_prog_acc.key, mango_group_acc.key, margin_account_acc.key, fund_pda_acc.key, token_index,
+//             settle_amount)?,
+//         &[
+//             mango_prog_acc.clone(),
+//             mango_group_acc.clone(),
+//             margin_account_acc.clone(),
+//             fund_pda_acc.clone(),
+//             clock_acc.clone(),
+//         ],
+//         &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
+//     )?;
+
+//     msg!("sol_log_compute_units 4: ");
+//     sol_log_compute_units();  
     Ok(())
 }
 
