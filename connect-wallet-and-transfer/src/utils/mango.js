@@ -183,7 +183,7 @@ export const calculateMarketPrice = (
           wallet,
           "",
           mangoGroup.dexProgramId,
-          "seed",
+          "seed2",
           openOrdersSpace,
           transaction
         )
@@ -427,7 +427,7 @@ export async function placeOrder(
         wallet,
         "",
         mangoGroup.dexProgramId,
-        "seed1",
+        "seed2",
         openOrdersSpace,
         transaction
       )
@@ -589,7 +589,12 @@ export async function placeOrder(
   })
   transaction.add(placeAndSettleInstruction)
 
-console.log("test:: ", marginAccount.openOrders[marketIndex])
+  const baseTokenIndex = marketIndex;
+  const quoteTokenIndex = NUM_TOKENS - 1;
+  const tokenIndex = side === 'buy' ? baseTokenIndex : quoteTokenIndex;
+  const quantity = marginAccount.getUiBorrow(mangoGroup, tokenIndex);
+  const nativeQuantity = uiToNative(quantity, mangoGroup.mintDecimals[tokenIndex]);
+
   const settle_keys = [
     { isSigner: false, isWritable: true, pubkey: fundStateAccount },
     { isSigner: true, isWritable: true, pubkey: wallet?.publicKey },
@@ -627,12 +632,16 @@ console.log("test:: ", marginAccount.openOrders[marketIndex])
     { isSigner: false, isWritable: false, pubkey: TOKEN_PROGRAM_ID },
   ];
 
-  const datLayout = struct([u8('instruction')])
+  const datLayout = struct([u8('instruction'), nu64('settle_amount'), nu64('token_index')])
+
+  console.log("settle_amount", nativeQuantity.toNumber())
 
       const dat = Buffer.alloc(datLayout.span)
       datLayout.encode(
         {
           instruction: 11,
+          settle_amount: nativeQuantity,
+          token_index: tokenIndex
         },
         dat
       )
@@ -772,6 +781,7 @@ export async function placeOrder2(
       openOrdersKeys.push(marginAccount.openOrders[i])
     }
   }
+
     const invStateAccount = await createKeyIfNotExists(wallet, null, programId, fundPDA.toBase58().substr(0, 32), INVESTOR_DATA.span, transaction)
     let keys = [
       { isSigner: false, isWritable: true, pubkey: fundStateAccount },

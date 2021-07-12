@@ -1,9 +1,9 @@
 import { Connection, PublicKey } from "@solana/web3.js";
 
-export const PLATFORM_ACCOUNT_KEY = "platAccKey_5";
-export const FUND_ACCOUNT_KEY = "fundAccKey_5";
+export const PLATFORM_ACCOUNT_KEY = "platAccKey_6";
+export const FUND_ACCOUNT_KEY = "fundAccKey_6";
 export const PRICE_ACCOUNT_KEY = "price_account_key_5";
-export const MARGIN_ACCOUNT_KEY = "margin_account_key_1"
+export const MARGIN_ACCOUNT_KEY = "margin_account_key_fin"
 
 export const adminAccount = new PublicKey('Fepyuf4vy7mKZVgpzS52UoUeSLmVvGnoMDyraCsjYUqn')
 
@@ -13,10 +13,10 @@ export const cluster = "https://api.devnet.solana.com";
 export const connection = new Connection(cluster, "confirmed");
 
 //export const programId = new PublicKey('8eupswoaU79BCMnP4ZkvtV9cLNDgbCAtg5rcyqEw8FAg');
-export const programId = new PublicKey('5bxWgrwLEywCSbaNWFapzwe7qnhTximFQHYMdugV8xiK');
+export const programId = new PublicKey('ADoJrQGDpAv44orS1z7UhbT75obFAUBH23utg1tmA4EP');
 
 // change later
-export const platformStateAccount = new PublicKey('3MFrP3MPUtc162kSVSMB3DyJTjSMdV7NrufG7v6m5RRC')
+export const platformStateAccount = new PublicKey('9r3H3TygWPJuMTte3hxwY1norEPm4kXEFLqtg7ZW7P3i')
 export const priceStateAccount = new PublicKey('ARXWJc6FmrAB7zkL2LAeRWGgaAe3MUqD1MJUTZGyiRQn')
 
 export const SYSTEM_PROGRAM_ID = new PublicKey('11111111111111111111111111111111')
