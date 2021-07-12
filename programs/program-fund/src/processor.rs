@@ -755,9 +755,9 @@ impl Fund {
                 msg!("FundInstruction::MangoPlaceOrder");
                 return mango_place_order(program_id, accounts, order);
             }
-            FundInstruction::MangoSettleFunds => {
+            FundInstruction::MangoSettleFunds {token_index, settle_amount} => {
                 msg!("FundInstruction::MangoSettleFunds");
-                return mango_settle_funds(program_id, accounts);
+                return mango_settle_funds(program_id, accounts, settle_amount, token_index);
             }
             FundInstruction::MangoWithdrawToFund { quantity } => {
                 msg!("FundInstruction::MangoWithdrawToFund");
@@ -771,10 +771,10 @@ impl Fund {
                 msg!("FundInstruction::MangoWithdrawInvestorPlaceOrder");
                 return mango_withdraw_place_order(program_id, accounts, order);
             }
-            FundInstruction::MangoWithdrawInvestorSettle { token_index } => {
-                msg!("FundInstruction::MangoWithdrawInvestorSettle");
-                return mango_withdraw_settle(program_id, accounts, token_index);
-            }
+            // FundInstruction::MangoWithdrawInvestorSettle { token_index } => {
+            //     msg!("FundInstruction::MangoWithdrawInvestorSettle");
+            //     return mango_withdraw_settle(program_id, accounts, token_index);
+            // }
             FundInstruction::MangoWithdrawInvestorPlaceAndSettle { order, token_index } => {
                 msg!("FundInstruction::MangoWithdrawInvestorPlaceAndSettle");
                 return mango_withdraw_place_and_settle(program_id, accounts, order, token_index);

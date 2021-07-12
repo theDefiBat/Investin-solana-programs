@@ -216,7 +216,10 @@ pub enum FundInstruction {
     /// 11. `[writable]` quote_vault_acc - MangoGroup quote vault acc
     /// 12. `[]` dex_signer_acc - dex Market signer account
     /// 13. `[]` spl token program
-    MangoSettleFunds,
+    MangoSettleFunds{
+        settle_amount: u64,
+        token_index: usize
+    },
 
     /// Withdraw funds that were deposited earlier.
     ///
@@ -300,30 +303,30 @@ pub enum FundInstruction {
         order: serum_dex::instruction::NewOrderInstructionV3
     },
 
-    /// Settle all funds 
-    ///
-    /// Accounts expected by this instruction (14):
-    /// 0.  [writable]  fund_state_acc - Fund State Account
-    /// 1.  [signer]    investor_acc - Investor Account to sign
-    /// 2.  []          fund_pda_acc - Fund PDA Account
-    /// 3.  []          mango_prog_acc - Mango Program Account
-    /// 
-    /// 0. `[writable]` mango_group_acc - MangoGroup that this margin account is for
-    /// 2. `[writable]` margin_account_acc - MarginAccount
-    /// 3. `[]` clock_acc - Clock sysvar account
-    /// 4. `[]` dex_prog_acc - program id of serum dex
-    /// 5  `[writable]` spot_market_acc - dex MarketState account
-    /// 6  `[writable]` open_orders_acc - open orders for this market for this MarginAccount
-    /// 7. `[]` signer_acc - MangoGroup signer key
-    /// 8. `[writable]` dex_base_acc - base vault for dex MarketState
-    /// 9. `[writable]` dex_quote_acc - quote vault for dex MarketState
-    /// 10. `[writable]` base_vault_acc - MangoGroup base vault acc
-    /// 11. `[writable]` quote_vault_acc - MangoGroup quote vault acc
-    /// 12. `[]` dex_signer_acc - dex Market signer account
-    /// 13. `[]` spl token program
-    MangoWithdrawInvestorSettle {
-        token_index: usize
-    },
+    // /// Settle all funds 
+    // ///
+    // /// Accounts expected by this instruction (14):
+    // /// 0.  [writable]  fund_state_acc - Fund State Account
+    // /// 1.  [signer]    investor_acc - Investor Account to sign
+    // /// 2.  []          fund_pda_acc - Fund PDA Account
+    // /// 3.  []          mango_prog_acc - Mango Program Account
+    // /// 
+    // /// 0. `[writable]` mango_group_acc - MangoGroup that this margin account is for
+    // /// 2. `[writable]` margin_account_acc - MarginAccount
+    // /// 3. `[]` clock_acc - Clock sysvar account
+    // /// 4. `[]` dex_prog_acc - program id of serum dex
+    // /// 5  `[writable]` spot_market_acc - dex MarketState account
+    // /// 6  `[writable]` open_orders_acc - open orders for this market for this MarginAccount
+    // /// 7. `[]` signer_acc - MangoGroup signer key
+    // /// 8. `[writable]` dex_base_acc - base vault for dex MarketState
+    // /// 9. `[writable]` dex_quote_acc - quote vault for dex MarketState
+    // /// 10. `[writable]` base_vault_acc - MangoGroup base vault acc
+    // /// 11. `[writable]` quote_vault_acc - MangoGroup quote vault acc
+    // /// 12. `[]` dex_signer_acc - dex Market signer account
+    // /// 13. `[]` spl token program
+    // MangoWithdrawInvestorSettle {
+    //     token_index: usize
+    // },
 
     /// Place an order on the Serum Dex and settle funds from the open orders account
     ///
@@ -493,7 +496,15 @@ impl FundInstruction {
                 }
             },
             11 => {
-                FundInstruction::MangoSettleFunds
+                let data_arr = array_ref![data, 0, 8 + 8];
+                let (
+                    settle_amount,
+                    token_index
+                ) = array_refs![data, 8, 8];
+                FundInstruction::MangoSettleFunds{
+                    settle_amount: u64::from_le_bytes(*settle_amount),
+                    token_index: usize::from_le_bytes(*token_index)
+                }
             },
             12 => {
                 let quantity = array_ref![data, 0, 8];
@@ -514,13 +525,13 @@ impl FundInstruction {
                     order
                 }
             },
+            // 15 => {
+            //     let token_index = array_ref![data, 0, 8];
+            //     FundInstruction::MangoWithdrawInvestorSettle{
+            //         token_index: usize::from_le_bytes(*token_index)
+            //     }
+            // },
             15 => {
-                let token_index = array_ref![data, 0, 8];
-                FundInstruction::MangoWithdrawInvestorSettle{
-                    token_index: usize::from_le_bytes(*token_index)
-                }
-            },
-            16 => {
                 let data_arr = array_ref![data, 0, 46 + 8];
                 let (
                     order,
@@ -532,13 +543,13 @@ impl FundInstruction {
                     token_index: usize::from_le_bytes(*token_index)
                 }
             },
-            17 => {
+            16 => {
                 let amount = array_ref![data, 0, 8];
                 FundInstruction::TestingDeposit {
                     amount: u64::from_le_bytes(*amount)
                 }
             },
-            18 => {
+            17 => {
                 let amount = array_ref![data, 0, 8];
                 FundInstruction::TestingWithdraw {
                     amount: u64::from_le_bytes(*amount)
