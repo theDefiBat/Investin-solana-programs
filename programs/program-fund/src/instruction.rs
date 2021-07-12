@@ -496,11 +496,11 @@ impl FundInstruction {
                 }
             },
             11 => {
-                let data_arr = array_ref![data, 0, 8 + 8];
+                let data_arr = array_ref![data, 0, 16];
                 let (
                     settle_amount,
                     token_index
-                ) = array_refs![data, 8, 8];
+                ) = array_refs![data_arr, 8, 8];
                 FundInstruction::MangoSettleFunds{
                     settle_amount: u64::from_le_bytes(*settle_amount),
                     token_index: usize::from_le_bytes(*token_index)
