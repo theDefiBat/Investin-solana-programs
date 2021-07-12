@@ -73,6 +73,11 @@ pub struct InvestorData {
     // Fund manager
     pub manager: Pubkey,
 
+    // assets investor is owed
+    pub fund_assets: [u64; NUM_TOKENS],
+
+    // margin assets owed in USDC
+    pub margin_assets: u64
 }
 unsafe impl Zeroable for InvestorData {}
 unsafe impl Pod for InvestorData {}
@@ -142,6 +147,9 @@ pub struct TokenInfo {
 
     // Updated balance of token
     pub balance: u64,
+
+    // token debt owed to investors
+    pub debt: u64
 
 }
 unsafe impl Zeroable for TokenInfo {}
