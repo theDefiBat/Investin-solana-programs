@@ -5,10 +5,12 @@ use solana_program::program_pack::{IsInitialized, Sealed};
 use solana_program::program_error::ProgramError;
 use solana_program::clock::UnixTimestamp;
 use bytemuck::{from_bytes, from_bytes_mut, Pod, Zeroable};
+use fixed::types::U64F64;
+
+
 
 pub const NUM_TOKENS:usize = 10;
 pub const MAX_INVESTORS:usize = 10;
-pub const MAX_FUNDS:usize = 200;
 
 pub trait Loadable: Pod {
     fn load_mut<'a>(account: &'a AccountInfo) -> Result<RefMut<'a, Self>, ProgramError> {
@@ -19,6 +21,14 @@ pub trait Loadable: Pod {
     }
     fn load_from_bytes(data: &[u8]) -> Result<&Self, ProgramError> {
         Ok(from_bytes(data))
+    }
+}
+
+macro_rules! impl_loadable {
+    ($type_name:ident) => {
+        unsafe impl Zeroable for $type_name {}
+        unsafe impl Pod for $type_name {}
+        impl Loadable for $type_name {}
     }
 }
 
@@ -41,22 +51,17 @@ pub struct PlatformData {
     pub investin_admin: Pubkey,
 
     // vault for protocol fee
-    //pub investin_vault: Pubkey,
-
-    // Fund managers list
-    pub fund_managers: [Pubkey; MAX_FUNDS]
+    pub investin_vault: Pubkey,
 }
-unsafe impl Zeroable for PlatformData {}
-unsafe impl Pod for PlatformData {}
-impl Loadable for PlatformData {}
-
+impl_loadable!(PlatformData);
 
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct InvestorData {
 
     pub is_initialized: bool,
-    pub padding: [u8; 7],
+    pub has_withdrawn: bool,
+    pub padding: [u8; 6],
 
     /// Investor wallet address
     pub owner: Pubkey,
@@ -64,20 +69,20 @@ pub struct InvestorData {
     /// The Initial deposit (in USDT tokens)
     pub amount: u64,
 
-    /// The performance of the fund at the time of investment
-    pub start_performance: u64,
+    // start performance of investor
+    pub start_performance: U64F64,
 
     /// Amount In Router for multiple investments
     pub amount_in_router: u64,
 
-    // Fund manager
+    // Fund manager wallet key
     pub manager: Pubkey,
 
-    // assets investor is owed
-    pub fund_assets: [u64; NUM_TOKENS],
+    // margin assets owed in USDC tokens
+    pub margin_debt: u64,
 
-    // margin assets owed in USDC
-    pub margin_assets: u64
+    // investor assets in tokens
+    pub fund_debt: [u64; NUM_TOKENS]    
 }
 unsafe impl Zeroable for InvestorData {}
 unsafe impl Pod for InvestorData {}
@@ -96,29 +101,31 @@ pub struct FundData {
     pub no_of_investments: u8,
     // nonce to sign transactions
     pub signer_nonce: u8,
-    // padding
-    pub padding: [u8; 3],
-
+    /// Number of open margin positions
+    pub no_of_margin_positions: u8,
+    /// Position count
+    pub position_count: u16,
+  
     /// Minimum Amount
     pub min_amount: u64,
 
     /// Minimum Return
-    pub min_return: u64,
+    pub min_return: U64F64,
 
     /// Performance Fee Percentage
-    pub performance_fee_percentage: u64,
+    pub performance_fee_percentage: U64F64,
 
-    /// Total Amount in fund
+    /// Total Amount in fund (in USDC)
     pub total_amount: u64,
 
     /// Preformance in fund
-    pub prev_performance: u64,
+    pub prev_performance: U64F64,
 
-    /// Amount in Router
+    /// Amount in Router (in USDC)
     pub amount_in_router: u64,
 
     /// Performance Fee
-    pub performance_fee: u64,
+    pub performance_fee: U64F64,
 
     /// Wallet Address of the Manager
     pub manager_account: Pubkey,
@@ -127,11 +134,36 @@ pub struct FundData {
     pub tokens: [TokenInfo; NUM_TOKENS],
 
     // Store investor state account addresses
-    pub investors: [Pubkey; MAX_INVESTORS]
+    pub investors: [Pubkey; MAX_INVESTORS],
+
+    // margin position info
+    pub mango_positions: [MarginInfo; 2]
 }
 unsafe impl Zeroable for FundData {}
 unsafe impl Pod for FundData {}
 impl Loadable for FundData {}
+
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct MarginInfo {
+    // margin account pubkey to check if the passed acc is correct
+    pub margin_account: Pubkey,
+
+    pub is_active: bool, // is in an active position
+    pub margin_index: u8, // token_index for the trade
+    pub position_side: u8, // 0 for LONG, 1 for SHORT
+    pub position_id: u16, // unique id for the position
+    pub padding: [u8; 3],
+    
+    pub trade_amount: u64, // used for PnL calculation
+
+    pub investor_debt: u64 // updated on every investor withdraw
+}
+
+unsafe impl Zeroable for MarginInfo {}
+unsafe impl Pod for MarginInfo {}
+impl Loadable for MarginInfo {}
 
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -184,15 +216,11 @@ pub struct PriceInfo {
     // mint address of the token
     pub token_mint: Pubkey,
 
-    pub pool_account: Pubkey,
-
-    pub base_pool_account: Pubkey,
-
-    // decimals for token
-    pub decimals: u64,
+    // ask address of the market
+    pub asks_account: Pubkey,
 
     // price of token
-    pub token_price: u64,
+    pub token_price: U64F64,
 
     // last updated timestamp
     pub last_updated: UnixTimestamp,
@@ -207,9 +235,6 @@ unsafe impl Pod for PriceInfo {}
 pub struct PriceAccount {
     /// number of tokens
     pub count: u32,
-
-    /// decimals
-    pub decimals: u32,
 
     /// token price info
     pub prices: [PriceInfo; MAX_TOKENS]

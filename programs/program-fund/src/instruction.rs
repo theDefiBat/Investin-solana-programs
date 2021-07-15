@@ -38,6 +38,8 @@ pub enum FundInstruction {
     /// 0. []       Platform State Account
     /// 1. [WRITE]  Fund State Account
     /// 2. [READ]   Price Account
+    ///             Open orders account
+    ///             mango oracle account
     /// 3. [READ]   Clock Sysvar Account
     /// 4. [SIGNER] Manager Wallet Account
     /// 5. []       Router Base Token Account
@@ -52,18 +54,25 @@ pub enum FundInstruction {
     /// 0. [WRITE]  Platform State Account
     /// 1. [WRITE]  Fund State Account (derived from FA)
     /// 2. [WRITE]  Investor State Account (derived from IPDA)
+    /// 3. [SIGNER] Investor Wallet Account
+    /// 4. []       Router Base Token Account
+    /// 5. []       PDA of Manager
+    /// 6. []       PDA of Router
+    /// 7. []       Token Program
+    /// 8..8+NUM_TOKENS []  Investor Token Accounts
+    /// 8+NUM_TOKENS.. 8+2*NUM_TOKENS  Fund Token Accounts
+    InvestorWithdrawFromFund,
+
+    /// 0. [WRITE]  Fund State Account (derived from FA)
+    /// 1. [WRITE]  Investor State Account (derived from IPDA)
+    /// 2. [SIGNER] investor wallet account
     /// 3. [READ]   Price Account
-    /// 4. [READ]   Clock Sysvar Account
-    /// 5. [SIGNER] Investor Wallet Account
-    /// 6. []       Router Base Token Account
-    /// 7. []       PDA of Manager
-    /// 8. []       PDA of Router
-    /// 9. []       Token Program
-    /// 10..10+NUM_TOKENS []  Investor Token Accounts
-    /// 10+NUM_TOKENS.. 10+2*NUM_TOKENS  Fund Token Accounts
-    InvestorWithdraw {
-        amount: u64
-    },
+    /// 4. [READ]   Mango Group Account (for valuation)
+    /// 5. [READ]   Margin Account (for valuation)
+    /// 6. []       Open orders account
+    /// 7  []       mango oracle account
+    /// 8. [READ]   Clock Sysvar Account
+    InvestorWithdrawSettleFunds,
 
     /// 0. [WRITE] Fund State Account
     /// 1. [] Raydium Pool Program
@@ -78,6 +87,10 @@ pub enum FundInstruction {
 
     /// 0. [WRITE] Fund State Account (derived from FA)
     /// 1. [READ]   Price Account
+    /// 4. [READ]   Mango Group Account (for valuation)
+    /// 5. [READ]   Margin Account (for valuation)
+    ///             Open Orders account
+    ///             Mango oracle account
     /// 2. [READ]   Clock Sysvar Account
     /// 3. [SIGNER] Manager Wallet Account
     /// 4. []       Fund Base Token Account
@@ -137,41 +150,6 @@ pub enum FundInstruction {
     /// 2.  []          fund_pda_acc - Fund PDA Account
     /// 3.  []          mango_prog_acc - Mango Program Account
     /// 
-    /// 1. `[writable]` mango_group_acc - MangoGroup that this margin account is for
-    /// 3. `[writable]` margin_account_acc - MarginAccount
-    /// 4. `[]` clock_acc - Clock sysvar account
-    /// 5. `[]` dex_prog_acc - program id of serum dex
-    /// 6. `[writable]` spot_market_acc - serum dex MarketState
-    /// 7. `[writable]` dex_request_queue_acc - serum dex request queue for this market
-    /// 8. `[writable]` dex_event_queue - serum dex event queue for this market
-    /// 9. `[writable]` bids_acc - serum dex bids for this market
-    /// 10. `[writable]` asks_acc - serum dex asks for this market
-    /// 11. `[writable]` base_vault_acc - mango vault for base currency
-    /// 12. `[writable]` quote_vault_acc - mango vault for quote currency
-    /// 13. `[]` signer_acc - mango signer key
-    /// 14. `[writable]` dex_base_acc - serum dex market's vault for base (coin) currency
-    /// 15. `[writable]` dex_quote_acc - serum dex market's vault for quote (pc) currency
-    /// 16. `[]` spl token program
-    /// 17. `[]` the rent sysvar
-    /// 18. `[writable]` srm_vault_acc - MangoGroup's srm_vault used for fee reduction
-    /// 19. `[]` dex_signer_acc - signer for serum dex MarketState
-    /// 20..19+NUM_MARKETS `[writable]` open_orders_accs - open orders for each of the spot market
-    /// 19+NUM_MARKETS..19+2*NUM_MARKETS `[]`
-    ///     oracle_accs - flux aggregator feed accounts
-    MangoPlaceAndSettle {
-        order: serum_dex::instruction::NewOrderInstructionV3
-    },
-
-
-    /// Place an order on the Serum Dex and settle funds from the open orders account
-    ///
-    /// Accounts expected by this instruction (19 + 2 * NUM_MARKETS):
-    ///
-    /// 0.  [writable]  fund_state_acc - Fund State Account
-    /// 1.  [signer]    manager_acc - Manager Account to sign
-    /// 2.  []          fund_pda_acc - Fund PDA Account
-    /// 3.  []          mango_prog_acc - Mango Program Account
-    /// 
     /// 0. `[writable]` mango_group_acc - MangoGroup that this margin account is for
     /// 2. `[writable]` margin_account_acc - MarginAccount
     /// 3. `[]` clock_acc - Clock sysvar account
@@ -192,7 +170,10 @@ pub enum FundInstruction {
     /// 17+NUM_MARKETS..17+2*NUM_MARKETS `[]`
     ///     oracle_accs - flux aggregator feed accounts
     MangoPlaceOrder {
-        order: serum_dex::instruction::NewOrderInstructionV3
+        side: u8, // 1 for sell, 0 for buy
+        price: u64, // limit price
+        quote_size: u64, // quote amount
+        base_size: u64,
     },
     
 /// Settle all funds from serum dex open orders into MarginAccount positions
@@ -241,9 +222,7 @@ pub enum FundInstruction {
     /// 8..8+NUM_MARKETS `[]` open_orders_accs - open orders for each of the spot market
     /// 8+NUM_MARKETS..8+2*NUM_MARKETS `[]`
     ///     oracle_accs - flux aggregator feed accounts
-    MangoWithdrawToFund {
-        quantity: u64
-    },
+    MangoClosePosition,
 
     /// Withdraw funds that were deposited earlier.
     ///
@@ -430,12 +409,12 @@ impl FundInstruction {
                 FundInstruction::ManagerTransfer
             },
             3 => {
-                let amount = array_ref![data, 0, 8];
-                FundInstruction::InvestorWithdraw {
-                    amount: u64::from_le_bytes(*amount)
-                }
+                FundInstruction::InvestorWithdrawFromFund
             },
             4 => {
+                FundInstruction::InvestorWithdrawSettleFunds
+            }
+            5 => {
                 let data = array_ref![data, 0, 1 + 8 + 8];
                 let (
                     instruction,
@@ -451,10 +430,10 @@ impl FundInstruction {
                     }
                 }
             },
-            5 => {
+            6 => {
                 FundInstruction::ClaimPerformanceFee
             },
-            6 => {
+            7 => {
                 let data = array_ref![data, 0, 1 + 1 + 8 + 8 + 8];
                 let (
                     platform_is_initialized,
@@ -472,27 +451,28 @@ impl FundInstruction {
                     fund_performance_fee_percentage: u64::from_le_bytes(*fund_performance_fee_percentage)
                 }
             },
-            7 => {
+            8 => {
                 FundInstruction::MangoInitialize
             },
-            8 => {
+            9 => {
                 let quantity = array_ref![data, 0, 8];
                 FundInstruction::MangoDeposit{
                     quantity: u64::from_le_bytes(*quantity)
                 }
             },
-            9 => {
-                let data_arr = array_ref![data, 0, 46];
-                let order = unpack_dex_new_order_v3(data_arr)?;
-                FundInstruction::MangoPlaceAndSettle {
-                    order
-                }
-            },
             10 => {
-                let data_arr = array_ref![data, 0, 46];
-                let order = unpack_dex_new_order_v3(data_arr)?;
+                let data_arr = array_ref![data, 0, 25];
+                let (
+                    side,
+                    price,
+                    quote_size,
+                    base_size
+                ) = array_refs![data_arr, 1, 8, 8, 8];
                 FundInstruction::MangoPlaceOrder {
-                    order
+                    side: u8::from_le_bytes(*side),
+                    price: u64::from_le_bytes(*price),
+                    quote_size: u64::from_le_bytes(*quote_size),
+                    base_size: u64::from_le_bytes(*base_size)
                 }
             },
             11 => {
@@ -507,10 +487,7 @@ impl FundInstruction {
                 }
             },
             12 => {
-                let quantity = array_ref![data, 0, 8];
-                FundInstruction::MangoWithdrawToFund{
-                    quantity: u64::from_le_bytes(*quantity)
-                }
+                FundInstruction::MangoClosePosition
             },
             13 => {
                 let token_index = array_ref![data, 0, 8];
@@ -525,31 +502,13 @@ impl FundInstruction {
                     order
                 }
             },
-            // 15 => {
-            //     let token_index = array_ref![data, 0, 8];
-            //     FundInstruction::MangoWithdrawInvestorSettle{
-            //         token_index: usize::from_le_bytes(*token_index)
-            //     }
-            // },
             15 => {
-                let data_arr = array_ref![data, 0, 46 + 8];
-                let (
-                    order,
-                    token_index 
-                ) = array_refs![data_arr, 46, 8];
-                let order = unpack_dex_new_order_v3(order)?;
-                FundInstruction::MangoWithdrawInvestorPlaceAndSettle {
-                    order,
-                    token_index: usize::from_le_bytes(*token_index)
-                }
-            },
-            16 => {
                 let amount = array_ref![data, 0, 8];
                 FundInstruction::TestingDeposit {
                     amount: u64::from_le_bytes(*amount)
                 }
             },
-            17 => {
+            16 => {
                 let amount = array_ref![data, 0, 8];
                 FundInstruction::TestingWithdraw {
                     amount: u64::from_le_bytes(*amount)

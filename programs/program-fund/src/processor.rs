@@ -1,6 +1,8 @@
 use std::mem::size_of;
 use bytemuck::bytes_of;
 use fixed::types::U64F64;
+use fixed_macro::types::U64F64;
+
 use solana_program::{
     account_info::{AccountInfo, next_account_info},
     msg,
@@ -22,6 +24,7 @@ use crate::instruction::{FundInstruction, Data};
 use crate::state::{NUM_TOKENS, MAX_INVESTORS, FundData, InvestorData, TokenInfo, PlatformData, PriceAccount};
 use crate::state::Loadable;
 use crate::mango_utils::*;
+use mango::state::{MarginAccount, MangoGroup, NUM_MARKETS, load_open_orders, Loadable as MangoLoadable};
 
 macro_rules! check {
     ($cond:expr, $err:expr) => {
@@ -101,12 +104,15 @@ impl Fund {
 
         fund_data.decimals = 6;
         fund_data.min_amount = min_amount;
-        fund_data.min_return = min_return;
-        fund_data.performance_fee_percentage = performance_fee_percentage;
+        fund_data.min_return = U64F64::from_num(min_return / 100);
+        fund_data.performance_fee_percentage = U64F64::from_num(performance_fee_percentage / 100);
 
         fund_data.total_amount = 0; 
-        fund_data.prev_performance = 10000;
+        fund_data.prev_performance = U64F64!(1.00);
         fund_data.number_of_active_investments = 0;
+        fund_data.mango_positions[0].margin_account = Pubkey::default();
+        fund_data.mango_positions[1].margin_account = Pubkey::default();
+
 
         // get nonce for signing later
         let (_pda, nonce) = Pubkey::find_program_address(&[&*manager_acc.key.as_ref()], program_id);
@@ -114,8 +120,6 @@ impl Fund {
         fund_data.is_initialized = true;
 
         // update platform_data
-        let index = platform_data.no_of_active_funds as usize;
-        platform_data.fund_managers[index] = *manager_acc.key;
         platform_data.no_of_active_funds += 1;
 
         Ok(())
@@ -135,6 +139,7 @@ impl Fund {
             investor_state_acc,
             investor_acc,
             investor_btoken_acc,
+
             router_btoken_acc,
             pda_man_acc,
             token_prog_acc
@@ -213,7 +218,7 @@ impl Fund {
         accounts: &[AccountInfo],
     ) -> Result<(), ProgramError> {
 
-        const NUM_FIXED:usize = 11;
+        const NUM_FIXED:usize = 15;
         let accounts = array_ref![accounts, 0, NUM_FIXED + MAX_INVESTORS];
 
         let (
@@ -225,6 +230,10 @@ impl Fund {
             platform_acc,
             fund_state_acc,
             price_acc,
+            mango_group_acc,
+            margin_acc,
+            open_orders_acc,
+            oracle_acc,
             clock_sysvar_acc,
             manager_acc,
             router_btoken_acc,
@@ -237,6 +246,16 @@ impl Fund {
 
         let platform_data = PlatformData::load(platform_acc)?;
         let mut fund_data = FundData::load_mut(fund_state_acc)?;
+        let mango_group_data = MangoGroup::load(mango_group_acc)?;
+        let margin_data = MarginAccount::load(margin_acc)?;
+
+        let mut margin_equity = U64F64!(0);
+        if fund_data.no_of_margin_positions > 0 {
+            let token_index = fund_data.mango_positions[0].margin_index as usize;
+            let (equity, coll) = get_equity_and_coll_ratio(token_index, &mango_group_data, &margin_data, oracle_acc, open_orders_acc)?;
+            let debt_valuation = coll.checked_mul(U64F64::from_num(fund_data.mango_positions[0].investor_debt)).unwrap();
+            margin_equity = equity.checked_sub(debt_valuation).unwrap();
+        }
 
         // check if manager signed the tx
         check!(manager_acc.is_signer, FundError::IncorrectProgramId);
@@ -319,7 +338,7 @@ impl Fund {
         msg!("Transfers completed");
         
         // dont update performance; just amount
-        update_amount_and_performance(&mut fund_data, &price_acc, &clock_sysvar_acc, true)?;
+        update_amount_and_performance(&mut fund_data, &price_acc, &clock_sysvar_acc, margin_equity, true)?;
 
         let in_queue = fund_data.no_of_investments - fund_data.number_of_active_investments;
         for i in 0..in_queue {
@@ -345,20 +364,19 @@ impl Fund {
         
         fund_data.tokens[0].balance = parse_token_account(&fund_btoken_acc)?.amount;
         // dont update performance now
-        update_amount_and_performance(&mut fund_data, &price_acc, &clock_sysvar_acc, false)?;
+        update_amount_and_performance(&mut fund_data, &price_acc, &clock_sysvar_acc, margin_equity, true)?;
         fund_data.number_of_active_investments = fund_data.no_of_investments;
         fund_data.amount_in_router = 0;
 
         Ok(())
     }
     // investor withdraw
-    pub fn withdraw (
+    pub fn withdraw_from_fund(
         program_id: &Pubkey,
         accounts: &[AccountInfo],
-        amount: u64
     ) -> Result<(), ProgramError> {
 
-        const NUM_FIXED:usize = 10;
+        const NUM_FIXED:usize = 8;
         let accounts = array_ref![accounts, 0, NUM_FIXED + 2*NUM_TOKENS];
 
         let (
@@ -371,8 +389,6 @@ impl Fund {
             platform_acc,
             fund_state_acc,
             investor_state_acc,
-            price_acc,
-            clock_sysvar_acc,
             investor_acc,
             router_btoken_acc,
             pda_man_acc,
@@ -410,18 +426,12 @@ impl Fund {
 
         } 
 
-        if investor_data.amount != 0 && investor_data.start_performance != 0 {
-            update_amount_and_performance(&mut fund_data, &price_acc, &clock_sysvar_acc, true)?;
-            let share = get_share(&mut fund_data, &mut investor_data)?;
+        if investor_data.has_withdrawn == true {
             for i in 0..NUM_TOKENS {
-                let withdraw_amount = U64F64::to_num(U64F64::from_num(fund_data.tokens[i].balance)
-                .checked_mul(share).unwrap());
-                msg!("share:: {:?}, withdraw amount:: {:?}", share, withdraw_amount);
-            
-                if withdraw_amount < 100 {
+                // TODO:: check if fund_debt on inv_acc <= fund_debt on fund
+                if investor_data.fund_debt[i] < 10 {
                     continue;
                 }
-                msg!("Invoking withdraw instruction: {:?}", withdraw_amount);
                 invoke_signed(
                     &(spl_token::instruction::transfer(
                         token_prog_acc.key,
@@ -429,7 +439,7 @@ impl Fund {
                         inv_token_accs[i].key,
                         pda_man_acc.key,
                         &[pda_man_acc.key],
-                        withdraw_amount
+                        investor_data.fund_debt[i]
                     ))?,
                     &[
                         fund_token_accs[i].clone(),
@@ -440,17 +450,74 @@ impl Fund {
                     &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
                 )?;   
                 fund_data.tokens[i].balance = parse_token_account(&fund_token_accs[i])?.amount;
+                fund_data.tokens[i].debt -= investor_data.fund_debt[i];
+                investor_data.fund_debt[i] = 0;
             }
-            fund_data.number_of_active_investments -= 1;
         }
         investor_data.amount = 0;
-        investor_data.start_performance = 0;
+        investor_data.start_performance = U64F64!(0);
         investor_data.amount_in_router = 0;
         investor_data.is_initialized = false;
         
-        fund_data.no_of_investments -= 1;
-        update_amount_and_performance(&mut fund_data, &price_acc, &clock_sysvar_acc, false)?;
-        
+        fund_data.no_of_investments -= 1;        
+        Ok(())
+    }
+
+    pub fn withdraw_settle(
+        program_id: &Pubkey,
+        accounts: &[AccountInfo],
+    ) -> Result<(), ProgramError> {
+
+        const NUM_FIXED:usize = 9;
+        let accounts = array_ref![accounts, 0, NUM_FIXED];
+
+        let [
+            fund_state_acc,
+            investor_state_acc,
+            investor_acc,
+            price_acc,
+            mango_group_acc,
+            margin_acc,
+            open_orders_acc,
+            oracle_acc,
+            clock_sysvar_acc
+        ] = accounts;
+
+        let mut fund_data = FundData::load_mut(fund_state_acc)?;
+        let mut investor_data = InvestorData::load_mut(investor_state_acc)?;
+        let mango_group_data = MangoGroup::load(mango_group_acc)?;
+        let margin_data = MarginAccount::load(margin_acc)?;
+
+        // TODO::  check if has_withdrawn == false
+        let mut coll_ratio = U64F64!(1);
+        let mut margin_equity = U64F64!(0);
+        if fund_data.no_of_margin_positions > 0 {
+            let token_index = fund_data.mango_positions[0].margin_index as usize;
+            let (equity, coll) = get_equity_and_coll_ratio(token_index, &mango_group_data, &margin_data, oracle_acc, open_orders_acc)?;
+            let debt_valuation = coll.checked_mul(U64F64::from_num(fund_data.mango_positions[0].investor_debt)).unwrap();
+            margin_equity = equity.checked_sub(debt_valuation).unwrap();
+            coll_ratio = coll;
+        }
+        if investor_data.amount != 0 && investor_data.start_performance != 0 {
+            update_amount_and_performance(&mut fund_data, &price_acc, &clock_sysvar_acc, margin_equity, true)?;
+            let share = get_share(&mut fund_data, &mut investor_data)?;
+            for i in 0..NUM_TOKENS {
+                let withdraw_amount: u64 = U64F64::to_num(U64F64::from_num(fund_data.tokens[i].balance)
+                .checked_mul(share).unwrap());
+                investor_data.fund_debt[i] = withdraw_amount;
+                fund_data.tokens[i].debt = withdraw_amount;
+            }
+            // active margin trade
+            if margin_equity > 0 {
+                let margin_share: u64 = U64F64::to_num(margin_equity.checked_mul(share).unwrap()
+                    .checked_div(coll_ratio).unwrap()
+                );
+                investor_data.margin_debt = margin_share;
+                fund_data.mango_positions[0].investor_debt += margin_share;
+            }
+            fund_data.number_of_active_investments -= 1;
+            investor_data.has_withdrawn = true;
+        }        
         Ok(())
     }
 
@@ -467,6 +534,7 @@ impl Fund {
 
         let (source_info, dest_info) = swap_instruction(&data, &fund_data, accounts)?;
 
+
         for i in 0..NUM_TOKENS {
             if fund_data.tokens[i].mint == source_info.mint {
                 fund_data.tokens[i].balance = source_info.amount;
@@ -474,8 +542,9 @@ impl Fund {
             if fund_data.tokens[i].mint == dest_info.mint {
                 fund_data.tokens[i].balance = dest_info.amount;
             }
+            check!(fund_data.tokens[i].balance > fund_data.tokens[i].debt, ProgramError::InsufficientFunds);
         }
-        Ok(())    
+        Ok(())
     }
 
     // manager Performance Fee Claim
@@ -483,12 +552,16 @@ impl Fund {
         program_id: &Pubkey,
         accounts: &[AccountInfo],
     ) -> Result<(), ProgramError> {
-        const NUM_FIXED:usize = 9;
+        const NUM_FIXED:usize = 13;
         let accounts = array_ref![accounts, 0, NUM_FIXED];
 
         let [
             fund_state_acc,
             price_acc,
+            mango_group_acc,
+            margin_acc,
+            open_orders_acc,
+            oracle_acc,
             clock_sysvar_acc,
             manager_acc,
             fund_btoken_acc,
@@ -499,11 +572,20 @@ impl Fund {
         ] = accounts;
 
         let mut fund_data = FundData::load_mut(fund_state_acc)?;
+        let mango_group_data = MangoGroup::load(mango_group_acc)?;
+        let margin_data = MarginAccount::load(margin_acc)?;
 
+        let mut margin_equity = U64F64!(0);
+        if fund_data.no_of_margin_positions > 0 {
+            let token_index = fund_data.mango_positions[0].margin_index as usize;
+            let (equity, coll) = get_equity_and_coll_ratio(token_index, &mango_group_data, &margin_data, oracle_acc, open_orders_acc)?;
+            let debt_valuation = coll.checked_mul(U64F64::from_num(fund_data.mango_positions[0].investor_debt)).unwrap();
+            margin_equity = equity.checked_sub(debt_valuation).unwrap();
+        }
         // check if manager signed the tx
         check!(manager_acc.is_signer, FundError::IncorrectSignature);
 
-        update_amount_and_performance(&mut fund_data, &price_acc, &clock_sysvar_acc, true)?;
+        update_amount_and_performance(&mut fund_data, &price_acc, &clock_sysvar_acc, margin_equity, true)?;
 
         msg!("Invoking transfer instructions");
         let performance_fee_manager: u64 = U64F64::to_num(U64F64::from_num(fund_data.performance_fee)
@@ -548,9 +630,9 @@ impl Fund {
         msg!("Transfer Complete");
 
         fund_data.tokens[0].balance = parse_token_account(&fund_btoken_acc)?.amount;
-        fund_data.performance_fee = 0;
+        fund_data.performance_fee = U64F64!(0);
 
-        update_amount_and_performance(&mut fund_data, &price_acc, &clock_sysvar_acc, false)?;
+        update_amount_and_performance(&mut fund_data, &price_acc, &clock_sysvar_acc, margin_equity, false)?;
         
         Ok(())
 
@@ -595,105 +677,105 @@ impl Fund {
                 fund_data.is_initialized = false;
             }
             fund_data.min_amount = fund_min_amount;
-            fund_data.min_return = fund_min_return;
-            fund_data.performance_fee_percentage = fund_performance_fee_percentage;
+            fund_data.min_return = U64F64::from_num(fund_min_return / 100);
+            fund_data.performance_fee_percentage = U64F64::from_num(fund_performance_fee_percentage / 100);
         }
 
         Ok(())
     }
 
-    pub fn TestingDeposit (
-        program_id: &Pubkey,
-        accounts: &[AccountInfo],
-        amount: u64
-    ) -> Result<(), ProgramError> {
-        const NUM_FIXED:usize = 8;
-        let accounts = array_ref![accounts, 0, NUM_FIXED];
-        let [
-            fund_state_acc,
-            price_acc,
-            clock_sysvar_acc,
-            manager_acc,
-            fund_btoken_acc,
-            manager_btoken_acc,
-            pda_man_acc,
-            token_prog_acc
-        ] = accounts;
+    // pub fn TestingDeposit (
+    //     program_id: &Pubkey,
+    //     accounts: &[AccountInfo],
+    //     amount: u64
+    // ) -> Result<(), ProgramError> {
+    //     const NUM_FIXED:usize = 8;
+    //     let accounts = array_ref![accounts, 0, NUM_FIXED];
+    //     let [
+    //         fund_state_acc,
+    //         price_acc,
+    //         clock_sysvar_acc,
+    //         manager_acc,
+    //         fund_btoken_acc,
+    //         manager_btoken_acc,
+    //         pda_man_acc,
+    //         token_prog_acc
+    //     ] = accounts;
 
-        let mut fund_data = FundData::load_mut(fund_state_acc)?;
+    //     let mut fund_data = FundData::load_mut(fund_state_acc)?;
 
-        // check if manager signed the tx
-        // check!(&manager_acc.is_signer, FundError::IncorrectSignature);
+    //     // check if manager signed the tx
+    //     // check!(&manager_acc.is_signer, FundError::IncorrectSignature);
 
-        msg!("Invoking transfer instructions");
-        let deposit_instruction = spl_token::instruction::transfer(
-            token_prog_acc.key,
-            manager_btoken_acc.key,
-            fund_btoken_acc.key,
-            manager_acc.key,
-            &[&manager_acc.key],
-            amount
-        )?;
-        let deposit_accs = [
-            manager_btoken_acc.clone(),
-            fund_btoken_acc.clone(),
-            manager_acc.clone(),
-            token_prog_acc.clone()
-        ];
-        invoke(&deposit_instruction, &deposit_accs)?;
+    //     msg!("Invoking transfer instructions");
+    //     let deposit_instruction = spl_token::instruction::transfer(
+    //         token_prog_acc.key,
+    //         manager_btoken_acc.key,
+    //         fund_btoken_acc.key,
+    //         manager_acc.key,
+    //         &[&manager_acc.key],
+    //         amount
+    //     )?;
+    //     let deposit_accs = [
+    //         manager_btoken_acc.clone(),
+    //         fund_btoken_acc.clone(),
+    //         manager_acc.clone(),
+    //         token_prog_acc.clone()
+    //     ];
+    //     invoke(&deposit_instruction, &deposit_accs)?;
 
-        fund_data.tokens[0].balance = parse_token_account(&fund_btoken_acc)?.amount;
-        update_amount_and_performance(&mut fund_data, &price_acc, &clock_sysvar_acc, true).unwrap();
+    //     fund_data.tokens[0].balance = parse_token_account(&fund_btoken_acc)?.amount;
+    //     update_amount_and_performance(&mut fund_data, &price_acc, &clock_sysvar_acc, true).unwrap();
 
-        Ok(())
-    }
+    //     Ok(())
+    // }
 
-    pub fn TestingWithdraw (
-        program_id: &Pubkey,
-        accounts: &[AccountInfo],
-        amount: u64
-    ) -> Result<(), ProgramError> {
-        const NUM_FIXED:usize = 8;
-        let accounts = array_ref![accounts, 0, NUM_FIXED];
-        let [
-            fund_state_acc,
-            price_acc,
-            clock_sysvar_acc,
-            manager_acc,
-            fund_btoken_acc,
-            manager_btoken_acc,
-            pda_man_acc,
-            token_prog_acc
-        ] = accounts;
+    // pub fn TestingWithdraw (
+    //     program_id: &Pubkey,
+    //     accounts: &[AccountInfo],
+    //     amount: u64
+    // ) -> Result<(), ProgramError> {
+    //     const NUM_FIXED:usize = 8;
+    //     let accounts = array_ref![accounts, 0, NUM_FIXED];
+    //     let [
+    //         fund_state_acc,
+    //         price_acc,
+    //         clock_sysvar_acc,
+    //         manager_acc,
+    //         fund_btoken_acc,
+    //         manager_btoken_acc,
+    //         pda_man_acc,
+    //         token_prog_acc
+    //     ] = accounts;
 
-        let mut fund_data = FundData::load_mut(fund_state_acc)?;
+    //     let mut fund_data = FundData::load_mut(fund_state_acc)?;
 
-        // check if manager signed the tx
-        // check!(&manager_acc.is_signer, FundErrorCode::IncorrectSignature);
+    //     // check if manager signed the tx
+    //     // check!(&manager_acc.is_signer, FundErrorCode::IncorrectSignature);
 
-        msg!("Invoking transfer instructions");
-        let transfer_instruction = spl_token::instruction::transfer(
-            token_prog_acc.key,
-            fund_btoken_acc.key,
-            manager_btoken_acc.key,
-            pda_man_acc.key,
-            &[pda_man_acc.key],
-            amount
-        )?;
-        let transfer_accs = [
-            fund_btoken_acc.clone(),
-            manager_btoken_acc.clone(),
-            pda_man_acc.clone(),
-            token_prog_acc.clone()
-        ];
-        let signer_seeds = [fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)];
-        invoke_signed(&transfer_instruction, &transfer_accs, &[&signer_seeds])?;
+    //     msg!("Invoking transfer instructions");
+    //     let transfer_instruction = spl_token::instruction::transfer(
+    //         token_prog_acc.key,
+    //         fund_btoken_acc.key,
+    //         manager_btoken_acc.key,
+    //         pda_man_acc.key,
+    //         &[pda_man_acc.key],
+    //         amount
+    //     )?;
+    //     let transfer_accs = [
+    //         fund_btoken_acc.clone(),
+    //         manager_btoken_acc.clone(),
+    //         pda_man_acc.clone(),
+    //         token_prog_acc.clone()
+    //     ];
+    //     let signer_seeds = [fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)];
+    //     invoke_signed(&transfer_instruction, &transfer_accs, &[&signer_seeds])?;
 
-        fund_data.tokens[0].balance = parse_token_account(&fund_btoken_acc)?.amount;
-        update_amount_and_performance(&mut fund_data, &price_acc, &clock_sysvar_acc, true)?;
+    //     fund_data.tokens[0].balance = parse_token_account(&fund_btoken_acc)?.amount;
+    //     update_amount_and_performance(&mut fund_data, &price_acc, &clock_sysvar_acc, true)?;
 
-        Ok(())
-    }
+    //     Ok(())
+    // }
 
     // instruction processor
     pub fn process(
@@ -723,9 +805,13 @@ impl Fund {
                 msg!("FundInstruction::ManagerTransfer");
                 return Self::transfer(program_id, accounts);
             }
-            FundInstruction::InvestorWithdraw { amount } => {
+            FundInstruction::InvestorWithdrawFromFund => {
                 msg!("FundInstruction::InvestorWithdraw");
-                return Self::withdraw(program_id, accounts, amount);
+                return Self::withdraw_from_fund(program_id, accounts);
+            }
+            FundInstruction::InvestorWithdrawSettleFunds => {
+                msg!("FundInstruction::InvestorWithdraw");
+                return Self::withdraw_settle(program_id, accounts);
             }
             FundInstruction::Swap { data } => {
                 msg!("FundInstruction::Swap");
@@ -747,13 +833,9 @@ impl Fund {
                 msg!("FundInstruction::MangoDeposit");
                 return mango_deposit(program_id, accounts, quantity);
             }
-            FundInstruction::MangoPlaceAndSettle { order } => {
-                msg!("FundInstruction::MangoPlaceAndSettle");
-                return mango_place_and_settle(program_id, accounts, order);
-            }
-            FundInstruction::MangoPlaceOrder { order } => {
+            FundInstruction::MangoPlaceOrder { side, price, quote_size, base_size } => {
                 msg!("FundInstruction::MangoPlaceOrder");
-                return mango_place_order(program_id, accounts, order);
+                return mango_place_order(program_id, accounts, side, price, quote_size, base_size);
             }
             FundInstruction::MangoSettleFunds {token_index, settle_amount} => {
                 msg!("FundInstruction::MangoSettleFunds");
@@ -771,22 +853,14 @@ impl Fund {
                 msg!("FundInstruction::MangoWithdrawInvestorPlaceOrder");
                 return mango_withdraw_place_order(program_id, accounts, order);
             }
-            // FundInstruction::MangoWithdrawInvestorSettle { token_index } => {
-            //     msg!("FundInstruction::MangoWithdrawInvestorSettle");
-            //     return mango_withdraw_settle(program_id, accounts, token_index);
+            // FundInstruction::TestingDeposit {amount} => {
+            //     msg!("FundInstruction::TestingDeposit");
+            //     return Self::TestingDeposit(program_id, accounts, amount);
             // }
-            FundInstruction::MangoWithdrawInvestorPlaceAndSettle { order, token_index } => {
-                msg!("FundInstruction::MangoWithdrawInvestorPlaceAndSettle");
-                return mango_withdraw_place_and_settle(program_id, accounts, order, token_index);
-            }
-            FundInstruction::TestingDeposit {amount} => {
-                msg!("FundInstruction::TestingDeposit");
-                return Self::TestingDeposit(program_id, accounts, amount);
-            }
-            FundInstruction::TestingWithdraw {amount} => {
-                msg!("FundInstruction::TestingWithdraw");
-                return Self::TestingWithdraw(program_id, accounts, amount);
-            }
+            // FundInstruction::TestingWithdraw {amount} => {
+            //     msg!("FundInstruction::TestingWithdraw");
+            //     return Self::TestingWithdraw(program_id, accounts, amount);
+            // }
             _ => {
                 Ok(())
             }
@@ -811,6 +885,7 @@ pub fn update_amount_and_performance(
     fund_data: &mut FundData,
     price_acc: &AccountInfo,
     clock_sysvar_acc: &AccountInfo,
+    margin_equity: U64F64,
     update_perf: bool
 ) -> Result<(), ProgramError> {
     
@@ -821,7 +896,8 @@ pub fn update_amount_and_performance(
     let clock = &Clock::from_account_info(clock_sysvar_acc)?;
 
     // add USDT balance (not decimal adjusted)
-    let mut fund_val = U64F64::from_num(fund_data.tokens[0].balance);
+    let mut fund_val = U64F64::from_num(fund_data.tokens[0].balance).checked_add(margin_equity).unwrap();
+    msg!("margin_equity:: {:?}", margin_equity);
     // Calculate prices for all tokens with balances
     for i in 0..(NUM_TOKENS-1) {
 
@@ -836,7 +912,7 @@ pub fn update_amount_and_performance(
             return Err(FundError::PriceStaleInAccount.into())
         }
         // calculate price in terms of base token
-        let val: U64F64 = U64F64::from_num(fund_data.tokens[i+1].balance)
+        let val: U64F64 = U64F64::from_num(fund_data.tokens[i+1].balance - fund_data.tokens[i+1].debt)
         .checked_mul(U64F64::from_num(price_data.prices[index].token_price)).unwrap()
         .checked_div(U64F64::from_num(10u64.pow(fund_data.tokens[i+1].decimals as u32))).unwrap();
 
@@ -862,6 +938,110 @@ pub fn update_amount_and_performance(
     msg!("updated amount: {:?}", fund_data.total_amount);
     
     Ok(())
+}
+pub fn get_price(
+    mango_group: &MangoGroup,
+    oracle_acc: &AccountInfo,
+    token_index: usize
+) -> Result<U64F64, ProgramError> {
+    let mut price = U64F64!(0);
+    let quote_decimals: u8 = mango_group.mint_decimals[NUM_MARKETS];
+
+    for i in 0..NUM_MARKETS {
+        //check_eq_default!(&mango_group.oracles[i], oracle_accs[i].key)?;
+
+        // TODO store this info in MangoGroup, first make sure it cannot be changed by solink
+        let quote_adj = U64F64::from_num(
+            10u64.pow(quote_decimals.checked_sub(mango_group.oracle_decimals[token_index]).unwrap() as u32)
+        );
+
+        let answer = flux_aggregator::read_median(oracle_acc)?; // this is in USD cents
+
+        let value = U64F64::from_num(answer.median);
+
+        let base_adj = U64F64::from_num(10u64.pow(mango_group.mint_decimals[i] as u32));
+        price = quote_adj
+            .checked_div(base_adj).unwrap()
+            .checked_mul(value).unwrap();
+    }
+    Ok(price)
+}
+
+pub fn get_assets_liabs(
+    token_index: usize,
+    mango_group: &MangoGroup,
+    margin_account: &MarginAccount,
+    oracle_accs: &AccountInfo,
+    open_orders_acc: &AccountInfo
+) -> Result<(U64F64, U64F64), ProgramError> {
+
+    // asset valuation
+    let price = get_price(mango_group, oracle_accs, token_index)?;
+    let mut assets = mango_group.indexes[token_index].deposit
+    .checked_mul(margin_account.deposits[token_index]).unwrap()
+    .checked_mul(price).unwrap();
+
+    // USDC assets
+    assets =  mango_group.indexes[NUM_MARKETS].deposit
+    .checked_mul(margin_account.deposits[NUM_MARKETS]).unwrap()
+    .checked_add(assets).unwrap();
+
+    // open orders assets
+    if *open_orders_acc.key != Pubkey::default() {
+        let open_orders = load_open_orders(open_orders_acc)?;
+        assets = U64F64::from_num(open_orders.native_coin_total)
+        .checked_add(U64F64::from_num(open_orders.native_pc_total + open_orders.referrer_rebates_accrued)).unwrap()
+        .checked_mul(price).unwrap()
+        .checked_add(assets).unwrap();
+    }
+    
+    // token liabs
+    let mut liabs = mango_group.indexes[token_index].borrow
+    .checked_mul(margin_account.borrows[token_index]).unwrap()
+    .checked_mul(price).unwrap();
+
+    // USDC liabs
+    liabs = mango_group.indexes[token_index].borrow
+    .checked_mul(margin_account.borrows[token_index]).unwrap()
+    .checked_add(liabs).unwrap();
+
+    Ok((assets, liabs))
+}
+
+pub fn get_margin_valuation(
+    token_index: usize,
+    mango_group: &MangoGroup,
+    margin_account: &MarginAccount,
+    oracle_accs: &AccountInfo,
+    open_orders_acc: &AccountInfo
+) -> Result<U64F64, ProgramError> {
+    let (assets, liabs) = get_assets_liabs(token_index, mango_group, margin_account, oracle_accs, open_orders_acc)?;
+    if liabs > assets {
+        Ok(U64F64!(0))
+    }
+    else {
+        Ok(assets - liabs)
+    }
+}
+
+pub fn get_equity_and_coll_ratio(
+    token_index: usize,
+    mango_group: &MangoGroup,
+    margin_account: &MarginAccount,
+    oracle_accs: &AccountInfo,
+    open_orders_acc: &AccountInfo
+) -> Result<(U64F64, U64F64), ProgramError> {
+    let (assets, liabs) = get_assets_liabs(token_index, mango_group, margin_account, oracle_accs, open_orders_acc)?;
+    let mut coll_ratio = U64F64::MAX;
+    if liabs != 0 {
+        coll_ratio = assets.checked_div(liabs).unwrap();
+    }
+    if liabs > assets {
+        Ok((U64F64!(0), coll_ratio))
+    }
+    else {
+        Ok((assets - liabs, coll_ratio))
+    }
 }
 
 pub fn parse_token_account (account_info: &AccountInfo) -> Result<Account, ProgramError> {
