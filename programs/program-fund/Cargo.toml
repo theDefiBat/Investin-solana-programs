@@ -25,7 +25,7 @@ fixed = { version = "^1.7.0", features=["serde"] }
 fixed-macro = "^1.1.1"
 serum_dex = { version = "^0.3", git = "https://github.com/blockworks-foundation/serum-dex.git", features=["no-entrypoint", "program"] }
 mango = { version = "^2.0.0", git = "https://github.com/blockworks-foundation/mango.git", features=["no-entrypoint", "devnet"], branch = "main" }
-
+flux-aggregator = { version = "^0.1", git = "https://github.com/blockworks-foundation/solana-flux-aggregator.git", features=["program", "no-entrypoint"] }
 spl-token = {version = "3.0.1", features = ["no-entrypoint"]}
 
 [dev-dependencies]

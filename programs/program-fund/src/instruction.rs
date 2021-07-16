@@ -169,14 +169,13 @@ pub enum FundInstruction {
     /// 17..17+NUM_MARKETS `[writable]` open_orders_accs - open orders for each of the spot market
     /// 17+NUM_MARKETS..17+2*NUM_MARKETS `[]`
     ///     oracle_accs - flux aggregator feed accounts
-    MangoPlaceOrder {
+    MangoOpenPosition {
         side: u8, // 1 for sell, 0 for buy
-        price: u64, // limit price
-        quote_size: u64, // quote amount
-        base_size: u64,
+        price: u64, // remove later
+        trade_size: u64 // trade amount
     },
     
-/// Settle all funds from serum dex open orders into MarginAccount positions
+    /// Settle all funds from serum dex open orders into MarginAccount positions
     ///
     /// Accounts expected by this instruction (14):
     /// 0.  [writable]  fund_state_acc - Fund State Account
@@ -197,10 +196,7 @@ pub enum FundInstruction {
     /// 11. `[writable]` quote_vault_acc - MangoGroup quote vault acc
     /// 12. `[]` dex_signer_acc - dex Market signer account
     /// 13. `[]` spl token program
-    MangoSettleFunds{
-        settle_amount: u64,
-        token_index: usize
-    },
+    MangoSettlePosition,
 
     /// Withdraw funds that were deposited earlier.
     ///
@@ -222,7 +218,30 @@ pub enum FundInstruction {
     /// 8..8+NUM_MARKETS `[]` open_orders_accs - open orders for each of the spot market
     /// 8+NUM_MARKETS..8+2*NUM_MARKETS `[]`
     ///     oracle_accs - flux aggregator feed accounts
-    MangoClosePosition,
+    MangoClosePosition {
+        price: u64 // remove later
+    },
+
+    /// Withdraw funds after MangoClosePosition
+    ///
+    /// Accounts expected by this instruction: 21
+    ///
+    /// 0.  [writable]  fund_state_acc - Fund State Account
+    /// 1.  [signer]    manager_acc - Manager Account to sign
+    /// 2.  []          fund_pda_acc - Fund PDA Account
+    /// 3.  []          mango_prog_acc - Mango Program Account
+    /// 4. `[writable]` mango_group_acc - MangoGroup that this margin account is for
+    /// 5. `[writable]` margin_account_acc - the margin account for this user
+    /// 6. `[writable]` token_account_acc - TokenAccount owned by user which will be receiving the funds
+    /// 7. `[writable]` vault_acc - TokenAccount owned by MangoGroup which will be sending
+    /// 8. `[]` signer_acc - acc pointed to by signer_key
+    /// 9. `[]` token_prog_acc - acc pointed to by SPL token program id
+    /// 10. `[]` clock_acc - Clock sysvar account
+    /// 11..11+NUM_MARKETS `[]` open_orders_accs - open orders for each of the spot market
+    /// 11+NUM_MARKETS..11+2*NUM_MARKETS `[]`
+    ///     oracle_accs - flux aggregator feed accounts
+    /// 19, 20  Investor State accounts list to update debt
+    MangoWithdrawToFund,
 
     /// Withdraw funds that were deposited earlier.
     ///
@@ -245,9 +264,7 @@ pub enum FundInstruction {
     /// 
     /// 16..19 (NUM_MARKETS) `[]` open_orders_accs - open orders for each of the spot market
     /// 20..23 (NUM_MARKETS) `[]` oracle_accs - flux aggregator feed accounts
-    MangoWithdrawInvestor {
-        token_index: usize
-    },
+    MangoWithdrawInvestor,
 
     /// Place an order on the Serum Dex and settle funds from the open orders account
     ///
@@ -279,41 +296,15 @@ pub enum FundInstruction {
     /// 17+NUM_MARKETS..17+2*NUM_MARKETS `[]`
     ///     oracle_accs - flux aggregator feed accounts
     MangoWithdrawInvestorPlaceOrder {
-        order: serum_dex::instruction::NewOrderInstructionV3
+        price: u64
     },
 
-    // /// Settle all funds 
-    // ///
-    // /// Accounts expected by this instruction (14):
-    // /// 0.  [writable]  fund_state_acc - Fund State Account
-    // /// 1.  [signer]    investor_acc - Investor Account to sign
-    // /// 2.  []          fund_pda_acc - Fund PDA Account
-    // /// 3.  []          mango_prog_acc - Mango Program Account
-    // /// 
-    // /// 0. `[writable]` mango_group_acc - MangoGroup that this margin account is for
-    // /// 2. `[writable]` margin_account_acc - MarginAccount
-    // /// 3. `[]` clock_acc - Clock sysvar account
-    // /// 4. `[]` dex_prog_acc - program id of serum dex
-    // /// 5  `[writable]` spot_market_acc - dex MarketState account
-    // /// 6  `[writable]` open_orders_acc - open orders for this market for this MarginAccount
-    // /// 7. `[]` signer_acc - MangoGroup signer key
-    // /// 8. `[writable]` dex_base_acc - base vault for dex MarketState
-    // /// 9. `[writable]` dex_quote_acc - quote vault for dex MarketState
-    // /// 10. `[writable]` base_vault_acc - MangoGroup base vault acc
-    // /// 11. `[writable]` quote_vault_acc - MangoGroup quote vault acc
-    // /// 12. `[]` dex_signer_acc - dex Market signer account
-    // /// 13. `[]` spl token program
-    // MangoWithdrawInvestorSettle {
-    //     token_index: usize
-    // },
-
-    /// Place an order on the Serum Dex and settle funds from the open orders account
+    /// Settle all funds from serum dex open orders into MarginAccount positions
     ///
-    /// Accounts expected by this instruction (19 + 2 * NUM_MARKETS):
-    ///
+    /// Accounts expected by this instruction (14):
     /// 0.  [writable]  fund_state_acc - Fund State Account
-    /// 1.  []          inv_state_acc - Investor State Account
-    /// 1.  [signer]    investor_acc - Manager Account to sign
+    /// 1.              investor_state_acc
+    /// 1.  [signer]    investor_acc - Investor Account to sign
     /// 2.  []          fund_pda_acc - Fund PDA Account
     /// 3.  []          mango_prog_acc - Mango Program Account
     /// 
@@ -321,31 +312,16 @@ pub enum FundInstruction {
     /// 2. `[writable]` margin_account_acc - MarginAccount
     /// 3. `[]` clock_acc - Clock sysvar account
     /// 4. `[]` dex_prog_acc - program id of serum dex
-    /// 5. `[writable]` spot_market_acc - serum dex MarketState
-    /// 6. `[writable]` dex_request_queue_acc - serum dex request queue for this market
-    /// 7. `[writable]` dex_event_queue - serum dex event queue for this market
-    /// 8. `[writable]` bids_acc - serum dex bids for this market
-    /// 9. `[writable]` asks_acc - serum dex asks for this market
-    /// 10. `[writable]` vault_acc - mango's vault for this currency (quote if buying, base if selling)
-    /// 11. `[]` signer_acc - mango signer key
-    /// 12. `[writable]` dex_base_acc - serum dex market's vault for base (coin) currency
-    /// 13. `[writable]` dex_quote_acc - serum dex market's vault for quote (pc) currency
-    /// 12. `[]` dex_signer_acc - dex Market signer account
-    /// 14. `[]` spl token program
-    /// 15. `[]` the rent sysvar
+    /// 5  `[writable]` spot_market_acc - dex MarketState account
+    /// 6  `[writable]` open_orders_acc - open orders for this market for this MarginAccount
+    /// 7. `[]` signer_acc - MangoGroup signer key
+    /// 8. `[writable]` dex_base_acc - base vault for dex MarketState
+    /// 9. `[writable]` dex_quote_acc - quote vault for dex MarketState
     /// 10. `[writable]` base_vault_acc - MangoGroup base vault acc
     /// 11. `[writable]` quote_vault_acc - MangoGroup quote vault acc
-    /// 16. `[writable]` srm_vault_acc - MangoGroup's srm_vault used for fee reduction
-    /// 17..17+NUM_MARKETS `[writable]` open_orders_accs - open orders for each of the spot market
-    /// 17+NUM_MARKETS..17+2*NUM_MARKETS `[]`
-    ///     oracle_accs - flux aggregator feed accounts
-    MangoWithdrawInvestorPlaceAndSettle {
-        order: serum_dex::instruction::NewOrderInstructionV3,
-        token_index: usize
-    },
-
-
-
+    /// 12. `[]` dex_signer_acc - dex Market signer account
+    /// 13. `[]` spl token program
+    MangoWithdrawInvestorSettle,
 
     /// 0. [WRITE]  Fund State Account (derived from FA)
     /// 1. [READ]   Price Account
@@ -461,54 +437,46 @@ impl FundInstruction {
                 }
             },
             10 => {
-                let data_arr = array_ref![data, 0, 25];
+                let data_arr = array_ref![data, 0, 17];
                 let (
                     side,
                     price,
-                    quote_size,
-                    base_size
-                ) = array_refs![data_arr, 1, 8, 8, 8];
-                FundInstruction::MangoPlaceOrder {
+                    trade_size
+                ) = array_refs![data_arr, 1, 8, 8];
+                FundInstruction::MangoOpenPosition {
                     side: u8::from_le_bytes(*side),
                     price: u64::from_le_bytes(*price),
-                    quote_size: u64::from_le_bytes(*quote_size),
-                    base_size: u64::from_le_bytes(*base_size)
+                    trade_size: u64::from_le_bytes(*trade_size),
                 }
             },
             11 => {
-                let data_arr = array_ref![data, 0, 16];
-                let (
-                    settle_amount,
-                    token_index
-                ) = array_refs![data_arr, 8, 8];
-                FundInstruction::MangoSettleFunds{
-                    settle_amount: u64::from_le_bytes(*settle_amount),
-                    token_index: usize::from_le_bytes(*token_index)
-                }
+                FundInstruction::MangoSettlePosition
             },
             12 => {
-                FundInstruction::MangoClosePosition
-            },
-            13 => {
-                let token_index = array_ref![data, 0, 8];
-                FundInstruction::MangoWithdrawInvestor{
-                    token_index: usize::from_le_bytes(*token_index)
+                let price = array_ref![data, 0, 8];
+                FundInstruction::MangoClosePosition {
+                    price: u64::from_le_bytes(*price),
                 }
             },
+            13 => {
+                FundInstruction::MangoWithdrawInvestor
+            },
             14 => {
-                let data_arr = array_ref![data, 0, 46];
-                let order = unpack_dex_new_order_v3(data_arr)?;
+                let price = array_ref![data, 0, 8];
                 FundInstruction::MangoWithdrawInvestorPlaceOrder {
-                    order
+                    price: u64::from_le_bytes(*price),
                 }
             },
             15 => {
+                FundInstruction::MangoSettlePosition
+            },
+            16 => {
                 let amount = array_ref![data, 0, 8];
                 FundInstruction::TestingDeposit {
                     amount: u64::from_le_bytes(*amount)
                 }
             },
-            16 => {
+            17 => {
                 let amount = array_ref![data, 0, 8];
                 FundInstruction::TestingWithdraw {
                     amount: u64::from_le_bytes(*amount)
@@ -517,43 +485,4 @@ impl FundInstruction {
             _ => { return None; }
         })
     }
-}
-
-fn unpack_dex_new_order_v3(data: &[u8; 46]) -> Option<serum_dex::instruction::NewOrderInstructionV3> {
-    let (
-        &side_arr,
-        &price_arr,
-        &max_coin_qty_arr,
-        &max_native_pc_qty_arr,
-        &self_trade_behavior_arr,
-        &otype_arr,
-        &client_order_id_bytes,
-        &limit_arr,
-    ) = array_refs![data, 4, 8, 8, 8, 4, 4, 8, 2];
-
-    let side = serum_dex::matching::Side::try_from_primitive(u32::from_le_bytes(side_arr).try_into().ok()?).ok()?;
-    let limit_price = NonZeroU64::new(u64::from_le_bytes(price_arr))?;
-    let max_coin_qty = NonZeroU64::new(u64::from_le_bytes(max_coin_qty_arr))?;
-    let max_native_pc_qty_including_fees =
-        NonZeroU64::new(u64::from_le_bytes(max_native_pc_qty_arr))?;
-    let self_trade_behavior = serum_dex::instruction::SelfTradeBehavior::try_from_primitive(
-        u32::from_le_bytes(self_trade_behavior_arr)
-            .try_into()
-            .ok()?,
-    )
-        .ok()?;
-    let order_type = serum_dex::matching::OrderType::try_from_primitive(u32::from_le_bytes(otype_arr).try_into().ok()?).ok()?;
-    let client_order_id = u64::from_le_bytes(client_order_id_bytes);
-    let limit = u16::from_le_bytes(limit_arr);
-
-    Some(serum_dex::instruction::NewOrderInstructionV3 {
-        side,
-        limit_price,
-        max_coin_qty,
-        max_native_pc_qty_including_fees,
-        self_trade_behavior,
-        order_type,
-        client_order_id,
-        limit,
-    })
 }

@@ -250,7 +250,7 @@ impl Fund {
         let margin_data = MarginAccount::load(margin_acc)?;
 
         let mut margin_equity = U64F64!(0);
-        if fund_data.no_of_margin_positions > 0 {
+        if fund_data.no_of_margin_positions > 0 && fund_data.mango_positions[0].state != 0 {
             let token_index = fund_data.mango_positions[0].margin_index as usize;
             let (equity, coll) = get_equity_and_coll_ratio(token_index, &mango_group_data, &margin_data, oracle_acc, open_orders_acc)?;
             let debt_valuation = coll.checked_mul(U64F64::from_num(fund_data.mango_positions[0].investor_debt)).unwrap();
@@ -488,10 +488,13 @@ impl Fund {
         let mango_group_data = MangoGroup::load(mango_group_acc)?;
         let margin_data = MarginAccount::load(margin_acc)?;
 
+        check!(investor_data.owner == *investor_acc.key, ProgramError::MissingRequiredSignature);
+        check!(investor_acc.is_signer, ProgramError::MissingRequiredSignature);
+
         // TODO::  check if has_withdrawn == false
         let mut coll_ratio = U64F64!(1);
         let mut margin_equity = U64F64!(0);
-        if fund_data.no_of_margin_positions > 0 {
+        if fund_data.no_of_margin_positions > 0 && fund_data.mango_positions[0].state != 0 {
             let token_index = fund_data.mango_positions[0].margin_index as usize;
             let (equity, coll) = get_equity_and_coll_ratio(token_index, &mango_group_data, &margin_data, oracle_acc, open_orders_acc)?;
             let debt_valuation = coll.checked_mul(U64F64::from_num(fund_data.mango_positions[0].investor_debt)).unwrap();
@@ -508,11 +511,12 @@ impl Fund {
                 fund_data.tokens[i].debt = withdraw_amount;
             }
             // active margin trade
-            if margin_equity > 0 {
+            if margin_equity > 0 && fund_data.mango_positions[0].state != 0 {
                 let margin_share: u64 = U64F64::to_num(margin_equity.checked_mul(share).unwrap()
                     .checked_div(coll_ratio).unwrap()
                 );
                 investor_data.margin_debt = margin_share;
+                investor_data.margin_position_id = fund_data.mango_positions[0].position_id as u64;
                 fund_data.mango_positions[0].investor_debt += margin_share;
             }
             fund_data.number_of_active_investments -= 1;
@@ -542,7 +546,7 @@ impl Fund {
             if fund_data.tokens[i].mint == dest_info.mint {
                 fund_data.tokens[i].balance = dest_info.amount;
             }
-            check!(fund_data.tokens[i].balance > fund_data.tokens[i].debt, ProgramError::InsufficientFunds);
+            check!(fund_data.tokens[i].balance >= fund_data.tokens[i].debt, ProgramError::InsufficientFunds);
         }
         Ok(())
     }
@@ -576,7 +580,7 @@ impl Fund {
         let margin_data = MarginAccount::load(margin_acc)?;
 
         let mut margin_equity = U64F64!(0);
-        if fund_data.no_of_margin_positions > 0 {
+        if fund_data.no_of_margin_positions > 0 && fund_data.mango_positions[0].state != 0 {
             let token_index = fund_data.mango_positions[0].margin_index as usize;
             let (equity, coll) = get_equity_and_coll_ratio(token_index, &mango_group_data, &margin_data, oracle_acc, open_orders_acc)?;
             let debt_valuation = coll.checked_mul(U64F64::from_num(fund_data.mango_positions[0].investor_debt)).unwrap();
@@ -833,34 +837,30 @@ impl Fund {
                 msg!("FundInstruction::MangoDeposit");
                 return mango_deposit(program_id, accounts, quantity);
             }
-            FundInstruction::MangoPlaceOrder { side, price, quote_size, base_size } => {
+            FundInstruction::MangoOpenPosition { side, price, trade_size } => {
                 msg!("FundInstruction::MangoPlaceOrder");
-                return mango_place_order(program_id, accounts, side, price, quote_size, base_size);
+                return mango_open_position(program_id, accounts, side, price, trade_size);
             }
-            FundInstruction::MangoSettleFunds {token_index, settle_amount} => {
+            FundInstruction::MangoSettlePosition => {
                 msg!("FundInstruction::MangoSettleFunds");
-                return mango_settle_funds(program_id, accounts, settle_amount, token_index);
+                return mango_settle_position(program_id, accounts);
             }
-            FundInstruction::MangoWithdrawToFund { quantity } => {
+            FundInstruction::MangoClosePosition { price } => {
                 msg!("FundInstruction::MangoWithdrawToFund");
-                return mango_withdraw_to_fund(program_id, accounts, quantity);
+                return mango_close_position(program_id, accounts, price);
             }
-            FundInstruction::MangoWithdrawInvestor { token_index } => {
+            FundInstruction::MangoWithdrawInvestor => {
                 msg!("FundInstruction::MangoWithdrawInvestor");
-                return mango_withdraw_investor(program_id, accounts, token_index);
+                return mango_withdraw_investor(program_id, accounts);
             }
-            FundInstruction::MangoWithdrawInvestorPlaceOrder { order } => {
+            FundInstruction::MangoWithdrawInvestorPlaceOrder { price } => {
                 msg!("FundInstruction::MangoWithdrawInvestorPlaceOrder");
-                return mango_withdraw_place_order(program_id, accounts, order);
+                return mango_withdraw_investor_place_order(program_id, accounts, price);
             }
-            // FundInstruction::TestingDeposit {amount} => {
-            //     msg!("FundInstruction::TestingDeposit");
-            //     return Self::TestingDeposit(program_id, accounts, amount);
-            // }
-            // FundInstruction::TestingWithdraw {amount} => {
-            //     msg!("FundInstruction::TestingWithdraw");
-            //     return Self::TestingWithdraw(program_id, accounts, amount);
-            // }
+            FundInstruction::MangoWithdrawInvestorSettle => {
+                msg!("FundInstruction::MangoWithdrawInvestorSettle");
+                return mango_withdraw_investor_settle(program_id, accounts);
+            }
             _ => {
                 Ok(())
             }

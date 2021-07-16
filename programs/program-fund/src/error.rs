@@ -49,6 +49,8 @@ pub enum FundError {
     #[error("Stale price in account")]
     PriceStaleInAccount,
 
+    #[error("Invalid Margin Instruction State")]
+    InvalidMangoState,
 }
 
 impl From<FundError> for ProgramError {

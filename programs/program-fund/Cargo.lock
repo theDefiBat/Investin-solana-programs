@@ -984,6 +984,7 @@ dependencies = [
  "bytemuck",
  "fixed",
  "fixed-macro",
+ "flux-aggregator",
  "mango",
  "num-derive",
  "num-traits",

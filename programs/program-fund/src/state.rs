@@ -11,6 +11,7 @@ use fixed::types::U64F64;
 
 pub const NUM_TOKENS:usize = 10;
 pub const MAX_INVESTORS:usize = 10;
+pub const MAX_INVESTORS_WITHDRAW: usize = 2;
 
 pub trait Loadable: Pod {
     fn load_mut<'a>(account: &'a AccountInfo) -> Result<RefMut<'a, Self>, ProgramError> {
@@ -61,7 +62,8 @@ pub struct InvestorData {
 
     pub is_initialized: bool,
     pub has_withdrawn: bool,
-    pub padding: [u8; 6],
+    pub withdrawn_from_margin: bool,
+    pub padding: [u8; 5],
 
     /// Investor wallet address
     pub owner: Pubkey,
@@ -81,8 +83,11 @@ pub struct InvestorData {
     // margin assets owed in USDC tokens
     pub margin_debt: u64,
 
+    // margin position id
+    pub margin_position_id: u64,
+
     // investor assets in tokens
-    pub fund_debt: [u64; NUM_TOKENS]    
+    pub fund_debt: [u64; NUM_TOKENS]   
 }
 unsafe impl Zeroable for InvestorData {}
 unsafe impl Pod for InvestorData {}
@@ -150,13 +155,16 @@ pub struct MarginInfo {
     // margin account pubkey to check if the passed acc is correct
     pub margin_account: Pubkey,
 
-    pub is_active: bool, // is in an active position
+    // 0: inactive, 1: deposited, 2: position_open, 3: settled_open, 4: position_closed, 5: settled_close
+    pub state: u8, 
     pub margin_index: u8, // token_index for the trade
     pub position_side: u8, // 0 for LONG, 1 for SHORT
     pub position_id: u16, // unique id for the position
     pub padding: [u8; 3],
     
     pub trade_amount: u64, // used for PnL calculation
+
+    pub close_collateral: U64F64,
 
     pub investor_debt: u64 // updated on every investor withdraw
 }
@@ -216,11 +224,15 @@ pub struct PriceInfo {
     // mint address of the token
     pub token_mint: Pubkey,
 
-    // ask address of the market
-    pub asks_account: Pubkey,
+    pub pool_account: Pubkey,
+
+    pub base_pool_account: Pubkey,
+
+    // decimals for token
+    pub decimals: u64,
 
     // price of token
-    pub token_price: U64F64,
+    pub token_price: u64,
 
     // last updated timestamp
     pub last_updated: UnixTimestamp,
@@ -236,12 +248,14 @@ pub struct PriceAccount {
     /// number of tokens
     pub count: u32,
 
+    /// decimals
+    pub decimals: u32,
+
     /// token price info
     pub prices: [PriceInfo; MAX_TOKENS]
 }
 unsafe impl Zeroable for PriceAccount {}
 unsafe impl Pod for PriceAccount {}
 impl Loadable for PriceAccount {}
-
 
 
