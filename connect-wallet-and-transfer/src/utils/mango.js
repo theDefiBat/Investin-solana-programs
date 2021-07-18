@@ -5,7 +5,7 @@ import {
     OpenOrders,
   } from '@project-serum/serum'
 import { Order, ORDERBOOK_LAYOUT } from '@project-serum/serum/lib/market'
-import { connection, programId, TOKEN_PROGRAM_ID , CLOCK_PROGRAM_ID, MANGO_PROGRAM_ID_V2, SERUM_PROGRAM_ID_V3, MANGO_GROUP_ACCOUNT, MANGO_VAULT_ACCOUNT_USDC, MARGIN_ACCOUNT_KEY} from '../utils/constants';
+import { connection, programId, TOKEN_PROGRAM_ID , CLOCK_PROGRAM_ID, MANGO_PROGRAM_ID_V2, SERUM_PROGRAM_ID_V3, MANGO_GROUP_ACCOUNT, MANGO_VAULT_ACCOUNT_USDC, MARGIN_ACCOUNT_KEY, priceStateAccount} from '../utils/constants';
 import { nu64, struct, u8, u32, u16 } from 'buffer-layout';
 import BN from 'bn.js';
 import {
@@ -39,8 +39,9 @@ import {
   } from '@solana/web3.js'
 
 import { MarginAccountLayout } from './MangoLayout';
-import { createKeyIfNotExists } from './web3';
+import { createKeyIfNotExists, findAssociatedTokenAddress } from './web3';
 import { INVESTOR_DATA } from '../utils/programLayouts';
+import { MANGO_TOKENS } from './tokens';
 
 
 
@@ -557,27 +558,19 @@ export async function placeOrder(
 
   const dataLayout = struct([
       u8('instruction'),
-      u32('side'),
-      nu64('limitPrice'),
-      nu64('maxBaseQuantity'),
-      nu64('maxQuoteQuantity'),
-      u32('selfTradeBehavior'),
-      u32('orderType'),
-      nu64('clientId'),
-      u16('limit'),
+      u8('side'),
+      nu64('price'),
+      nu64('quote_size'),
+      nu64('base_size')
   ])
   const data = Buffer.alloc(dataLayout.span)
   dataLayout.encode(
       {
-        instruction: investor ? 14 : 10,
+        instruction: investor ? 13 : 9,
         side: (side == 'buy') ? 0 : 1,
-        limitPrice,
-        maxBaseQuantity,
-        maxQuoteQuantity,
-        selfTradeBehavior: 0,
-        orderType: 0,
-        clientId: 0,
-        limit: 65535,
+        price: limitPrice,
+        quote_size: maxBaseQuantity,
+        base_size: maxQuoteQuantity
       },
       data
   )
@@ -635,11 +628,13 @@ export async function placeOrder(
   const datLayout = struct([u8('instruction'), nu64('settle_amount'), nu64('token_index')])
 
   console.log("settle_amount", nativeQuantity.toNumber())
+  const fundBaseTokenAccount = await findAssociatedTokenAddress(fundPDA, new PublicKey(MANGO_TOKENS['USDC'].mintAddress));
+
 
       const dat = Buffer.alloc(datLayout.span)
       datLayout.encode(
         {
-          instruction: 11,
+          instruction: 10,
           settle_amount: nativeQuantity,
           token_index: tokenIndex
         },
@@ -652,6 +647,54 @@ export async function placeOrder(
       })
       console.log("settle intr")
   transaction.add(SettleInstruction)
+  
+  const withdraw_keys = [
+    { isSigner: false, isWritable: true, pubkey: fundStateAccount },
+    { isSigner: false, isWritable: true, pubkey: priceStateAccount },
+
+
+    { isSigner: true, isWritable: true, pubkey: wallet?.publicKey },
+    { isSigner: false, isWritable: true, pubkey: fundPDA },
+    { isSigner: false, isWritable: true, pubkey: MANGO_PROGRAM_ID_V2 },
+
+  { isSigner: false, isWritable: true, pubkey: mangoGroup.publicKey },
+//   { isSigner: true, isWritable: false, pubkey: wallet.publicKey },
+  { isSigner: false, isWritable: true, pubkey: marginAccount.publicKey },
+
+  { isSigner: false, isWritable: true, pubkey: fundBaseTokenAccount },
+  { isSigner: false, isWritable: true, pubkey: mangoGroup.vaults[NUM_MARKETS] },
+  { isSigner: false, isWritable: false, pubkey: mangoGroup.signerKey },
+
+  { isSigner: false, isWritable: false, pubkey: TOKEN_PROGRAM_ID },
+  { isSigner: false, isWritable: false, pubkey: SYSVAR_CLOCK_PUBKEY },
+ 
+  ...openOrdersKeys.map((pubkey) => ({
+    isSigner: false,
+    isWritable: true,
+    pubkey,
+  })),
+  ...mangoGroup.oracles.map((pubkey) => ({
+    isSigner: false,
+    isWritable: false,
+    pubkey,
+  })),
+]
+
+  const dataL = struct([u8('instruction'), nu64('quantity')])
+      const data2 = Buffer.alloc(dataL.span)
+      dataL.encode(
+        {
+          instruction: 11,
+          quantity: 20 * ( 10 ** MANGO_TOKENS['USDC'].decimals)
+        },
+        data2
+      )
+      const instr = new TransactionInstruction({
+        keys: withdraw_keys,
+        data: data2,
+        programId: programId,
+      })
+      transaction.add(instr)
 }
 
 export async function placeOrder2(
@@ -869,11 +912,11 @@ export async function placeOrder2(
         instruction: 15,
         side: (side == 'buy') ? 0 : 1,
         limitPrice,
-        maxBaseQuantity,
-        maxQuoteQuantity,
-        selfTradeBehavior: 0,
+        //maxBaseQuantity,
+        //maxQuoteQuantity,
+        //selfTradeBehavior: 0,
         orderType: 0,
-        clientId: 0,
+        //clientId: 0,
         limit: 65535,
         token_index: token_i
       },
