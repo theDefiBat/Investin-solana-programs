@@ -2,23 +2,17 @@ import { PublicKey, SYSVAR_CLOCK_PUBKEY, Transaction, TransactionInstruction } f
 import React, { useState } from 'react'
 import { GlobalState } from '../store/globalState';
 import { createKeyIfNotExists, signAndSendTransaction } from '../utils/web3'
-import { adminAccount, connection, TOKEN_PROGRAM_ID, PRICE_ACCOUNT_KEY, programId, priceStateAccount } from '../utils/constants';
+import { adminAccount, connection, TOKEN_PROGRAM_ID, PRICE_ACCOUNT_KEY, programId, priceStateAccount, SOL_USDC_MARKET, SERUM_PROGRAM_ID_V3 } from '../utils/constants';
 import { nu64, struct, u8 } from 'buffer-layout';
-import { TEST_TOKENS, TOKENS } from '../utils/tokens'
+import { MANGO_TOKENS, TEST_TOKENS, TOKENS } from '../utils/tokens'
 import { PRICE_DATA } from '../utils/programLayouts';
 import { devnet_pools, pools } from '../utils/pools';
+import { Market }from '@project-serum/serum';
 
-const priceProgramId = new PublicKey('HACWxPihVtqqvyf9T6i77VDAT7s9hFse8vHRVsinP3NG')
+const priceProgramId = new PublicKey('CB6oEYpfSsrF3oWG41KQxwfg4onZ38JMj1hk17UNe1Fn')
 const tokensList = [
-    TOKENS['WSOL'],
-    TOKENS['SRM'],
-    TOKENS['STEP'],
-    TOKENS['ALEPH'],
-    TOKENS['ROPE'],
-    TOKENS['MEDIA'],
-    TOKENS['MER'],
-    TOKENS['COPE'],
-    TOKENS['TULIP']
+    MANGO_TOKENS['BTC'],
+    MANGO_TOKENS['SOL']
 ]
 export const GetPrices = () => {
     const [priceAccount, setPriceAccount] = useState('');
@@ -30,10 +24,10 @@ export const GetPrices = () => {
     const handleAddToken = async () => {
        
         let transaction = new Transaction()
-
+        //let spotMarket = await Market.load(connection, SOL_USDC_MARKET, {} , SERUM_PROGRAM_ID_V3 )
         //const priceAccount = priceStateAccount;
         const priceAccount = await createKeyIfNotExists(walletProvider, "", priceProgramId, PRICE_ACCOUNT_KEY, PRICE_DATA.span, transaction)
-        console.log('pool ', poolName)
+
         console.log('account size:: ', PRICE_DATA.span)
         console.log('priceAccount::', priceAccount.toBase58())
         if (!poolName)
@@ -58,9 +52,8 @@ export const GetPrices = () => {
               { pubkey: priceAccount, isSigner: false, isWritable: true },
               { pubkey: SYSVAR_CLOCK_PUBKEY, isSigner: false, isWritable: true },
               { pubkey: walletProvider?.publicKey, isSigner: true, isWritable: true },
-              { pubkey: new PublicKey(poolInfo.coin.mintAddress), isSigner: false, isWritable: true },
-              { pubkey: new PublicKey(poolInfo.poolCoinTokenAccount), isSigner: false, isWritable: true },
-              { pubkey: new PublicKey(poolInfo.poolPcTokenAccount), isSigner: false, isWritable: true },
+              { pubkey: new PublicKey('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'), isSigner: false, isWritable: true },
+              { pubkey: new PublicKey('6EyVXMMA58Nf6MScqeLpw1jS12RCpry23u9VMfy8b65Y'), isSigner: false, isWritable: true },
             ],
             programId: priceProgramId,
             data
@@ -104,8 +97,7 @@ export const GetPrices = () => {
             keys: [
               { pubkey: priceAccount, isSigner: false, isWritable: true },
               { pubkey: SYSVAR_CLOCK_PUBKEY, isSigner: false, isWritable: true },
-              { pubkey: new PublicKey(poolInfo.poolCoinTokenAccount), isSigner: false, isWritable: true },
-              { pubkey: new PublicKey(poolInfo.poolPcTokenAccount), isSigner: false, isWritable: true },
+              { pubkey: new PublicKey('6EyVXMMA58Nf6MScqeLpw1jS12RCpry23u9VMfy8b65Y'), isSigner: false, isWritable: true },
             ],
             programId: priceProgramId,
             data
