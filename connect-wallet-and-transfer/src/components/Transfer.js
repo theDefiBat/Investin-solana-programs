@@ -6,7 +6,7 @@ import { nu64, struct, u8 } from 'buffer-layout';
 import { createKeyIfNotExists, findAssociatedTokenAddress, setWalletTransaction, signAndSendTransaction, createAssociatedTokenAccountIfNotExist } from '../utils/web3';
 import { FUND_DATA, INVESTOR_DATA, PLATFORM_DATA, PRICE_DATA } from '../utils/programLayouts';
 import { devnet_pools, pools } from '../utils/pools'
-import {  MANGO_TOKENS } from '../utils/tokens'
+import { MANGO_TOKENS } from '../utils/tokens'
 import { updatePoolPrices } from './updatePrices';
 
 export const Transfer = () => {
@@ -23,81 +23,85 @@ export const Transfer = () => {
   const walletProvider = GlobalState.useState(s => s.walletProvider);
 
   const handleTransfer = async () => {
-    
+
     const key = walletProvider?.publicKey;
 
-      if (!key ) {
-        alert("connect wallet")
-        return;
-      };
-      const transaction = new Transaction()
+    if (!key) {
+      alert("connect wallet")
+      return;
+    };
+    const transaction = new Transaction()
 
-      const routerPDA = await PublicKey.findProgramAddress([Buffer.from("router")], programId);
-      const fundBaseTokenAccount = await findAssociatedTokenAddress(new PublicKey(fundPDA), new PublicKey(MANGO_TOKENS['USDC'].mintAddress));
-      const routerBaseTokenAccount = await findAssociatedTokenAddress(routerPDA[0], new PublicKey(MANGO_TOKENS['USDC'].mintAddress));
+    const routerPDA = await PublicKey.findProgramAddress([Buffer.from("router")], programId);
+    const fundBaseTokenAccount = await findAssociatedTokenAddress(new PublicKey(fundPDA), new PublicKey(MANGO_TOKENS['USDC'].mintAddress));
+    const routerBaseTokenAccount = await findAssociatedTokenAddress(routerPDA[0], new PublicKey(MANGO_TOKENS['USDC'].mintAddress));
 
-      const managerBaseTokenAccount = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(MANGO_TOKENS['USDC'].mintAddress), key, transaction);
-      const investinBaseTokenAccount = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(MANGO_TOKENS['USDC'].mintAddress), adminAccount, transaction);    
+    const managerBaseTokenAccount = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(MANGO_TOKENS['USDC'].mintAddress), key, transaction);
+    const investinBaseTokenAccount = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(MANGO_TOKENS['USDC'].mintAddress), adminAccount, transaction);
 
-      if (fundStateAccount == ''){
-        alert("get info first!")
-        return
-      }
-      
+    if (fundStateAccount == '') {
+      alert("get info first!")
+      return
+    }
 
-      updatePoolPrices(transaction, devnet_pools)
-      // transaction1.feePayer = walletProvider?.publicKey;
-      // let hash1 = await connection.getRecentBlockhash();
-      // console.log("blockhash", hash1);
-      // transaction1.recentBlockhash = hash1.blockhash;
+    const accountInfo = await connection.getAccountInfo(new PublicKey(fundStateAccount));
+    const accountInfoData = FUND_DATA.decode(accountInfo.data);
 
-      // const sign1 = await signAndSendTransaction(walletProvider, transaction1);
-      // console.log("signature tx:: ", sign1)
 
-      const dataLayout = struct([u8('instruction')])
+    // updatePoolPrices(transaction, devnet_pools)
+    // transaction1.feePayer = walletProvider?.publicKey;
+    // let hash1 = await connection.getRecentBlockhash();
+    // console.log("blockhash", hash1);
+    // transaction1.recentBlockhash = hash1.blockhash;
 
-      const data = Buffer.alloc(dataLayout.span)
-      dataLayout.encode(
-        {
-          instruction: 2,
-        },
-        data
-      )
-      const transfer_instruction = new TransactionInstruction({
+    // const sign1 = await signAndSendTransaction(walletProvider, transaction1);
+    // console.log("signature tx:: ", sign1)
+
+    const dataLayout = struct([u8('instruction')])
+
+    const data = Buffer.alloc(dataLayout.span)
+    dataLayout.encode(
+      {
+        instruction: 2,
+      },
+      data
+    )
+    const transfer_instruction = new TransactionInstruction({
       keys: [
-        {pubkey: platformStateAccount, isSigner: false, isWritable:true},
-        {pubkey: new PublicKey(fundStateAccount), isSigner: false, isWritable: true},
-        {pubkey: priceStateAccount, isSigner: false, isWritable:true},
-        {pubkey: SYSVAR_CLOCK_PUBKEY, isSigner: false, isWritable:true},
+        { pubkey: platformStateAccount, isSigner: false, isWritable: true },
+        { pubkey: new PublicKey(fundStateAccount), isSigner: false, isWritable: true },
+        { pubkey: priceStateAccount, isSigner: false, isWritable: true },
+        { pubkey: accountInfoData.mango_positions[0].margin_account, isSigner: false, isWritable: true },
+        { pubkey: SYSVAR_CLOCK_PUBKEY, isSigner: false, isWritable: true },
 
-        {pubkey: key, isSigner: true, isWritable: true },
-        
-        {pubkey: routerBaseTokenAccount, isSigner: false, isWritable:true},
-        {pubkey: fundBaseTokenAccount, isSigner: false, isWritable:true},
-        {pubkey: managerBaseTokenAccount, isSigner: false, isWritable:true},
-        {pubkey: investinBaseTokenAccount, isSigner: false, isWritable:true},
+        { pubkey: key, isSigner: true, isWritable: true },
 
-        {pubkey: routerPDA[0], isSigner: false, isWritable:true},
+        { pubkey: routerBaseTokenAccount, isSigner: false, isWritable: true },
+        { pubkey: fundBaseTokenAccount, isSigner: false, isWritable: true },
+        { pubkey: managerBaseTokenAccount, isSigner: false, isWritable: true },
+        { pubkey: investinBaseTokenAccount, isSigner: false, isWritable: true },
 
-        {pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: true},
-        
+        { pubkey: routerPDA[0], isSigner: false, isWritable: true },
+
+        { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: true },
+
         //investor state accounts
-        {pubkey: new PublicKey(fundInvestorAccs[0]), isSigner: false, isWritable:true},
-        {pubkey: new PublicKey(fundInvestorAccs[1]), isSigner: false, isWritable:true},
-        {pubkey: new PublicKey(fundInvestorAccs[2]), isSigner: false, isWritable:true},
-        {pubkey: new PublicKey(fundInvestorAccs[3]), isSigner: false, isWritable:true},
-        {pubkey: new PublicKey(fundInvestorAccs[4]), isSigner: false, isWritable:true},
-        {pubkey: new PublicKey(fundInvestorAccs[5]), isSigner: false, isWritable:true},
-        {pubkey: new PublicKey(fundInvestorAccs[6]), isSigner: false, isWritable:true},
-        {pubkey: new PublicKey(fundInvestorAccs[7]), isSigner: false, isWritable:true},
-        {pubkey: new PublicKey(fundInvestorAccs[8]), isSigner: false, isWritable:true},
-        {pubkey: new PublicKey(fundInvestorAccs[9]), isSigner: false, isWritable:true},
+        { pubkey: new PublicKey(fundInvestorAccs[0]), isSigner: false, isWritable: true },
+        { pubkey: new PublicKey(fundInvestorAccs[1]), isSigner: false, isWritable: true },
+        { pubkey: new PublicKey(fundInvestorAccs[2]), isSigner: false, isWritable: true },
+        { pubkey: new PublicKey(fundInvestorAccs[3]), isSigner: false, isWritable: true },
+        { pubkey: new PublicKey(fundInvestorAccs[4]), isSigner: false, isWritable: true },
+        { pubkey: new PublicKey(fundInvestorAccs[5]), isSigner: false, isWritable: true },
+        { pubkey: new PublicKey(fundInvestorAccs[6]), isSigner: false, isWritable: true },
+        { pubkey: new PublicKey(fundInvestorAccs[7]), isSigner: false, isWritable: true },
+        { pubkey: new PublicKey(fundInvestorAccs[8]), isSigner: false, isWritable: true },
+        { pubkey: new PublicKey(fundInvestorAccs[9]), isSigner: false, isWritable: true },
 
       ],
       programId,
       data
-      });
-    
+    });
+
     transaction.add(transfer_instruction);
     transaction.feePayer = key;
     let hash = await connection.getRecentBlockhash();
@@ -116,8 +120,8 @@ export const Transfer = () => {
     console.log('size of inv data:: ', INVESTOR_DATA.span)
 
     console.log('size of price acc:: ', PRICE_DATA.span)
-    const key = walletProvider?.publicKey;  
-    if (!key ) {
+    const key = walletProvider?.publicKey;
+    if (!key) {
       alert("connect wallet")
       return;
     }
@@ -134,8 +138,7 @@ export const Transfer = () => {
     setFundStateAccount(fundStateAccount.toBase58())
 
     let x = await connection.getAccountInfo(fundStateAccount)
-    if (x == null)
-    {
+    if (x == null) {
       alert("fund account not found")
       return
     }
@@ -146,21 +149,21 @@ export const Transfer = () => {
       return
     }
     console.log(fundState)
-    
-    setAmountInRouter(parseInt(fundState.amount_in_router)/(10 ** fundState.tokens[0].decimals));
-    setFundPerf(parseInt(fundState.prev_performance) / (10000))
+
+    setAmountInRouter(parseInt(fundState.amount_in_router) / (10 ** fundState.tokens[0].decimals));
+    setFundPerf(parseInt(fundState.prev_performance))
     setFundAUM(parseInt(fundState.total_amount) / (10 ** fundState.tokens[0].decimals))
-    
+
     let bal = []
-    bal.push((parseInt(fundState.tokens[0].balance)/ (10**fundState.tokens[0].decimals)))
-    bal.push((parseInt(fundState.tokens[1].balance)/ (10**fundState.tokens[1].decimals)))
-    bal.push((parseInt(fundState.tokens[2].balance)/ (10**fundState.tokens[2].decimals)))
+    bal.push((parseInt(fundState.tokens[0].balance) / (10 ** fundState.tokens[0].decimals)))
+    bal.push((parseInt(fundState.tokens[1].balance) / (10 ** fundState.tokens[1].decimals)))
+    bal.push((parseInt(fundState.tokens[2].balance) / (10 ** fundState.tokens[2].decimals)))
     setFundBalances(bal)
     console.log(bal)
 
     let investors = []
-    for(let i=0; i<10; i++) {
-      let acc =  await PublicKey.createWithSeed(
+    for (let i = 0; i < 10; i++) {
+      let acc = await PublicKey.createWithSeed(
         new PublicKey(fundState.investors[i].toString()),
         fundPDA[0].toBase58().substr(0, 32),
         programId
@@ -172,8 +175,8 @@ export const Transfer = () => {
   }
   return (
     <div className="form-div">
-    <h4>Transfer</h4>
-      
+      <h4>Transfer</h4>
+
       <button onClick={handleTransfer}>Transfer</button>
       <button onClick={handleGetFunds}>GetFundInfo</button>
       <br />

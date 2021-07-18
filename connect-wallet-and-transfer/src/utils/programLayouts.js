@@ -1,7 +1,6 @@
-import { bits, BitStructure, Blob, Layout, seq, struct, u32, u8, u16, UInt, union, i64, u64, u128} from 'buffer-layout';
+import { Blob, seq, struct, u32, u8, u16, ns64 } from 'buffer-layout';
 import { PublicKey } from '@solana/web3.js';
 import BN from 'bn.js';
-
 
 export const NUM_TOKENS = 10
 export const MAX_INVESTORS = 10
@@ -53,6 +52,7 @@ class U64F64Layout extends Blob {
   }
 
   encode(src, b, offset) {
+    console.log("src ::: ", src)
     return super.encode(src.toArrayLike(Buffer, 'le', this['span']), b, offset);
   }
 }
@@ -61,12 +61,20 @@ export function U64F64(property = "") {
   return new U64F64Layout(property)
 }
 
+export function u64(property = "") {
+  return new BNLayout(8, property);
+}
+
+export function u128(property = "") {
+  return new BNLayout(16, property);
+}
+ 
 export const PLATFORM_DATA = struct([
   u8('is_initialized'),
   u8('router_nonce'),
   u8('no_of_active_funds'),
   seq(u8(), 5, 'padding'),
-  
+
   publicKeyLayout('router'),
   publicKeyLayout('investin_admin'),
   publicKeyLayout('investin_vault')
@@ -83,41 +91,40 @@ export const FUND_DATA = struct([
 
   u64('min_amount'),
   U64F64('min_return'),
-  // U64F64('performance_fee_percentage'),
-  // u64('total_amount'),
-  // U64F64('prev_performance'),
+  U64F64('performance_fee_percentage'),
+  u64('total_amount'),
+  U64F64('prev_performance'),
 
 
-  // u64('amount_in_router'),
-  // U64F64('performance_fee'),
-  // publicKeyLayout('manager_account'),
-  // seq(
-  //   struct([
-  //     publicKeyLayout('mint'),
-  //     u64('decimals'),
-  //     publicKeyLayout('vault'),
-  //     u64('balance'),
-  //     u64('debt')
-  //   ]),
-  //   NUM_TOKENS, 'tokens'
-  // ),
-  //seq(publicKeyLayout(), MAX_INVESTORS, 'investors'),
-  // seq(
-  //   struct([
-  //     publicKeyLayout('margin_account'),
+  u64('amount_in_router'),
+  U64F64('performance_fee'),
+  publicKeyLayout('manager_account'),
+  seq(
+    struct([
+      publicKeyLayout('mint'),
+      u64('decimals'),
+      publicKeyLayout('vault'),
+      u64('balance'),
+      u64('debt')
+    ]),
+    NUM_TOKENS, 'tokens'
+  ),
+  seq(publicKeyLayout(), MAX_INVESTORS, 'investors'),
+  seq(
+    struct([
+      publicKeyLayout('margin_account'),
+      u8('state'),
+      u8('margin_index'),
+      u8('position_side'),
+      seq(u8('padding'), 3),
+      u16('position_id'),
 
-  //     u8('state'),
-  //     u8('margin_index'),
-  //     u8('position_side'),
-  //     u16('position_id'),
-  //     seq(u8('padding'), 4),
-    
-  //     u64('trade_amount'),
-  //     U64F64('close_collateral'),
-  //     u64('investor_debt')
-  //   ]),
-  //   2, 'mango_positions'
-  // ),
+      u64('trade_amount'),
+      U64F64('close_collateral'),
+      u64('investor_debt')
+    ]),
+    2, 'mango_positions'
+  ),
 ])
 
 export const INVESTOR_DATA = struct([
@@ -207,7 +214,7 @@ export const PRICE_DATA = struct([
       publicKeyLayout('base_pool_account'),
       u64('decimals'),
       u64('token_price'),
-      i64('last_updated'),
+      ns64('last_updated'),
     ]),
     MAX_TOKENS, 'prices'
   ),

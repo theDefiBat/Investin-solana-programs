@@ -4,8 +4,7 @@ import {
     Market,
     OpenOrders,
   } from '@project-serum/serum'
-import { Order, ORDERBOOK_LAYOUT } from '@project-serum/serum/lib/market'
-import { connection, programId, TOKEN_PROGRAM_ID , CLOCK_PROGRAM_ID, MANGO_PROGRAM_ID_V2, SERUM_PROGRAM_ID_V3, MANGO_GROUP_ACCOUNT, MANGO_VAULT_ACCOUNT_USDC, MARGIN_ACCOUNT_KEY, priceStateAccount} from '../utils/constants';
+import { programId, TOKEN_PROGRAM_ID , MANGO_PROGRAM_ID_V2, SERUM_PROGRAM_ID_V3, MANGO_GROUP_ACCOUNT, priceStateAccount} from '../utils/constants';
 import { nu64, struct, u8, u32, u16 } from 'buffer-layout';
 import BN from 'bn.js';
 import {
@@ -22,19 +21,12 @@ import {
 } from '@blockworks-foundation/mango-client/lib/utils'
 
 import {
-    Account,
-    Connection,
-    LAMPORTS_PER_SOL,
     PublicKey,
-    SystemProgram,
     SYSVAR_CLOCK_PUBKEY,
     SYSVAR_RENT_PUBKEY,
-    Transaction,
     TransactionInstruction,
-    TransactionSignature,
   } from '@solana/web3.js'
 
-import { MarginAccountLayout } from './MangoLayout';
 import { createKeyIfNotExists, findAssociatedTokenAddress } from './web3';
 import { INVESTOR_DATA } from '../utils/programLayouts';
 import { MANGO_TOKENS } from './tokens';

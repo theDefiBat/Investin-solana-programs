@@ -4,7 +4,7 @@ import { GlobalState } from '../store/globalState';
 import { connection, programId, platformStateAccount, FUND_ACCOUNT_KEY, TOKEN_PROGRAM_ID } from '../utils/constants';
 import { nu64, struct, u8 } from 'buffer-layout';
 import { createKeyIfNotExists, findAssociatedTokenAddress, setWalletTransaction, signAndSendTransaction, createAssociatedTokenAccountIfNotExist } from '../utils/web3';
-import { INVESTOR_DATA, PLATFORM_DATA } from '../utils/programLayouts';
+import { FUND_DATA, INVESTOR_DATA, PLATFORM_DATA } from '../utils/programLayouts';
 import { MANGO_TOKENS } from '../utils/tokens'
 import { devnet_pools } from '../utils/pools'
 import { updatePoolPrices } from './updatePrices';
@@ -40,7 +40,7 @@ export const Deposit = () => {
 
     const investerStateAccount = await createKeyIfNotExists(walletProvider, null, programId, FPDA.toBase58().substr(0, 32), INVESTOR_DATA.span, transaction)
     
-    updatePoolPrices(transaction, devnet_pools)
+    // await updatePoolPrices(transaction, devnet_pools)
     
     console.log("RPDA:", RPDA[0].toBase58())
     console.log("FPDA: ", FPDA.toBase58())
@@ -101,8 +101,8 @@ export const Deposit = () => {
     // console.log("signature tx:: ", sign)
 
 
-  const investorDataAcc = await connection.getAccountInfo(investerStateAccount);
-  const investorData = INVESTOR_DATA.decode(investorDataAcc.data);
+  // const investorDataAcc = await connection.getAccountInfo(investerStateAccount);
+  // const investorData = INVESTOR_DATA.decode(investorDataAcc.data);
   }
     
   const handleFunds = async () => {
@@ -110,12 +110,18 @@ export const Deposit = () => {
     const platformDataAcc = await connection.getAccountInfo(platformStateAccount)
     const platformData = PLATFORM_DATA.decode(platformDataAcc.data)
     console.log("platformData :: ", platformData)
-  
-    for(let i=0; i<platformData.no_of_active_funds; i++) {
-      let manager = platformData.fund_managers[i];
+
+    let funds = await connection.getProgramAccounts(programId, { filters: [{ dataSize: FUND_DATA.span }] });
+    console.log(`funds :::: `, funds)
+    const fundData = funds.map(f => FUND_DATA.decode(f.account.data))
+
+    console.log(`decodedFunds ::: `, fundData)
+    
+    for(let i=0; i<fundData.length; i++) {
+      let manager = fundData[i].manager_account;
       let PDA = await PublicKey.findProgramAddress([manager.toBuffer()], programId);
       let fundState = await PublicKey.createWithSeed(manager, FUND_ACCOUNT_KEY, programId);
-      
+      console.log(`PDA[0]`, PDA)
       managers.push({
         fundPDA: PDA[0].toBase58(),
         fundManager: manager.toBase58(),

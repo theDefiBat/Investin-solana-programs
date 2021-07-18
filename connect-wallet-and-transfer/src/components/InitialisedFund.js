@@ -5,9 +5,10 @@ import { GlobalState } from '../store/globalState';
 import { nu64, struct, u8 } from 'buffer-layout';
 import { PublicKey, Transaction, TransactionInstruction } from '@solana/web3.js';
 import { TOKEN_PROGRAM_ID } from '@project-serum/serum/lib/token-instructions';
-import { FUND_DATA, PLATFORM_DATA } from '../utils/programLayouts';
+import { FUND_DATA, PLATFORM_DATA, U64F64 } from '../utils/programLayouts';
 import { Badge } from 'reactstrap';
 import { MANGO_TOKENS } from "../utils/tokens";
+import BN from 'bn.js';
 
 export const InitialisedFund = () => {
 
@@ -35,9 +36,12 @@ export const InitialisedFund = () => {
     const routerPDA = await PublicKey.findProgramAddress([Buffer.from("router")], programId);
 
     // ***what should be in the place of wallet provider in platformAccount
-    //const platformAccount = platformStateAccount;
-    const platformAccount = await createKeyIfNotExists(walletProvider, "", programId, PLATFORM_ACCOUNT_KEY, PLATFORM_DATA.span, transaction)
+    const platformAccount = platformStateAccount;
+    // const platformAccount = await createKeyIfNotExists(walletProvider, "", programId, PLATFORM_ACCOUNT_KEY, PLATFORM_DATA.span, transaction)
     const fundAccount = await createKeyIfNotExists(walletProvider, "", programId, FUND_ACCOUNT_KEY, FUND_DATA.span, transaction)
+
+    console.log(`PLATFORM_DATA.span :::: `, PLATFORM_DATA.span)
+    console.log(`FUND_DATA.span :::: `, FUND_DATA.span) 
 
 
     console.log(`fundPDA::: `, fundPDA[0].toBase58())
@@ -57,15 +61,15 @@ export const InitialisedFund = () => {
 
 
     if (1) {
-      const dataLayout = struct([u8('instruction'), nu64('min_amount'), nu64('min_return'), nu64('performance_fee_percentage')])
+      const dataLayout = struct([u8('instruction'), nu64('min_amount'), U64F64('min_return'), U64F64('performance_fee_percentage')])
 
       const data = Buffer.alloc(dataLayout.span)
       dataLayout.encode(
         {
           instruction: 0,
           min_amount: min_amount * (10 ** MANGO_TOKENS['USDC'].decimals),
-          min_return: min_return * 10000,
-          performance_fee_percentage: platform_fee_percentage * 10000,
+          min_return: new BN(min_return),
+          performance_fee_percentage: new BN(platform_fee_percentage),
         },
         data
       )
@@ -76,12 +80,12 @@ export const InitialisedFund = () => {
       const associatedTokenAddresses = associatedTokenAccounts.value.map(p => p.pubkey);
 
       console.log(`associatedTokenAccounts.value ::: `, associatedTokenAccounts.value)
-    
+
       const associatedTokenAddress1 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(MANGO_TOKENS['USDC'].mintAddress), PDA[0], transaction);
       const associatedTokenAddress2 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(MANGO_TOKENS['BTC'].mintAddress), PDA[0], transaction);
       const associatedTokenAddress3 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(MANGO_TOKENS['ETH'].mintAddress), PDA[0], transaction);
 
-     
+
       console.log(`associatedTokenAddress1 ::: `, associatedTokenAccounts)
 
 

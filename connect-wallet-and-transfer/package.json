@@ -12,6 +12,7 @@
     "@testing-library/react": "^11.1.0",
     "@testing-library/user-event": "^12.1.10",
     "bignumber.js": "^9.0.1",
+    "bn.js": "^5.2.0",
     "bootstrap": "^5.0.1",
     "borsh": "^0.4.0",
     "buffer-layout": "^1.2.1",

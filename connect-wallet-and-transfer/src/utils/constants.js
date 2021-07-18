@@ -15,7 +15,7 @@ export const connection = new Connection(cluster, "confirmed");
 export const programId = new PublicKey('7xfTB3pxbE8vuXbU4tDHTzJxLZMqKJ9xa73XZxcGjTrb');
 
 // change later
-export const platformStateAccount = new PublicKey('9r3H3TygWPJuMTte3hxwY1norEPm4kXEFLqtg7ZW7P3i')
+export const platformStateAccount = new PublicKey('3d74PEd5bAqpvudEsbQD5LRWVwJMzReZqjzDoaJPd3k7')
 export const priceStateAccount = new PublicKey('9c29CVmZz1BqyxTXr5rgBLNemQBf17V1CEWMEEJ6kEVA')
 
 export const SYSTEM_PROGRAM_ID = new PublicKey('11111111111111111111111111111111')
