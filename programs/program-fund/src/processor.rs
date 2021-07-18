@@ -173,7 +173,7 @@ impl Fund {
             investor_data.is_initialized = true;
             investor_data.owner = *investor_acc.key;
             // Store manager's PDA
-            investor_data.manager = *pda_man_acc.key;
+            investor_data.manager = fund_data.manager_account;
         }
 
         // dont update queue if previous deposit already in router
@@ -457,7 +457,7 @@ impl Fund {
         investor_data.amount = 0;
         investor_data.start_performance = U64F64!(0);
         investor_data.amount_in_router = 0;
-        investor_data.is_initialized = false;
+        investor_data.has_withdrawn = false;
         
         fund_data.no_of_investments -= 1;        
         Ok(())

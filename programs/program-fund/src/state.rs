@@ -159,8 +159,8 @@ pub struct MarginInfo {
     pub state: u8, 
     pub margin_index: u8, // token_index for the trade
     pub position_side: u8, // 0 for LONG, 1 for SHORT
-    pub position_id: u16, // unique id for the position
     pub padding: [u8; 3],
+    pub position_id: u16, // unique id for the position
     
     pub trade_amount: u64, // used for PnL calculation
 
