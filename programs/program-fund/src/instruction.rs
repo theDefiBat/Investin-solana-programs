@@ -459,24 +459,27 @@ impl FundInstruction {
                 }
             },
             13 => {
-                FundInstruction::MangoWithdrawInvestor
+                FundInstruction::MangoWithdrawToFund
             },
             14 => {
+                FundInstruction::MangoWithdrawInvestor
+            },
+            15 => {
                 let price = array_ref![data, 0, 8];
                 FundInstruction::MangoWithdrawInvestorPlaceOrder {
                     price: u64::from_le_bytes(*price),
                 }
             },
-            15 => {
+            16 => {
                 FundInstruction::MangoSettlePosition
             },
-            16 => {
+            17 => {
                 let amount = array_ref![data, 0, 8];
                 FundInstruction::TestingDeposit {
                     amount: u64::from_le_bytes(*amount)
                 }
             },
-            17 => {
+            18 => {
                 let amount = array_ref![data, 0, 8];
                 FundInstruction::TestingWithdraw {
                     amount: u64::from_le_bytes(*amount)

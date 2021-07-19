@@ -8,8 +8,10 @@ use solana_program::{
     pubkey::Pubkey,
     program::invoke_signed,
 };
-
+use num_enum::TryFromPrimitive;
 use std::convert::TryFrom;
+use std::convert::TryInto;
+
 use fixed_macro::types::U64F64;
 pub const ONE_U64F64: U64F64 = U64F64!(1);
 use serum_dex::matching::{Side, OrderType};
@@ -193,19 +195,19 @@ pub fn mango_open_position (
     let coin_lots = convert_size_to_lots(spot_market_acc, dex_prog_acc.key, trade_size, false)?;
     msg!("coin_lots:: {:?} ", coin_lots);
 
-    let pc_qty = trade_size * price;
-    let fee_rate = U64F64::from_num(((22 as u128) << 64) / 10_000); // fee_bps = 22; BASE
+    let pc_qty = convert_size_to_lots(spot_market_acc, dex_prog_acc.key, trade_size * price, true)?;
+    msg!("pc_qty:: {:?}", pc_qty);
+    let fee_rate:U64F64 = U64F64!(0.0022); // fee_bps = 22; BASE
+
     let exact_fee: u64 = U64F64::to_num(fee_rate.checked_mul(U64F64::from_num(pc_qty)).unwrap());
 
     let pc_qty_including_fees = pc_qty + exact_fee;
-    msg!("pc_lots:: {:?}", pc_qty_including_fees);
+    msg!("pc_qty:: {:?}", pc_qty_including_fees);
+
+    let order_side = serum_dex::matching::Side::try_from_primitive(side.try_into().unwrap()).unwrap();
 
     let order = NewOrderInstructionV3 {
-        side: match side {
-            0 => Side::Bid,
-            1 => Side::Ask,
-            _ => Side::Bid
-        },
+        side: order_side,
         limit_price: NonZeroU64::new(price).unwrap(),
         max_coin_qty: NonZeroU64::new(coin_lots).unwrap(),
         max_native_pc_qty_including_fees: NonZeroU64::new(pc_qty_including_fees).unwrap(),
@@ -308,21 +310,22 @@ pub fn mango_close_position (
     let token_index = fund_data.mango_positions[0].margin_index as usize;
     let close_amount = get_close_amount(margin_account_acc, mango_group_acc, side, token_index)?;
 
+    msg!("close amount:: {:?}", close_amount);
     let coin_lots = convert_size_to_lots(spot_market_acc, dex_prog_acc.key, close_amount, false)?;
     msg!("coin_lots:: {:?} ", coin_lots);
 
-    let pc_qty = close_amount * price;
-    let fee_rate = U64F64::from_num(((22 as u128) << 64) / 10_000);
+    let pc_qty = convert_size_to_lots(spot_market_acc, dex_prog_acc.key, close_amount * price, true)?;
+    let fee_rate:U64F64 = U64F64!(0.0022); // fee_bps = 22; BASE
     let exact_fee: u64 = U64F64::to_num(fee_rate.checked_mul(U64F64::from_num(pc_qty)).unwrap());
     let pc_qty_including_fees = pc_qty + exact_fee;
 
-    msg!("pc_lots:: {:?}", pc_qty_including_fees);
-    
+    msg!("pc_qty:: {:?} ", pc_qty_including_fees);
+
+    let side = serum_dex::matching::Side::try_from_primitive(side.try_into().unwrap()).unwrap();
     let order = NewOrderInstructionV3 {
         side: match side { // reverse of open position
-            0 => Side::Ask,
-            1 => Side::Bid,
-            _ => Side::Ask
+            Side::Bid => Side::Ask,
+            Side::Ask => Side::Bid,
         },
         limit_price: NonZeroU64::new(price).unwrap(),
         max_coin_qty: NonZeroU64::new(coin_lots).unwrap(),
@@ -357,22 +360,22 @@ pub fn mango_close_position (
         ],
         &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
     )?;
-    let margin_data = MarginAccount::load(margin_account_acc)?;
-    let mango_group_data = MangoGroup::load(mango_group_acc)?;
+    // let margin_data = MarginAccount::load(margin_account_acc)?;
+    // let mango_group_data = MangoGroup::load(mango_group_acc)?;
 
-    let prices = get_prices(&mango_group_data, oracle_accs)?;
-    let coll_ratio = margin_data.get_collateral_ratio(&mango_group_data, &prices, open_orders_accs)?;
+    // let prices = get_prices(&mango_group_data, oracle_accs)?;
+    // let coll_ratio = margin_data.get_collateral_ratio(&mango_group_data, &prices, open_orders_accs)?;
 
-    // close leverage
-    check!(coll_ratio >= U64F64!(1.20), ProgramError::InsufficientFunds);
+    // // close leverage
+    // check!(coll_ratio >= U64F64!(1.20), ProgramError::InsufficientFunds);
 
 
     fund_data.no_of_margin_positions -= 1;
     fund_data.mango_positions[0].state = 4; // change to close_position
-    fund_data.mango_positions[0].investor_debt = U64F64::to_num(coll_ratio.
-        checked_mul(U64F64::from_num(fund_data.mango_positions[0].investor_debt)).unwrap()
-    ); // update investor_debts
-    fund_data.mango_positions[0].close_collateral = coll_ratio; // save coll_ratio of close
+    // fund_data.mango_positions[0].investor_debt = U64F64::to_num(coll_ratio.
+    //     checked_mul(U64F64::from_num(fund_data.mango_positions[0].investor_debt)).unwrap()
+    // ); // update investor_debts
+    //fund_data.mango_positions[0].close_collateral = coll_ratio; // save coll_ratio of close
 
     Ok(())
 }
@@ -425,13 +428,15 @@ pub fn mango_settle_position (
     )?;
 
     // settle borrows
-    let token_index = fund_data.mango_positions[0].margin_index as usize;
+    let token_index;
     let settle_amount;
 
     if fund_data.mango_positions[0].position_side == 0 { // for LONG settle USDC
+        token_index = NUM_MARKETS;
         settle_amount = get_settle_amount(margin_account_acc, mango_group_acc, NUM_MARKETS)?;
     }
     else { // for SHORT settle token
+        token_index = fund_data.mango_positions[0].margin_index as usize;
         settle_amount = get_settle_amount(margin_account_acc, mango_group_acc, token_index)?;
     }
     invoke_signed(
@@ -450,7 +455,8 @@ pub fn mango_settle_position (
     fund_data.mango_positions[0].state += 1; // increement state
     let margin_data = MarginAccount::load(margin_account_acc)?;
     // sanity check
-    check!(*open_orders_acc.key == margin_data.open_orders[token_index], ProgramError::InvalidAccountData);
+    check!(*open_orders_acc.key == margin_data.open_orders[fund_data.mango_positions[0].margin_index as usize],
+        ProgramError::InvalidAccountData);
     Ok(())
 }
 
@@ -491,6 +497,8 @@ pub fn mango_withdraw_fund (
 
     let quantity = get_withdraw_amount(margin_account_acc, mango_group_acc,open_orders_accs, oracle_accs)?;
  
+    msg!("withdraw_quantity:: {:?}", quantity);
+
     invoke_signed(
         &withdraw(mango_prog_acc.key, mango_group_acc.key, margin_account_acc.key, fund_pda_acc.key, token_account_acc.key, vault_acc.key, signer_acc.key,
             &[*open_orders_accs[0].key, *open_orders_accs[1].key, *open_orders_accs[2].key, *open_orders_accs[3].key],
@@ -513,6 +521,8 @@ pub fn mango_withdraw_fund (
     )?;
 
     let token_account = parse_token_account(token_account_acc)?;
+
+    msg!("quantity to withdraw:: {:?}", quantity);
 
     check!(token_account.mint == fund_data.tokens[0].mint, FundError::InvalidTokenAccount);
     check!(*token_account_acc.key == fund_data.tokens[0].vault, FundError::InvalidTokenAccount);
@@ -827,11 +837,25 @@ pub fn get_withdraw_amount (
     let prices = get_prices(&mango_group, oracle_accs)?;
     let equity = margin_data.get_equity(&mango_group, &prices, open_orders_accs)?;
 
-    let withdraw_amount = mango_group.indexes[NUM_MARKETS].deposit
-    .checked_mul(margin_data.deposits[NUM_MARKETS]).unwrap();
+    // let withdraw_amount = mango_group.indexes[NUM_MARKETS].deposit
+    // .checked_mul(margin_data.deposits[NUM_MARKETS]).unwrap();
+    let withdraw_amount = equity.checked_div(U64F64!(1.25)).unwrap();
+
+    let withdraw_amt = mango_group.indexes[0].deposit
+    .checked_mul(margin_data.deposits[0]).unwrap();
+    msg!("deposits BTC : {:?}", margin_data.deposits[0]);
+    msg!("borrows BTC : {:?}", margin_data.borrows[0]);
+
+    msg!("withdraw_amount btc {:?}", withdraw_amt);
+
+    msg!("deposits USDC : {:?}", margin_data.deposits[NUM_MARKETS]);
+    msg!("borrows USDC {:?}", margin_data.borrows[NUM_MARKETS]);
+
+    msg!("equity : {:?}", equity);
+    msg!("withdraw amount USDC: {:?}", withdraw_amount);
 
     // balances should be settled (10 is the DUST threshold)
-    check!(equity - withdraw_amount < 10, FundError::InvalidAmount);
+    //check!(equity - withdraw_amount < 10, FundError::InvalidAmount);
 
     return Ok(U64F64::to_num(withdraw_amount))
 }
@@ -845,17 +869,21 @@ pub fn get_close_amount (
     
     let margin_data = MarginAccount::load(&margin_acc)?;
     let mango_group = MangoGroup::load(&mango_group_acc)?;
-    let close_amount;
+    let mut close_amount;
 
     if side == 0 { // LONG
         close_amount = mango_group.indexes[token_index].deposit
         .checked_mul(margin_data.deposits[token_index]).unwrap();
+        // .checked_sub(U64F64!(100)).unwrap();
     }
     else { // SHORT
         close_amount = mango_group.indexes[token_index].borrow
         .checked_mul(margin_data.borrows[token_index]).unwrap();
+        // .checked_add(U64F64!(100)).unwrap();
     }
-    return Ok(U64F64::to_num(close_amount))
+    close_amount = close_amount.checked_add(U64F64!(1)).unwrap();
+    msg!("close_amount:: {:?}", close_amount);
+    return Ok(U64F64::to_num(close_amount)) // account for rounding
 }
 
 pub fn get_settle_amount (

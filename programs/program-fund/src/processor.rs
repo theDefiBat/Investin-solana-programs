@@ -180,7 +180,7 @@ impl Fund {
         if investor_data.amount_in_router == 0 {
             // calculate waiting queue index
             let index = fund_data.no_of_investments - fund_data.number_of_active_investments;
-            fund_data.investors[index as usize] = *investor_acc.key;
+            fund_data.investors[index as usize] = *investor_state_acc.key;
             fund_data.no_of_investments += 1;
         }
 
@@ -246,11 +246,11 @@ impl Fund {
 
         let platform_data = PlatformData::load(platform_acc)?;
         let mut fund_data = FundData::load_mut(fund_state_acc)?;
-        let mango_group_data = MangoGroup::load(mango_group_acc)?;
-        let margin_data = MarginAccount::load(margin_acc)?;
 
         let mut margin_equity = U64F64!(0);
         if fund_data.no_of_margin_positions > 0 && fund_data.mango_positions[0].state != 0 {
+            let mango_group_data = MangoGroup::load(mango_group_acc)?;
+            let margin_data = MarginAccount::load(margin_acc)?;
             let token_index = fund_data.mango_positions[0].margin_index as usize;
             let (equity, coll) = get_equity_and_coll_ratio(token_index, &mango_group_data, &margin_data, oracle_acc, open_orders_acc)?;
             let debt_valuation = coll.checked_mul(U64F64::from_num(fund_data.mango_positions[0].investor_debt)).unwrap();
@@ -846,8 +846,12 @@ impl Fund {
                 return mango_settle_position(program_id, accounts);
             }
             FundInstruction::MangoClosePosition { price } => {
-                msg!("FundInstruction::MangoWithdrawToFund");
+                msg!("FundInstruction::MangoClosePosition");
                 return mango_close_position(program_id, accounts, price);
+            }
+            FundInstruction::MangoWithdrawToFund => {
+                msg!("FundInstruction::MangoWithdrawToFund");
+                return mango_withdraw_fund(program_id, accounts);
             }
             FundInstruction::MangoWithdrawInvestor => {
                 msg!("FundInstruction::MangoWithdrawInvestor");
