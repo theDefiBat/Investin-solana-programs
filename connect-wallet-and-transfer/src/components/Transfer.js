@@ -1,13 +1,16 @@
 import { PublicKey, SYSVAR_CLOCK_PUBKEY, Transaction, TransactionInstruction } from '@solana/web3.js';
 import React, { useState } from 'react'
 import { GlobalState } from '../store/globalState';
-import { adminAccount, connection, FUND_ACCOUNT_KEY, platformStateAccount, priceStateAccount, programId, TOKEN_PROGRAM_ID } from '../utils/constants';
+import { adminAccount, connection, FUND_ACCOUNT_KEY, MANGO_GROUP_ACCOUNT, platformStateAccount, priceStateAccount, programId, TOKEN_PROGRAM_ID } from '../utils/constants';
 import { nu64, struct, u8 } from 'buffer-layout';
 import { createKeyIfNotExists, findAssociatedTokenAddress, setWalletTransaction, signAndSendTransaction, createAssociatedTokenAccountIfNotExist } from '../utils/web3';
 import { FUND_DATA, INVESTOR_DATA, PLATFORM_DATA, PRICE_DATA } from '../utils/programLayouts';
 import { devnet_pools, pools } from '../utils/pools'
 import { MANGO_TOKENS } from '../utils/tokens'
 import { updatePoolPrices } from './updatePrices';
+import {
+  MangoClient, MangoGroupLayout, MarginAccountLayout
+} from '@blockworks-foundation/mango-client'
 
 export const Transfer = () => {
 
@@ -43,9 +46,26 @@ export const Transfer = () => {
       alert("get info first!")
       return
     }
+    const client = new MangoClient()
+
 
     const accountInfo = await connection.getAccountInfo(new PublicKey(fundStateAccount));
-    const accountInfoData = FUND_DATA.decode(accountInfo.data);
+    const fund_data = FUND_DATA.decode(accountInfo.data);
+
+    let margin_account = fund_data.mango_positions[0].margin_account;
+    let open_orders = PublicKey.default
+    let oracle_acc = PublicKey.default
+    let is_active = false
+    if (margin_account != PublicKey.default && fund_data.mango_positions[0].state != 0) {
+      let margin_info = await connection.getAccountInfo(margin_account)
+      let margin_data = MarginAccountLayout.decode(margin_info.data)
+      let mango_info = await connection.getAccountInfo(MANGO_GROUP_ACCOUNT)
+      let mango_data = MangoGroupLayout.decode(mango_info.data)
+
+      let index = fund_data.mango_positions[0].margin_index
+      open_orders = margin_data.openOrders[index]
+      oracle_acc = mango_data.oracles[index]
+    }
 
 
     // updatePoolPrices(transaction, devnet_pools)
@@ -71,9 +91,14 @@ export const Transfer = () => {
         { pubkey: platformStateAccount, isSigner: false, isWritable: true },
         { pubkey: new PublicKey(fundStateAccount), isSigner: false, isWritable: true },
         { pubkey: priceStateAccount, isSigner: false, isWritable: true },
-        { pubkey: accountInfoData.mango_positions[0].margin_account, isSigner: false, isWritable: true },
-        { pubkey: SYSVAR_CLOCK_PUBKEY, isSigner: false, isWritable: true },
 
+        { pubkey: MANGO_GROUP_ACCOUNT, isSigner: false, isWritable: true },
+        { pubkey: margin_account, isSigner: false, isWritable: true },
+        { pubkey: open_orders, isSigner: false, isWritable: true },
+        { pubkey: oracle_acc, isSigner: false, isWritable: true },
+
+
+        { pubkey: SYSVAR_CLOCK_PUBKEY, isSigner: false, isWritable: true },
         { pubkey: key, isSigner: true, isWritable: true },
 
         { pubkey: routerBaseTokenAccount, isSigner: false, isWritable: true },
@@ -151,7 +176,7 @@ export const Transfer = () => {
     console.log(fundState)
 
     setAmountInRouter(parseInt(fundState.amount_in_router) / (10 ** fundState.tokens[0].decimals));
-    setFundPerf(parseInt(fundState.prev_performance))
+    setFundPerf(fundState.prev_performance)
     setFundAUM(parseInt(fundState.total_amount) / (10 ** fundState.tokens[0].decimals))
 
     let bal = []
@@ -165,11 +190,11 @@ export const Transfer = () => {
     for (let i = 0; i < 10; i++) {
       let acc = await PublicKey.createWithSeed(
         new PublicKey(fundState.investors[i].toString()),
-        fundPDA[0].toBase58().substr(0, 32),
+        fundPDA[0].toBase58().substr(0, 31),
         programId
       );
-      console.log(acc.toBase58())
-      investors.push(acc.toBase58())
+      console.log(fundState.investors[i].toBase58())
+      investors.push(fundState.investors[i].toBase58())
     }
     setFundInvestorAccs(investors);
   }

@@ -16,7 +16,7 @@ export const programId = new PublicKey('7xfTB3pxbE8vuXbU4tDHTzJxLZMqKJ9xa73XZxcG
 
 // change later
 export const platformStateAccount = new PublicKey('3d74PEd5bAqpvudEsbQD5LRWVwJMzReZqjzDoaJPd3k7')
-export const priceStateAccount = new PublicKey('9c29CVmZz1BqyxTXr5rgBLNemQBf17V1CEWMEEJ6kEVA')
+export const priceStateAccount = new PublicKey('ARXWJc6FmrAB7zkL2LAeRWGgaAe3MUqD1MJUTZGyiRQn')
 
 export const SYSTEM_PROGRAM_ID = new PublicKey('11111111111111111111111111111111')
 export const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA')

@@ -61,8 +61,6 @@ function App() {
         <Claim />
         <GetPrices />
         <MangoInitialize />
-        <MangoDeposit />
-        <MangoWithdrawToFund />
         <MangoPlaceOrder />
         <MangoWithdrawInvestor />
 

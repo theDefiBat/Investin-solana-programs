@@ -141,7 +141,7 @@ export const INVESTOR_DATA = struct([
   publicKeyLayout('manager'),
   u64('margin_debt'),
   u64('margin_position_id'),
-  seq(u64('fund_debt'), NUM_TOKENS)
+  seq(u64(), NUM_TOKENS, 'fund_debt')
 ])
 
 

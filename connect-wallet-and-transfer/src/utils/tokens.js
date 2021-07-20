@@ -61,13 +61,7 @@ export const TEST_LP_TOKENS = {
 }
 
 export const MANGO_TOKENS = {
-  'USDC': {
-    symbol: 'USDC',
-    name: 'USDC MANGO Base Test Token',
-    mintAddress: 'EMjjdsqERN4wJUR9jMBax2pzqQPeGLNn5NeucbHpDUZK',
-    decimals: 9
-  },
-
+  
   'BTC': {
     symbol: 'BTC',
     name: 'BTC MANGO Test Token',
@@ -94,7 +88,13 @@ export const MANGO_TOKENS = {
     name: 'SRM coin',
     mintAddress: '9FbAMDvXqNjPqZSYt4EWTguJuDrGkfvwr3gSFpiSbX9S',
     decimals: 6,
-  }
+  },
+  'USDC': {
+    symbol: 'USDC',
+    name: 'USDC MANGO Base Test Token',
+    mintAddress: 'EMjjdsqERN4wJUR9jMBax2pzqQPeGLNn5NeucbHpDUZK',
+    decimals: 9
+  },
 }
 
 export const TEST_TOKENS2 = {

@@ -38,7 +38,7 @@ export const Deposit = () => {
 
     const associatedTokenAddress1 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(MANGO_TOKENS['USDC'].mintAddress), RPDA[0], transaction);    
 
-    const investerStateAccount = await createKeyIfNotExists(walletProvider, null, programId, FPDA.toBase58().substr(0, 32), INVESTOR_DATA.span, transaction)
+    const investerStateAccount = await createKeyIfNotExists(walletProvider, null, programId, FPDA.toBase58().substr(0, 31), INVESTOR_DATA.span, transaction)
     
     // await updatePoolPrices(transaction, devnet_pools)
     

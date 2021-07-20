@@ -42,6 +42,79 @@ export const Withdraw = () => {
   const walletProvider = GlobalState.useState(s => s.walletProvider);
   const fundAccount = GlobalState.useState(s => s.createFundPublicKey);
 
+  const handleWithdrawSettle = async () => {
+    const key = walletProvider?.publicKey;
+    if (!key) {
+      alert("connect wallet")
+      return;
+    };
+
+    if(!fundStateAccount) {
+      alert("no funds found")
+      return
+    }
+    console.log("fundStateAcc::: ", fundStateAccount)
+    const investerStateAccount = await createKeyIfNotExists(walletProvider, null, programId, fundPDA.substr(0, 31), INVESTOR_DATA.span)
+
+    const accountInfo = await connection.getAccountInfo(new PublicKey(fundStateAccount));
+    const fund_data = FUND_DATA.decode(accountInfo.data);
+
+    let margin_account = fund_data.mango_positions[0].margin_account;
+    let open_orders = PublicKey.default
+    let oracle_acc = PublicKey.default
+    let is_active = false
+    if (margin_account != PublicKey.default && fund_data.mango_positions[0].state != 0) {
+      let margin_info = await connection.getAccountInfo(margin_account)
+      let margin_data = MarginAccountLayout.decode(margin_info.data)
+      let mango_info = await connection.getAccountInfo(MANGO_GROUP_ACCOUNT)
+      let mango_data = MangoGroupLayout.decode(mango_info.data)
+      console.log("margin_data:: ", margin_data)
+
+      let index = fund_data.mango_positions[0].margin_index
+      open_orders = margin_data.openOrders[index]
+      oracle_acc = mango_data.oracles[index]
+    }
+    const transaction = new Transaction()
+
+    const dataLayout = struct([u8('instruction')])
+    const data = Buffer.alloc(dataLayout.span)
+    dataLayout.encode(
+      {
+        instruction: 4
+      },
+      data
+    )
+
+    const instruction = new TransactionInstruction({
+      keys: [
+        { pubkey: new PublicKey(fundStateAccount), isSigner: false, isWritable: true },
+        { pubkey: investerStateAccount, isSigner: false, isWritable: true }, //fund State Account
+        { pubkey: key, isSigner: true, isWritable: true },
+
+        {pubkey: priceStateAccount, isSigner: false, isWritable:true},
+
+        { pubkey: MANGO_GROUP_ACCOUNT, isSigner: false, isWritable: true },
+        { pubkey: margin_account, isSigner: false, isWritable: true },
+        { pubkey: open_orders, isSigner: false, isWritable: true },
+        { pubkey: oracle_acc, isSigner: false, isWritable: true },
+
+        {pubkey: SYSVAR_CLOCK_PUBKEY, isSigner: false, isWritable:true}
+      ],
+      programId,
+      data
+    });
+
+    transaction.add(instruction);
+    console.log(`transaction ::: `, transaction)
+    console.log(`walletProvider?.publicKey ::: `, walletProvider?.publicKey.toBase58())
+    transaction.feePayer = key;
+    let hash = await connection.getRecentBlockhash("finalized");
+    console.log("blockhash", hash);
+    transaction.recentBlockhash = hash.blockhash;
+
+    const sign = await signAndSendTransaction(walletProvider, transaction);
+    console.log("tx::: ", sign)
+  }
   const handleWithdraw = async () => {
 
     console.log(`[...getPoolAccounts()] ::: `, [...getPoolAccounts()])
@@ -60,36 +133,28 @@ export const Withdraw = () => {
     console.log("fundStateAcc::: ", fundStateAccount)
 
     const RPDA = await PublicKey.findProgramAddress([Buffer.from("router")], programId);
-    const MPDA = new PublicKey(fundPDA)
 
-    const investerStateAccount = await createKeyIfNotExists(walletProvider, null, programId, MPDA.toBase58().substr(0, 32), INVESTOR_DATA.span)
+    const investerStateAccount = await createKeyIfNotExists(walletProvider, null, programId, fundPDA.substr(0, 31), INVESTOR_DATA.span)
     
     const transaction = new Transaction()
 
-    updatePoolPrices(transaction, devnet_pools)
+    // updatePoolPrices(transaction, devnet_pools)
 
-    const routerAssociatedTokenAddress = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['USDR'].mintAddress), RPDA[0], transaction);
-    // TODO: Manager Base Token Account
-    const managerAssociatedTokenAccount = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['USDR'].mintAddress), RPDA[0], transaction);
-    // TODO: Investin Base Token Account
-    const investinAssociatedTokenAddress = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['USDR'].mintAddress), adminAccount, transaction);
+    const routerAssociatedTokenAddress = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(MANGO_TOKENS['USDC'].mintAddress), RPDA[0], transaction);
 
+    const investorBaseTokenAccount = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(MANGO_TOKENS['USDC'].mintAddress), key, transaction);
+    // const investorTokenAccount2 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['RAYT'].mintAddress), key, transaction);
+    // const investorTokenAccount3 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['ALPHA'].mintAddress), key, transaction);
 
+    const fundAssociatedTokenAddress1 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(MANGO_TOKENS['USDC'].mintAddress), new PublicKey(fundPDA), transaction);
+    // const fundAssociatedTokenAddress2 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['RAYT'].mintAddress), MPDA, transaction);
+    // const fundAssociatedTokenAddress3 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['ALPHA'].mintAddress), MPDA, transaction);
 
-    const investorBaseTokenAccount = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['USDR'].mintAddress), key, transaction);
-    const investorTokenAccount2 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['RAYT'].mintAddress), key, transaction);
-    const investorTokenAccount3 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['ALPHA'].mintAddress), key, transaction);
-
-    const fundAssociatedTokenAddress1 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['USDR'].mintAddress), MPDA, transaction);
-    const fundAssociatedTokenAddress2 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['RAYT'].mintAddress), MPDA, transaction);
-    const fundAssociatedTokenAddress3 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['ALPHA'].mintAddress), MPDA, transaction);
-
-    const dataLayout = struct([u8('instruction'), nu64('amount')])
+    const dataLayout = struct([u8('instruction')])
     const data = Buffer.alloc(dataLayout.span)
     dataLayout.encode(
       {
         instruction: 3,
-        amount: amount * 1000000000
       },
       data
     )
@@ -99,43 +164,35 @@ export const Withdraw = () => {
         { pubkey: platformStateAccount, isSigner: false, isWritable: true }, //fund State Account
         { pubkey: fundStateAccount, isSigner: false, isWritable: true },
         { pubkey: investerStateAccount, isSigner: false, isWritable: true }, //fund State Account
-        
-        {pubkey: priceStateAccount, isSigner: false, isWritable:true},
-        {pubkey: SYSVAR_CLOCK_PUBKEY, isSigner: false, isWritable:true},
-        
         { pubkey: key, isSigner: true, isWritable: true },
-        
-        { pubkey: routerAssociatedTokenAddress, isSigner: false, isWritable: true }, // Router Base Token Account
-      
-        { pubkey: MPDA, isSigner: false, isWritable: false },
-        { pubkey: RPDA[0], isSigner: false, isWritable: false },
 
+        { pubkey: routerAssociatedTokenAddress, isSigner: false, isWritable: true }, // Router Base Token Account
+        { pubkey: new PublicKey(fundPDA), isSigner: false, isWritable: false },
+        { pubkey: RPDA[0], isSigner: false, isWritable: false },
         { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: true },
 
         { pubkey: investorBaseTokenAccount, isSigner: false, isWritable: true }, // Investor Token Accounts
-        { pubkey: investorTokenAccount2, isSigner: false, isWritable: true },
-        { pubkey: investorTokenAccount3, isSigner: false, isWritable: true },
-        
-        { pubkey: investorTokenAccount3, isSigner: false, isWritable: true },
-        { pubkey: investorTokenAccount3, isSigner: false, isWritable: true },
-        { pubkey: investorTokenAccount3, isSigner: false, isWritable: true },
-        { pubkey: investorTokenAccount3, isSigner: false, isWritable: true },
-        { pubkey: investorTokenAccount3, isSigner: false, isWritable: true },
-        { pubkey: investorTokenAccount3, isSigner: false, isWritable: true },
-        { pubkey: investorTokenAccount3, isSigner: false, isWritable: true },
+        { pubkey: investorBaseTokenAccount, isSigner: false, isWritable: true },
+        { pubkey: investorBaseTokenAccount, isSigner: false, isWritable: true },
+        { pubkey: investorBaseTokenAccount, isSigner: false, isWritable: true },
+        { pubkey: investorBaseTokenAccount, isSigner: false, isWritable: true },
+        { pubkey: investorBaseTokenAccount, isSigner: false, isWritable: true },
+        { pubkey: investorBaseTokenAccount, isSigner: false, isWritable: true },
+        { pubkey: investorBaseTokenAccount, isSigner: false, isWritable: true },
+        { pubkey: investorBaseTokenAccount, isSigner: false, isWritable: true },
+        { pubkey: investorBaseTokenAccount, isSigner: false, isWritable: true },
 
 
         { pubkey: fundAssociatedTokenAddress1, isSigner: false, isWritable: true }, // Fund Token Accounts
-        { pubkey: fundAssociatedTokenAddress2, isSigner: false, isWritable: true },
-        { pubkey: fundAssociatedTokenAddress3, isSigner: false, isWritable: true },
-        
-        { pubkey: fundAssociatedTokenAddress3, isSigner: false, isWritable: true },
-        { pubkey: fundAssociatedTokenAddress3, isSigner: false, isWritable: true },
-        { pubkey: fundAssociatedTokenAddress3, isSigner: false, isWritable: true },
-        { pubkey: fundAssociatedTokenAddress3, isSigner: false, isWritable: true },
-        { pubkey: fundAssociatedTokenAddress3, isSigner: false, isWritable: true },
-        { pubkey: fundAssociatedTokenAddress3, isSigner: false, isWritable: true },
-        { pubkey: fundAssociatedTokenAddress3, isSigner: false, isWritable: true },
+        { pubkey: fundAssociatedTokenAddress1, isSigner: false, isWritable: true },
+        { pubkey: fundAssociatedTokenAddress1, isSigner: false, isWritable: true },
+        { pubkey: fundAssociatedTokenAddress1, isSigner: false, isWritable: true },
+        { pubkey: fundAssociatedTokenAddress1, isSigner: false, isWritable: true },
+        { pubkey: fundAssociatedTokenAddress1, isSigner: false, isWritable: true },
+        { pubkey: fundAssociatedTokenAddress1, isSigner: false, isWritable: true },
+        { pubkey: fundAssociatedTokenAddress1, isSigner: false, isWritable: true },
+        { pubkey: fundAssociatedTokenAddress1, isSigner: false, isWritable: true },
+        { pubkey: fundAssociatedTokenAddress1, isSigner: false, isWritable: true },
 
       ],
       programId,
@@ -161,12 +218,19 @@ export const Withdraw = () => {
     const platformData = PLATFORM_DATA.decode(platformDataAcc.data)
     console.log("platformData :: ", platformData)
   
-    for(let i=0; i<platformData.no_of_active_funds; i++) {
-      let manager = platformData.fund_managers[i];
+    let funds = await connection.getProgramAccounts(programId, { filters: [{ dataSize: FUND_DATA.span }] });
+    console.log(`funds :::: `, funds)
+    const fundData = funds.map(f => FUND_DATA.decode(f.account.data))
+
+    console.log(`decodedFunds ::: `, fundData)
+    
+    for(let i=0; i<fundData.length; i++) {
+      let manager = fundData[i].manager_account;
+
       let PDA = await PublicKey.findProgramAddress([manager.toBuffer()], programId);
       let fundState = await PublicKey.createWithSeed(manager, FUND_ACCOUNT_KEY, programId);
 
-      let invStateAccount = await PublicKey.createWithSeed(key, PDA[0].toBase58().substr(0, 32), programId);
+      let invStateAccount = await PublicKey.createWithSeed(key, PDA[0].toBase58().substr(0, 31), programId);
       let invState = await connection.getAccountInfo(invStateAccount);
 
       if (invState == null) {
@@ -213,7 +277,7 @@ export const Withdraw = () => {
     }
     const investorStateAccount = await PublicKey.createWithSeed(
       key,
-      fundPDA.substr(0, 32),
+      fundPDA.substr(0, 31),
       programId,
     );
 
@@ -238,8 +302,8 @@ export const Withdraw = () => {
     }
     let fundState = FUND_DATA.decode(y.data);
     console.log(fundState)
-    setFundPerf(parseInt(fundState.prev_performance) / (10000));
-    setStartPerf(parseInt(invState.start_performance) / (10000));
+    setFundPerf(parseInt(fundState.prev_performance));
+    setStartPerf(parseInt(invState.start_performance));
     setWithdrawableAmount(((parseInt(invState.amount) * 0.98) / (10 ** fundState.tokens[0].decimals)) 
       *(parseInt(fundState.prev_performance) / parseInt(invState.start_performance))
     );
@@ -387,7 +451,7 @@ export const Withdraw = () => {
       <br />
       <br />
      
-      <button onClick={handleWithdraw}>Withdraw All</button>
+      <button onClick={handleWithdrawSettle}>Settle Withdraws</button>
       <button onClick={handleGetInvestments}>GetInvestments</button>
       
       <br />
@@ -409,6 +473,7 @@ export const Withdraw = () => {
       <br />
       ALPHA balance: {fundBalances[2]}
       <br />
+      <button onClick={handleWithdraw}>Withdraw from Fund</button>
       <button onClick={handleMangoWithdrawInvestor}>Withdraw from Margin Account</button>
     </div>
   )

@@ -6,7 +6,7 @@ import { nu64, struct, u8 } from 'buffer-layout';
 import { createKeyIfNotExists, findAssociatedTokenAddress, signAndSendTransaction } from '../utils/web3';
 import { MarginAccountLayout, NUM_MARKETS, MangoGroupLayout } from '../utils/MangoLayout';
 import { MANGO_TOKENS } from '../utils/tokens'
-import { placeOrder } from '../utils/mango';
+import { mangoOpenPosition } from '../utils/mango';
 import { INVESTOR_DATA } from '../utils/programLayouts';
 
 
@@ -69,7 +69,7 @@ export const MangoWithdrawInvestor = () => {
       let side = marginStateAccount.deposits[0] > 100 ? 'sell' : 'buy';
       console.log("side:: ", side)
 
-      await placeOrder(connection, margin_account_acc, fundStateAccount, fundPDA[0], walletProvider, SOL_USDC_MARKET, side, 1, null, transaction, true)
+      // await placeOrder(connection, margin_account_acc, fundStateAccount, fundPDA[0], walletProvider, SOL_USDC_MARKET, side, 1, null, transaction, true)
 
         transaction.feePayer = key;
         let hash = await connection.getRecentBlockhash();
