@@ -253,6 +253,7 @@ impl Fund {
             let margin_data = MarginAccount::load(margin_acc)?;
             let token_index = fund_data.mango_positions[0].margin_index as usize;
             let (equity, coll) = get_equity_and_coll_ratio(token_index, &mango_group_data, &margin_data, oracle_acc, open_orders_acc)?;
+            msg!("equity and coll:: {:?} {:?}", equity, coll);
             let debt_valuation = coll.checked_mul(U64F64::from_num(fund_data.mango_positions[0].investor_debt)).unwrap();
             margin_equity = equity.checked_sub(debt_valuation).unwrap();
         }
@@ -497,10 +498,12 @@ impl Fund {
         if fund_data.no_of_margin_positions > 0 && fund_data.mango_positions[0].state != 0 {
             let token_index = fund_data.mango_positions[0].margin_index as usize;
             let (equity, coll) = get_equity_and_coll_ratio(token_index, &mango_group_data, &margin_data, oracle_acc, open_orders_acc)?;
+            msg!("equity and coll:: {:?} {:?}", equity, coll);
             let debt_valuation = coll.checked_mul(U64F64::from_num(fund_data.mango_positions[0].investor_debt)).unwrap();
             margin_equity = equity.checked_sub(debt_valuation).unwrap();
             coll_ratio = coll;
         }
+
         if investor_data.amount != 0 && investor_data.start_performance != 0 {
             update_amount_and_performance(&mut fund_data, &price_acc, &clock_sysvar_acc, margin_equity, true)?;
             let share = get_share(&mut fund_data, &mut investor_data)?;
@@ -521,7 +524,8 @@ impl Fund {
             }
             fund_data.number_of_active_investments -= 1;
             investor_data.has_withdrawn = true;
-        }        
+            update_amount_and_performance(&mut fund_data, &price_acc, &clock_sysvar_acc, margin_equity, false)?;
+        }
         Ok(())
     }
 
@@ -787,14 +791,6 @@ impl Fund {
         accounts: &[AccountInfo],
         data: &[u8]
     ) -> Result<(), ProgramError> {
-        msg!("Program Entrypoint");
-
-        msg!("size of platform data:: {:?}", size_of::<PlatformData>());
-        msg!("size of investor data:: {:?}", size_of::<InvestorData>());
-
-        msg!("size of fund data:: {:?}", size_of::<FundData>());
-        msg!("size of token data:: {:?}", size_of::<TokenInfo>());
-
         let instruction = FundInstruction::unpack(data).ok_or(ProgramError::InvalidInstructionData)?;
         match instruction {
             FundInstruction::Initialize { min_amount, min_return, performance_fee_percentage } => {
@@ -900,7 +896,8 @@ pub fn update_amount_and_performance(
     let clock = &Clock::from_account_info(clock_sysvar_acc)?;
 
     // add USDT balance (not decimal adjusted)
-    let mut fund_val = U64F64::from_num(fund_data.tokens[0].balance).checked_add(margin_equity).unwrap();
+    let mut fund_val = U64F64::from_num(fund_data.tokens[0].balance - fund_data.tokens[0].debt).
+        checked_add(margin_equity).unwrap();
     msg!("margin_equity:: {:?}", margin_equity);
     // Calculate prices for all tokens with balances
     for i in 0..(NUM_TOKENS-1) {
@@ -1005,8 +1002,8 @@ pub fn get_assets_liabs(
     .checked_mul(price).unwrap();
 
     // USDC liabs
-    liabs = mango_group.indexes[token_index].borrow
-    .checked_mul(margin_account.borrows[token_index]).unwrap()
+    liabs = mango_group.indexes[NUM_MARKETS].borrow
+    .checked_mul(margin_account.borrows[NUM_MARKETS]).unwrap()
     .checked_add(liabs).unwrap();
 
     Ok((assets, liabs))
