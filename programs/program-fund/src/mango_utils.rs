@@ -5,6 +5,7 @@ use solana_program::{
     msg,
     instruction:: {AccountMeta, Instruction},
     program_error::ProgramError,
+    program_pack::Pack,
     pubkey::Pubkey,
     program::invoke_signed,
 };
@@ -26,12 +27,13 @@ use arrayref::{array_ref, array_refs};
 use crate::error::FundError;
 use crate::state::{NUM_TOKENS, MAX_INVESTORS_WITHDRAW, FundData, InvestorData};
 use crate::state::Loadable;
-use crate::processor::{ parse_token_account, get_equity_and_coll_ratio};
+use crate::processor::{ parse_token_account, get_margin_valuation};
 
 use mango::state::{MarginAccount, MangoGroup, NUM_MARKETS};
 use mango::state::Loadable as OtherLoadable;
 use mango::instruction::{init_margin_account, deposit, withdraw, settle_funds, settle_borrow, MangoInstruction};
 use mango::processor::get_prices;
+use spl_token::state::Account;
 
 pub const MANGO_NUM_TOKENS:usize = 5;
 
@@ -254,6 +256,8 @@ pub fn mango_open_position (
 
     fund_data.no_of_margin_positions += 1;
     fund_data.position_count += 1;
+    fund_data.mango_positions[0].fund_share = U64F64!(1);
+    fund_data.mango_positions[0].share_ratio = U64F64!(1);
     fund_data.mango_positions[0].margin_index = u8::try_from(token_index).unwrap();
     fund_data.mango_positions[0].state = 2; // change state to open_position
     fund_data.mango_positions[0].position_side = side;
@@ -415,12 +419,6 @@ pub fn mango_settle_position (
         &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
     )?;
 
-    if fund_data.mango_positions[0].state == 4 {
-        fund_data.mango_positions[0].close_collateral = 
-            get_coll_ratio(margin_account_acc, mango_group_acc, oracle_accs, open_orders_accs)?;
-        msg!("coll_ration while sett:: {:?}", fund_data.mango_positions[0].close_collateral);
-    }
-
     // settle borrows
     let token_index;
     let settle_amount;
@@ -493,6 +491,8 @@ pub fn mango_withdraw_fund (
  
     msg!("withdraw_quantity:: {:?}", quantity);
 
+    let pre_amount = Account::unpack(&token_account_acc.try_borrow_data()?)?.amount;
+
     invoke_signed(
         &withdraw(mango_prog_acc.key, mango_group_acc.key, margin_account_acc.key, fund_pda_acc.key, token_account_acc.key, vault_acc.key, signer_acc.key,
             &[*open_orders_accs[0].key, *open_orders_accs[1].key, *open_orders_accs[2].key, *open_orders_accs[3].key],
@@ -514,34 +514,32 @@ pub fn mango_withdraw_fund (
         &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
     )?;
 
-    let token_account = parse_token_account(token_account_acc)?;
-
-    msg!("quantity to withdraw:: {:?}", quantity);
-
-    check!(token_account.mint == fund_data.tokens[0].mint, FundError::InvalidTokenAccount);
     check!(*token_account_acc.key == fund_data.tokens[0].vault, FundError::InvalidTokenAccount);
-    check!(fund_data.mango_positions[0].investor_debt < quantity, FundError::InvalidAmount);
+    let post_amount = Account::unpack(&token_account_acc.try_borrow_data()?)?.amount;
+    let withdraw_amount = post_amount - pre_amount;
+    check!(quantity == withdraw_amount, ProgramError::InsufficientFunds);
 
     // update investor state account debts
-    let investor_debts = update_investor_debts(investor_accs, fund_data.mango_positions[0].close_collateral,
-        fund_data.mango_positions[0].position_id)?;
+    let (debts, debts_share) = update_investor_debts(&fund_data, investor_accs, fund_data.mango_positions[0].position_id, withdraw_amount)?;
 
+    msg!("debts_share settled:: {:?}", debts_share);
+    msg!("fund_share:: {:?}", fund_data.mango_positions[0].fund_share);
+    msg!("share_ratio:: {:?}", fund_data.mango_positions[0].share_ratio);
+    
     // all investors should be passed
-    msg!("investor_debts:: {:?}", fund_data.mango_positions[0].investor_debt);
-    msg!("update_investor_debts:: {:?}", investor_debts);
-
-    check!(investor_debts == fund_data.mango_positions[0].investor_debt, ProgramError::InvalidAccountData);
-
-    fund_data.tokens[0].balance = token_account.amount;
+    //check!(fund_data.mango_positions[0].fund_share.checked_add(debts_share).unwrap() > U64F64!(0.9999),
+    //ProgramError::InvalidAccountData);
+    
     // add margin_debt to USDC debt
-    fund_data.tokens[0].debt = investor_debts;
-    check!(fund_data.tokens[0].balance >= investor_debts, ProgramError::InvalidAccountData);
-    fund_data.mango_positions[0].investor_debt = 0;
+    fund_data.tokens[0].balance = post_amount;
+    fund_data.tokens[0].debt += debts;
+    check!(fund_data.tokens[0].balance >= fund_data.tokens[0].debt, FundError::InvalidAmount);
+
+    fund_data.mango_positions[0].fund_share = U64F64!(0);
     fund_data.mango_positions[0].position_side = 0;
     fund_data.mango_positions[0].position_id = 0;
     fund_data.mango_positions[0].margin_index = 0;
     fund_data.mango_positions[0].trade_amount = 0;
-    fund_data.mango_positions[0].close_collateral = U64F64!(0);
 
     fund_data.mango_positions[0].state = 0; // set state to inactive for new positions
     Ok(())
@@ -596,8 +594,32 @@ pub fn mango_withdraw_investor_place_order (
     check!(investor_data.margin_position_id == fund_data.mango_positions[0].position_id as u64, ProgramError::InvalidAccountData);
     check!(fund_data.mango_positions[0].state != 0, ProgramError::InvalidAccountData);
 
-    let order = fill_order_investor_withdraw(&mut fund_data, &mut investor_data, margin_account_acc,
-        mango_group_acc, spot_market_acc, dex_prog_acc, open_orders_accs, oracle_accs, price)?;
+    let token_index = fund_data.mango_positions[0].margin_index as usize;
+    let place_amount = get_investor_place_amount(&mut fund_data, &mut investor_data, 
+        margin_account_acc, mango_group_acc, open_orders_accs, oracle_accs, token_index)?;
+
+    msg!("place amount:: {:?}", place_amount);
+    let coin_lots = convert_size_to_lots(spot_market_acc, dex_prog_acc.key, place_amount, false)?;
+
+    let pc_qty = convert_size_to_lots(spot_market_acc, dex_prog_acc.key, place_amount * price, true)?;
+    let fee_rate:U64F64 = U64F64!(0.0022); // fee_bps = 22; BASE
+    let exact_fee: u64 = U64F64::to_num(fee_rate.checked_mul(U64F64::from_num(pc_qty)).unwrap());
+    let pc_qty_including_fees = pc_qty + exact_fee;
+
+    let side = serum_dex::matching::Side::try_from_primitive(fund_data.mango_positions[0].position_side.try_into().unwrap()).unwrap();
+    let order = NewOrderInstructionV3 {
+        side: match side { // reverse of open position
+            Side::Bid => Side::Ask,
+            Side::Ask => Side::Bid,
+        },
+        limit_price: NonZeroU64::new(price).unwrap(),
+        max_coin_qty: NonZeroU64::new(coin_lots).unwrap(),
+        max_native_pc_qty_including_fees: NonZeroU64::new(pc_qty_including_fees).unwrap(),
+        order_type: OrderType::Limit,
+        client_order_id: 1,
+        self_trade_behavior: SelfTradeBehavior::DecrementTake,
+        limit: 65535,
+    };
 
     // set investor variable, no double orders
     investor_data.withdrawn_from_margin = true;
@@ -631,54 +653,36 @@ pub fn mango_withdraw_investor_place_order (
 
 }
 
-pub fn fill_order_investor_withdraw (
+pub fn get_investor_place_amount (
     fund_data: &mut FundData,
     investor_data: &mut InvestorData,
     margin_acc: &AccountInfo,
     mango_group_acc: &AccountInfo,
-    spot_market_acc: &AccountInfo,
-    dex_prog_acc: &AccountInfo,
     open_orders_accs: &[AccountInfo; 4],
     oracle_accs: &[AccountInfo; 4],
-    price: u64
-) -> Result<serum_dex::instruction::NewOrderInstructionV3, ProgramError> {
+    token_index: usize
+) -> Result<u64, ProgramError> {
     
     let margin_data = MarginAccount::load(&margin_acc)?;
     let mango_group = MangoGroup::load(&mango_group_acc)?;
 
-    let prices = get_prices(&mango_group, oracle_accs)?;
-    let coll_ratio = margin_data.get_collateral_ratio(&mango_group, &prices, open_orders_accs)?;
-    
-    let market = MarketState::load(spot_market_acc, dex_prog_acc.key)?;
+    let inv_share = investor_data.margin_debt / fund_data.mango_positions[0].share_ratio;
+    msg!("investor share:: {:?}", inv_share);
+    let mut place_amount;
 
-    let pc_qty: u64 = U64F64::to_num(coll_ratio.
-        checked_mul(U64F64::from_num(investor_data.margin_debt)).unwrap()
-    );
-    let fee_rate = U64F64::from_num(((22 as u128) << 64) / 10_000);
-    let exact_fee: u64 = U64F64::to_num(fee_rate.checked_mul(U64F64::from_num(pc_qty)).unwrap());
-    let pc_qty_including_fees = pc_qty + exact_fee;
-    let pc_lots = convert_size_to_lots(spot_market_acc, dex_prog_acc.key, pc_qty_including_fees, true)?;
-    msg!("pc_lots:: {:?}", pc_lots);
+    if fund_data.mango_positions[0].position_side == 0 { // LONG
+        place_amount = mango_group.indexes[token_index].deposit
+        .checked_mul(margin_data.deposits[token_index]).unwrap()
+        .checked_mul(inv_share).unwrap();
+    }
+    else { // SHORT
+        place_amount = mango_group.indexes[token_index].borrow
+        .checked_mul(margin_data.borrows[token_index]).unwrap()
+        .checked_mul(inv_share).unwrap();
+    }
+    place_amount = place_amount.checked_add(U64F64!(1)).unwrap();
 
-    let coin_lots = pc_lots / market.coin_lot_size / price;
-    msg!("coin_lots:: {:?}", coin_lots);
-
-    
-    let order = NewOrderInstructionV3 {
-        side: match fund_data.mango_positions[0].position_side { // reverse of open position
-            0 => Side::Ask,
-            1 => Side::Bid,
-            _ => Side::Ask
-        },
-        limit_price: NonZeroU64::new(price).unwrap(),
-        max_coin_qty: NonZeroU64::new(coin_lots).unwrap(),
-        max_native_pc_qty_including_fees: NonZeroU64::new(pc_lots).unwrap(),
-        order_type: OrderType::ImmediateOrCancel,
-        client_order_id: 1,
-        self_trade_behavior: SelfTradeBehavior::AbortTransaction,
-        limit: 65535,
-    };
-    Ok(order)
+    Ok(U64F64::to_num(place_amount))
 }
 
 pub fn mango_withdraw_investor_settle (
@@ -748,6 +752,7 @@ pub fn mango_withdraw_investor_settle (
         ],
         &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
     )?;
+    msg!("done with settle borrows");
     Ok(())
 }
 
@@ -788,9 +793,10 @@ pub fn mango_withdraw_investor (
     check!(investor_data.margin_position_id == fund_data.mango_positions[0].position_id as u64, ProgramError::InvalidAccountData);
     check!(investor_data.withdrawn_from_margin, ProgramError::InvalidAccountData);
 
+    msg!("checks passed");
     // position has to be settled_close
-    let quantity = get_investor_withdraw_amount(&investor_data,
-        margin_account_acc, mango_group_acc, oracle_accs, open_orders_accs)?;
+    let quantity = get_investor_withdraw_amount(&fund_data, &investor_data,
+        margin_account_acc, mango_group_acc, open_orders_accs, oracle_accs)?;
 
     msg!("withdraw_quantity:: {:?}", quantity);
     invoke_signed(
@@ -814,8 +820,9 @@ pub fn mango_withdraw_investor (
         &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
     )?;
 
-    fund_data.mango_positions[0].investor_debt -= investor_data.margin_debt; // subtract from fund debt
-    investor_data.margin_debt = 0; // zero out investor_debt
+    fund_data.mango_positions[0].share_ratio = fund_data.mango_positions[0].share_ratio
+    .checked_sub(investor_data.margin_debt).unwrap();
+    investor_data.margin_debt = U64F64!(0); // zero out investor_debt
     investor_data.margin_position_id = 0; // not in investment queue
 
     Ok(())
@@ -923,9 +930,9 @@ pub fn get_investor_settle_amount (
     let mango_group = MangoGroup::load(&mango_group_acc)?;
 
     let token_index = fund_data.mango_positions[0].margin_index as usize;
-    let (_equity, coll) = get_equity_and_coll_ratio(token_index, &mango_group, &margin_data, oracle_acc, open_orders_acc)?;
+    let equity = get_margin_valuation(token_index, &mango_group, &margin_data, oracle_acc, open_orders_acc)?;
 
-    let inv_debt = coll.checked_mul(U64F64::from_num(investor_data.margin_debt)).unwrap();
+    let inv_debt = equity.checked_mul(investor_data.margin_debt / fund_data.mango_positions[0].share_ratio).unwrap();
     if fund_data.mango_positions[0].position_side == 0 { // for LONG settle USDC
         let deposit_amount = mango_group.indexes[NUM_MARKETS].deposit
         .checked_mul(margin_data.deposits[NUM_MARKETS]).unwrap();
@@ -941,6 +948,7 @@ pub fn get_investor_settle_amount (
 }
 
 pub fn get_investor_withdraw_amount (
+    fund_data: &FundData,
     investor_data: &InvestorData,
     margin_acc: &AccountInfo,
     mango_group_acc: &AccountInfo,
@@ -952,11 +960,16 @@ pub fn get_investor_withdraw_amount (
     let mango_group = MangoGroup::load(&mango_group_acc)?;
 
     let prices = get_prices(&mango_group, oracle_accs)?;
-    let coll_ratio = margin_data.get_collateral_ratio(&mango_group, &prices, open_orders_accs)?;
+    let equity = margin_data.get_equity(&mango_group, &prices, open_orders_accs)?;
 
-    let withdraw_amount = coll_ratio.checked_mul(U64F64::from_num(investor_data.margin_debt)).unwrap();
+    let dust_amount = U64F64::from_num(10u64.pow((mango_group.mint_decimals[NUM_MARKETS] - 1) as u32));
+    let withdraw_amount = equity.checked_mul(investor_data.margin_debt / fund_data.mango_positions[0].share_ratio).unwrap()
+    .checked_sub(dust_amount).unwrap();
     let deposit_amount = mango_group.indexes[NUM_MARKETS].deposit
     .checked_mul(margin_data.deposits[NUM_MARKETS]).unwrap();
+
+    msg!("borrows SRM: {:?}, deposits SRM :{:?}", margin_data.borrows[3], margin_data.deposits[3]);
+    msg!("borrows USDC: {:?}, deposits USDC :{:?}", margin_data.borrows[4], margin_data.deposits[4]);
 
     // sanity check
     check!(withdraw_amount <= deposit_amount, ProgramError::InsufficientFunds);
@@ -979,12 +992,15 @@ pub fn convert_size_to_lots(
 }
 
 pub fn update_investor_debts(
+    fund_data: &FundData,
     investor_accs: &[AccountInfo],
-    close_collateral: U64F64,
-    position_id: u16
-) -> Result<u64, ProgramError> {
+    position_id: u16,
+    withdraw_amount: u64
+) -> Result<(u64, U64F64), ProgramError> {
     
-    let mut debts = 0;
+    let mut debts: u64 = 0;
+    let mut debts_share = U64F64!(0);
+
     for i in 0..MAX_INVESTORS_WITHDRAW {
         if *investor_accs[i].key == Pubkey::default() {
             continue;
@@ -992,15 +1008,19 @@ pub fn update_investor_debts(
         let mut investor_data = InvestorData::load_mut(&investor_accs[i])?;
         if investor_data.margin_position_id == position_id as u64 {
             // update
-            debts += investor_data.margin_debt;
-            investor_data.margin_debt = U64F64::to_num(close_collateral.
-                checked_mul(U64F64::from_num(investor_data.margin_debt)).unwrap()
-            );
-            msg!("close collateral:: {:?}", close_collateral);
+            let debt_valuation: u64 = U64F64::to_num(U64F64::from_num(withdraw_amount)
+            .checked_mul(investor_data.margin_debt / fund_data.mango_positions[0].share_ratio).unwrap());
+            debts += debt_valuation;
+            debts_share += investor_data.margin_debt / fund_data.mango_positions[0].share_ratio;
+
+            // update investor debts; add to USDC debt
+            investor_data.margin_debt = U64F64!(0);
+            investor_data.fund_debt[0] += debt_valuation;
+            investor_data.has_withdrawn = true;
             investor_data.margin_position_id = 0; // remove position id
         }
     }
-    Ok(debts)
+    Ok((debts, debts_share))
 }
 
 pub fn instruction_place_and_settle(

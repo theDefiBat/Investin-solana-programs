@@ -471,7 +471,7 @@ impl FundInstruction {
                 }
             },
             16 => {
-                FundInstruction::MangoSettlePosition
+                FundInstruction::MangoWithdrawInvestorSettle
             },
             17 => {
                 let amount = array_ref![data, 0, 8];

@@ -107,7 +107,7 @@ impl Fund {
         fund_data.min_return = U64F64::from_num(min_return / 100);
         fund_data.performance_fee_percentage = U64F64::from_num(performance_fee_percentage / 100);
 
-        fund_data.total_amount = 0; 
+        fund_data.total_amount = U64F64!(0); 
         fund_data.prev_performance = U64F64!(1.00);
         fund_data.number_of_active_investments = 0;
         fund_data.mango_positions[0].margin_account = Pubkey::default();
@@ -252,10 +252,8 @@ impl Fund {
             let mango_group_data = MangoGroup::load(mango_group_acc)?;
             let margin_data = MarginAccount::load(margin_acc)?;
             let token_index = fund_data.mango_positions[0].margin_index as usize;
-            let (equity, coll) = get_equity_and_coll_ratio(token_index, &mango_group_data, &margin_data, oracle_acc, open_orders_acc)?;
-            msg!("equity and coll:: {:?} {:?}", equity, coll);
-            let debt_valuation = coll.checked_mul(U64F64::from_num(fund_data.mango_positions[0].investor_debt)).unwrap();
-            margin_equity = equity.checked_sub(debt_valuation).unwrap();
+            let equity = get_margin_valuation(token_index, &mango_group_data, &margin_data, oracle_acc, open_orders_acc)?;
+            margin_equity = equity.checked_mul(fund_data.mango_positions[0].fund_share / fund_data.mango_positions[0].share_ratio).unwrap();
         }
 
         // check if manager signed the tx
@@ -346,26 +344,24 @@ impl Fund {
 
             let investor_state_acc = &investor_state_accs[i as usize];
             let mut investor_data = InvestorData::load_mut(investor_state_acc)?;
-            if investor_data.start_performance == 0 {
-                investor_data.start_performance = fund_data.prev_performance;
-            }
+            // if investor_data.start_performance == 0 {
+            //     investor_data.start_performance = fund_data.prev_performance;
+            // }
             if investor_data.amount_in_router != 0 {
-                let investment_return: u64 = U64F64::to_num(U64F64::from_num(investor_data.amount)
-                .checked_mul(
-                    U64F64::from_num(fund_data.prev_performance).checked_div(U64F64::from_num(investor_data.start_performance)).unwrap()
-                ).unwrap());
+                // let investment_return: u64 = U64F64::to_num(U64F64::from_num(investor_data.amount)
+                // .checked_mul(
+                //     U64F64::from_num(fund_data.prev_performance).checked_div(U64F64::from_num(investor_data.start_performance)).unwrap()
+                // ).unwrap());
         
-                investor_data.amount = U64F64::to_num(U64F64::from_num(investment_return)
-                .checked_add(U64F64::from_num(investor_data.amount_in_router)).unwrap());
+                investor_data.amount = transferable_amount;
                 investor_data.start_performance = fund_data.prev_performance;
-                
                 investor_data.amount_in_router = 0;
             }
         }
         
         fund_data.tokens[0].balance = parse_token_account(&fund_btoken_acc)?.amount;
         // dont update performance now
-        update_amount_and_performance(&mut fund_data, &price_acc, &clock_sysvar_acc, margin_equity, true)?;
+        update_amount_and_performance(&mut fund_data, &price_acc, &clock_sysvar_acc, margin_equity, false)?;
         fund_data.number_of_active_investments = fund_data.no_of_investments;
         fund_data.amount_in_router = 0;
 
@@ -492,16 +488,12 @@ impl Fund {
         check!(investor_data.owner == *investor_acc.key, ProgramError::MissingRequiredSignature);
         check!(investor_acc.is_signer, ProgramError::MissingRequiredSignature);
 
-        // TODO::  check if has_withdrawn == false
-        let mut coll_ratio = U64F64!(1);
+        // calculate current margin equity for fund
         let mut margin_equity = U64F64!(0);
         if fund_data.no_of_margin_positions > 0 && fund_data.mango_positions[0].state != 0 {
             let token_index = fund_data.mango_positions[0].margin_index as usize;
-            let (equity, coll) = get_equity_and_coll_ratio(token_index, &mango_group_data, &margin_data, oracle_acc, open_orders_acc)?;
-            msg!("equity and coll:: {:?} {:?}", equity, coll);
-            let debt_valuation = coll.checked_mul(U64F64::from_num(fund_data.mango_positions[0].investor_debt)).unwrap();
-            margin_equity = equity.checked_sub(debt_valuation).unwrap();
-            coll_ratio = coll;
+            let equity = get_margin_valuation(token_index, &mango_group_data, &margin_data, oracle_acc, open_orders_acc)?;
+            margin_equity = equity.checked_mul(fund_data.mango_positions[0].fund_share / fund_data.mango_positions[0].share_ratio).unwrap();
         }
 
         if investor_data.amount != 0 && investor_data.start_performance != 0 {
@@ -515,12 +507,16 @@ impl Fund {
             }
             // active margin trade
             if margin_equity > 0 && fund_data.mango_positions[0].state != 0 {
-                let margin_share: u64 = U64F64::to_num(margin_equity.checked_mul(share).unwrap()
-                    .checked_div(coll_ratio).unwrap()
-                );
-                investor_data.margin_debt = margin_share;
+                investor_data.margin_debt = share.checked_mul(fund_data.mango_positions[0].fund_share).unwrap();
+                msg!("investor margin debt:: {:?}", investor_data.margin_debt);
+                msg!("investor share : {:?}", share);
+                msg!("fund share:: {:?}", fund_data.mango_positions[0].fund_share);
+
                 investor_data.margin_position_id = fund_data.mango_positions[0].position_id as u64;
-                fund_data.mango_positions[0].investor_debt += margin_share;
+                fund_data.mango_positions[0].fund_share = fund_data.mango_positions[0].fund_share.checked_sub(
+                    investor_data.margin_debt).unwrap();
+                // update margin equity for current withdrawal
+                margin_equity = margin_equity.checked_sub(margin_equity.checked_mul(share).unwrap()).unwrap();
             }
             fund_data.number_of_active_investments -= 1;
             investor_data.has_withdrawn = true;
@@ -541,7 +537,6 @@ impl Fund {
         let mut fund_data = FundData::load_mut(fund_state_acc)?;
 
         let (source_info, dest_info) = swap_instruction(&data, &fund_data, accounts)?;
-
 
         for i in 0..NUM_TOKENS {
             if fund_data.tokens[i].mint == source_info.mint {
@@ -586,9 +581,8 @@ impl Fund {
         let mut margin_equity = U64F64!(0);
         if fund_data.no_of_margin_positions > 0 && fund_data.mango_positions[0].state != 0 {
             let token_index = fund_data.mango_positions[0].margin_index as usize;
-            let (equity, coll) = get_equity_and_coll_ratio(token_index, &mango_group_data, &margin_data, oracle_acc, open_orders_acc)?;
-            let debt_valuation = coll.checked_mul(U64F64::from_num(fund_data.mango_positions[0].investor_debt)).unwrap();
-            margin_equity = equity.checked_sub(debt_valuation).unwrap();
+            let equity = get_margin_valuation(token_index, &mango_group_data, &margin_data, oracle_acc, open_orders_acc)?;
+            margin_equity = equity.checked_mul(U64F64::from_num(fund_data.mango_positions[0].fund_share / fund_data.mango_positions[0].share_ratio)).unwrap();
         }
         // check if manager signed the tx
         check!(manager_acc.is_signer, FundError::IncorrectSignature);
@@ -924,7 +918,7 @@ pub fn update_amount_and_performance(
         // only case where performance is not updated:
         // when no investments and no performance fee for manager
         if fund_data.number_of_active_investments != 0 || fund_data.performance_fee != 0 {
-            perf = fund_val.checked_div(U64F64::from_num(fund_data.total_amount)).unwrap()
+            perf = fund_val.checked_div(fund_data.total_amount).unwrap()
             .checked_mul(U64F64::from_num(fund_data.prev_performance)).unwrap();
         }
         // adjust for manager performance fee
@@ -934,7 +928,7 @@ pub fn update_amount_and_performance(
         fund_data.prev_performance = U64F64::to_num(perf);
     }
     
-    fund_data.total_amount = U64F64::to_num(fund_val);
+    fund_data.total_amount = fund_val;
     
     msg!("updated amount: {:?}", fund_data.total_amount);
     
@@ -955,7 +949,6 @@ pub fn get_price(
         let quote_adj = U64F64::from_num(
             10u64.pow(quote_decimals.checked_sub(mango_group.oracle_decimals[token_index]).unwrap() as u32)
         );
-
         let answer = flux_aggregator::read_median(oracle_acc)?; // this is in USD cents
 
         let value = U64F64::from_num(answer.median);
@@ -1157,9 +1150,7 @@ pub fn get_share(
 
     msg!("performance: {:?}", perf_share);
 
-    let actual_amount: u64 = U64F64::to_num(U64F64::from_num(investor_data.amount)
-    .checked_mul(U64F64::from_num(98)).unwrap()
-    .checked_div(U64F64::from_num(100)).unwrap());
+    let actual_amount: u64 = investor_data.amount;
 
     let mut investment_return = U64F64::from_num(actual_amount)
     .checked_mul(perf_share).unwrap();
@@ -1193,7 +1184,7 @@ pub fn get_share(
     }
 
     let share = U64F64::from_num(investment_return)
-    .checked_div(U64F64::from_num(fund_data.total_amount)).unwrap();
+    .checked_div(fund_data.total_amount).unwrap();
 
     Ok(share)
 }

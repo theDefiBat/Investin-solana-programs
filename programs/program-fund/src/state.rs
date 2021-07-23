@@ -80,8 +80,8 @@ pub struct InvestorData {
     // Fund manager wallet key
     pub manager: Pubkey,
 
-    // margin assets owed in USDC tokens
-    pub margin_debt: u64,
+    // margin percentage
+    pub margin_debt: U64F64,
 
     // margin position id
     pub margin_position_id: u64,
@@ -121,7 +121,7 @@ pub struct FundData {
     pub performance_fee_percentage: U64F64,
 
     /// Total Amount in fund (in USDC)
-    pub total_amount: u64,
+    pub total_amount: U64F64,
 
     /// Preformance in fund
     pub prev_performance: U64F64,
@@ -162,11 +162,10 @@ pub struct MarginInfo {
     pub padding: [u8; 3],
     pub position_id: u16, // unique id for the position
     
-    pub trade_amount: u64, // used for PnL calculation
+    pub trade_amount: u64, // 8 for PnL calculation
 
-    pub close_collateral: U64F64,
-
-    pub investor_debt: u64 // updated on every investor withdraw
+    pub fund_share: U64F64,
+    pub share_ratio: U64F64
 }
 
 unsafe impl Zeroable for MarginInfo {}
