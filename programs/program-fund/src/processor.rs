@@ -456,7 +456,6 @@ impl Fund {
         investor_data.amount_in_router = 0;
         investor_data.has_withdrawn = false;
         
-        fund_data.no_of_investments -= 1;        
         Ok(())
     }
 
@@ -519,6 +518,7 @@ impl Fund {
                 margin_equity = margin_equity.checked_sub(margin_equity.checked_mul(share).unwrap()).unwrap();
             }
             fund_data.number_of_active_investments -= 1;
+            fund_data.no_of_investments -= 1;
             investor_data.has_withdrawn = true;
             update_amount_and_performance(&mut fund_data, &price_acc, &clock_sysvar_acc, margin_equity, false)?;
         }

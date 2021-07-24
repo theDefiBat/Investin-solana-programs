@@ -796,7 +796,7 @@ pub fn mango_withdraw_investor (
 
     msg!("checks passed");
     // position has to be settled_close
-    let quantity = get_investor_withdraw_amount(&fund_data, &investor_data,
+    let (quantity, rem) = get_investor_withdraw_amount(&fund_data, &investor_data,
         margin_account_acc, mango_group_acc, open_orders_accs, oracle_accs)?;
 
     msg!("withdraw_quantity:: {:?}", quantity);
@@ -825,6 +825,17 @@ pub fn mango_withdraw_investor (
     .checked_sub(investor_data.margin_debt).unwrap();
     investor_data.margin_debt = U64F64!(0); // zero out investor_debt
     investor_data.margin_position_id = 0; // not in investment queue
+
+    // close position if rem < 1 USDC
+    if rem < U64F64!(1) {
+        fund_data.mango_positions[0].fund_share = U64F64!(0);
+        fund_data.mango_positions[0].share_ratio = U64F64!(1);
+        fund_data.mango_positions[0].position_side = 0;
+        fund_data.mango_positions[0].position_id = 0;
+        fund_data.mango_positions[0].margin_index = 0;
+        fund_data.mango_positions[0].trade_amount = 0;
+        fund_data.mango_positions[0].state = 0; // set state to inactive for new positions
+    }
 
     Ok(())
 }
@@ -955,7 +966,7 @@ pub fn get_investor_withdraw_amount (
     mango_group_acc: &AccountInfo,
     open_orders_accs: &[AccountInfo; 4],
     oracle_accs: &[AccountInfo; 4],
-) -> Result<u64, ProgramError> {
+) -> Result<(u64, U64F64), ProgramError> {
 
     let margin_data = MarginAccount::load(&margin_acc)?;
     let mango_group = MangoGroup::load(&mango_group_acc)?;
@@ -969,12 +980,10 @@ pub fn get_investor_withdraw_amount (
     let deposit_amount = mango_group.indexes[NUM_MARKETS].deposit
     .checked_mul(margin_data.deposits[NUM_MARKETS]).unwrap();
 
-    msg!("borrows SRM: {:?}, deposits SRM :{:?}", margin_data.borrows[3], margin_data.deposits[3]);
-    msg!("borrows USDC: {:?}, deposits USDC :{:?}", margin_data.borrows[4], margin_data.deposits[4]);
-
+    let remaining_amount = equity.checked_sub(withdraw_amount).unwrap();
     // sanity check
     check!(withdraw_amount <= deposit_amount, ProgramError::InsufficientFunds);
-    Ok(U64F64::to_num(withdraw_amount))
+    Ok((U64F64::to_num(withdraw_amount), remaining_amount))
 }
 
 pub fn convert_size_to_lots(
