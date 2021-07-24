@@ -80,13 +80,13 @@ export const MangoPlaceOrder = () => {
     let investor_accs = PublicKey.default
     const fund_info = await connection.getAccountInfo(fundStateAccount)
     const fund_data = FUND_DATA.decode(fund_info.data)
-    if (fund_data.mango_positions[0].investor_debt > 0) {
+    if (fund_data.mango_positions[0].fund_share < 1                                                                                             ) {
       let invs = await connection.getProgramAccounts(programId, { filters: [{ dataSize: INVESTOR_DATA.span }] });
       const invData = invs.map(f => INVESTOR_DATA.decode(f.account.data))
       let invIndex = invData.findIndex(i => ((i.manager.toBase58() == key.toBase58()) && (i.margin_debt > 0)))
-      investor_accs = invs[invIndex].pubkey
-      console.log("invDAta::", investor_accs)
-
+      console.log("invindex: ", invIndex)
+      investor_accs = invIndex >= 0 ? invs[invIndex].pubkey: PublicKey.default
+      //console.log("invDAta::", investor_accs)
     }
 
     console.log("FUND STTE:: ", fundStateAccount.toBase58())
@@ -96,7 +96,7 @@ export const MangoPlaceOrder = () => {
 
     let side = fund_data.mango_positions[0].position_side == 0 ? 'sell' : 'buy'
 
-    
+    console.log("side:: ", side)    
     await mangoClosePosition(connection, margin_account_acc, fundStateAccount, fundPDA[0], walletProvider, index, side, size, null, transaction, investor_accs)
     console.log("transaction::", transaction)
     transaction.feePayer = key;

@@ -12,7 +12,7 @@ import { TEST_TOKENS } from '../utils/tokens';
 import { updatePoolPrices } from './updatePrices';
 import { MarginAccountLayout, NUM_MARKETS, MangoGroupLayout } from '../utils/MangoLayout';
 import { MANGO_TOKENS } from '../utils/tokens'
-import { placeOrder, placeOrder2 } from '../utils/mango';
+import { mangoWithdrawInvestor, placeOrder, placeOrder2 } from '../utils/mango';
 
 
 const getPoolAccounts = () => {
@@ -323,116 +323,52 @@ export const Withdraw = () => {
     
       const key = walletProvider?.publicKey;
 
-    if (!key ) {
-      alert("connect wallet")
-      return;
-    };
-    const transaction = new Transaction()
-
-    const fundPDA = await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId);
-    const  fundStateAccount = await PublicKey.createWithSeed(
-      key,
-      FUND_ACCOUNT_KEY,
-      programId,
-    );
-
-    let mango_group_acc = await connection.getAccountInfo(MANGO_GROUP_ACCOUNT)
-    let mango_data = MangoGroupLayout.decode(mango_group_acc.data)
-
-    const signer_acc = mango_data.signerKey;
-
-    const invBaseTokenAccount = await findAssociatedTokenAddress(key, new PublicKey(MANGO_TOKENS['USDC'].mintAddress));
-    const margin_account_acc = await createKeyIfNotExists(walletProvider, "", MANGO_PROGRAM_ID_V2, MARGIN_ACCOUNT_KEY, MarginAccountLayout.span, transaction)
-    const investerStateAccount = await createKeyIfNotExists(walletProvider, null, programId, fundPDA[0].toBase58().substr(0, 32), INVESTOR_DATA.span)
-
-    console.log("margin_acc::", margin_account_acc)
-    let margin_data = await connection.getAccountInfo(margin_account_acc);
-    let margin_dec = MarginAccountLayout.decode(margin_data.data)
-    console.log("margin data", margin_dec)
+      if (!key) {
+        alert("connect wallet")
+        return;
+      };
+  
+      if(!fundStateAccount) {
+        alert("no funds found")
+        return
+      }
+      console.log("fundStateAcc::: ", fundStateAccount)
+    
+      const investerStateAccount = await createKeyIfNotExists(walletProvider, null, programId, fundPDA.substr(0, 31), INVESTOR_DATA.span)
+      
+      const transaction = new Transaction()
 
     if (fundStateAccount == ''){
       alert("get fund info first!")
       return
     }
 
-    let x = await connection.getAccountInfo(margin_account_acc)
-      if (x == null)
+    let fund_data = FUND_DATA.decode((await connection.getAccountInfo(new PublicKey(fundStateAccount))).data)
+    let inv_data = INVESTOR_DATA.decode((await connection.getAccountInfo(investerStateAccount)).data)
+
+
+    console.log("fund_data:: ", fund_data)
+    console.log("inv_data:: ", inv_data)
+
+    if (fund_data.mango_positions[0] != 0 && inv_data.margin_debt > 0) {
+      if (inv_data.margin_position_id == fund_data.mango_positions[0].position_id) // position not closed
       {
-          alert("margin account not found")
-          return
+        let side = fund_data.mango_positions[0].position_side == 0 ? 'sell' : 'buy'
+        let market_index = fund_data.mango_positions[0].margin_index
+        let margin_account_acc = fund_data.mango_positions[0].margin_account
+        console.log("market index:: ", market_index)
+        await mangoWithdrawInvestor(connection, margin_account_acc, new PublicKey(fundStateAccount), investerStateAccount, new PublicKey(fundPDA), walletProvider, market_index, side, 10, null, transaction, side == 'buy' ? 0 : NUM_MARKETS)
       }
-      console.log(x)
-      let marginStateAccount = MarginAccountLayout.decode(x.data)
+    } 
 
-    let open_order_acc = []
-    open_order_acc.push(marginStateAccount.openOrders[0])
-    open_order_acc.push(marginStateAccount.openOrders[1])
-    open_order_acc.push(marginStateAccount.openOrders[2])
-    open_order_acc.push(marginStateAccount.openOrders[3])
-
-    let side = marginStateAccount.deposits[0] > 100 ? 'sell' : 'buy';
-    console.log("side:: ", side)
-
-    //await placeOrder2(connection, margin_account_acc, fundStateAccount, fundPDA[0], walletProvider, SOL_USDC_MARKET, side, 0.01, null, transaction, side == 'buy' ? 0 : NUM_MARKETS)
 
       transaction.feePayer = key;
       let hash = await connection.getRecentBlockhash();
       console.log("blockhash", hash);
       transaction.recentBlockhash = hash.blockhash;
 
-      //const sign = await signAndSendTransaction(walletProvider, transaction);
-      //console.log("signature tx:: ", sign)
-
-      const transaction1 = new Transaction()
-    const dataLayout = struct([u8('instruction'), nu64('token_index')])
-    const data = Buffer.alloc(dataLayout.span)
-    dataLayout.encode(
-      {
-        instruction: 13,
-        //token_index: side == 'buy' ? 0 : NUM_MARKETS
-        token_index: 4
-      },
-      data
-    )
-    const instruction = new TransactionInstruction({
-      keys: [
-          {pubkey: fundStateAccount, isSigner: false, isWritable: true},
-          {pubkey: investerStateAccount, isSigner: false, isWritable: true },
-          {pubkey: key, isSigner: true, isWritable: true },
-          {pubkey: fundPDA[0], isSigner: false, isWritable: true },
-          {pubkey: MANGO_PROGRAM_ID_V2, isSigner: false, isWritable:true},
-
-          {pubkey: MANGO_GROUP_ACCOUNT, isSigner: false, isWritable:true},
-          {pubkey: margin_account_acc, isSigner: false, isWritable:true},
-          {pubkey: invBaseTokenAccount, isSigner: false, isWritable:true},
-          {pubkey: MANGO_VAULT_ACCOUNT_USDC, isSigner: false, isWritable:true},
-          // TODO: signer_acc
-          {pubkey: signer_acc, isSigner: false, isWritable:true},
-          {pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable:true},
-          {pubkey: CLOCK_PROGRAM_ID, isSigner: false, isWritable:true},
-          // open order account
-          {pubkey: open_order_acc[0], isSigner: false, isWritable:true},
-          {pubkey: open_order_acc[1], isSigner: false, isWritable:true},
-          {pubkey: open_order_acc[2], isSigner: false, isWritable:true},
-          {pubkey: open_order_acc[3], isSigner: false, isWritable:true},
-          // oracle accounts
-          {pubkey: ORACLE_BTC_DEVNET, isSigner: false, isWritable:true},
-          {pubkey: ORACLE_ETH_DEVNET, isSigner: false, isWritable:true},
-          {pubkey: ORACLE_SOL_DEVNET, isSigner: false, isWritable:true},
-          {pubkey: ORACLE_SRM_DEVNET, isSigner: false, isWritable:true},
-      ],
-    programId,
-    data
-    });
-  
-      transaction1.add(instruction);
-      transaction1.feePayer = key;
-      let hash1 = await connection.getRecentBlockhash();
-      console.log("blockhash", hash1);
-      transaction1.recentBlockhash = hash1.blockhash;
-
-      const sign1 = await signAndSendTransaction(walletProvider, transaction1);
-      console.log("signature tx:: ", sign1)
+      const sign = await signAndSendTransaction(walletProvider, transaction);
+      console.log("signature tx:: ", sign)
       
 }
 

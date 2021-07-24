@@ -1,9 +1,9 @@
 import { Connection, PublicKey } from "@solana/web3.js";
 
 export const PLATFORM_ACCOUNT_KEY = "platAccKey_7";
-export const FUND_ACCOUNT_KEY = "fundAccKey_7";
-export const PRICE_ACCOUNT_KEY = "price_account_key_7";
-export const MARGIN_ACCOUNT_KEY = "margin_account_key_7"
+export const FUND_ACCOUNT_KEY = "fundAccKey_8";
+export const PRICE_ACCOUNT_KEY = "price_account_key_8";
+export const MARGIN_ACCOUNT_KEY = "margin_account_key_8"
 
 export const adminAccount = new PublicKey('Fepyuf4vy7mKZVgpzS52UoUeSLmVvGnoMDyraCsjYUqn')
 

@@ -92,9 +92,8 @@ export const FUND_DATA = struct([
   u64('min_amount'),
   U64F64('min_return'),
   U64F64('performance_fee_percentage'),
-  u64('total_amount'),
+  U64F64('total_amount'),
   U64F64('prev_performance'),
-
 
   u64('amount_in_router'),
   U64F64('performance_fee'),
@@ -120,8 +119,8 @@ export const FUND_DATA = struct([
       u16('position_id'),
 
       u64('trade_amount'),
-      U64F64('close_collateral'),
-      u64('investor_debt')
+      U64F64('fund_share'),
+      U64F64('share_ratio')
     ]),
     2, 'mango_positions'
   ),
@@ -139,7 +138,7 @@ export const INVESTOR_DATA = struct([
   U64F64('start_performance'),
   u64('amount_in_router'),
   publicKeyLayout('manager'),
-  u64('margin_debt'),
+  U64F64('margin_debt'),
   u64('margin_position_id'),
   seq(u64(), NUM_TOKENS, 'fund_debt')
 ])
