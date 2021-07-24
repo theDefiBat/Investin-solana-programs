@@ -1,4 +1,4 @@
-use std::mem::size_of;
+
 use bytemuck::bytes_of;
 use fixed::types::U64F64;
 use fixed_macro::types::U64F64;
@@ -264,6 +264,9 @@ impl Fund {
 
         // check_owner(router_btoken_acc, pda_router_acc.key);
 
+
+        // TODO:: investin_btoken_account updatable by admin
+
         msg!("Calculating transfer amount");
         let transferable_amount: u64 = U64F64::to_num(U64F64::from_num(fund_data.amount_in_router)
         .checked_mul(U64F64::from_num(98)).unwrap()
@@ -445,7 +448,7 @@ impl Fund {
                         token_prog_acc.clone()
                     ],
                     &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
-                )?;   
+                )?;
                 fund_data.tokens[i].balance = parse_token_account(&fund_token_accs[i])?.amount;
                 fund_data.tokens[i].debt -= investor_data.fund_debt[i];
                 investor_data.fund_debt[i] = 0;
@@ -502,7 +505,7 @@ impl Fund {
                 let withdraw_amount: u64 = U64F64::to_num(U64F64::from_num(fund_data.tokens[i].balance)
                 .checked_mul(share).unwrap());
                 investor_data.fund_debt[i] = withdraw_amount;
-                fund_data.tokens[i].debt = withdraw_amount;
+                fund_data.tokens[i].debt += withdraw_amount;
             }
             // active margin trade
             if margin_equity > 0 && fund_data.mango_positions[0].state != 0 {
@@ -998,7 +1001,6 @@ pub fn get_assets_liabs(
     liabs = mango_group.indexes[NUM_MARKETS].borrow
     .checked_mul(margin_account.borrows[NUM_MARKETS]).unwrap()
     .checked_add(liabs).unwrap();
-
     Ok((assets, liabs))
 }
 
@@ -1163,13 +1165,15 @@ pub fn get_share(
         let profit = U64F64::from_num(investment_return)
         .checked_sub(U64F64::from_num(actual_amount)).unwrap();
         let performance: u64 = U64F64::to_num(profit.checked_div(U64F64::from_num(actual_amount)).unwrap()
-        .checked_mul(U64F64::from_num(1000000)).unwrap());
+        .checked_mul(U64F64::from_num(100)).unwrap());
         // if performance exceeds min return; update manager performance fees
+
+        // TODO xoheb jo bola woh idher karna hai (trimming)
         if performance >= fund_data.min_return {
             investment_return = U64F64::from_num(profit)
             .checked_mul(
-                (U64F64::from_num(1000000).checked_sub(U64F64::from_num(fund_data.performance_fee_percentage)).unwrap())
-                .checked_div(U64F64::from_num(1000000)).unwrap()
+                (U64F64::from_num(100).checked_sub(fund_data.performance_fee_percentage).unwrap())
+                .checked_div(U64F64::from_num(100)).unwrap()
                 ).unwrap()
             .checked_add(U64F64::from_num(actual_amount)).unwrap();
 
@@ -1177,7 +1181,7 @@ pub fn get_share(
             .checked_add(U64F64::from_num(profit)
             .checked_mul(
                 U64F64::from_num(fund_data.performance_fee_percentage)
-                .checked_div(U64F64::from_num(1000000)).unwrap()
+                .checked_div(U64F64::from_num(100)).unwrap()
             ).unwrap()).unwrap()
             );
         }
