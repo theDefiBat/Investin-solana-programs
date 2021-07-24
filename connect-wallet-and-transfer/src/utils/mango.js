@@ -739,8 +739,7 @@ export async function mangoWithdrawInvestor(
   console.log("mango group::", mangoGroup)
 
   console.log("margin acc::", marginAccount)
-  size = marginAccount.getAssets(mangoGroup)[mIndex]
-  console.log("size:: ", size)
+  
 
   let spotMarket = await Market.load(connection, serumMarket, {}, SERUM_PROGRAM_ID_V3)
   console.log("spot market:: ", spotMarket)
@@ -749,14 +748,18 @@ export async function mangoWithdrawInvestor(
   let orderType = 'limit'
   let orderbook
   if (side === 'buy') {
+    size = marginAccount.getLiabs(mangoGroup)[mIndex]
     orderbook = await spotMarket.loadBids(connection)
   }
   else {
+    size = marginAccount.getAssets(mangoGroup)[mIndex]
     orderbook = await spotMarket.loadAsks(connection)
   }
   console.log("orderbook", orderbook)
   let price = calculateMarketPrice(orderbook, size, side)
   console.log("price:: ", price)
+  console.log("size:: ", size)
+
 
   const limitPrice = spotMarket.priceNumberToLots(price)
   const maxBaseQuantity = spotMarket.baseSizeNumberToLots(size)
