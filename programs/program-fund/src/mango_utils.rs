@@ -250,7 +250,7 @@ pub fn mango_open_position (
     let coll_ratio = margin_data.get_collateral_ratio(&mango_group_data, &prices, open_orders_accs)?;
 
     // restrict to 2x leverage
-    check!(coll_ratio >= U64F64!(1.45), ProgramError::InsufficientFunds);
+    check!(coll_ratio >= U64F64!(1.4), ProgramError::InsufficientFunds);
 
     let token_index = mango_group_data.get_market_index(spot_market_acc.key).unwrap();
 
@@ -536,6 +536,7 @@ pub fn mango_withdraw_fund (
     check!(fund_data.tokens[0].balance >= fund_data.tokens[0].debt, FundError::InvalidAmount);
 
     fund_data.mango_positions[0].fund_share = U64F64!(0);
+    fund_data.mango_positions[0].share_ratio = U64F64!(1);
     fund_data.mango_positions[0].position_side = 0;
     fund_data.mango_positions[0].position_id = 0;
     fund_data.mango_positions[0].margin_index = 0;
