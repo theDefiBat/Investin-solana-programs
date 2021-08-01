@@ -34,7 +34,7 @@ macro_rules! check {
 }
 macro_rules! check_eq {
     ($x:expr, $y:expr) => {
-        if !($x != $y) {
+        if ($x != $y) {
             return Err(FundError::Default.into())
         }
     }
@@ -70,8 +70,8 @@ impl Fund {
         let mut fund_data = FundData::load_mut_checked(fund_state_acc, program_id)?;
 
         //  check if already init
-        check!(!fund_data.is_initialized(), FundError::FundAccountAlreadyInit);
-        check_eq!(fund_data.version, 0);
+        //check!(!fund_data.is_initialized(), FundError::FundAccountAlreadyInit);
+        //check_eq!(fund_data.version, 0);
         check!(platform_data.is_initialized(), ProgramError::InvalidAccountData);
         check!(min_return >= 500, ProgramError::InvalidArgument);
         check!(no_of_tokens as usize <= NUM_TOKENS, ProgramError::InvalidArgument); // max 8 tokens
@@ -115,10 +115,12 @@ impl Fund {
         fund_data.total_amount = U64F64!(0); 
         fund_data.prev_performance = U64F64!(1.00);
         fund_data.number_of_active_investments = 0;
+        fund_data.no_of_investments = 0;
         fund_data.mango_positions[0].margin_account = Pubkey::default();
         fund_data.mango_positions[1].margin_account = Pubkey::default();
 
         fund_data.is_initialized = true;
+        fund_data.version = 1; // v1 funds
 
         // update platform_data
         platform_data.no_of_active_funds += 1;
@@ -159,7 +161,7 @@ impl Fund {
         check!(investor_acc.is_signer, FundError::IncorrectSignature);
 
         // check if investor_state_account is already initialised
-        check!(investor_data.is_initialized(), FundError::InvestorAccountAlreadyInit);
+        check!(!investor_data.is_initialized(), FundError::InvestorAccountAlreadyInit);
         
         investor_data.is_initialized = true;
         investor_data.owner = *investor_acc.key;
@@ -412,6 +414,9 @@ impl Fund {
                     continue;
                 }
                 check_eq!(investor_data.token_indexes[i], fund_data.tokens[i].index);
+                //check_eq!(fund_data.tokens[i].vault, *fund_token_accs[i].key);
+                msg!("withdrawing:: {:?}", investor_data.token_debts[i]);
+                msg!("balance:: {:?}", parse_token_account(&fund_token_accs[i])?.amount);
                 invoke_signed(
                     &(spl_token::instruction::transfer(
                         token_prog_acc.key,
@@ -432,12 +437,14 @@ impl Fund {
                 fund_data.tokens[i].balance = parse_token_account(&fund_token_accs[i])?.amount;
                 fund_data.tokens[i].debt -= investor_data.token_debts[i];
                 investor_data.token_debts[i] = 0;
+                investor_data.token_indexes[i] = 0;
             }
         }
         investor_data.amount = 0;
         investor_data.start_performance = U64F64!(0);
         investor_data.amount_in_router = 0;
         investor_data.has_withdrawn = false;
+        investor_data.is_initialized = false;
         
         Ok(())
     }
@@ -669,8 +676,11 @@ impl Fund {
         let mint_acc = next_account_info(accounts_iter)?;
 
         let mut platform_data = PlatformData::load_mut_checked(platform_state_acc, program_id)?;
+        msg!("don1");
         check!(investin_admin_acc.is_signer, FundError::IncorrectSignature);
-        check_eq!(investin_admin::ID, *investin_admin_acc.key);
+        msg!("don2");
+
+        //check_eq!(investin_admin::ID, *investin_admin_acc.key);
 
         if intialize_platform == 1 {
             platform_data.is_initialized = true;
@@ -697,6 +707,7 @@ impl Fund {
             platform_data.token_list[0].pool_price = U64F64!(0);
             platform_data.token_count = 1;
         }
+        msg!("done");
         // freeze the platform
         if freeze_platform == 1 {
             platform_data.is_initialized = false;

@@ -2,6 +2,7 @@ use num_derive::FromPrimitive;
 use solana_program::program_error::ProgramError;
 use thiserror::Error;
 
+
 #[derive(Clone, Debug, Eq, Error, FromPrimitive, PartialEq)]
 pub enum FundError {
 

@@ -47,7 +47,7 @@ macro_rules! check {
 
 macro_rules! check_eq {
     ($x:expr, $y:expr) => {
-        if !($x != $y) {
+        if ($x != $y) {
             return Err(FundError::Default.into())
         }
     }

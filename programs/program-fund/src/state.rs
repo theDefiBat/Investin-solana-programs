@@ -5,6 +5,7 @@ use solana_program::account_info::AccountInfo;
 use solana_program::program_pack::{IsInitialized, Sealed};
 use solana_program::program_error::ProgramError;
 use solana_program::clock::UnixTimestamp;
+use solana_program::msg;
 use bytemuck::{from_bytes, from_bytes_mut, Pod, Zeroable};
 use fixed::types::U64F64;
 use crate::error::FundError;
@@ -37,7 +38,7 @@ macro_rules! impl_loadable {
 
 macro_rules! check_eq {
     ($x:expr, $y:expr) => {
-        if !($x != $y) {
+        if ($x != $y) {
             return Err(FundError::Default.into())
         }
     }
@@ -262,7 +263,9 @@ impl PlatformData {
         program_id: &Pubkey
     ) -> Result<RefMut<'a, Self>, ProgramError> {
 
+        msg!("Platform data:: {:?}, {:?}", account.data_len(), size_of::<Self>());
         check_eq!(account.data_len(), size_of::<Self>());
+        msg!("size check done");
         check_eq!(account.owner, program_id);
 
         let data = Self::load_mut(account)?;
