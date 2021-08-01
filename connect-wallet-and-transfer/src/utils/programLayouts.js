@@ -2,9 +2,10 @@ import { Blob, seq, struct, u32, u8, u16, ns64 } from 'buffer-layout';
 import { PublicKey } from '@solana/web3.js';
 import BN from 'bn.js';
 
-export const NUM_TOKENS = 10
+export const NUM_TOKENS = 8
+export const MAX_TOKENS = 50
+export const NUM_MARGIN = 2
 export const MAX_INVESTORS = 10
-export const MAX_FUNDS = 200
 
 class PublicKeyLayout extends Blob {
   constructor(property) {
@@ -71,13 +72,29 @@ export function u128(property = "") {
  
 export const PLATFORM_DATA = struct([
   u8('is_initialized'),
+  u8('version'),
   u8('router_nonce'),
   u8('no_of_active_funds'),
-  seq(u8(), 5, 'padding'),
+  u8('token_count'),
+  seq(u8(), 3, 'padding'),
 
   publicKeyLayout('router'),
   publicKeyLayout('investin_admin'),
-  publicKeyLayout('investin_vault')
+  publicKeyLayout('investin_vault'),
+
+  seq(
+    struct([
+      publicKeyLayout('mint'),
+      u64('decimals'),
+      publicKeyLayout('pool_coin_account'),
+      publicKeyLayout('pool_pc_account'),
+      U64F64('pool_price'),
+      ns64('last_updated'),
+      u64('padding')
+    ]),
+    MAX_TOKENS, 'token_list'
+  ),
+
 ])
 
 export const FUND_DATA = struct([
@@ -89,6 +106,9 @@ export const FUND_DATA = struct([
   u8('no_of_margin_positions'),
   u16('position_count'),
 
+  u8('version'),
+  seq(u8(), 7, 'padding'),
+
   u64('min_amount'),
   U64F64('min_return'),
   U64F64('performance_fee_percentage'),
@@ -98,13 +118,18 @@ export const FUND_DATA = struct([
   u64('amount_in_router'),
   U64F64('performance_fee'),
   publicKeyLayout('manager_account'),
+  publicKeyLayout('fund_pda'),
+
   seq(
     struct([
-      publicKeyLayout('mint'),
-      u64('decimals'),
-      publicKeyLayout('vault'),
+      u8('is_initialized'),
+      u8('index'),
+      seq(u8(), 6, 'padding'),
+
       u64('balance'),
-      u64('debt')
+      u64('debt'),
+
+      publicKeyLayout('vault')
     ]),
     NUM_TOKENS, 'tokens'
   ),
@@ -122,8 +147,10 @@ export const FUND_DATA = struct([
       U64F64('fund_share'),
       U64F64('share_ratio')
     ]),
-    2, 'mango_positions'
+    NUM_MARGIN, 'mango_positions'
   ),
+  seq(u8(), 32, 'padding'),
+
 ])
 
 export const INVESTOR_DATA = struct([
@@ -138,9 +165,14 @@ export const INVESTOR_DATA = struct([
   U64F64('start_performance'),
   u64('amount_in_router'),
   publicKeyLayout('manager'),
-  U64F64('margin_debt'),
-  u64('margin_position_id'),
-  seq(u64(), NUM_TOKENS, 'fund_debt')
+  seq(U64F64(), NUM_MARGIN, 'margin_debt'),
+  seq(u64(), NUM_MARGIN, 'margin_position_id'),
+
+  seq(u8(), NUM_TOKENS, 'token_indexes'),
+  seq(u64(), NUM_TOKENS, 'token_debts'),
+
+  seq(u8(), 32, 'xpadding')
+
 ])
 
 
@@ -201,7 +233,6 @@ export const AMM_INFO_LAYOUT_V4 = struct([
 ])
 
 
-export const MAX_TOKENS = 50
 // Aggregator Accounts
 export const PRICE_DATA = struct([
   u32('count'),

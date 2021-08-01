@@ -14,21 +14,7 @@ export const InitialisedFund = () => {
 
   const walletProvider = GlobalState.useState(s => s.walletProvider);
 
-  // useEffect(() => {
-  //   //   await connection.getTokenAccountsByOwner(new PublicKey("8Yx3Fo5Q6vbR9zourTBnpmBCydP71KmqfSg3dUFtUZ9D"), { mint: new PublicKey("7ujhhEvmSr33MeZybgpQXanDNnHzHJ7b27v3JMPzjBBw") })
-
-  //   if (walletProvider) {
-  //     (async () => {
-  //       // const PDA = await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId);
-
-  //       console.log(`object ::: `,
-  //         await connection.getTokenAccountsByOwner(PDA[0], { programId: TOKEN_PROGRAM_ID }))
-  //     })()
-  //   }
-  // }, [walletProvider])
-
   const handleInitialFund = async () => {
-    console.log("handle initalise fund clicked")
 
     const transaction = new Transaction()
 
@@ -52,7 +38,8 @@ export const InitialisedFund = () => {
     const fundData = await connection.getAccountInfo(fundAccount, "max");
     const platformData = await connection.getAccountInfo(platformAccount, "max");
 
-    // const x = FUND_DATA.decode(fundData.data)
+    const x = PLATFORM_DATA.decode(platformData.data)
+    console.log("plat data:: ", x)
     // console.log('funddata span', FUND_DATA.span)
     // console.log('platformData span', PLATFORM_DATA.span)
     // console.log(`fundData parsed`, x)
@@ -82,9 +69,6 @@ export const InitialisedFund = () => {
       console.log(`associatedTokenAccounts.value ::: `, associatedTokenAccounts.value)
 
       const associatedTokenAddress1 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(MANGO_TOKENS['USDC'].mintAddress), PDA[0], transaction);
-      const associatedTokenAddress2 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(MANGO_TOKENS['BTC'].mintAddress), PDA[0], transaction);
-      const associatedTokenAddress3 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(MANGO_TOKENS['ETH'].mintAddress), PDA[0], transaction);
-
 
       console.log(`associatedTokenAddress1 ::: `, associatedTokenAccounts)
 
@@ -102,6 +86,7 @@ export const InitialisedFund = () => {
           { pubkey: fundAccount, isSigner: false, isWritable: true },
           { pubkey: walletProvider?.publicKey, isSigner: true, isWritable: true },
           { pubkey: associatedTokenAddress1, isSigner: false, isWritable: true },
+
           { pubkey: new PublicKey(MANGO_TOKENS['USDC'].mintAddress), isSigner: false, isWritable: true },
           { pubkey: new PublicKey(MANGO_TOKENS['BTC'].mintAddress), isSigner: false, isWritable: true },
           { pubkey: new PublicKey(MANGO_TOKENS['ETH'].mintAddress), isSigner: false, isWritable: true },

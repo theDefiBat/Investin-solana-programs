@@ -3,6 +3,7 @@ const { MangoClient, IDS, MangoGroup, sleep } = require('@blockworks-foundation/
 const { Account, Connection, PublicKey } = require('@solana/web3.js');
 const { Market, TokenInstructions, OpenOrders, Orderbook } = require('@project-serum/serum');
 const { Order } = require('@project-serum/serum/lib/market');
+import { nu64, struct, u8 } from 'buffer-layout';
 
 const fs = require('fs')
 

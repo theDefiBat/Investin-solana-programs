@@ -17,10 +17,9 @@ import { Claim } from './components/ClaimFee';
 import { Testing } from './components/Testing';
 import { GetPrices } from './components/GetPrices';
 import { MangoInitialize } from './components/MangoInitialize';
-import { MangoDeposit } from './components/MangoDeposit';
-import { MangoWithdrawToFund } from './components/MangoWithdrawToFund';
 import { MangoPlaceOrder } from './components/MangoPlaceOrder';
-import { MangoWithdrawInvestor } from './components/MangoWithdrawInvestor';
+import { AdminControl } from './components/AdminControl';
+
 
 
 
@@ -62,8 +61,7 @@ function App() {
         <GetPrices />
         <MangoInitialize />
         <MangoPlaceOrder />
-        <MangoWithdrawInvestor />
-
+        <AdminControl />
       </Container>
     </div>
   );

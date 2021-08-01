@@ -152,6 +152,7 @@ export async function mangoOpenPosition(
     ],
     spotMarket.programId
   )
+  console.log("dex signer:: ", dexSigner.toBase58())
 
   // Create a Solana account for the open orders account if it's missing
   const openOrdersKeys = []

@@ -1,7 +1,7 @@
 import { PublicKey, Transaction, TransactionInstruction } from '@solana/web3.js';
 import React, { useState } from 'react'
 import { GlobalState } from '../store/globalState';
-import { adminAccount, connection, FUND_ACCOUNT_KEY, programId, TOKEN_PROGRAM_ID , CLOCK_PROGRAM_ID, MANGO_PROGRAM_ID_V2, MANGO_GROUP_ACCOUNT, MANGO_VAULT_ACCOUNT_USDC, MARGIN_ACCOUNT_KEY, SOL_USDC_MARKET} from '../utils/constants';
+import { adminAccount, connection, FUND_ACCOUNT_KEY, programId, TOKEN_PROGRAM_ID , CLOCK_PROGRAM_ID, MANGO_PROGRAM_ID_V2, MANGO_GROUP_ACCOUNT, MANGO_VAULT_ACCOUNT_USDC, MARGIN_ACCOUNT_KEY_1, SOL_USDC_MARKET, MARGIN_ACCOUNT_KEY_2} from '../utils/constants';
 import { nu64, struct, u8 } from 'buffer-layout';
 import { createKeyIfNotExists, findAssociatedTokenAddress, setWalletTransaction, signAndSendTransaction, createAssociatedTokenAccountIfNotExist } from '../utils/web3';
 import { FUND_DATA, INVESTOR_DATA } from '../utils/programLayouts';
@@ -39,7 +39,7 @@ export const MangoPlaceOrder = () => {
       console.log("FUND STTE:: ", fundStateAccount.toBase58())
       const transaction = new Transaction()
 
-      const margin_account_acc = await createKeyIfNotExists(walletProvider, "", MANGO_PROGRAM_ID_V2, MARGIN_ACCOUNT_KEY, MarginAccountLayout.span, transaction)
+      const margin_account_acc = await createKeyIfNotExists(walletProvider, "", MANGO_PROGRAM_ID_V2, MARGIN_ACCOUNT_KEY_1, MarginAccountLayout.span, transaction)
 
       if (fundStateAccount == ''){
         alert("get info first!")
@@ -92,8 +92,10 @@ export const MangoPlaceOrder = () => {
     console.log("FUND STTE:: ", fundStateAccount.toBase58())
     const transaction = new Transaction()
 
-    const margin_account_acc = await createKeyIfNotExists(walletProvider, "", MANGO_PROGRAM_ID_V2, MARGIN_ACCOUNT_KEY, MarginAccountLayout.span, transaction)
+    const margin_account_acc = await createKeyIfNotExists(walletProvider, "", MANGO_PROGRAM_ID_V2, MARGIN_ACCOUNT_KEY_1, MarginAccountLayout.span, transaction)
+    const margin_account_acc2 = await createKeyIfNotExists(walletProvider, "", MANGO_PROGRAM_ID_V2, MARGIN_ACCOUNT_KEY_2, MarginAccountLayout.span, transaction)
 
+    
     let side = fund_data.mango_positions[0].position_side == 0 ? 'sell' : 'buy'
 
     console.log("side:: ", side)    

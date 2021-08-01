@@ -4,6 +4,7 @@ import React, { useState } from 'react'
 import { GlobalState } from '../store/globalState'
 import { connection, programId, TOKEN_PROGRAM_ID, FUND_ACCOUNT_KEY, LIQUIDITY_POOL_PROGRAM_ID_V4 } from '../utils/constants'
 import { devnet_pools } from '../utils/pools'
+import { AMM_INFO_LAYOUT_V4 } from '../utils/programLayouts'
 import { TokenAmount } from '../utils/safe-math'
 import { NATIVE_SOL, TEST_TOKENS, TOKENS } from '../utils/tokens'
 import { createTokenAccountIfNotExist, findAssociatedTokenAddress, sendNewTransaction, signAndSendTransaction } from '../utils/web3'
@@ -151,7 +152,7 @@ export const Swap = () => {
         new PublicKey(poolInfo.ammTargetOrders),
         new PublicKey(poolInfo.poolCoinTokenAccount),
         new PublicKey(poolInfo.poolPcTokenAccount),
-        new PublicKey(poolInfo.serumProgramId),
+        poolInfo.serumProgramId,
         new PublicKey(poolInfo.serumMarket),
         new PublicKey(poolInfo.serumBids),
         new PublicKey(poolInfo.serumAsks),
@@ -185,6 +186,12 @@ export const Swap = () => {
   const [selectedFirstToken, setSelectedFirstToken] = useState('');
 
   const handleBuy = async () => {
+    // const ammInfo = await connection.getAccountInfo(new PublicKey('6Xec3XR8NqNWbn6CFtGr9DbdKqSunzbXFFRiRpmxPxF2'))
+    // const ammData = AMM_INFO_LAYOUT_V4.decode(ammInfo.data)
+
+    // console.log("amm info:: ", ammData)
+
+
     const poolInfo = devnet_pools.find(p => p.name === selectedFirstToken);
     const fromCoinMint = poolInfo.pc.mintAddress;
     const toCoinMint = poolInfo.coin.mintAddress;
@@ -229,8 +236,8 @@ export const Swap = () => {
   }
 
   const handleFirstTokenSelect = (event) => {
-    setSelectedFirstToken(`${event.target.value}-USDR`);
-    console.log(`${event.target.value}-USDR :::: `, `${event.target.value}-USDR`)
+    setSelectedFirstToken(`${event.target.value}-USDC`);
+    console.log(`${event.target.value}-USDC :::: `, `${event.target.value}-USDC`)
   }
 
   return (
