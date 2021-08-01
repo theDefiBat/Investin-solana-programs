@@ -1,4 +1,5 @@
 use std::cell::{Ref, RefMut};
+use std::mem::size_of;
 use solana_program::pubkey::Pubkey;
 use solana_program::account_info::AccountInfo;
 use solana_program::program_pack::{IsInitialized, Sealed};
@@ -6,12 +7,13 @@ use solana_program::program_error::ProgramError;
 use solana_program::clock::UnixTimestamp;
 use bytemuck::{from_bytes, from_bytes_mut, Pod, Zeroable};
 use fixed::types::U64F64;
+use crate::error::FundError;
 
-
-
-pub const NUM_TOKENS:usize = 10;
+pub const NUM_TOKENS:usize = 8;
+pub const MAX_TOKENS:usize = 50;
 pub const MAX_INVESTORS:usize = 10;
 pub const MAX_INVESTORS_WITHDRAW: usize = 2;
+pub const NUM_MARGIN: usize = 2;
 
 pub trait Loadable: Pod {
     fn load_mut<'a>(account: &'a AccountInfo) -> Result<RefMut<'a, Self>, ProgramError> {
@@ -33,17 +35,29 @@ macro_rules! impl_loadable {
     }
 }
 
+macro_rules! check_eq {
+    ($x:expr, $y:expr) => {
+        if !($x != $y) {
+            return Err(FundError::Default.into())
+        }
+    }
+}
+
 /// Struct wrapping data and providing metadata
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct PlatformData {
 
     pub is_initialized: bool,
+    // version info
+    pub version: u8,
     // router nonce for signing
     pub router_nonce: u8,
     // keep track of active funds
     pub no_of_active_funds: u8,
-    pub padding: [u8; 5],
+    // running count of tokens in whitelist
+    pub token_count: u8,
+    pub padding: [u8; 3],
 
     // PDA of router
     pub router: Pubkey,
@@ -53,8 +67,91 @@ pub struct PlatformData {
 
     // vault for protocol fee
     pub investin_vault: Pubkey,
+
+    pub token_list: [TokenInfo; MAX_TOKENS]
 }
 impl_loadable!(PlatformData);
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct FundData {
+
+    pub is_initialized: bool,
+    /// Number of Active Investments in fund
+    pub number_of_active_investments: u8,
+    /// Total Number of investments in fund
+    pub no_of_investments: u8,
+    // nonce to sign transactions
+    pub signer_nonce: u8,
+    /// Number of open margin positions
+    pub no_of_margin_positions: u8,
+    /// Number of active tokens
+    pub no_of_assets: u8,
+    /// Position count
+    pub position_count: u16,
+
+    /// version info
+    pub version: u8,
+    pub padding: [u8; 7],
+  
+    /// Minimum Amount
+    pub min_amount: u64,
+
+    /// Minimum Return
+    pub min_return: U64F64,
+
+    /// Performance Fee Percentage
+    pub performance_fee_percentage: U64F64,
+
+    /// Total Amount in fund (in USDC)
+    pub total_amount: U64F64,
+
+    /// Preformance in fund
+    pub prev_performance: U64F64,
+
+    /// Amount in Router (in USDC)
+    pub amount_in_router: u64,
+
+    /// Performance Fee
+    pub performance_fee: U64F64,
+
+    /// Wallet Address of the Manager
+    pub manager_account: Pubkey,
+
+    /// Fund PDA
+    pub fund_pda: Pubkey,
+
+    /// Tokens owned
+    pub tokens: [TokenSlot; NUM_TOKENS],
+
+    // Store investor state account addresses
+    pub investors: [Pubkey; MAX_INVESTORS],
+
+    // margin position info
+    pub mango_positions: [MarginInfo; 2],
+
+    // padding for future use
+    pub xpadding: [u8; 32]
+}
+impl_loadable!(FundData);
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct TokenSlot {
+    // state vars
+    pub is_active: bool,
+    pub index: u8,
+    pub padding: [u8; 6],
+
+    // token balances & debts
+    pub balance: u64,
+    pub debt: u64,
+
+    // token vault account
+    pub vault: Pubkey,
+}
+impl_loadable!(TokenSlot);
+
 
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -81,73 +178,19 @@ pub struct InvestorData {
     pub manager: Pubkey,
 
     // margin percentage
-    pub margin_debt: U64F64,
+    pub margin_debt: [U64F64; NUM_MARGIN],
 
     // margin position id
-    pub margin_position_id: u64,
+    pub margin_position_id: [u64; NUM_MARGIN],
 
     // investor assets in tokens
-    pub fund_debt: [u64; NUM_TOKENS]   
+    pub token_indexes: [u8; NUM_TOKENS],
+    pub token_debts: [u64; NUM_TOKENS],
+
+    // padding for future use
+    pub xpadding: [u8; 32]
 }
-unsafe impl Zeroable for InvestorData {}
-unsafe impl Pod for InvestorData {}
-impl Loadable for InvestorData {}
-
-#[repr(C)]
-#[derive(Clone, Copy)]
-pub struct FundData {
-
-    pub is_initialized: bool,
-    // decimals
-    pub decimals: u8,
-    /// Number of Active Investments in fund
-    pub number_of_active_investments: u8,
-    /// Total Number of investments in fund
-    pub no_of_investments: u8,
-    // nonce to sign transactions
-    pub signer_nonce: u8,
-    /// Number of open margin positions
-    pub no_of_margin_positions: u8,
-    /// Position count
-    pub position_count: u16,
-  
-    /// Minimum Amount
-    pub min_amount: u64,
-
-    /// Minimum Return
-    pub min_return: U64F64,
-
-    /// Performance Fee Percentage
-    pub performance_fee_percentage: U64F64,
-
-    /// Total Amount in fund (in USDC)
-    pub total_amount: U64F64,
-
-    /// Preformance in fund
-    pub prev_performance: U64F64,
-
-    /// Amount in Router (in USDC)
-    pub amount_in_router: u64,
-
-    /// Performance Fee
-    pub performance_fee: U64F64,
-
-    /// Wallet Address of the Manager
-    pub manager_account: Pubkey,
-
-    /// Tokens owned
-    pub tokens: [TokenInfo; NUM_TOKENS],
-
-    // Store investor state account addresses
-    pub investors: [Pubkey; MAX_INVESTORS],
-
-    // margin position info
-    pub mango_positions: [MarginInfo; 2]
-}
-unsafe impl Zeroable for FundData {}
-unsafe impl Pod for FundData {}
-impl Loadable for FundData {}
-
+impl_loadable!(InvestorData);
 
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -167,32 +210,7 @@ pub struct MarginInfo {
     pub fund_share: U64F64,
     pub share_ratio: U64F64
 }
-
-unsafe impl Zeroable for MarginInfo {}
-unsafe impl Pod for MarginInfo {}
-impl Loadable for MarginInfo {}
-
-#[repr(C)]
-#[derive(Clone, Copy)]
-pub struct TokenInfo {
-    // Token Mint
-    pub mint: Pubkey,
-
-    // decimals (u64 for packing)
-    pub decimals: u64,
-
-    // Token Account Address
-    pub vault: Pubkey,
-
-    // Updated balance of token
-    pub balance: u64,
-
-    // token debt owed to investors
-    pub debt: u64
-
-}
-unsafe impl Zeroable for TokenInfo {}
-unsafe impl Pod for TokenInfo {}
+impl_loadable!(MarginInfo);
 
 impl Sealed for InvestorData {}
 impl IsInitialized for InvestorData {
@@ -215,46 +233,106 @@ impl IsInitialized for PlatformData {
     }
 }
 
-pub const MAX_TOKENS:usize = 50;
-
 #[repr(C)]
 #[derive(Clone, Copy, Debug)]
-pub struct PriceInfo {
+pub struct TokenInfo {
     // mint address of the token
-    pub token_mint: Pubkey,
-
-    pub pool_account: Pubkey,
-
-    pub base_pool_account: Pubkey,
-
-    // decimals for token
+    pub mint: Pubkey,
+    // decimals for token, not used can be used later
     pub decimals: u64,
-
+    
+    // poolCoinTokenAccount for pool price
+    pub pool_coin_account: Pubkey,
+    // poolPcTokenAccount for pool price
+    pub pool_pc_account: Pubkey,
     // price of token
-    pub token_price: u64,
-
+    pub pool_price: U64F64,
     // last updated timestamp
     pub last_updated: UnixTimestamp,
 
+    // padding for serum prices
+    pub padding: u64,
 }
-unsafe impl Zeroable for PriceInfo{}
-unsafe impl Pod for PriceInfo {}
+impl_loadable!(TokenInfo);
 
-/// Define the type of state stored in accounts
-#[repr(C)]
-#[derive(Clone, Copy, Debug)]
-pub struct PriceAccount {
-    /// number of tokens
-    pub count: u32,
 
-    /// decimals
-    pub decimals: u32,
+impl PlatformData {
+    pub fn load_mut_checked<'a>(
+        account: &'a AccountInfo,
+        program_id: &Pubkey
+    ) -> Result<RefMut<'a, Self>, ProgramError> {
 
-    /// token price info
-    pub prices: [PriceInfo; MAX_TOKENS]
+        check_eq!(account.data_len(), size_of::<Self>());
+        check_eq!(account.owner, program_id);
+
+        let data = Self::load_mut(account)?;
+        Ok(data)
+    }
+    pub fn load_checked<'a>(
+        account: &'a AccountInfo,
+        program_id: &Pubkey
+    ) -> Result<Ref<'a, Self>, ProgramError> {
+        check_eq!(account.data_len(), size_of::<Self>());  // TODO not necessary check
+        check_eq!(account.owner, program_id);
+
+        let data = Self::load(account)?;
+        Ok(data)
+    }
+    pub fn get_token_index(&self, mint_pk: &Pubkey) -> Option<usize> {
+        self.token_list.iter().position(|token| token.mint == *mint_pk)
+    }
 }
-unsafe impl Zeroable for PriceAccount {}
-unsafe impl Pod for PriceAccount {}
-impl Loadable for PriceAccount {}
 
+impl FundData {
+    pub fn load_mut_checked<'a>(
+        account: &'a AccountInfo,
+        program_id: &Pubkey
+    ) -> Result<RefMut<'a, Self>, ProgramError> {
 
+        check_eq!(account.data_len(), size_of::<Self>());
+        check_eq!(account.owner, program_id);
+
+        let data = Self::load_mut(account)?;
+        Ok(data)
+    }
+    pub fn load_checked<'a>(
+        account: &'a AccountInfo,
+        program_id: &Pubkey
+    ) -> Result<Ref<'a, Self>, ProgramError> {
+        check_eq!(account.data_len(), size_of::<Self>());  // TODO not necessary check
+        check_eq!(account.owner, program_id);
+
+        let data = Self::load(account)?;
+        Ok(data)
+    }
+    pub fn get_token_slot(&self, index: usize) -> Option<usize> {
+        self.tokens.iter().position(|token| token.index as usize == index)
+    }
+    pub fn get_margin_index(&self, margin_account_pk: &Pubkey) -> Option<usize> {
+        self.mango_positions.iter().position(|pos| pos.margin_account == *margin_account_pk)
+    }
+}
+
+impl InvestorData {
+    pub fn load_mut_checked<'a>(
+        account: &'a AccountInfo,
+        program_id: &Pubkey
+    ) -> Result<RefMut<'a, Self>, ProgramError> {
+
+        check_eq!(account.data_len(), size_of::<Self>());
+        check_eq!(account.owner, program_id);
+
+        let data = Self::load_mut(account)?;
+        Ok(data)
+    }
+    pub fn load_checked<'a>(
+        account: &'a AccountInfo,
+        program_id: &Pubkey
+    ) -> Result<Ref<'a, Self>, ProgramError> {
+        check_eq!(account.data_len(), size_of::<Self>());  // TODO not necessary check
+        check_eq!(account.owner, program_id);
+
+        let data = Self::load(account)?;
+        Ok(data)
+    }
+}

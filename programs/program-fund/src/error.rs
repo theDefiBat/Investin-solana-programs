@@ -51,6 +51,9 @@ pub enum FundError {
 
     #[error("Invalid Margin Instruction State")]
     InvalidMangoState,
+
+    #[error("Default Error")]
+    Default
 }
 
 impl From<FundError> for ProgramError {

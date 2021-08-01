@@ -1,11 +1,5 @@
 use arrayref::{array_ref, array_refs};
 use borsh::BorshSerialize;
-use num_enum::TryFromPrimitive;
-
-use std::convert::TryInto;
-use std::num::NonZeroU64;
-use fixed::types::U64F64;
-
 
 #[repr(C)]
 #[derive(Clone)]
@@ -21,7 +15,8 @@ pub enum FundInstruction {
     Initialize {
         min_amount: u64,
         min_return: u64,
-        performance_fee_percentage: u64
+        performance_fee_percentage: u64,
+        no_of_tokens: u8
     },
 
     /// 0. [WRITE]  Fund State Account (derived from FA)
@@ -104,11 +99,15 @@ pub enum FundInstruction {
     /// 1. [SIGNER] investin Wallet Account 
     /// 2. []       Fund state Account / 2. []     Base Token Mint Address
     AdminControl{
-        platform_is_initialized: u8,
-        fund_is_initialized: u8,
-        fund_min_amount: u64,
-        fund_min_return: u64,
-        fund_performance_fee_percentage: u64
+        intialize_platform: u8,
+        freeze_platform: u8,
+        unfreeze_platform: u8,
+        change_vault: u8,
+        freeze_fund: u8,
+        unfreeze_fund: u8,
+        change_min_amount: u64,
+        change_min_return: u64,
+        change_perf_fee: u64
     },
 
     /// Initialize a margin account for a user
@@ -323,29 +322,36 @@ pub enum FundInstruction {
     /// 13. `[]` spl token program
     MangoWithdrawInvestorSettle,
 
-    /// 0. [WRITE]  Fund State Account (derived from FA)
-    /// 1. [READ]   Price Account
-    /// 2. [READ]   Clock Sysvar Account
-    /// 3. [SIGNER] Manager Wallet Account 
-    /// 4. []       Fund Base Token Account
-    /// 5. []       Manager Base Token Account
-    /// 6. []       PDA of manager
-    /// 7. []       Token Program
-    TestingDeposit{
-        amount: u64
+    /// Accounts Expected
+    /// 0. [WRITE] Platform Account
+    /// 1. [READ] CLOCK SYSVAR account
+    /// 2. [SIGNER] Investin Admin Account
+    /// 3. [READ]   Token Mint Account
+    /// 4. []   Pool Token Account
+    /// 5. []   Pool Base Token Account
+    /// ............
+    /// N. 
+    AddTokenToWhitelist,
+
+    /// Accounts Expected
+    /// 0. [WRITE] Platform Account
+    /// 1. [READ] CLOCK SYSVAR account
+    /// 2. [READ]   Pool Token Account
+    /// 3. [READ]   Pool Base Token Account
+    /// ......
+    UpdateTokenPrices {
+        count: u8 // count of tokens
     },
 
-    /// 0. [WRITE]  Fund State Account (derived from FA)
-    /// 1. [READ]   Price Account
-    /// 2. [READ]   Clock Sysvar Account
-    /// 3. [SIGNER] Manager Wallet Account 
-    /// 4. []       Fund Base Token Account
-    /// 5. []       Manager Base Token Account
-    /// 6. []       PDA of manager
-    /// 7. []       Token Program
-    TestingWithdraw{
-        amount: u64,
-    },
+    // Platform Account
+    // Fund state account
+    // Token mint account
+    AddTokenToFund,
+
+    // Platform Account
+    // Fund State account
+    // Token mint account
+    RemoveTokenFromFund
 
 }
 
@@ -362,17 +368,19 @@ impl FundInstruction {
         let op = u8::from_le_bytes(op);
         Some(match op {
             0 => {
-                let data = array_ref![data, 0, 8 + 8 + 8];
+                let data = array_ref![data, 0, 8 + 8 + 8 + 1];
                 let (
                     min_amount,
                     min_return,
-                    performance_fee_percentage
-                ) = array_refs![data, 8, 8, 8];
+                    performance_fee_percentage,
+                    no_of_tokens
+                ) = array_refs![data, 8, 8, 8, 1];
 
                 FundInstruction::Initialize {
                     min_amount: u64::from_le_bytes(*min_amount),
                     min_return: u64::from_le_bytes(*min_return),
                     performance_fee_percentage: u64::from_le_bytes(*performance_fee_percentage),
+                    no_of_tokens: u8::from_le_bytes(*no_of_tokens),
                 }
             },
             1 => {
@@ -410,21 +418,29 @@ impl FundInstruction {
                 FundInstruction::ClaimPerformanceFee
             },
             7 => {
-                let data = array_ref![data, 0, 1 + 1 + 8 + 8 + 8];
+                let data = array_ref![data, 0, 6 + 8 + 8 + 8];
                 let (
-                    platform_is_initialized,
-                    fund_is_initialized,
-                    fund_min_amount,
-                    fund_min_return,
-                    fund_performance_fee_percentage
-                ) = array_refs![data, 1, 1, 8, 8, 8];
+                    intialize_platform,
+                    freeze_platform,
+                    unfreeze_platform,
+                    change_vault,
+                    freeze_fund,
+                    unfreeze_fund,
+                    change_min_amount,
+                    change_min_return,
+                    change_perf_fee
+                ) = array_refs![data, 1, 1, 1, 1, 1, 1, 8, 8, 8];
 
                 FundInstruction::AdminControl {
-                    platform_is_initialized: u8::from_le_bytes(*platform_is_initialized),
-                    fund_is_initialized: u8::from_le_bytes(*fund_is_initialized),
-                    fund_min_amount: u64::from_le_bytes(*fund_min_amount),
-                    fund_min_return: u64::from_le_bytes(*fund_min_return),
-                    fund_performance_fee_percentage: u64::from_le_bytes(*fund_performance_fee_percentage)
+                    intialize_platform: u8::from_le_bytes(*intialize_platform),
+                    freeze_platform: u8::from_le_bytes(*freeze_platform),
+                    unfreeze_platform: u8::from_le_bytes(*unfreeze_platform),
+                    change_vault: u8::from_le_bytes(*change_vault),
+                    freeze_fund: u8::from_le_bytes(*freeze_fund),
+                    unfreeze_fund: u8::from_le_bytes(*unfreeze_fund),
+                    change_min_amount: u64::from_le_bytes(*change_min_amount),
+                    change_min_return: u64::from_le_bytes(*change_min_return),
+                    change_perf_fee: u64::from_le_bytes(*change_perf_fee)
                 }
             },
             8 => {
@@ -474,16 +490,25 @@ impl FundInstruction {
                 FundInstruction::MangoWithdrawInvestorSettle
             },
             17 => {
-                let amount = array_ref![data, 0, 8];
-                FundInstruction::TestingDeposit {
-                    amount: u64::from_le_bytes(*amount)
-                }
+                FundInstruction::AddTokenToWhitelist
             },
             18 => {
-                let amount = array_ref![data, 0, 8];
-                FundInstruction::TestingWithdraw {
-                    amount: u64::from_le_bytes(*amount)
+                let count = array_ref![data, 0, 1];
+                FundInstruction::UpdateTokenPrices {
+                    count: u8::from_le_bytes(*count)
                 }
+            },
+            19 => {
+                let count = array_ref![data, 0, 1];
+                FundInstruction::UpdateTokenPrices {
+                    count: u8::from_le_bytes(*count)
+                }
+            },
+            20 => {
+                FundInstruction::AddTokenToFund
+            },
+            21 => {
+                FundInstruction::RemoveTokenFromFund
             }
             _ => { return None; }
         })
