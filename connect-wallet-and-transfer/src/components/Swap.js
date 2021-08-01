@@ -2,12 +2,12 @@ import { PublicKey, Transaction, TransactionInstruction } from '@solana/web3.js'
 import { nu64, struct, u8 } from 'buffer-layout'
 import React, { useState } from 'react'
 import { GlobalState } from '../store/globalState'
-import { connection, programId, TOKEN_PROGRAM_ID, FUND_ACCOUNT_KEY, LIQUIDITY_POOL_PROGRAM_ID_V4 } from '../utils/constants'
+import { connection, programId, TOKEN_PROGRAM_ID, FUND_ACCOUNT_KEY, LIQUIDITY_POOL_PROGRAM_ID_V4, platformStateAccount } from '../utils/constants'
 import { devnet_pools } from '../utils/pools'
 import { AMM_INFO_LAYOUT_V4 } from '../utils/programLayouts'
 import { TokenAmount } from '../utils/safe-math'
 import { NATIVE_SOL, TEST_TOKENS, TOKENS } from '../utils/tokens'
-import { createTokenAccountIfNotExist, findAssociatedTokenAddress, sendNewTransaction, signAndSendTransaction } from '../utils/web3'
+import { createAssociatedTokenAccountIfNotExist, createTokenAccountIfNotExist, findAssociatedTokenAddress, sendNewTransaction, signAndSendTransaction } from '../utils/web3'
 
 export const Swap = () => {
 
@@ -34,6 +34,7 @@ export const Swap = () => {
     userSourceTokenAccount,
     userDestTokenAccount,
     userOwner,
+    manager,
 
     amountIn,
     minAmountOut
@@ -54,7 +55,10 @@ export const Swap = () => {
     const dataLayout = struct([u8('instruction1'), u8('instruction'), nu64('amountIn'), nu64('minAmountOut')])
 
     const keys = [
+      { pubkey: platformStateAccount, isSigner: false, isWritable: true },
       { pubkey: fundStateAcc, isSigner: false, isWritable: true },
+      { pubkey: manager, isSigner: true, isWritable: true },
+
       { pubkey: poolProgramId, isSigner: false, isWritable: true },
 
       // spl token
@@ -84,7 +88,7 @@ export const Swap = () => {
     const data = Buffer.alloc(dataLayout.span)
     dataLayout.encode(
       {
-        instruction1: 4, 
+        instruction1: 5,
         instruction: 9,
         amountIn,
         minAmountOut
@@ -145,7 +149,7 @@ export const Swap = () => {
 
     let instruction = await
       swapInstruction(
-        new PublicKey(poolInfo.programId),
+        poolInfo.programId,
         new PublicKey(poolInfo.ammId),
         new PublicKey(poolInfo.ammAuthority),
         new PublicKey(poolInfo.ammOpenOrders),
@@ -163,6 +167,7 @@ export const Swap = () => {
         newFromTokenAccount,
         newToTokenAccount,
         fundPDA[0],
+        owner,
         Math.floor(amountIn.toWei().toNumber()),
         Math.floor(amountOut.toWei().toNumber())
       )
@@ -183,7 +188,7 @@ export const Swap = () => {
 
   const [amountIn, setAmountIn] = useState(0);
   //const [selectedFirstToken, setSelectedFirstToken] = useState('RAY-USDT');
-  const [selectedFirstToken, setSelectedFirstToken] = useState('');
+  const [selectedFirstToken, setSelectedFirstToken] = useState('SRM-USDC');
 
   const handleBuy = async () => {
     // const ammInfo = await connection.getAccountInfo(new PublicKey('6Xec3XR8NqNWbn6CFtGr9DbdKqSunzbXFFRiRpmxPxF2'))
@@ -248,7 +253,7 @@ export const Swap = () => {
 
       <label htmlFor="tokens">From Token:</label>
 
-      <select name="tokens" onChange={handleFirstTokenSelect}>
+      <select name="tokens" onClick={handleFirstTokenSelect}>
         {
           devnet_pools.map((pool) => {
             return (<option key={pool.coin.name} value={pool.coin.symbol}>{pool.coin.name}</option>)

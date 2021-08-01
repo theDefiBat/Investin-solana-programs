@@ -70,7 +70,8 @@ export async function mangoOpenPosition(
   size,
   clientId,
   transaction,
-  investor
+  investor,
+  seed
 ) {
   const client = new MangoClient()
 
@@ -192,7 +193,7 @@ export async function mangoOpenPosition(
         wallet,
         "",
         mangoGroup.dexProgramId,
-        marketIndex.toString(),
+        seed + marketIndex.toString(),
         openOrdersSpace,
         transaction
       )
@@ -207,7 +208,7 @@ export async function mangoOpenPosition(
       dlout.encode(
         {
           instruction: 9,
-          quantity: maxQuoteQuantity / 2
+          quantity: maxQuoteQuantity / 1
         },
         data
       )
@@ -397,7 +398,8 @@ export async function mangoClosePosition(
   size,
   clientId,
   transaction,
-  investor_accs
+  investor_accs,
+  seed
 ) {
 
   let serumMarket = new PublicKey(IDS.devnet.mango_groups.BTC_ETH_SOL_SRM_USDC.spot_market_pks[mIndex])
@@ -504,6 +506,9 @@ export async function mangoClosePosition(
       i === marketIndex &&
       marginAccount.openOrders[marketIndex].equals(zeroKey)
     ) {
+
+      console.log("open orders :: ", marginAccount.openOrders[marketIndex])
+      console.log("market index:: ", marketIndex)
       // open orders missing for this market; create a new one now
       const openOrdersSpace = OpenOrders.getLayout(mangoGroup.dexProgramId).span
       const openOrdersLamports =
@@ -515,7 +520,7 @@ export async function mangoClosePosition(
         wallet,
         "",
         mangoGroup.dexProgramId,
-        "seed2",
+        seed + marketIndex.toString(),
         openOrdersSpace,
         transaction
       )

@@ -72,7 +72,6 @@ export const Deposit = () => {
         { pubkey: key, isSigner: true, isWritable: true },
         { pubkey: baseTokenAccount, isSigner: false, isWritable: true }, // Investor Base Token Account
         { pubkey: associatedTokenAddress1, isSigner: false, isWritable: true }, // Router Base Token Account
-        { pubkey: FPDA, isSigner: false, isWritable: false },
         { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: true }
       ],
       programId,

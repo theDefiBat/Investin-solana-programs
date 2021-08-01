@@ -52,23 +52,40 @@ export const Transfer = () => {
     const accountInfo = await connection.getAccountInfo(new PublicKey(fundStateAccount));
     const fund_data = FUND_DATA.decode(accountInfo.data);
 
-    let margin_account = fund_data.mango_positions[0].margin_account;
-    let open_orders = PublicKey.default
-    let oracle_acc = PublicKey.default
+    let margin_account_1 = fund_data.mango_positions[0].margin_account;
+    let margin_account_2 = fund_data.mango_positions[1].margin_account;
+
+    let open_orders_1 = PublicKey.default
+    let oracle_acc_1 = PublicKey.default
     let is_active = false
-    if (margin_account != PublicKey.default && fund_data.mango_positions[0].state != 0) {
-      let margin_info = await connection.getAccountInfo(margin_account)
+    if (margin_account_1 != PublicKey.default && fund_data.mango_positions[0].state != 0) {
+      let margin_info = await connection.getAccountInfo(margin_account_1)
       let margin_data = MarginAccountLayout.decode(margin_info.data)
       let mango_info = await connection.getAccountInfo(MANGO_GROUP_ACCOUNT)
       let mango_data = MangoGroupLayout.decode(mango_info.data)
 
       let index = fund_data.mango_positions[0].margin_index
-      open_orders = margin_data.openOrders[index]
-      oracle_acc = mango_data.oracles[index]
+      open_orders_1 = margin_data.openOrders[index]
+      oracle_acc_1 = mango_data.oracles[index]
+    }
+    let open_orders_2 = PublicKey.default
+    let oracle_acc_2 = PublicKey.default
+    if (margin_account_2 != PublicKey.default && fund_data.mango_positions[1].state != 0) {
+      let margin_info = await connection.getAccountInfo(margin_account_2)
+      let margin_data = MarginAccountLayout.decode(margin_info.data)
+      let mango_info = await connection.getAccountInfo(MANGO_GROUP_ACCOUNT)
+      let mango_data = MangoGroupLayout.decode(mango_info.data)
+
+      let index = fund_data.mango_positions[1].margin_index
+      open_orders_2 = margin_data.openOrders[index]
+      oracle_acc_2 = mango_data.oracles[index]
     }
 
+    let platData = await connection.getAccountInfo(platformStateAccount)
+    let plat_info = PLATFORM_DATA.decode(platData.data)
+    console.log("plat info:: ", plat_info)
 
-    // updatePoolPrices(transaction, devnet_pools)
+    updatePoolPrices(transaction, devnet_pools)
     // transaction1.feePayer = walletProvider?.publicKey;
     // let hash1 = await connection.getRecentBlockhash();
     // console.log("blockhash", hash1);
@@ -90,25 +107,27 @@ export const Transfer = () => {
       keys: [
         { pubkey: platformStateAccount, isSigner: false, isWritable: true },
         { pubkey: new PublicKey(fundStateAccount), isSigner: false, isWritable: true },
-        { pubkey: priceStateAccount, isSigner: false, isWritable: true },
 
         { pubkey: MANGO_GROUP_ACCOUNT, isSigner: false, isWritable: true },
-        { pubkey: margin_account, isSigner: false, isWritable: true },
-        { pubkey: open_orders, isSigner: false, isWritable: true },
-        { pubkey: oracle_acc, isSigner: false, isWritable: true },
-
-
         { pubkey: SYSVAR_CLOCK_PUBKEY, isSigner: false, isWritable: true },
         { pubkey: key, isSigner: true, isWritable: true },
 
         { pubkey: routerBaseTokenAccount, isSigner: false, isWritable: true },
         { pubkey: fundBaseTokenAccount, isSigner: false, isWritable: true },
         { pubkey: managerBaseTokenAccount, isSigner: false, isWritable: true },
-        { pubkey: investinBaseTokenAccount, isSigner: false, isWritable: true },
+        { pubkey: plat_info.investin_vault, isSigner: false, isWritable: true },
 
         { pubkey: routerPDA[0], isSigner: false, isWritable: true },
 
         { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: true },
+
+        { pubkey: margin_account_1, isSigner: false, isWritable: true },
+        { pubkey: margin_account_2, isSigner: false, isWritable: true },
+        { pubkey: open_orders_1, isSigner: false, isWritable: true },
+        { pubkey: open_orders_2, isSigner: false, isWritable: true },
+        { pubkey: oracle_acc_1, isSigner: false, isWritable: true },
+        { pubkey: oracle_acc_2, isSigner: false, isWritable: true },
+
 
         //investor state accounts
         { pubkey: new PublicKey(fundInvestorAccs[0]), isSigner: false, isWritable: true },
@@ -175,13 +194,13 @@ export const Transfer = () => {
     }
     console.log(fundState)
 
-    setAmountInRouter(parseInt(fundState.amount_in_router) / (10 ** fundState.tokens[0].decimals));
+    setAmountInRouter(parseInt(fundState.amount_in_router) / (10 ** 9));
     setFundPerf(fundState.prev_performance)
-    setFundAUM(parseInt(fundState.total_amount) / (10 ** fundState.tokens[0].decimals))
+    setFundAUM(parseInt(fundState.total_amount) / (10 ** 9))
 
     let bal = []
-    bal.push((parseInt(fundState.tokens[0].balance) / (10 ** fundState.tokens[0].decimals)))
-    bal.push((parseInt(fundState.tokens[1].balance) / (10 ** fundState.tokens[1].decimals)))
+    bal.push((parseInt(fundState.tokens[0].balance) / (10 ** 9)))
+    bal.push((parseInt(fundState.tokens[1].balance) / (10 ** 6)))
     bal.push((parseInt(fundState.tokens[2].balance) / (10 ** fundState.tokens[2].decimals)))
     setFundBalances(bal)
     console.log(bal)

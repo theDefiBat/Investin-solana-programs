@@ -5,7 +5,7 @@ import { GlobalState } from '../store/globalState';
 import { nu64, struct, u8 } from 'buffer-layout';
 import { PublicKey, Transaction, TransactionInstruction } from '@solana/web3.js';
 import { TOKEN_PROGRAM_ID } from '@project-serum/serum/lib/token-instructions';
-import { FUND_DATA, PLATFORM_DATA, U64F64 } from '../utils/programLayouts';
+import { FUND_DATA, PLATFORM_DATA, u64, U64F64 } from '../utils/programLayouts';
 import { Badge } from 'reactstrap';
 import { MANGO_TOKENS } from "../utils/tokens";
 import BN from 'bn.js';
@@ -40,45 +40,24 @@ export const InitialisedFund = () => {
 
     const x = PLATFORM_DATA.decode(platformData.data)
     console.log("plat data:: ", x)
-    // console.log('funddata span', FUND_DATA.span)
-    // console.log('platformData span', PLATFORM_DATA.span)
-    // console.log(`fundData parsed`, x)
-    // console.log(`platformData parsed`, PLATFORM_DATA.decode(platformData.data))
-    // console.log("routerPDA: ", PLATFORM_DATA.decode(platformData.data).router.toBase58())
-
 
     if (1) {
-      const dataLayout = struct([u8('instruction'), nu64('min_amount'), U64F64('min_return'), U64F64('performance_fee_percentage')])
+      const dataLayout = struct([u8('instruction'), nu64('min_amount'), nu64('min_return'), nu64('performance_fee_percentage'), u8('count')])
 
       const data = Buffer.alloc(dataLayout.span)
       dataLayout.encode(
         {
           instruction: 0,
           min_amount: min_amount * (10 ** MANGO_TOKENS['USDC'].decimals),
-          min_return: new BN(min_return),
-          performance_fee_percentage: new BN(platform_fee_percentage),
+          min_return: min_return * 100,
+          performance_fee_percentage: platform_fee_percentage * 100,
+          count: 2
         },
         data
       )
 
-      const PDA = await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId);
-      const associatedTokenAccounts = await connection.getTokenAccountsByOwner(PDA[0], { programId: TOKEN_PROGRAM_ID });
-
-      const associatedTokenAddresses = associatedTokenAccounts.value.map(p => p.pubkey);
-
-      console.log(`associatedTokenAccounts.value ::: `, associatedTokenAccounts.value)
-
-      const associatedTokenAddress1 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(MANGO_TOKENS['USDC'].mintAddress), PDA[0], transaction);
-
-      console.log(`associatedTokenAddress1 ::: `, associatedTokenAccounts)
-
-
-      console.log(`PDA ::: `, PDA[0].toBase58())
-
-      console.log(`platformAccount.toBase58() ::: `, platformAccount.toBase58())
-      console.log(`fundAccount.toBase58() ::: `, fundAccount.toBase58())
-      console.log(`walletProvider?.publicKey.toBase58() ::: `, walletProvider?.publicKey.toBase58())
-      console.log(`associatedTokenAddress1.toBase58() ::: `, associatedTokenAddress1.toBase58())
+      const associatedTokenAddress1 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(MANGO_TOKENS['USDC'].mintAddress), fundPDA[0], transaction);
+      const associatedTokenAddress2 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(MANGO_TOKENS['SRM'].mintAddress), fundPDA[0], transaction);
 
       const instruction = new TransactionInstruction({
         keys: [
@@ -88,16 +67,7 @@ export const InitialisedFund = () => {
           { pubkey: associatedTokenAddress1, isSigner: false, isWritable: true },
 
           { pubkey: new PublicKey(MANGO_TOKENS['USDC'].mintAddress), isSigner: false, isWritable: true },
-          { pubkey: new PublicKey(MANGO_TOKENS['BTC'].mintAddress), isSigner: false, isWritable: true },
-          { pubkey: new PublicKey(MANGO_TOKENS['ETH'].mintAddress), isSigner: false, isWritable: true },
-          { pubkey: new PublicKey(MANGO_TOKENS['SOL'].mintAddress), isSigner: false, isWritable: true },
           { pubkey: new PublicKey(MANGO_TOKENS['SRM'].mintAddress), isSigner: false, isWritable: true },
-          { pubkey: new PublicKey(MANGO_TOKENS['SOL'].mintAddress), isSigner: false, isWritable: true },
-          { pubkey: new PublicKey(MANGO_TOKENS['SOL'].mintAddress), isSigner: false, isWritable: true },
-          { pubkey: new PublicKey(MANGO_TOKENS['SOL'].mintAddress), isSigner: false, isWritable: true },
-          { pubkey: new PublicKey(MANGO_TOKENS['SOL'].mintAddress), isSigner: false, isWritable: true },
-          { pubkey: new PublicKey(MANGO_TOKENS['SOL'].mintAddress), isSigner: false, isWritable: true },
-
         ],
         programId,
         data
@@ -110,16 +80,6 @@ export const InitialisedFund = () => {
 
       const sign = await signAndSendTransaction(walletProvider, transaction);
       console.log("signature tx:: ", sign)
-      // const transaction2 = await setWalletTransaction(instruction, walletProvider?.publicKey);
-      // const signature = await signAndSendTransaction(walletProvider, transaction2);
-      // console.log(`signature :::`, signature)
-
-
-      // const accData = await connection.getAccountInfo(platformAccount);
-      // console.log(`platformData :::: `, PLATFORM_DATA.decode(accData.data));
-      // const accData2 = await connection.getAccountInfo(fundAccount);
-      // console.log(`fundData :::: `, FUND_DATA.decode(accData2.data));
-      // console.log("")
 
     }
 

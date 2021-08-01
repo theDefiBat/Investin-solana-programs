@@ -99,11 +99,11 @@ export const PLATFORM_DATA = struct([
 
 export const FUND_DATA = struct([
   u8('is_initialized'),
-  u8('decimals'),
   u8('number_of_active_investments'),
   u8('no_of_investments'),
   u8('signer_nonce'),
   u8('no_of_margin_positions'),
+  u8('no_of_assets'),
   u16('position_count'),
 
   u8('version'),

@@ -52,71 +52,15 @@ export const MangoInitialize = () => {
             
             {pubkey: MANGO_PROGRAM_ID_V2, isSigner: false, isWritable:true},
             {pubkey: MANGO_GROUP_ACCOUNT, isSigner: false, isWritable:true},
-            {pubkey: margin_account_acc, isSigner: false, isWritable:true},
             {pubkey: RENT_PROGRAM_ID, isSigner: false, isWritable:true},
-            
-            
+            {pubkey: margin_account_acc, isSigner: false, isWritable:true},
+            {pubkey: margin_account_acc2, isSigner: false, isWritable:true},
         ],
         programId,
         data
         });
   
         transaction.add(instruction);
-        transaction.feePayer = key;
-        let hash = await connection.getRecentBlockhash();
-        console.log("blockhash", hash);
-        transaction.recentBlockhash = hash.blockhash;
-
-        const sign = await signAndSendTransaction(walletProvider, transaction);
-        console.log("signature tx:: ", sign)
-    }
-const handleMangoOpenOrders = async () => {
-    
-        const key = walletProvider?.publicKey;
-
-      if (!key ) {
-        alert("connect wallet")
-        return;
-      };
-      const transaction = new Transaction()
-      const margin_account_acc = await createKeyIfNotExists(walletProvider, "", MANGO_PROGRAM_ID_V2, MARGIN_ACCOUNT_KEY_1, MarginAccountLayout.span, transaction)
-      const margin_account_acc2 = await createKeyIfNotExists(walletProvider, "", MANGO_PROGRAM_ID_V2, MARGIN_ACCOUNT_KEY_2, MarginAccountLayout.span, transaction)
-
-      const client = new MangoClient()
-      let marginAccount = await client.getMarginAccount(connection, margin_account_acc, SERUM_PROGRAM_ID_V3)
-      let mangoGroup = await client.getMangoGroup(connection, MANGO_GROUP_ACCOUNT)
-
-
-      const openOrdersSpace = OpenOrders.getLayout(mangoGroup.dexProgramId).span
-      const openOrdersLamports =
-        await connection.getMinimumBalanceForRentExemption(
-          openOrdersSpace,
-          'singleGossip'
-        )
-      for (let i = 0; i < marginAccount.openOrders.length; i++) {
-        if (
-          marginAccount.openOrders[i].equals(PublicKey.default)
-        ) {
-          // open orders missing for this market; create a new one now
-          const openOrdersSpace = OpenOrders.getLayout(mangoGroup.dexProgramId).span
-          const openOrdersLamports =
-            await connection.getMinimumBalanceForRentExemption(
-              openOrdersSpace,
-              'singleGossip'
-            )
-          const accInstr = await createKeyIfNotExists(
-            walletProvider,
-            "",
-            mangoGroup.dexProgramId,
-            i.toString(),
-            openOrdersSpace,
-            transaction
-          )
-          // openOrdersKeys.push(accInstr)
-        } else {
-          // openOrdersKeys.push(marginAccount.openOrders[i])
-        }
-      }
         transaction.feePayer = key;
         let hash = await connection.getRecentBlockhash();
         console.log("blockhash", hash);
@@ -172,8 +116,6 @@ const handleMangoOpenOrders = async () => {
         <h4>Mango Initialize</h4>
           
           <button onClick={handleMangoInitialize}>Mango Margin Account Initialize</button>
-          <br />
-          <button onClick={handleMangoOpenOrders}>Mango Open order create</button>
           <br />
           <button onClick={handleGetFunds}>GetFundInfo</button>
           <br />

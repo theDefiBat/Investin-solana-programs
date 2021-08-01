@@ -12,13 +12,67 @@ import { updatePoolPrices } from './updatePrices';
 
 import {mangoClosePosition, mangoOpenPosition} from '../utils/mango'
 import BN from 'bn.js';
+import { MangoClient } from '@blockworks-foundation/mango-client';
+import { OpenOrders } from '@project-serum/serum';
 
 export const MangoPlaceOrder = () => {
     const [size, setSize] = useState(0);
     const [index, setIndex] = useState(0);
     const [side, setSide] = useState('');
-  
+    
     const walletProvider = GlobalState.useState(s => s.walletProvider);
+
+    const handleMangoOpenOrders = async () => {
+    
+      const key = walletProvider?.publicKey;
+
+    if (!key ) {
+      alert("connect wallet")
+      return;
+    };
+    const transaction = new Transaction()
+
+    const fundStateAccount = await PublicKey.createWithSeed(
+      key,
+      FUND_ACCOUNT_KEY,
+      programId,
+    );
+
+    console.log("FUND STTE:: ", fundStateAccount.toBase58())
+    let fund_info = await connection.getAccountInfo(fundStateAccount);
+    const fund_data = FUND_DATA.decode(fund_info.data);
+
+    let pos_index = fund_data.no_of_margin_positions;
+    console.log("pos_index", pos_index)
+    console.log("index:: ", index)
+  
+    const client = new MangoClient()
+    let mangoGroup = await client.getMangoGroup(connection, MANGO_GROUP_ACCOUNT)
+
+        // open orders missing for this market; create a new one now
+        const openOrdersSpace = OpenOrders.getLayout(mangoGroup.dexProgramId).span
+        const openOrdersLamports =
+          await connection.getMinimumBalanceForRentExemption(
+            openOrdersSpace,
+            'singleGossip'
+          )
+        let accInstr = await createKeyIfNotExists(
+          walletProvider,
+          "",
+          mangoGroup.dexProgramId,
+          key.toBase58().substr(0,20) + pos_index.toString() + index.toString(),
+          openOrdersSpace,
+          transaction
+        )
+      transaction.feePayer = key;
+      let hash = await connection.getRecentBlockhash();
+      console.log("blockhash", hash);
+      transaction.recentBlockhash = hash.blockhash;
+
+      const sign = await signAndSendTransaction(walletProvider, transaction);
+      console.log("signature tx:: ", sign)
+  }
+
 
     const handleMangoPlace = async () => {
         
@@ -37,16 +91,21 @@ export const MangoPlaceOrder = () => {
       );
   
       console.log("FUND STTE:: ", fundStateAccount.toBase58())
+      let fund_info = await connection.getAccountInfo(fundStateAccount);
+      const fund_data = FUND_DATA.decode(fund_info.data);
+      let pos_index = fund_data.no_of_margin_positions
+
       const transaction = new Transaction()
 
-      const margin_account_acc = await createKeyIfNotExists(walletProvider, "", MANGO_PROGRAM_ID_V2, MARGIN_ACCOUNT_KEY_1, MarginAccountLayout.span, transaction)
+      const margin_account_acc = await createKeyIfNotExists(walletProvider, "", MANGO_PROGRAM_ID_V2, fund_data.no_of_margin_positions ? MARGIN_ACCOUNT_KEY_2 : MARGIN_ACCOUNT_KEY_1, MarginAccountLayout.span, transaction)
 
       if (fundStateAccount == ''){
         alert("get info first!")
         return
       }
 
-      await mangoOpenPosition(connection, margin_account_acc, fundStateAccount, fundPDA[0], walletProvider, index, side, size, null, transaction, false)
+      let seed = key.toBase58().substr(0,20) + pos_index.toString()
+      await mangoOpenPosition(connection, margin_account_acc, fundStateAccount, fundPDA[0], walletProvider, index, side, size, null, transaction, false, seed)
       console.log("transaction::", transaction)
       transaction.feePayer = key;
       let hash = await connection.getRecentBlockhash();
@@ -58,7 +117,7 @@ export const MangoPlaceOrder = () => {
 
     }
 
-    const handleMangoClose = async () => {
+    const handleMangoClose = async (pos_index) => {
         
     
       const key = walletProvider?.publicKey;
@@ -92,14 +151,15 @@ export const MangoPlaceOrder = () => {
     console.log("FUND STTE:: ", fundStateAccount.toBase58())
     const transaction = new Transaction()
 
-    const margin_account_acc = await createKeyIfNotExists(walletProvider, "", MANGO_PROGRAM_ID_V2, MARGIN_ACCOUNT_KEY_1, MarginAccountLayout.span, transaction)
-    const margin_account_acc2 = await createKeyIfNotExists(walletProvider, "", MANGO_PROGRAM_ID_V2, MARGIN_ACCOUNT_KEY_2, MarginAccountLayout.span, transaction)
+    const margin_account_acc = await createKeyIfNotExists(walletProvider, "", MANGO_PROGRAM_ID_V2, pos_index == 0 ? MARGIN_ACCOUNT_KEY_1 : MARGIN_ACCOUNT_KEY_2, MarginAccountLayout.span, transaction)
 
     
-    let side = fund_data.mango_positions[0].position_side == 0 ? 'sell' : 'buy'
+    let side = fund_data.mango_positions[pos_index].position_side == 0 ? 'sell' : 'buy'
 
     console.log("side:: ", side)    
-    await mangoClosePosition(connection, margin_account_acc, fundStateAccount, fundPDA[0], walletProvider, index, side, size, null, transaction, investor_accs)
+    let seed = key.toBase58().substr(0,20) + pos_index.toString()
+
+    await mangoClosePosition(connection, margin_account_acc, fundStateAccount, fundPDA[0], walletProvider, index, side, size, null, transaction, investor_accs, seed)
     console.log("transaction::", transaction)
     transaction.feePayer = key;
     let hash = await connection.getRecentBlockhash();
@@ -110,6 +170,7 @@ export const MangoPlaceOrder = () => {
     console.log("signature tx:: ", sign)
 
   }
+
 
     return (
         <div className="form-div">
@@ -133,8 +194,11 @@ export const MangoPlaceOrder = () => {
             </select>
 
           <button onClick={handleMangoPlace}>Mango Open Position</button>
-          <button onClick={handleMangoClose}>Mango Close Position</button>
+          <button onClick={() => handleMangoClose(0)}>Mango Close Position 1</button>
+          <button onClick={() => handleMangoClose(1)}>Mango Close Position 2</button>
+
           <br />
+          <button onClick={handleMangoOpenOrders}>Open order init </button>
           <br />
         </div>
     )
