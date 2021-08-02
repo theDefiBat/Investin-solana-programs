@@ -235,11 +235,11 @@ impl Fund {
         let mut fund_data = FundData::load_mut_checked(fund_state_acc, program_id)?;
 
         let mut margin_equity = U64F64!(0);
-        for i in 0..fund_data.no_of_margin_positions as usize {
+        for i in 0..NUM_MARGIN {
             if fund_data.mango_positions[i as usize].state != 0 {
                 let mango_group_data = MangoGroup::load(mango_group_acc)?;
                 let margin_data = MarginAccount::load(&margin_accs[i])?;
-                let token_index = fund_data.mango_positions[0].margin_index as usize;
+                let token_index = fund_data.mango_positions[i].margin_index as usize;
                 let equity = get_margin_valuation(token_index, &mango_group_data, &margin_data, &oracle_accs[i], &open_orders_accs[i])?;
                 margin_equity += equity.checked_mul(fund_data.mango_positions[i].fund_share / fund_data.mango_positions[i].share_ratio).unwrap();
             }
@@ -335,7 +335,8 @@ impl Fund {
             let mut investor_data = InvestorData::load_mut_checked(investor_state_acc, program_id)?;
             check_eq!(fund_data.investors[i], *investor_state_acc.key);
             if investor_data.amount_in_router != 0 {
-                investor_data.amount = transferable_amount;
+                investor_data.amount = 
+                    U64F64::to_num(U64F64::from_num(investor_data.amount_in_router).checked_mul(U64F64!(0.98)).unwrap());
                 investor_data.start_performance = fund_data.prev_performance;
                 investor_data.amount_in_router = 0;
             }
@@ -404,7 +405,7 @@ impl Fund {
                 &[&["router".as_ref(), bytes_of(&platform_data.router_nonce)]]
             )?;
             fund_data.amount_in_router -= investor_data.amount_in_router;
-
+            investor_data.amount_in_router = 0;
         } 
 
         if investor_data.has_withdrawn == true {
@@ -439,12 +440,13 @@ impl Fund {
                 investor_data.token_debts[i] = 0;
                 investor_data.token_indexes[i] = 0;
             }
+            investor_data.amount = 0;
+            investor_data.start_performance = U64F64!(0);
+            investor_data.amount_in_router = 0;
+            investor_data.has_withdrawn = false;
+            investor_data.is_initialized = false;
         }
-        investor_data.amount = 0;
-        investor_data.start_performance = U64F64!(0);
-        investor_data.amount_in_router = 0;
-        investor_data.has_withdrawn = false;
-        investor_data.is_initialized = false;
+        
         
         Ok(())
     }
@@ -480,14 +482,15 @@ impl Fund {
         check!(investor_data.owner == *investor_acc.key, ProgramError::MissingRequiredSignature);
         check!(investor_acc.is_signer, ProgramError::MissingRequiredSignature);
         check_eq!(investor_data.manager, fund_data.manager_account);
+        check_eq!(investor_data.has_withdrawn, false);
 
         // calculate current margin equity for fund
         let mut margin_equity = U64F64!(0);
-        for i in 0..fund_data.no_of_margin_positions as usize {
+        for i in 0..NUM_MARGIN {
             if fund_data.mango_positions[i as usize].state != 0 {
                 let mango_group_data = MangoGroup::load(mango_group_acc)?;
                 let margin_data = MarginAccount::load(&margin_accs[i])?;
-                let token_index = fund_data.mango_positions[0].margin_index as usize;
+                let token_index = fund_data.mango_positions[i].margin_index as usize;
                 let equity = get_margin_valuation(token_index, &mango_group_data, &margin_data, &oracle_accs[i], &open_orders_accs[i])?;
                 margin_equity += equity.checked_mul(fund_data.mango_positions[i].fund_share / fund_data.mango_positions[i].share_ratio).unwrap();
             }
@@ -504,15 +507,17 @@ impl Fund {
                 fund_data.tokens[i].debt += withdraw_amount;
             }
             // active margin trade
-            for i in 0..fund_data.no_of_margin_positions as usize {
+            for i in 0..NUM_MARGIN {
                 if fund_data.mango_positions[i as usize].state != 0 {
                     investor_data.margin_position_id[i] = fund_data.mango_positions[i].position_id as u64;
-                    investor_data.margin_debt[i] = share.checked_mul(fund_data.mango_positions[0].fund_share).unwrap();
+                    investor_data.margin_debt[i] = share.checked_mul(fund_data.mango_positions[i].fund_share).unwrap();
                     fund_data.mango_positions[i].fund_share = fund_data.mango_positions[i].fund_share.checked_sub(
                         investor_data.margin_debt[i]).unwrap();
                     // update margin equity for current withdrawal
-                    margin_equity = margin_equity.checked_sub(margin_equity.checked_mul(share).unwrap()).unwrap();
                 }
+            }
+            if fund_data.no_of_margin_positions > 0{
+                margin_equity = margin_equity.checked_sub(margin_equity.checked_mul(share).unwrap()).unwrap();
             }
             fund_data.number_of_active_investments -= 1;
             fund_data.no_of_investments -= 1;
@@ -588,11 +593,11 @@ impl Fund {
 
 
         let mut margin_equity = U64F64!(0);
-        for i in 0..fund_data.no_of_margin_positions as usize {
+        for i in 0..NUM_MARGIN {
             if fund_data.mango_positions[i as usize].state != 0 {
                 let mango_group_data = MangoGroup::load(mango_group_acc)?;
                 let margin_data = MarginAccount::load(&margin_accs[i])?;
-                let token_index = fund_data.mango_positions[0].margin_index as usize;
+                let token_index = fund_data.mango_positions[i].margin_index as usize;
                 let equity = get_margin_valuation(token_index, &mango_group_data, &margin_data, &oracle_accs[i], &open_orders_accs[i])?;
                 margin_equity += equity.checked_mul(fund_data.mango_positions[i].fund_share / fund_data.mango_positions[i].share_ratio).unwrap();
             }

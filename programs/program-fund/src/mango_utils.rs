@@ -630,7 +630,7 @@ pub fn mango_withdraw_investor_place_order (
         margin_account_acc, mango_group_acc, token_index, index)?;
 
     msg!("place amount:: {:?}", place_amount);
-    let coin_lots = convert_size_to_lots(spot_market_acc, dex_prog_acc.key, place_amount, false)?;
+    let coin_lots = investor_withdraw_lots(spot_market_acc, dex_prog_acc.key, place_amount)?;
 
     let pc_qty = convert_size_to_lots(spot_market_acc, dex_prog_acc.key, place_amount * price, true)?;
     let fee_rate:U64F64 = U64F64!(0.0022); // fee_bps = 22; BASE
@@ -828,7 +828,7 @@ pub fn mango_withdraw_investor (
 
     msg!("checks passed");
     // position has to be settled_close
-    let (quantity, rem) = get_investor_withdraw_amount(&fund_data, &investor_data,
+    let (quantity, last_investor) = get_investor_withdraw_amount(&fund_data, &investor_data,
         margin_account_acc, mango_group_acc, open_orders_accs, oracle_accs, index)?;
 
     msg!("withdraw_quantity:: {:?}", quantity);
@@ -858,8 +858,8 @@ pub fn mango_withdraw_investor (
     investor_data.margin_debt[index] = U64F64!(0); // zero out investor_debt
     investor_data.margin_position_id[index] = 0; // not in investment queue
 
-    // close position if rem < 1 USDC
-    if rem < U64F64!(1) {
+    // close if last investor in position has withdrawn
+    if last_investor {
         fund_data.mango_positions[index].fund_share = U64F64!(0);
         fund_data.mango_positions[index].share_ratio = U64F64!(1);
         fund_data.mango_positions[index].position_side = 0;
@@ -867,6 +867,7 @@ pub fn mango_withdraw_investor (
         fund_data.mango_positions[index].margin_index = 0;
         fund_data.mango_positions[index].trade_amount = 0;
         fund_data.mango_positions[index].state = 0; // set state to inactive for new positions
+        fund_data.no_of_margin_positions -= 1;
     }
 
     Ok(())
@@ -977,12 +978,21 @@ pub fn get_investor_settle_amount (
     let token_index = fund_data.mango_positions[index].margin_index as usize;
     let equity = get_margin_valuation(token_index, &mango_group, &margin_data, oracle_acc, open_orders_acc)?;
 
-    let inv_debt = equity.checked_mul(investor_data.margin_debt[index] / fund_data.mango_positions[index].share_ratio).unwrap();
+    let dust_amount = U64F64::from_num(10u64.pow((mango_group.mint_decimals[NUM_MARKETS] - 1) as u32));
+    let inv_debt = equity.checked_mul(investor_data.margin_debt[index] / fund_data.mango_positions[index].share_ratio).unwrap()
+    .checked_sub(dust_amount).unwrap();
     if fund_data.mango_positions[index].position_side == 0 { // for LONG settle USDC
-        let deposit_amount = mango_group.indexes[NUM_MARKETS].deposit
-        .checked_mul(margin_data.deposits[NUM_MARKETS]).unwrap();
-        let settle_amount = deposit_amount.checked_sub(inv_debt).unwrap();
-        Ok((U64F64::to_num(settle_amount), NUM_MARKETS))
+        // settle only if there are USDC borrows
+        if margin_data.borrows[NUM_MARKETS] < 1 {
+            Ok((0, NUM_MARKETS))
+        }
+        else {
+            let deposit_amount = mango_group.indexes[NUM_MARKETS].deposit
+            .checked_mul(margin_data.deposits[NUM_MARKETS]).unwrap();
+            msg!("deposit amount :{:?}, inv_debt: {:?}", deposit_amount, inv_debt);
+            let settle_amount = deposit_amount.checked_sub(inv_debt).unwrap();
+            Ok((U64F64::to_num(settle_amount), NUM_MARKETS))
+        }
     }
     else { // for SHORT settle full borrows of that token
         let token_index = fund_data.mango_positions[index].margin_index as usize;
@@ -1000,7 +1010,7 @@ pub fn get_investor_withdraw_amount (
     open_orders_accs: &[AccountInfo; 4],
     oracle_accs: &[AccountInfo; 4],
     index: usize
-) -> Result<(u64, U64F64), ProgramError> {
+) -> Result<(u64, bool), ProgramError> {
 
     let margin_data = MarginAccount::load(&margin_acc)?;
     let mango_group = MangoGroup::load(&mango_group_acc)?;
@@ -1014,10 +1024,16 @@ pub fn get_investor_withdraw_amount (
     let deposit_amount = mango_group.indexes[NUM_MARKETS].deposit
     .checked_mul(margin_data.deposits[NUM_MARKETS]).unwrap();
 
-    let remaining_amount = equity.checked_sub(withdraw_amount).unwrap();
+    msg!("USDC, deposits: {:?}, borrows: {:?}", deposit_amount, margin_data.borrows[NUM_MARKETS]);
+    msg!("BTC, deposits: {:?}, borrows: {:?}", margin_data.deposits[0], margin_data.borrows[0]);
+
+    msg!("withdraw_amount:: {:?}", withdraw_amount);
+    // if last investor, then close position
+    let equity_threshold = U64F64::from_num(10u64.pow(mango_group.mint_decimals[NUM_MARKETS] as u32));
+    let last_investor = equity.checked_sub(withdraw_amount).unwrap() < equity_threshold;
     // sanity check
     check!(withdraw_amount <= deposit_amount, ProgramError::InsufficientFunds);
-    Ok((U64F64::to_num(withdraw_amount), remaining_amount))
+    Ok((U64F64::to_num(withdraw_amount), last_investor))
 }
 
 pub fn convert_size_to_lots(
@@ -1034,6 +1050,37 @@ pub fn convert_size_to_lots(
         Ok(size / market.coin_lot_size)
     }
 }
+
+pub fn investor_withdraw_lots(
+    spot_market_acc: &AccountInfo,
+    dex_program_id: &Pubkey,
+    size: u64,
+) -> Result <u64, ProgramError> {
+    let market = MarketState::load(spot_market_acc, dex_program_id)?;
+    if size % market.coin_lot_size == 0 {
+        Ok(size / market.coin_lot_size)
+    }
+    else{
+        Ok((size / market.coin_lot_size) + 1)
+    }
+    
+}
+
+// pub fn convert_coin_to_lots_and_update (
+//     spot_market_acc: &AccountInfo,
+//     dex_program_id: &Pubkey,
+//     place_amount: u64,
+//     investor_data: &mut InvestorData,
+//     index: usize
+// ) -> Result<u64, ProgramError> {
+//     let market = MarketState::load(spot_market_acc, dex_program_id)?;
+//     let coin_lots:u64 = place_amount / market.coin_lot_size;
+//     let adj_ratio = U64F64::from_num(coin_lots * market.coin_lot_size)
+//         .checked_div(U64F64::from_num(place_amount)).unwrap();
+//     investor_data.margin_debt[index] = investor_data.margin_debt[index].checked_mul(adj_ratio).unwrap();
+
+//     Ok(coin_lots)
+// }
 
 pub fn update_investor_debts(
     fund_data: &FundData,
