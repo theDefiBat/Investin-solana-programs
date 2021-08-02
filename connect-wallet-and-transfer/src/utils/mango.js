@@ -208,7 +208,7 @@ export async function mangoOpenPosition(
       dlout.encode(
         {
           instruction: 9,
-          quantity: maxQuoteQuantity / 1
+          quantity: maxQuoteQuantity / (side == 'buy' ? 2 : 1)
         },
         data
       )
@@ -409,6 +409,12 @@ export async function mangoClosePosition(
   let marginAccount = await client.getMarginAccount(connection, marginAcc, SERUM_PROGRAM_ID_V3)
   let mangoGroup = await client.getMangoGroup(connection, MANGO_GROUP_ACCOUNT)
   console.log("mango group::", mangoGroup)
+
+  console.log("assets:: ", await marginAccount.getAssets(mangoGroup))
+  console.log("assetsVAl:: ", await marginAccount.getAssetsVal(mangoGroup, await mangoGroup.getPrices(connection)))
+
+  console.log("liabs:: ", await marginAccount.getLiabs(mangoGroup))
+  console.log("liabsVAl:: ", await marginAccount.getLiabsVal(mangoGroup, await mangoGroup.getPrices(connection)))
 
   console.log("margin acc::", marginAccount)
 

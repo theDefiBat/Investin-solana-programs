@@ -93,11 +93,11 @@ export const MangoPlaceOrder = () => {
       console.log("FUND STTE:: ", fundStateAccount.toBase58())
       let fund_info = await connection.getAccountInfo(fundStateAccount);
       const fund_data = FUND_DATA.decode(fund_info.data);
-      let pos_index = fund_data.no_of_margin_positions
+      let pos_index = fund_data.mango_positions[0].state != 0 ? 1 : 0
 
       const transaction = new Transaction()
 
-      const margin_account_acc = await createKeyIfNotExists(walletProvider, "", MANGO_PROGRAM_ID_V2, fund_data.no_of_margin_positions ? MARGIN_ACCOUNT_KEY_2 : MARGIN_ACCOUNT_KEY_1, MarginAccountLayout.span, transaction)
+      const margin_account_acc = await createKeyIfNotExists(walletProvider, "", MANGO_PROGRAM_ID_V2, pos_index == 0 ? MARGIN_ACCOUNT_KEY_1 : MARGIN_ACCOUNT_KEY_2, MarginAccountLayout.span, transaction)
 
       if (fundStateAccount == ''){
         alert("get info first!")
@@ -142,7 +142,7 @@ export const MangoPlaceOrder = () => {
     if (fund_data.mango_positions[0].fund_share < 1                                                                                             ) {
       let invs = await connection.getProgramAccounts(programId, { filters: [{ dataSize: INVESTOR_DATA.span }] });
       const invData = invs.map(f => INVESTOR_DATA.decode(f.account.data))
-      let invIndex = invData.findIndex(i => ((i.manager.toBase58() == key.toBase58()) && (i.margin_debt > 0)))
+      let invIndex = invData.findIndex(i => ((i.manager.toBase58() == key.toBase58()) && (i.margin_debt[pos_index] > 0)))
       console.log("invindex: ", invIndex)
       investor_accs = invIndex >= 0 ? invs[invIndex].pubkey: PublicKey.default
       //console.log("invDAta::", investor_accs)

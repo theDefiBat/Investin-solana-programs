@@ -354,7 +354,6 @@ export const Withdraw = () => {
     
       const investerStateAccount = await createKeyIfNotExists(walletProvider, null, programId, fundPDA.substr(0, 31), INVESTOR_DATA.span)
       
-      const transaction = new Transaction()
 
     if (fundStateAccount == ''){
       alert("get fund info first!")
@@ -368,17 +367,17 @@ export const Withdraw = () => {
     console.log("fund_data:: ", fund_data)
     console.log("inv_data:: ", inv_data)
 
-    if (fund_data.mango_positions[0] != 0 && inv_data.margin_debt > 0) {
-      if (inv_data.margin_position_id == fund_data.mango_positions[0].position_id) // position not closed
-      {
-        let side = fund_data.mango_positions[0].position_side == 0 ? 'sell' : 'buy'
-        let market_index = fund_data.mango_positions[0].margin_index
-        let margin_account_acc = fund_data.mango_positions[0].margin_account
-        console.log("market index:: ", market_index)
-        await mangoWithdrawInvestor(connection, margin_account_acc, new PublicKey(fundStateAccount), investerStateAccount, new PublicKey(fundPDA), walletProvider, market_index, side, 10, null, transaction, side == 'buy' ? 0 : NUM_MARKETS)
-      }
-    } 
+    for(let i = 0; i<2; i++) {
+      const transaction = new Transaction()
 
+      if (inv_data.margin_debt[i] == 0) {continue}
+
+      let index = inv_data.margin_position_id[i] == fund_data.mango_positions[0].position_id ? 0 : 1
+      let side = fund_data.mango_positions[index].position_side == 0 ? 'sell' : 'buy'
+      let market_index = fund_data.mango_positions[index].margin_index
+      let margin_account_acc = fund_data.mango_positions[index].margin_account
+      console.log("market index:: ", market_index)
+      await mangoWithdrawInvestor(connection, margin_account_acc, new PublicKey(fundStateAccount), investerStateAccount, new PublicKey(fundPDA), walletProvider, market_index, side, 10, null, transaction, side == 'buy' ? 0 : NUM_MARKETS)
 
       transaction.feePayer = key;
       let hash = await connection.getRecentBlockhash();
@@ -387,6 +386,9 @@ export const Withdraw = () => {
 
       const sign = await signAndSendTransaction(walletProvider, transaction);
       console.log("signature tx:: ", sign)
+    }
+
+      
       
 }
 
@@ -407,7 +409,7 @@ export const Withdraw = () => {
      
       <button onClick={handleWithdrawSettle}>Settle Withdraws</button>
       <button onClick={handleGetInvestments}>GetInvestments</button>
-      
+  
       <br />
       Assets Info::
       <br />
