@@ -456,9 +456,9 @@ export async function mangoClosePosition(
 
   console.log(maxBaseQuantity, maxQuoteQuantity.toString())
 
-  if (maxBaseQuantity.lte(new BN(0))) {
-    throw new Error('size too small')
-  }
+  // if (maxBaseQuantity.lte(new BN(0))) {
+  //   throw new Error('size too small')
+  // }
   if (limitPrice.lte(new BN(0))) {
     throw new Error('invalid price')
   }
@@ -754,11 +754,11 @@ export async function mangoWithdrawInvestor(
   let orderbook
   if (side === 'buy') {
     size = marginAccount.getLiabs(mangoGroup)[mIndex]
-    orderbook = await spotMarket.loadBids(connection)
+    orderbook = await spotMarket.loadAsks(connection)
   }
   else {
     size = marginAccount.getAssets(mangoGroup)[mIndex]
-    orderbook = await spotMarket.loadAsks(connection)
+    orderbook = await spotMarket.loadBids(connection)
   }
   console.log("orderbook", orderbook)
   let price = calculateMarketPrice(orderbook, size, side)
