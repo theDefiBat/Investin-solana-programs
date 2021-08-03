@@ -978,7 +978,10 @@ pub fn get_investor_settle_amount (
     let token_index = fund_data.mango_positions[index].margin_index as usize;
     let equity = get_margin_valuation(token_index, &mango_group, &margin_data, oracle_acc, open_orders_acc)?;
 
+    msg!("equity:: {:?}, token_index:: {:?}", equity, token_index);
     let dust_amount = U64F64::from_num(10u64.pow((mango_group.mint_decimals[NUM_MARKETS] - 1) as u32));
+    msg!("dust_amount:: {:?}", dust_amount);
+
     let inv_debt = equity.checked_mul(investor_data.margin_debt[index] / fund_data.mango_positions[index].share_ratio).unwrap()
     .checked_sub(dust_amount).unwrap();
     if fund_data.mango_positions[index].position_side == 0 { // for LONG settle USDC

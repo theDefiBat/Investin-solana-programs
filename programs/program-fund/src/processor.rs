@@ -241,6 +241,7 @@ impl Fund {
                 let margin_data = MarginAccount::load(&margin_accs[i])?;
                 let token_index = fund_data.mango_positions[i].margin_index as usize;
                 let equity = get_margin_valuation(token_index, &mango_group_data, &margin_data, &oracle_accs[i], &open_orders_accs[i])?;
+                msg!("equity now:: {:?}", equity);
                 margin_equity += equity.checked_mul(fund_data.mango_positions[i].fund_share / fund_data.mango_positions[i].share_ratio).unwrap();
             }
         }
@@ -335,7 +336,7 @@ impl Fund {
             let mut investor_data = InvestorData::load_mut_checked(investor_state_acc, program_id)?;
             check_eq!(fund_data.investors[i], *investor_state_acc.key);
             if investor_data.amount_in_router != 0 {
-                investor_data.amount = 
+                investor_data.amount =
                     U64F64::to_num(U64F64::from_num(investor_data.amount_in_router).checked_mul(U64F64!(0.98)).unwrap());
                 investor_data.start_performance = fund_data.prev_performance;
                 investor_data.amount_in_router = 0;
@@ -500,7 +501,8 @@ impl Fund {
             update_amount_and_performance(&platform_data, &mut fund_data, &clock_sysvar_acc, margin_equity, true)?;
             let share = get_share(&mut fund_data, &mut investor_data)?;
             for i in 0..NUM_TOKENS {
-                let withdraw_amount: u64 = U64F64::to_num(U64F64::from_num(fund_data.tokens[i].balance)
+                let withdraw_amount: u64 = U64F64::to_num(
+                    U64F64::from_num(fund_data.tokens[i].balance-fund_data.tokens[i].debt)
                 .checked_mul(share).unwrap());
                 investor_data.token_indexes[i] = fund_data.tokens[i].index;
                 investor_data.token_debts[i] = withdraw_amount;
@@ -930,22 +932,19 @@ pub fn get_price(
     let mut price = U64F64!(0);
     let quote_decimals: u8 = mango_group.mint_decimals[NUM_MARKETS];
 
-    for i in 0..NUM_MARKETS {
-        //check_eq_default!(&mango_group.oracles[i], oracle_accs[i].key)?;
+    check_eq!(mango_group.oracles[token_index], *oracle_acc.key);
 
-        // TODO store this info in MangoGroup, first make sure it cannot be changed by solink
-        let quote_adj = U64F64::from_num(
-            10u64.pow(quote_decimals.checked_sub(mango_group.oracle_decimals[token_index]).unwrap() as u32)
-        );
-        let answer = flux_aggregator::read_median(oracle_acc)?; // this is in USD cents
+    // TODO store this info in MangoGroup, first make sure it cannot be changed by solink
+    let quote_adj = U64F64::from_num(
+        10u64.pow(quote_decimals.checked_sub(mango_group.oracle_decimals[token_index]).unwrap() as u32)
+    );
+    let answer = flux_aggregator::read_median(oracle_acc)?; // this is in USD cents
 
-        let value = U64F64::from_num(answer.median);
+    let value = U64F64::from_num(answer.median);
 
-        let base_adj = U64F64::from_num(10u64.pow(mango_group.mint_decimals[i] as u32));
-        price = quote_adj
-            .checked_div(base_adj).unwrap()
-            .checked_mul(value).unwrap();
-    }
+    let base_adj = U64F64::from_num(10u64.pow(mango_group.mint_decimals[token_index] as u32));
+    price = quote_adj.checked_div(base_adj).unwrap().checked_mul(value).unwrap();
+
     Ok(price)
 }
 
@@ -972,8 +971,8 @@ pub fn get_assets_liabs(
     if *open_orders_acc.key != Pubkey::default() {
         let open_orders = load_open_orders(open_orders_acc)?;
         assets = U64F64::from_num(open_orders.native_coin_total)
-        .checked_add(U64F64::from_num(open_orders.native_pc_total + open_orders.referrer_rebates_accrued)).unwrap()
         .checked_mul(price).unwrap()
+        .checked_add(U64F64::from_num(open_orders.native_pc_total + open_orders.referrer_rebates_accrued)).unwrap()
         .checked_add(assets).unwrap();
     }
     
