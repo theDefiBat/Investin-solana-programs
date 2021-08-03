@@ -249,3 +249,42 @@ export const PRICE_DATA = struct([
     MAX_TOKENS, 'prices'
   ),
 ])
+
+export const FUND_DATA_OLD = struct([
+  u8('is_initialized'),
+  u8('decimals'),
+  u8('number_of_active_investments'),
+  u8('no_of_investments'),
+  u8('signer_nonce'),
+  seq(u8(), 3, 'padding'),
+
+  u64('min_amount'),
+  u64('min_return'),
+  u64('performance_fee_percentage'),
+  u64('total_amount'),
+  u64('prev_performance'),
+  u64('amount_in_router'),
+  u64('performance_fee'),
+  publicKeyLayout('manager_account'),
+  seq(
+    struct([
+      publicKeyLayout('mint'),
+      u64('decimals'),
+      publicKeyLayout('vault'),
+      u64('balance')
+    ]),
+    NUM_TOKENS, 'tokens'
+  ),
+  seq(publicKeyLayout(), MAX_INVESTORS, 'investors')
+])
+
+export const INVESTOR_DATA_OLD = struct([
+  u8('is_initialized'),
+  seq(u8(), 7, 'padding'),
+
+  publicKeyLayout('owner'),
+  u64('amount'),
+  u64('start_performance'),
+  u64('amount_in_router'),
+  publicKeyLayout('manager'),
+])

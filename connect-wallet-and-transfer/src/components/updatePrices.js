@@ -2,10 +2,10 @@ import { PublicKey, SYSVAR_CLOCK_PUBKEY, Transaction, TransactionInstruction } f
 import { connection, platformStateAccount, priceStateAccount, programId } from '../utils/constants';
 import { nu64, struct, u8 } from 'buffer-layout';
 import { signAndSendTransaction } from '../utils/web3'
-import { devnet_pools } from '../utils/pools';
+import { pools } from '../utils/pools';
 
-const getPoolAccounts = () => {
-    return devnet_pools.map((p) => {
+const getPoolAccounts = (poolInfo) => {
+    return poolInfo.map((p) => {
       return [
         { pubkey: new PublicKey(p.poolCoinTokenAccount), isSigner: false, isWritable: true },
         { pubkey: new PublicKey(p.poolPcTokenAccount), isSigner: false, isWritable: true }
@@ -16,13 +16,16 @@ const getPoolAccounts = () => {
 export async function updatePoolPrices (transaction,  poolInfo) {
     
     const dataLayout = struct([u8('instruction'), u8('count')])
-    console.log("devnetpools length:: ", devnet_pools.length)
+    console.log("devnetpools length:: ", poolInfo.length)
 
+    if (poolInfo.length == 0) {
+      return
+    }
     const data = Buffer.alloc(dataLayout.span)
     dataLayout.encode(
         {
             instruction: 19,
-            count: devnet_pools.length
+            count: poolInfo.length
         },
         data
     )
@@ -30,7 +33,7 @@ export async function updatePoolPrices (transaction,  poolInfo) {
         keys: [
           { pubkey: platformStateAccount, isSigner: false, isWritable: true },
           { pubkey: SYSVAR_CLOCK_PUBKEY, isSigner: false, isWritable: true },
-          ...getPoolAccounts().flat()
+          ...getPoolAccounts(poolInfo).flat()
         ],
         programId: programId,
         data

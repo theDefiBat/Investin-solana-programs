@@ -7,7 +7,7 @@ import { PublicKey, Transaction, TransactionInstruction } from '@solana/web3.js'
 import { TOKEN_PROGRAM_ID } from '@project-serum/serum/lib/token-instructions';
 import { FUND_DATA, PLATFORM_DATA, u64, U64F64 } from '../utils/programLayouts';
 import { Badge } from 'reactstrap';
-import { MANGO_TOKENS } from "../utils/tokens";
+import { TOKENS } from "../utils/tokens";
 import BN from 'bn.js';
 
 export const InitialisedFund = () => {
@@ -48,7 +48,7 @@ export const InitialisedFund = () => {
       dataLayout.encode(
         {
           instruction: 0,
-          min_amount: min_amount * (10 ** MANGO_TOKENS['USDC'].decimals),
+          min_amount: min_amount * (10 ** TOKENS['USDC'].decimals),
           min_return: min_return * 100,
           performance_fee_percentage: platform_fee_percentage * 100,
           count: 2
@@ -56,8 +56,8 @@ export const InitialisedFund = () => {
         data
       )
 
-      const associatedTokenAddress1 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(MANGO_TOKENS['USDC'].mintAddress), fundPDA[0], transaction);
-      const associatedTokenAddress2 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(MANGO_TOKENS['SRM'].mintAddress), fundPDA[0], transaction);
+      const associatedTokenAddress1 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TOKENS['USDC'].mintAddress), fundPDA[0], transaction);
+      const associatedTokenAddress2 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TOKENS['SRM'].mintAddress), fundPDA[0], transaction);
 
       const instruction = new TransactionInstruction({
         keys: [
@@ -66,8 +66,8 @@ export const InitialisedFund = () => {
           { pubkey: walletProvider?.publicKey, isSigner: true, isWritable: true },
           { pubkey: associatedTokenAddress1, isSigner: false, isWritable: true },
 
-          { pubkey: new PublicKey(MANGO_TOKENS['USDC'].mintAddress), isSigner: false, isWritable: true },
-          { pubkey: new PublicKey(MANGO_TOKENS['SRM'].mintAddress), isSigner: false, isWritable: true },
+          { pubkey: new PublicKey(TOKENS['USDC'].mintAddress), isSigner: false, isWritable: true },
+          { pubkey: new PublicKey(TOKENS['SRM'].mintAddress), isSigner: false, isWritable: true },
         ],
         programId,
         data

@@ -6,15 +6,9 @@ import { connection, programId, priceStateAccount, platformStateAccount } from '
 import { struct, u8 } from 'buffer-layout';
 import { MANGO_TOKENS } from '../utils/tokens'
 import { PLATFORM_DATA, PRICE_DATA } from '../utils/programLayouts';
-import { devnet_pools, pools } from '../utils/pools';
-
-const priceProgramId = new PublicKey('CB6oEYpfSsrF3oWG41KQxwfg4onZ38JMj1hk17UNe1Fn')
-const tokensList = [
-    MANGO_TOKENS['SRM']
-]
+import { pools } from '../utils/pools';
 
 export const GetPrices = () => {
-    const [priceAccount, setPriceAccount] = useState('');
     const [poolName, setPoolName] = useState('');
 
     const walletProvider = GlobalState.useState(s => s.walletProvider);
@@ -28,7 +22,7 @@ export const GetPrices = () => {
             alert("no token pool found")
             return
         }
-        const poolInfo = devnet_pools.find(p => p.name === poolName);
+        const poolInfo = pools.find(p => p.name === poolName);
         console.log(poolInfo)
         const dataLayout = struct([u8('instruction')])
 
@@ -69,7 +63,7 @@ export const GetPrices = () => {
             alert("no token pool found")
             return
         }
-        const poolInfo = devnet_pools.find(p => p.name === poolName);
+        const poolInfo = pools.find(p => p.name === poolName);
         console.log(poolInfo)
         const dataLayout = struct([u8('instruction'), u8('count')])
 
@@ -120,8 +114,8 @@ export const GetPrices = () => {
 
             <select name="funds" width = "100px" onClick={handleTokenSelect}>
             {
-                tokensList.map((token) => {
-                    return (<option key={token.symbol} value={token.symbol}>{token.symbol}</option>)
+                pools.map((pool) => {
+                    return (<option key={pool.coin.symbol} value={pool.coin.symbol}>{pool.coin.symbol}</option>)
                 })
             }
             </select>

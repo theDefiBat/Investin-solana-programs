@@ -13,31 +13,16 @@ import { InitialisedFund } from './components/InitialisedFund';
 import { Swap } from './components/Swap';
 import { Withdraw } from './components/Withdraw';
 import { Transfer } from './components/Transfer';
-import { Claim } from './components/ClaimFee';
-import { Testing } from './components/Testing';
+// import { Claim } from './components/ClaimFee';
 import { GetPrices } from './components/GetPrices';
 import { MangoInitialize } from './components/MangoInitialize';
 import { MangoPlaceOrder } from './components/MangoPlaceOrder';
 import { AdminControl } from './components/AdminControl';
 
-
-
-
-
 function App() {
   const walletProvider = GlobalState.useState(s => s.walletProvider);
   const address = GlobalState.useState(s => s.address);
   const [transactions, setTransactions] = useState([]);
-
-  // useEffect(() => {
-  //   if (walletProvider?.publicKey) {
-  //     console.log(`walletProvider?.publicKey ::: `, walletProvider?.publicKey)
-  //     getTransactions(connection, walletProvider.publicKey).then((trans) => {
-  //       console.log(`trans ::: `, trans)
-  //       setTransactions(trans);
-  //     });
-  //   }
-  // }, [walletProvider])
 
   return (
     <div>
@@ -50,17 +35,19 @@ function App() {
         {/* {
           transactions && <TransactionsView transactions={transactions} />
         } */}
-        <SendGreating />
+        {/* <SendGreating />
+        
+        
+        <Claim />
+        */}
         <InitialisedFund />
         <Deposit />
-	      <Transfer />
+        <Transfer />
+        <Withdraw /> 
         <Swap />
-        <Testing />
-        <Withdraw />
-        <Claim />
-        <GetPrices />
         <MangoInitialize />
         <MangoPlaceOrder />
+        <GetPrices />
         <AdminControl />
       </Container>
     </div>

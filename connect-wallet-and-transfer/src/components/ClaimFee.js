@@ -1,14 +1,13 @@
 import { PublicKey, SYSVAR_CLOCK_PUBKEY, Transaction, TransactionInstruction } from '@solana/web3.js';
 import React, { useState } from 'react'
 import { GlobalState } from '../store/globalState';
-import { adminAccount, priceStateAccount, connection, programId, TOKEN_PROGRAM_ID, FUND_ACCOUNT_KEY } from '../utils/constants';
+import { adminAccount, connection, programId, TOKEN_PROGRAM_ID, FUND_ACCOUNT_KEY, platformStateAccount, MANGO_GROUP_ACCOUNT } from '../utils/constants';
 import { nu64, struct, u8 } from 'buffer-layout';
 import { findAssociatedTokenAddress, signAndSendTransaction, createAssociatedTokenAccountIfNotExist } from '../utils/web3';
-import { TEST_TOKENS } from '../utils/tokens'
+import { MANGO_TOKENS, TEST_TOKENS } from '../utils/tokens'
 import { FUND_DATA } from '../utils/programLayouts';
-import { devnet_pools } from '../utils/pools'
+import { pools } from '../utils/pools'
 import { updatePoolPrices } from './updatePrices';
-
 
 export const Claim = () => {
     const [fundPDA, setFundPDA] = useState('');
@@ -44,28 +43,29 @@ export const Claim = () => {
           return
         }
 
-        const fundBaseTokenAccount = await findAssociatedTokenAddress(fundPDA[0], new PublicKey(TEST_TOKENS['USDR'].mintAddress));
-        const managerBaseTokenAccount = await findAssociatedTokenAddress(key, new PublicKey(TEST_TOKENS['USDR'].mintAddress));
-        const investinBaseTokenAccount = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['USDR'].mintAddress), adminAccount); 
+        const fundBaseTokenAccount = await findAssociatedTokenAddress(fundPDA[0], new PublicKey(MANGO_TOKENS['USDC'].mintAddress));
+        const managerBaseTokenAccount = await findAssociatedTokenAddress(key, new PublicKey(MANGO_TOKENS['USDC'].mintAddress));
+        const investinBaseTokenAccount = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(MANGO_TOKENS['USDC'].mintAddress), adminAccount); 
         
         const transaction = new Transaction()
 
-        updatePoolPrices(transaction, devnet_pools)
+        updatePoolPrices(transaction, pools)
 
         const dataLayout = struct([u8('instruction')])
         const data = Buffer.alloc(dataLayout.span)
         dataLayout.encode(
             {
-            instruction: 5,
+            instruction: 6,
             },
             data
         )
         
         const claim_instruction = new TransactionInstruction({
         keys: [
+        {pubkey: platformStateAccount, isSigner: false, isWritable: true},
         {pubkey: fundStateAccount, isSigner: false, isWritable: true},
 
-        {pubkey: priceStateAccount, isSigner: false, isWritable:true},
+        {pubkey: MANGO_GROUP_ACCOUNT, isSigner: false, isWritable: true},
         {pubkey: SYSVAR_CLOCK_PUBKEY, isSigner: false, isWritable:true},
 
         {pubkey: key, isSigner: true, isWritable: true },

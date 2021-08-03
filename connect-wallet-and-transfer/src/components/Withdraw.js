@@ -5,9 +5,9 @@ import { adminAccount, SOL_USDC_MARKET, connection,  platformStateAccount, price
 
 import { nu64, struct, u8 } from 'buffer-layout';
 import { createKeyIfNotExists, findAssociatedTokenAddress, setWalletTransaction, signAndSendTransaction, createAssociatedTokenAccount, createAssociatedTokenAccountIfNotExist } from '../utils/web3';
-import { devnet_pools } from '../utils/pools';
+import { pools } from '../utils/pools';
 import { keyBy } from 'lodash';
-import { INVESTOR_DATA, PLATFORM_DATA, FUND_DATA } from '../utils/programLayouts';
+import { INVESTOR_DATA, PLATFORM_DATA, FUND_DATA, NUM_TOKENS } from '../utils/programLayouts';
 import { TEST_TOKENS } from '../utils/tokens';
 import { updatePoolPrices } from './updatePrices';
 import { MarginAccountLayout, NUM_MARKETS, MangoGroupLayout } from '../utils/MangoLayout';
@@ -16,7 +16,7 @@ import { mangoWithdrawInvestor, placeOrder, placeOrder2 } from '../utils/mango';
 
 
 const getPoolAccounts = () => {
-  return devnet_pools.map((p) => {
+  return pools.map((p) => {
     return [
       { pubkey: new PublicKey(p.poolCoinTokenAccount), isSigner: false, isWritable: true },
       { pubkey: new PublicKey(p.poolPcTokenAccount), isSigner: false, isWritable: true }
@@ -90,7 +90,20 @@ export const Withdraw = () => {
   
     const transaction = new Transaction()
     
-    updatePoolPrices(transaction, devnet_pools)
+    let platData = await connection.getAccountInfo(platformStateAccount)
+    let platform_data = PLATFORM_DATA.decode(platData.data)
+  
+    let filt_pools = []
+    for (let i = 1; i<NUM_TOKENS; i++) {
+      if (fund_data.tokens[i].balance > 0) {
+        let mint = platform_data.tokens_list[fund_data.tokens[i].index].mint
+        console.log("mint:: ", mint)
+        let x = pools.find(p => p.coin.mintAddress == mint)
+        console.log("x:: ", x)
+        filt_pools.push(x)
+      }  
+    }
+    updatePoolPrices(transaction, filt_pools)
 
     const dataLayout = struct([u8('instruction')])
     const data = Buffer.alloc(dataLayout.span)

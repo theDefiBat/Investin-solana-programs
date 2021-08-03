@@ -3,7 +3,7 @@ import { nu64, struct, u8 } from 'buffer-layout'
 import React, { useState } from 'react'
 import { GlobalState } from '../store/globalState'
 import { connection, programId, TOKEN_PROGRAM_ID, FUND_ACCOUNT_KEY, LIQUIDITY_POOL_PROGRAM_ID_V4, platformStateAccount } from '../utils/constants'
-import { devnet_pools } from '../utils/pools'
+import { pools } from '../utils/pools'
 import { AMM_INFO_LAYOUT_V4 } from '../utils/programLayouts'
 import { TokenAmount } from '../utils/safe-math'
 import { NATIVE_SOL, TEST_TOKENS, TOKENS } from '../utils/tokens'
@@ -197,7 +197,7 @@ export const Swap = () => {
     // console.log("amm info:: ", ammData)
 
 
-    const poolInfo = devnet_pools.find(p => p.name === selectedFirstToken);
+    const poolInfo = pools.find(p => p.name === selectedFirstToken);
     const fromCoinMint = poolInfo.pc.mintAddress;
     const toCoinMint = poolInfo.coin.mintAddress;
     const fundPDA = await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId);
@@ -218,7 +218,7 @@ export const Swap = () => {
   }
 
   const handleSell = async () => {
-    const poolInfo = devnet_pools.find(p => p.name === selectedFirstToken);
+    const poolInfo = pools.find(p => p.name === selectedFirstToken);
 
     console.log("pool info:: ", poolInfo)
     const toCoinMint = poolInfo.pc.mintAddress;
@@ -255,7 +255,7 @@ export const Swap = () => {
 
       <select name="tokens" onClick={handleFirstTokenSelect}>
         {
-          devnet_pools.map((pool) => {
+          pools.map((pool) => {
             return (<option key={pool.coin.name} value={pool.coin.symbol}>{pool.coin.name}</option>)
           })
         }

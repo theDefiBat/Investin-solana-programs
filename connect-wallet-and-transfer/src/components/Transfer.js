@@ -4,9 +4,9 @@ import { GlobalState } from '../store/globalState';
 import { adminAccount, connection, FUND_ACCOUNT_KEY, MANGO_GROUP_ACCOUNT, platformStateAccount, priceStateAccount, programId, TOKEN_PROGRAM_ID } from '../utils/constants';
 import { nu64, struct, u8 } from 'buffer-layout';
 import { createKeyIfNotExists, findAssociatedTokenAddress, setWalletTransaction, signAndSendTransaction, createAssociatedTokenAccountIfNotExist } from '../utils/web3';
-import { FUND_DATA, INVESTOR_DATA, PLATFORM_DATA, PRICE_DATA } from '../utils/programLayouts';
-import { devnet_pools, pools } from '../utils/pools'
-import { MANGO_TOKENS } from '../utils/tokens'
+import { FUND_DATA, INVESTOR_DATA, NUM_TOKENS, PLATFORM_DATA, PRICE_DATA } from '../utils/programLayouts';
+import { pools } from '../utils/pools'
+import { MANGO_TOKENS, TOKENS } from '../utils/tokens'
 import { updatePoolPrices } from './updatePrices';
 import {
   MangoClient, MangoGroupLayout, MarginAccountLayout
@@ -46,8 +46,9 @@ export const Transfer = () => {
       alert("get info first!")
       return
     }
-    const client = new MangoClient()
 
+    const platINFO = await connection.getAccountInfo(platformStateAccount);
+    const platform_data = PLATFORM_DATA.decode(platINFO.data);
 
     const accountInfo = await connection.getAccountInfo(new PublicKey(fundStateAccount));
     const fund_data = FUND_DATA.decode(accountInfo.data);
@@ -85,7 +86,17 @@ export const Transfer = () => {
     let plat_info = PLATFORM_DATA.decode(platData.data)
     console.log("plat info:: ", plat_info)
 
-    updatePoolPrices(transaction, devnet_pools)
+    let filt_pools = []
+    for (let i = 1; i<NUM_TOKENS; i++) {
+      if (fund_data.tokens[i].balance > 0) {
+        let mint = platform_data.tokens_list[fund_data.tokens[i].index].mint
+        console.log("mint:: ", mint)
+        let x = pools.find(p => p.coin.mintAddress == mint)
+        console.log("x:: ", x)
+        filt_pools.push(x)
+      }  
+    }
+    updatePoolPrices(transaction, filt_pools)
     // transaction1.feePayer = walletProvider?.publicKey;
     // let hash1 = await connection.getRecentBlockhash();
     // console.log("blockhash", hash1);
@@ -194,12 +205,12 @@ export const Transfer = () => {
     }
     console.log(fundState)
 
-    setAmountInRouter(parseInt(fundState.amount_in_router) / (10 ** 9));
+    setAmountInRouter(parseInt(fundState.amount_in_router) / (10 ** TOKENS['USDC'].decimals));
     setFundPerf(fundState.prev_performance)
-    setFundAUM(parseInt(fundState.total_amount) / (10 ** 9))
+    setFundAUM(parseInt(fundState.total_amount) / (10 ** TOKENS['USDC'].decimals))
 
     let bal = []
-    bal.push((parseInt(fundState.tokens[0].balance) / (10 ** 9)))
+    bal.push((parseInt(fundState.tokens[0].balance) / (10 ** TOKENS['USDC'].decimals)))
     bal.push((parseInt(fundState.tokens[1].balance) / (10 ** 6)))
     bal.push((parseInt(fundState.tokens[2].balance) / (10 ** fundState.tokens[2].decimals)))
     setFundBalances(bal)

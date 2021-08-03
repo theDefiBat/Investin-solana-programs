@@ -5,9 +5,9 @@ import { GlobalState } from '../store/globalState';
 import { nu64, struct, u8 } from 'buffer-layout';
 import { PublicKey, Transaction, TransactionInstruction } from '@solana/web3.js';
 import { TOKEN_PROGRAM_ID } from '@project-serum/serum/lib/token-instructions';
-import { FUND_DATA, PLATFORM_DATA, U64F64 } from '../utils/programLayouts';
+import { PLATFORM_DATA } from '../utils/programLayouts';
 import { Badge } from 'reactstrap';
-import { MANGO_TOKENS } from "../utils/tokens";
+import { MANGO_TOKENS, TOKENS } from "../utils/tokens";
 import BN from 'bn.js';
 
 export const AdminControl = () => {
@@ -24,6 +24,14 @@ export const AdminControl = () => {
 
     console.log(`PLATFORM_DATA.span :::: `, PLATFORM_DATA.span)
 
+
+    //let fund_acc = new PublicKey('4WS9AJWTKdVPzuzd86Eb4kaf8DGjtba7BxwGaQZeYwFc')
+    //let fund_info = await connection.getAccountInfo(fund_acc)
+    //console.log("FUND_DATA:: ", FUND_DATA_OLD.decode(fund_info.data))
+
+    // let inv_acc = new PublicKey('4gRsuFUEemxVBPMy8zXYEY2pJrPEsxyxAxc5jkVVjRce')
+    // let inv_info = await connection.getAccountInfo(inv_acc)
+    // console.log("INV_DATA:: ", INVESTOR_DATA_OLD.decode(inv_info.data))
 
     if (1) {
       const dataLayout = struct([
@@ -55,7 +63,7 @@ export const AdminControl = () => {
         },
         data
       )
-      const associatedTokenAddress1 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(MANGO_TOKENS['USDC'].mintAddress), walletProvider?.publicKey, transaction);
+      const associatedTokenAddress1 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TOKENS['USDC'].mintAddress), walletProvider?.publicKey, transaction);
 
       const instruction = new TransactionInstruction({
         keys: [

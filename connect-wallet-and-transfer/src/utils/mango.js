@@ -4,7 +4,7 @@ import {
     Market,
     OpenOrders,
   } from '@project-serum/serum'
-import { programId, TOKEN_PROGRAM_ID , MANGO_PROGRAM_ID_V2, SERUM_PROGRAM_ID_V3, MANGO_GROUP_ACCOUNT, priceStateAccount, CLOCK_PROGRAM_ID, MANGO_VAULT_ACCOUNT_USDC} from '../utils/constants';
+import { programId, TOKEN_PROGRAM_ID , MANGO_PROGRAM_ID_V2, SERUM_PROGRAM_ID_V3, MANGO_GROUP_ACCOUNT, CLOCK_PROGRAM_ID, MANGO_VAULT_ACCOUNT_USDC} from '../utils/constants';
 import { nu64, struct, u8, u32, u16 } from 'buffer-layout';
 import BN from 'bn.js';
 import {
@@ -41,8 +41,8 @@ export const calculateMarketPrice = (
 ) => {
   let acc = 0
   let selectedOrder
-  for (const order of orderBook) {
-    acc += order.size
+  for (const order of orderBook.getL2(100)) {
+    acc += order[1]
     if (acc >= size) {
       selectedOrder = order
       break
@@ -50,9 +50,9 @@ export const calculateMarketPrice = (
   }
 
   if (side === 'buy') {
-    return selectedOrder.price * 1.05
+    return selectedOrder[0] * 1.05
   } else {
-    return selectedOrder.price * 0.95
+    return selectedOrder[0] * 0.95
   }
 }
 
@@ -75,7 +75,7 @@ export async function mangoOpenPosition(
 ) {
   const client = new MangoClient()
 
-  let serumMarket = new PublicKey(IDS.devnet.mango_groups.BTC_ETH_SOL_SRM_USDC.spot_market_pks[mIndex])
+  let serumMarket = new PublicKey(IDS['mainnet-beta'].mango_groups.BTC_ETH_SOL_SRM_USDC.spot_market_pks[mIndex])
   console.log("serum market pk:: ", serumMarket)
   let marginAccount = await client.getMarginAccount(connection, marginAcc, SERUM_PROGRAM_ID_V3)
   let mangoGroup = await client.getMangoGroup(connection, MANGO_GROUP_ACCOUNT)
@@ -83,13 +83,6 @@ export async function mangoOpenPosition(
 
   console.log("margin acc::", marginAccount)
   // let mango_prices = await mangoGroup.getPrices(connection)
-
-  console.log("collateral ratio:: ", await marginAccount.getCollateralRatio(mangoGroup, await mangoGroup.getPrices(connection)))
-  console.log("assets:: ", await marginAccount.getAssets(mangoGroup))
-  console.log("assetsVAl:: ", await marginAccount.getAssetsVal(mangoGroup, await mangoGroup.getPrices(connection)))
-
-  console.log("liabs:: ", await marginAccount.getLiabs(mangoGroup))
-  console.log("liabsVAl:: ", await marginAccount.getLiabsVal(mangoGroup, await mangoGroup.getPrices(connection)))
 
   let spotMarket = await Market.load(connection, serumMarket, {}, SERUM_PROGRAM_ID_V3)
   console.log("spot market:: ", spotMarket)
@@ -222,7 +215,7 @@ export async function mangoOpenPosition(
           { isSigner: false, isWritable: true, pubkey: marginAccount.publicKey },
 
           {pubkey: fundBaseTokenAccount, isSigner: false, isWritable:true},
-          {pubkey: MANGO_VAULT_ACCOUNT_USDC, isSigner: false, isWritable:true},
+          {pubkey: mangoGroup.vaults[NUM_MARKETS], isSigner: false, isWritable:true},
             
           {pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable:true},
           {pubkey: CLOCK_PROGRAM_ID, isSigner: false, isWritable:true},
@@ -402,7 +395,7 @@ export async function mangoClosePosition(
   seed
 ) {
 
-  let serumMarket = new PublicKey(IDS.devnet.mango_groups.BTC_ETH_SOL_SRM_USDC.spot_market_pks[mIndex])
+  let serumMarket = new PublicKey(IDS['mainnet-beta'].mango_groups.BTC_ETH_SOL_SRM_USDC.spot_market_pks[mIndex])
 
   const client = new MangoClient()
 

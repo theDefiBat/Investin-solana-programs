@@ -6,8 +6,6 @@ import { nu64, struct, u8 } from 'buffer-layout';
 import { createKeyIfNotExists, findAssociatedTokenAddress, setWalletTransaction, signAndSendTransaction, createAssociatedTokenAccountIfNotExist } from '../utils/web3';
 import { FUND_DATA, INVESTOR_DATA, PLATFORM_DATA } from '../utils/programLayouts';
 import { MANGO_TOKENS } from '../utils/tokens'
-import { devnet_pools } from '../utils/pools'
-import { updatePoolPrices } from './updatePrices';
 
 export const Deposit = () => {
 
@@ -40,7 +38,6 @@ export const Deposit = () => {
 
     const investerStateAccount = await createKeyIfNotExists(walletProvider, null, programId, FPDA.toBase58().substr(0, 31), INVESTOR_DATA.span, transaction)
     
-    // await updatePoolPrices(transaction, devnet_pools)
     
     console.log("RPDA:", RPDA[0].toBase58())
     console.log("FPDA: ", FPDA.toBase58())
@@ -62,9 +59,6 @@ export const Deposit = () => {
       data
     )
 
-    // DdzREMVFg6pa5825HBKVzeCrEi8EJiREfb8UrxSZB64w
-    // HUHuQCZUvxCiuFg54vRStrXSbCFeBhmXRqSuR5eEVB6o
-    // HW18fiAHKzs7ZSaT5ibAhnSWVde25sazTSbMzss4Fcty
     const instruction = new TransactionInstruction({
       keys: [
         { pubkey: new PublicKey(fundStateAccount), isSigner: false, isWritable: true }, //fund State Account
