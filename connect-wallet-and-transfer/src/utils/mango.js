@@ -735,7 +735,7 @@ export async function mangoWithdrawInvestor(
   transaction,
 ) {
 
-  let serumMarket = new PublicKey(IDS.devnet.mango_groups.BTC_ETH_SOL_SRM_USDC.spot_market_pks[mIndex])
+  let serumMarket = new PublicKey(IDS['mainnet-beta'].mango_groups.BTC_ETH_SOL_SRM_USDC.spot_market_pks[mIndex])
 
   const client = new MangoClient()
 

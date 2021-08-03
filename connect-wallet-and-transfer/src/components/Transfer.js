@@ -89,7 +89,7 @@ export const Transfer = () => {
     let filt_pools = []
     for (let i = 1; i<NUM_TOKENS; i++) {
       if (fund_data.tokens[i].balance > 0) {
-        let mint = platform_data.tokens_list[fund_data.tokens[i].index].mint
+        let mint = platform_data.token_list[fund_data.tokens[i].index].mint
         console.log("mint:: ", mint)
         let x = pools.find(p => p.coin.mintAddress == mint)
         console.log("x:: ", x)
