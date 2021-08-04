@@ -239,9 +239,9 @@ pub fn mango_open_position (
         limit_price: NonZeroU64::new(price).unwrap(),
         max_coin_qty: NonZeroU64::new(coin_lots).unwrap(),
         max_native_pc_qty_including_fees: NonZeroU64::new(pc_qty_including_fees).unwrap(),
-        order_type: OrderType::Limit,
+        order_type: OrderType::ImmediateOrCancel,
         client_order_id: 1,
-        self_trade_behavior: SelfTradeBehavior::DecrementTake,
+        self_trade_behavior: SelfTradeBehavior::AbortTransaction,
         limit: 65535,
     };
     invoke_signed(
@@ -357,9 +357,9 @@ pub fn mango_close_position (
         limit_price: NonZeroU64::new(price).unwrap(),
         max_coin_qty: NonZeroU64::new(coin_lots).unwrap(),
         max_native_pc_qty_including_fees: NonZeroU64::new(pc_qty_including_fees).unwrap(),
-        order_type: OrderType::Limit,
+        order_type: OrderType::ImmediateOrCancel,
         client_order_id: 1,
-        self_trade_behavior: SelfTradeBehavior::DecrementTake,
+        self_trade_behavior: SelfTradeBehavior::AbortTransaction,
         limit: 65535,
     };
     invoke_signed(
@@ -646,9 +646,9 @@ pub fn mango_withdraw_investor_place_order (
         limit_price: NonZeroU64::new(price).unwrap(),
         max_coin_qty: NonZeroU64::new(coin_lots).unwrap(),
         max_native_pc_qty_including_fees: NonZeroU64::new(pc_qty_including_fees).unwrap(),
-        order_type: OrderType::Limit,
+        order_type: OrderType::ImmediateOrCancel,
         client_order_id: 1,
-        self_trade_behavior: SelfTradeBehavior::DecrementTake,
+        self_trade_behavior: SelfTradeBehavior::AbortTransaction,
         limit: 65535,
     };
 
@@ -772,6 +772,7 @@ pub fn mango_withdraw_investor_settle (
     // settle borrows
     let (settle_amount, token_index) = get_investor_settle_amount(&fund_data, &investor_data,
         margin_account_acc, mango_group_acc, oracle_acc, open_orders_acc, index)?;
+    msg!("settling borrows: {:?} for token: {:?}", settle_amount, token_index);
     invoke_signed(
         &settle_borrow(mango_prog_acc.key, mango_group_acc.key, margin_account_acc.key, fund_pda_acc.key, token_index,
             settle_amount)?,
@@ -978,9 +979,7 @@ pub fn get_investor_settle_amount (
     let token_index = fund_data.mango_positions[index].margin_index as usize;
     let equity = get_margin_valuation(token_index, &mango_group, &margin_data, oracle_acc, open_orders_acc)?;
 
-    msg!("equity:: {:?}, token_index:: {:?}", equity, token_index);
     let dust_amount = U64F64::from_num(10u64.pow((mango_group.mint_decimals[NUM_MARKETS] - 1) as u32));
-    msg!("dust_amount:: {:?}", dust_amount);
 
     let inv_debt = equity.checked_mul(investor_data.margin_debt[index] / fund_data.mango_positions[index].share_ratio).unwrap()
     .checked_sub(dust_amount).unwrap();
@@ -992,15 +991,14 @@ pub fn get_investor_settle_amount (
         else {
             let deposit_amount = mango_group.indexes[NUM_MARKETS].deposit
             .checked_mul(margin_data.deposits[NUM_MARKETS]).unwrap();
-            msg!("deposit amount :{:?}, inv_debt: {:?}", deposit_amount, inv_debt);
             let settle_amount = deposit_amount.checked_sub(inv_debt).unwrap();
             Ok((U64F64::to_num(settle_amount), NUM_MARKETS))
         }
     }
     else { // for SHORT settle full borrows of that token
         let token_index = fund_data.mango_positions[index].margin_index as usize;
-        let deposit_amount = mango_group.indexes[NUM_MARKETS].deposit
-        .checked_mul(margin_data.deposits[NUM_MARKETS]).unwrap();
+        let deposit_amount = mango_group.indexes[token_index].deposit
+        .checked_mul(margin_data.deposits[token_index]).unwrap();
         Ok((U64F64::to_num(deposit_amount), token_index))
     }
 }
@@ -1028,7 +1026,7 @@ pub fn get_investor_withdraw_amount (
     .checked_mul(margin_data.deposits[NUM_MARKETS]).unwrap();
 
     msg!("USDC, deposits: {:?}, borrows: {:?}", deposit_amount, margin_data.borrows[NUM_MARKETS]);
-    msg!("BTC, deposits: {:?}, borrows: {:?}", margin_data.deposits[0], margin_data.borrows[0]);
+    msg!("SOL, deposits: {:?}, borrows: {:?}", margin_data.deposits[2], margin_data.borrows[2]);
 
     msg!("withdraw_amount:: {:?}", withdraw_amount);
     // if last investor, then close position
