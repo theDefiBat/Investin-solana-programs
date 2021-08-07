@@ -101,7 +101,8 @@ pub fn update_token_prices (
 
 pub fn add_token_to_fund (
     program_id: &Pubkey,
-    accounts: &[AccountInfo]
+    accounts: &[AccountInfo],
+    index: u8
 ) -> Result<(), ProgramError> {
 
     let accounts_iter = &mut accounts.iter();
@@ -115,14 +116,16 @@ pub fn add_token_to_fund (
 
     let vault_info = parse_token_account(vault_acc)?;
     check_eq!(vault_info.owner, fund_data.fund_pda);
+    check_eq!(fund_data.tokens[index as usize].is_active, false);
 
     let token_index = platform_data.get_token_index(mint_acc.key).unwrap();
-    let index = fund_data.no_of_assets as usize;
-    fund_data.tokens[index].is_active = true;
-    fund_data.tokens[index].index = token_index as u8;
-    fund_data.tokens[index].balance = 0;
-    fund_data.tokens[index].debt = 0;
-    fund_data.tokens[index].vault = *vault_acc.key;
+    check_eq!(fund_data.get_token_slot(token_index), None);
+
+    fund_data.tokens[index as usize].is_active = true;
+    fund_data.tokens[index as usize].index = token_index as u8;
+    fund_data.tokens[index as usize].balance = 0;
+    fund_data.tokens[index as usize].debt = 0;
+    fund_data.tokens[index as usize].vault = *vault_acc.key;
     fund_data.no_of_assets += 1;
 
     Ok(())
@@ -143,6 +146,10 @@ pub fn remove_token_from_fund (
 
     let token_index = platform_data.get_token_index(mint_acc.key).unwrap();
     let token_slot = fund_data.get_token_slot(token_index).unwrap();
+
+    check_eq!(fund_data.tokens[token_slot].balance, 0);
+    check_eq!(fund_data.tokens[token_slot].debt, 0);
+    check_eq!((token_index == 0), false); // cant remove USDC
 
     fund_data.tokens[token_slot].is_active = false;
     fund_data.tokens[token_slot].index = 0;

@@ -64,7 +64,6 @@ impl Fund {
         let platform_acc = next_account_info(accounts_iter)?;
         let fund_state_acc = next_account_info(accounts_iter)?;
         let manager_acc = next_account_info(accounts_iter)?;
-        let fund_btoken_acc = next_account_info(accounts_iter)?;
 
         let mut platform_data = PlatformData::load_mut_checked(platform_acc, program_id)?;
         let mut fund_data = FundData::load_mut_checked(fund_state_acc, program_id)?;
@@ -86,6 +85,8 @@ impl Fund {
         fund_data.signer_nonce = nonce;
 
         let usdc_mint_acc = next_account_info(accounts_iter)?;
+        let fund_btoken_acc = next_account_info(accounts_iter)?;
+
         check_eq!(platform_data.token_list[0].mint, *usdc_mint_acc.key);
 
         let usdc_vault = parse_token_account(fund_btoken_acc)?;
@@ -97,15 +98,23 @@ impl Fund {
         fund_data.tokens[0].debt = 0;
         fund_data.tokens[0].is_active = true;
         fund_data.tokens[0].vault = *fund_btoken_acc.key;
+        fund_data.no_of_assets = 1;
 
         // whitelisted tokens
         for i in 1..no_of_tokens {
             let mint_acc = next_account_info(accounts_iter)?;
+            let vault_acc = next_account_info(accounts_iter)?;
+
+            let asset_vault = parse_token_account(vault_acc)?;
+            check_eq!(asset_vault.owner, fund_data.fund_pda);
+
             let index = platform_data.get_token_index(mint_acc.key).unwrap();
             fund_data.tokens[i as usize].index = index as u8;
             fund_data.tokens[i as usize].balance = 0;
             fund_data.tokens[i as usize].debt = 0;
+            fund_data.tokens[i as usize].vault = *vault_acc.key;
             fund_data.tokens[i as usize].is_active = true;
+            fund_data.no_of_assets += 1;
         }
 
         fund_data.min_amount = min_amount;
@@ -406,7 +415,9 @@ impl Fund {
                 &[&["router".as_ref(), bytes_of(&platform_data.router_nonce)]]
             )?;
             fund_data.amount_in_router -= investor_data.amount_in_router;
+            fund_data.no_of_investments -= 1;
             investor_data.amount_in_router = 0;
+            investor_data.is_initialized = false;
         } 
 
         if investor_data.has_withdrawn == true {
@@ -853,9 +864,9 @@ impl Fund {
                 msg!("FundInstruction::UpdateTokenPrices");
                 return update_token_prices(program_id, accounts, count);
             }
-            FundInstruction::AddTokenToFund => {
+            FundInstruction::AddTokenToFund { index } => {
                 msg!("FundInstruction::AddTokenToFund");
-                return add_token_to_fund(program_id, accounts);
+                return add_token_to_fund(program_id, accounts, index);
             }
             FundInstruction::RemoveTokenFromFund => {
                 msg!("FundInstruction::RemoveTokenFromFund");

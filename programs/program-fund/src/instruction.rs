@@ -346,7 +346,9 @@ pub enum FundInstruction {
     // Platform Account
     // Fund state account
     // Token mint account
-    AddTokenToFund,
+    AddTokenToFund {
+        index: u8 // index of slot
+    },
 
     // Platform Account
     // Fund State account
@@ -505,7 +507,10 @@ impl FundInstruction {
                 }
             },
             20 => {
-                FundInstruction::AddTokenToFund
+                let index = array_ref![data, 0, 1];
+                FundInstruction::AddTokenToFund {
+                    index: u8::from_le_bytes(*index)
+                }
             },
             21 => {
                 FundInstruction::RemoveTokenFromFund
