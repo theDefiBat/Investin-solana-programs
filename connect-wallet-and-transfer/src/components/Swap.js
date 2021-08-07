@@ -240,6 +240,57 @@ export const Swap = () => {
     console.log(`txId :::: `, txId)
   }
 
+  const handleAdd = async () => {
+    const key = walletProvider?.publicKey;  
+
+    const poolInfo = pools.find(p => p.name === selectedFirstToken);
+
+    const transaction = new Transaction()
+
+    console.log("pool info:: ", poolInfo)
+    const toCoinMint = poolInfo.pc.mintAddress;
+    const fromCoinMint = poolInfo.coin.mintAddress;
+    const fundPDA = await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId);
+    const associatedTokenAddress = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(poolInfo.coin.mintAddress), fundPDA[0], transaction);
+
+    const fundStateAcc = await PublicKey.createWithSeed(
+      key,
+      FUND_ACCOUNT_KEY,
+      programId,
+    );
+
+    const dataLayout = struct([u8('instruction'), u8('index')])
+
+    const data = Buffer.alloc(dataLayout.span)
+    dataLayout.encode(
+      {
+        instruction: 20,
+        index: 2
+      },
+      data
+    )
+    const transfer_instruction = new TransactionInstruction({
+      keys: [
+        { pubkey: platformStateAccount, isSigner: false, isWritable: true },
+        { pubkey: fundStateAcc, isSigner: false, isWritable: true },
+        { pubkey: new PublicKey(poolInfo.coin.mintAddress), isSigner: false, isWritable: true },
+        { pubkey: associatedTokenAddress, isSigner: false, isWritable: true },
+      ],
+      programId,
+      data
+    });
+
+    transaction.add(transfer_instruction);
+    transaction.feePayer = key;
+    let hash = await connection.getRecentBlockhash();
+    console.log("blockhash", hash);
+    transaction.recentBlockhash = hash.blockhash;
+
+    const sign = await signAndSendTransaction(walletProvider, transaction);
+    console.log("signature tx:: ", sign)
+
+  }
+
   const handleFirstTokenSelect = (event) => {
     setSelectedFirstToken(`${event.target.value}-USDC`);
     console.log(`${event.target.value}-USDC :::: `, `${event.target.value}-USDC`)
@@ -267,6 +318,8 @@ export const Swap = () => {
     
       <button margin-right="10px" onClick={handleBuy} >Buy</button>
       <button onClick={handleSell} >Sell</button>
+      <button onClick={handleAdd} >Add Token</button>
+      <button onClick={handleAdd} >Sell</button>
     </div>
   )
 }

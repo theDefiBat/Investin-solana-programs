@@ -155,6 +155,7 @@ export const MangoPlaceOrder = () => {
 
     
     let side = fund_data.mango_positions[pos_index].position_side == 0 ? 'sell' : 'buy'
+    let mIndex = fund_data.mango_positions[pos_index].margin_index;
 
     console.log("side:: ", side)    
     let seed = key.toBase58().substr(0,20) + pos_index.toString()
