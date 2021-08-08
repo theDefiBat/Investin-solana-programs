@@ -626,11 +626,16 @@ pub fn mango_withdraw_investor_place_order (
     check!(fund_data.mango_positions[index].state != 0, ProgramError::InvalidAccountData);
 
     let token_index = fund_data.mango_positions[index].margin_index as usize;
-    let place_amount = get_investor_place_amount(&mut fund_data, &mut investor_data, 
+    let (place_amount, position_amount) = get_investor_place_amount(&mut fund_data, &mut investor_data, 
         margin_account_acc, mango_group_acc, token_index, index)?;
 
     msg!("place amount:: {:?}", place_amount);
-    let coin_lots = investor_withdraw_lots(spot_market_acc, dex_prog_acc.key, place_amount)?;
+    let mut coin_lots = investor_withdraw_lots(spot_market_acc, dex_prog_acc.key, place_amount)?;
+
+    if place_amount > position_amount {
+        coin_lots -= 1;
+    }
+    msg!("coin_lots:: {:?}", coin_lots);
 
     let pc_qty = convert_size_to_lots(spot_market_acc, dex_prog_acc.key, place_amount * price, true)?;
     let fee_rate:U64F64 = U64F64!(0.0022); // fee_bps = 22; BASE
@@ -691,7 +696,7 @@ pub fn get_investor_place_amount (
     mango_group_acc: &AccountInfo,
     token_index: usize,
     pos_index: usize
-) -> Result<u64, ProgramError> {
+) -> Result<(u64, u64), ProgramError> {
     
     let margin_data = MarginAccount::load(&margin_acc)?;
     let mango_group = MangoGroup::load(&mango_group_acc)?;
@@ -699,20 +704,21 @@ pub fn get_investor_place_amount (
     let inv_share = investor_data.margin_debt[pos_index] / fund_data.mango_positions[pos_index].share_ratio;
     msg!("investor share:: {:?}", inv_share);
     let mut place_amount;
+    let mut position_amount;
 
     if fund_data.mango_positions[pos_index].position_side == 0 { // LONG
-        place_amount = mango_group.indexes[token_index].deposit
-        .checked_mul(margin_data.deposits[token_index]).unwrap()
-        .checked_mul(inv_share).unwrap();
+        position_amount = mango_group.indexes[token_index].deposit
+        .checked_mul(margin_data.deposits[token_index]).unwrap();
+        place_amount = position_amount.checked_mul(inv_share).unwrap();
     }
     else { // SHORT
-        place_amount = mango_group.indexes[token_index].borrow
-        .checked_mul(margin_data.borrows[token_index]).unwrap()
-        .checked_mul(inv_share).unwrap();
+        position_amount = mango_group.indexes[token_index].borrow
+        .checked_mul(margin_data.borrows[token_index]).unwrap();
+        place_amount = position_amount.checked_mul(inv_share).unwrap();
     }
     place_amount = place_amount.checked_add(U64F64!(1)).unwrap();
 
-    Ok(U64F64::to_num(place_amount))
+    Ok((U64F64::to_num(place_amount), U64F64::to_num(position_amount)))
 }
 
 pub fn mango_withdraw_investor_settle (
