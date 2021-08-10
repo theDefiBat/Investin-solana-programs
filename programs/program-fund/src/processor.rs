@@ -73,6 +73,7 @@ impl Fund {
         //check_eq!(fund_data.version, 0);
         check!(platform_data.is_initialized(), ProgramError::InvalidAccountData);
         check!(min_return >= 500, ProgramError::InvalidArgument);
+        check!(min_amount >= 10000000, ProgramError::InvalidArgument);
         check!(no_of_tokens as usize <= NUM_TOKENS, ProgramError::InvalidArgument); // max 8 tokens
         check!(performance_fee_percentage >= 100 && performance_fee_percentage <= 4000, ProgramError::InvalidArgument);
 
@@ -418,9 +419,11 @@ impl Fund {
             fund_data.no_of_investments -= 1;
             investor_data.amount_in_router = 0;
             investor_data.is_initialized = false;
+            // close investor account
+            close_investor_account(investor_acc, investor_state_acc)?;
         } 
 
-        if investor_data.has_withdrawn == true {
+        if investor_data.has_withdrawn == true {//&& investor_data.withdrawn_from_margin == false {
             for i in 0..NUM_TOKENS {
                 // TODO:: check if fund_debt on inv_acc <= fund_debt on fund
                 if investor_data.token_debts[i] < 10 {
@@ -457,9 +460,9 @@ impl Fund {
             investor_data.amount_in_router = 0;
             investor_data.has_withdrawn = false;
             investor_data.is_initialized = false;
+            // close investor account
+            //close_investor_account(investor_acc, investor_state_acc)?;
         }
-        
-        
         Ok(())
     }
 
@@ -497,19 +500,19 @@ impl Fund {
         check_eq!(investor_data.has_withdrawn, false);
 
         // calculate current margin equity for fund
-        let mut margin_equity = U64F64!(0);
+        let mut margin_equity = [U64F64!(0); 2];
         for i in 0..NUM_MARGIN {
             if fund_data.mango_positions[i as usize].state != 0 {
                 let mango_group_data = MangoGroup::load(mango_group_acc)?;
                 let margin_data = MarginAccount::load(&margin_accs[i])?;
                 let token_index = fund_data.mango_positions[i].margin_index as usize;
                 let equity = get_margin_valuation(token_index, &mango_group_data, &margin_data, &oracle_accs[i], &open_orders_accs[i])?;
-                margin_equity += equity.checked_mul(fund_data.mango_positions[i].fund_share / fund_data.mango_positions[i].share_ratio).unwrap();
+                margin_equity[i] += equity.checked_mul(fund_data.mango_positions[i].fund_share / fund_data.mango_positions[i].share_ratio).unwrap();
             }
         }
 
         if investor_data.amount != 0 && investor_data.start_performance != 0 {
-            update_amount_and_performance(&platform_data, &mut fund_data, &clock_sysvar_acc, margin_equity, true)?;
+            update_amount_and_performance(&platform_data, &mut fund_data, &clock_sysvar_acc, margin_equity[0]+margin_equity[1], true)?;
             let share = get_share(&mut fund_data, &mut investor_data)?;
             for i in 0..NUM_TOKENS {
                 let withdraw_amount: u64 = U64F64::to_num(
@@ -522,20 +525,22 @@ impl Fund {
             // active margin trade
             for i in 0..NUM_MARGIN {
                 if fund_data.mango_positions[i as usize].state != 0 {
+                    if margin_equity[i] < 0.1 {
+                        continue; // ignore
+                    }
                     investor_data.margin_position_id[i] = fund_data.mango_positions[i].position_id as u64;
                     investor_data.margin_debt[i] = share.checked_mul(fund_data.mango_positions[i].fund_share).unwrap();
                     fund_data.mango_positions[i].fund_share = fund_data.mango_positions[i].fund_share.checked_sub(
                         investor_data.margin_debt[i]).unwrap();
                     // update margin equity for current withdrawal
+                    investor_data.withdrawn_from_margin = true;
+                    margin_equity[i] = margin_equity[i].checked_sub(margin_equity[i].checked_mul(share).unwrap()).unwrap();
                 }
-            }
-            if fund_data.no_of_margin_positions > 0{
-                margin_equity = margin_equity.checked_sub(margin_equity.checked_mul(share).unwrap()).unwrap();
             }
             fund_data.number_of_active_investments -= 1;
             fund_data.no_of_investments -= 1;
             investor_data.has_withdrawn = true;
-            update_amount_and_performance(&platform_data, &mut fund_data, &clock_sysvar_acc, margin_equity, false)?;
+            update_amount_and_performance(&platform_data, &mut fund_data, &clock_sysvar_acc, margin_equity[0]+margin_equity[1], false)?;
         }
         Ok(())
     }
@@ -1191,4 +1196,18 @@ pub fn get_share(
     .checked_div(fund_data.total_amount).unwrap();
 
     Ok(share)
+}
+
+pub fn close_investor_account (
+    investor_acc: &AccountInfo,
+    investor_state_acc: &AccountInfo
+)-> Result<(), ProgramError> {
+
+    let dest_starting_lamports = investor_acc.lamports();
+    **investor_acc.lamports.borrow_mut() = dest_starting_lamports
+            .checked_add(investor_state_acc.lamports())
+            .ok_or(ProgramError::AccountBorrowFailed)?;
+    **investor_state_acc.lamports.borrow_mut() = 0;
+
+    Ok(())
 }
