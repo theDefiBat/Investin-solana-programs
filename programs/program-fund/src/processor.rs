@@ -345,6 +345,7 @@ impl Fund {
             let investor_state_acc = &investor_state_accs[i];
             let mut investor_data = InvestorData::load_mut_checked(investor_state_acc, program_id)?;
             check_eq!(fund_data.investors[i], *investor_state_acc.key);
+            msg!("investor account update");
             if investor_data.amount_in_router != 0 {
                 investor_data.amount =
                     U64F64::to_num(U64F64::from_num(investor_data.amount_in_router).checked_mul(U64F64!(0.98)).unwrap());
@@ -460,8 +461,11 @@ impl Fund {
             investor_data.amount_in_router = 0;
             investor_data.has_withdrawn = false;
             investor_data.is_initialized = false;
+            // check if there are no margin debts
+            check_eq!(investor_data.margin_debt[0], 0);
+            check_eq!(investor_data.margin_debt[1], 0);
             // close investor account
-            //close_investor_account(investor_acc, investor_state_acc)?;
+            close_investor_account(investor_acc, investor_state_acc)?;
         }
         Ok(())
     }
@@ -515,12 +519,19 @@ impl Fund {
             update_amount_and_performance(&platform_data, &mut fund_data, &clock_sysvar_acc, margin_equity[0]+margin_equity[1], true)?;
             let share = get_share(&mut fund_data, &mut investor_data)?;
             for i in 0..NUM_TOKENS {
-                let withdraw_amount: u64 = U64F64::to_num(
+                let mut withdraw_amount: u64 = U64F64::to_num(
                     U64F64::from_num(fund_data.tokens[i].balance-fund_data.tokens[i].debt)
                 .checked_mul(share).unwrap());
                 investor_data.token_indexes[i] = fund_data.tokens[i].index;
+                if fund_data.number_of_active_investments == 1 { // ceil for last investor
+                    withdraw_amount += 1; // ceil
+                    if withdraw_amount + fund_data.tokens[i].debt > fund_data.tokens[i].balance {
+                        withdraw_amount -= 1;
+                    }
+                }
                 investor_data.token_debts[i] = withdraw_amount;
                 fund_data.tokens[i].debt += withdraw_amount;
+                check!(fund_data.tokens[i].balance >= fund_data.tokens[i].debt, ProgramError::InvalidAccountData);
             }
             // active margin trade
             for i in 0..NUM_MARGIN {
@@ -699,9 +710,7 @@ impl Fund {
         let mint_acc = next_account_info(accounts_iter)?;
 
         let mut platform_data = PlatformData::load_mut_checked(platform_state_acc, program_id)?;
-        msg!("don1");
         check!(investin_admin_acc.is_signer, FundError::IncorrectSignature);
-        msg!("don2");
 
         //check_eq!(investin_admin::ID, *investin_admin_acc.key);
 
@@ -904,7 +913,7 @@ pub fn update_amount_and_performance(
     for i in 1..NUM_TOKENS {
 
         // dont update if token balance == 0
-        if fund_data.tokens[i].balance == 0 { continue; }
+        if (fund_data.tokens[i].balance - fund_data.tokens[i].debt) == 0 { continue; }
 
         // get index of token
         let token_info = platform_data.token_list[fund_data.tokens[i].index as usize];

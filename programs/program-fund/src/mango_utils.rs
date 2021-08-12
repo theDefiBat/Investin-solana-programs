@@ -639,7 +639,7 @@ pub fn mango_withdraw_investor_place_order (
         margin_account_acc, mango_group_acc, token_index, index)?;
 
     //msg!("place amount:: {:?}", place_amount);
-    let coin_lots = get_investor_withdraw_lots(spot_market_acc, dex_prog_acc.key, place_amount, position_amount)?;
+    let coin_lots = get_investor_withdraw_lots(spot_market_acc, dex_prog_acc.key, place_amount, position_amount, fund_data.mango_positions[index].position_side)?;
 
     //msg!("coin_lots:: {:?}", coin_lots);
 
@@ -1035,10 +1035,6 @@ pub fn get_investor_withdraw_amount (
     let deposit_amount = mango_group.indexes[NUM_MARKETS].deposit
     .checked_mul(margin_data.deposits[NUM_MARKETS]).unwrap();
 
-    // msg!("USDC, deposits: {:?}, borrows: {:?}", deposit_amount, margin_data.borrows[NUM_MARKETS]);
-    // msg!("TOKEN {:?}, deposits: {:?}, borrows: {:?}", index, margin_data.deposits[3], margin_data.borrows[3]);
-
-    // msg!("withdraw_amount:: {:?}", withdraw_amount);
     // if last investor, then close position
     let equity_threshold = U64F64::from_num(10u64.pow(mango_group.mint_decimals[NUM_MARKETS] as u32));
     let last_investor = equity.checked_sub(withdraw_amount).unwrap() < equity_threshold;
@@ -1077,43 +1073,18 @@ pub fn get_investor_withdraw_lots(
     dex_program_id: &Pubkey,
     size: u64,
     pos_size: u64,
+    side: u8
 ) -> Result <u64, ProgramError> {
     let market = MarketState::load(spot_market_acc, dex_program_id)?;
-    // if side == 0 { // long
-    //     if (size % market.coin_lot_size == 0) || (size + market.coin_lot_size > pos_size) {
-    //         Ok(size / market.coin_lot_size)
-    //     }
-    //     else {
-    //         Ok((size / market.coin_lot_size) + 1)
-    //     }
-    // }
-    // else { // short
-    //     Ok((size / market.coin_lot_size) + 1)
-    // }
-    if size + market.coin_lot_size > pos_size {
-        Ok(size / market.coin_lot_size)
+    //if size + market.coin_lot_size > pos_size {
+    if (pos_size - size) / market.coin_lot_size == 0 {
+        Ok((size / market.coin_lot_size) + side as u64) // same as manager close case
     }
     else {
         Ok((size / market.coin_lot_size) + 1)
     }
     // Ok((size / market.coin_lot_size) + side as u64)
 }
-
-// pub fn convert_coin_to_lots_and_update (
-//     spot_market_acc: &AccountInfo,
-//     dex_program_id: &Pubkey,
-//     place_amount: u64,
-//     investor_data: &mut InvestorData,
-//     index: usize
-// ) -> Result<u64, ProgramError> {
-//     let market = MarketState::load(spot_market_acc, dex_program_id)?;
-//     let coin_lots:u64 = place_amount / market.coin_lot_size;
-//     let adj_ratio = U64F64::from_num(coin_lots * market.coin_lot_size)
-//         .checked_div(U64F64::from_num(place_amount)).unwrap();
-//     investor_data.margin_debt[index] = investor_data.margin_debt[index].checked_mul(adj_ratio).unwrap();
-
-//     Ok(coin_lots)
-// }
 
 pub fn update_investor_debts(
     fund_data: &FundData,
