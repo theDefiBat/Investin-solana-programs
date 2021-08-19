@@ -2,6 +2,7 @@ use num_derive::FromPrimitive;
 use solana_program::program_error::ProgramError;
 use thiserror::Error;
 
+
 #[derive(Clone, Debug, Eq, Error, FromPrimitive, PartialEq)]
 pub enum FundError {
 
@@ -49,6 +50,11 @@ pub enum FundError {
     #[error("Stale price in account")]
     PriceStaleInAccount,
 
+    #[error("Invalid Margin Instruction State")]
+    InvalidMangoState,
+
+    #[error("Default Error")]
+    Default
 }
 
 impl From<FundError> for ProgramError {
