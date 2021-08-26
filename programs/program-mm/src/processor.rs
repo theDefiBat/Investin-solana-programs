@@ -25,6 +25,7 @@ use crate::mango_utils::*;
 
 use mango::state::{MangoAccount, MangoGroup, MangoCache, MAX_PAIRS, QUOTE_INDEX};
 use mango::instruction::{ cancel_all_perp_orders, withdraw };
+use mango::ids::mngo_token;
 
 macro_rules! check {
     ($cond:expr, $err:expr) => {
@@ -60,7 +61,7 @@ impl Fund {
         perp_market_index: u8
     ) -> Result<(), ProgramError> {
 
-        const NUM_FIXED:usize = 7;
+        const NUM_FIXED:usize = 8;
         let accounts = array_ref![accounts, 0, NUM_FIXED];
 
         let [
@@ -68,6 +69,7 @@ impl Fund {
             manager_ai,
             fund_pda_ai,
             fund_vault_ai,
+            fund_mngo_vault_ai,
             mango_group_ai,
             mango_account_ai,
             mango_prog_ai
@@ -92,8 +94,14 @@ impl Fund {
 
         // check for ownership of vault
         let fund_vault = parse_token_account(fund_vault_ai)?;
+        let fund_mngo_vault = parse_token_account(fund_mngo_vault_ai)?;
+
         check_eq!(fund_vault.owner, fund_data.fund_pda);
+        check_eq!(fund_mngo_vault.owner, fund_data.fund_pda);
+        check_eq!(&fund_mngo_vault.mint, &mngo_token::ID); // check for mngo mint
+
         fund_data.vault_key = *fund_vault_ai.key;
+        fund_data.mngo_vault_key = *fund_mngo_vault_ai.key;
         fund_data.vault_balance = 0;
 
         // Init Mango account for the fund
@@ -201,7 +209,6 @@ impl Fund {
         investor_data.mngo_debt = fund_data.mngo_per_share;
         msg!("Deposit done..");
         
-    
         Ok(())
     }
 
@@ -350,7 +357,7 @@ impl Fund {
         program_id: &Pubkey,
         accounts: &[AccountInfo],
     ) -> Result<(), ProgramError> {
-        const NUM_FIXED:usize = 17;
+        const NUM_FIXED:usize = 18;
         let accounts = array_ref![accounts, 0, NUM_FIXED];
 
         let [
@@ -358,6 +365,7 @@ impl Fund {
             investor_state_ai,
             investor_ai,
             mango_prog_ai,
+            fund_mngo_vault_ai,
             inv_mngo_ai,
 
             mango_group_ai,
@@ -381,6 +389,9 @@ impl Fund {
         check_eq!(investor_data.owner, *investor_ai.key);
         check_eq!(investor_data.manager, fund_data.manager_account);
 
+        // check mngo vault
+        check_eq!(fund_data.mngo_vault_key, *fund_mngo_vault_ai.key);
+
         // redeem all mango accrued to mango account
         invoke_signed(
             &redeem_mngo(mango_prog_ai.key, mango_group_ai.key,
@@ -411,9 +422,30 @@ impl Fund {
             &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
         )?;
 
-        // update mngo accrued
-        let mngo_deposits = get_mngo_accrued(mango_account_ai, mango_group_ai, mango_cache_ai, mango_prog_ai, mngo_root_bank_ai)?;
-        let mut mngo_delta = mngo_deposits.checked_sub(fund_data.mngo_accrued).unwrap();
+        // get mngo to withdraw to mngo vault
+        let mut mngo_delta = get_mngo_accrued(mango_account_ai, mango_group_ai, mango_cache_ai, mango_prog_ai, mngo_root_bank_ai)?;   
+        let open_orders_accs = [Pubkey::default(); MAX_PAIRS];
+        invoke_signed(
+            &withdraw(mango_prog_ai.key, mango_group_ai.key, mango_account_ai.key, fund_pda_ai.key,
+                mango_cache_ai.key, mngo_root_bank_ai.key, mngo_node_bank_ai.key, mngo_bank_vault_ai.key, fund_mngo_vault_ai.key,
+                signer_ai.key, &open_orders_accs, mngo_delta, false)?,
+            &[
+                mango_prog_ai.clone(),
+                mango_group_ai.clone(),
+                mango_account_ai.clone(),
+                fund_pda_ai.clone(),
+                mango_cache_ai.clone(),
+                mngo_root_bank_ai.clone(),
+                mngo_node_bank_ai.clone(),
+                mngo_bank_vault_ai.clone(),
+                fund_mngo_vault_ai.clone(),
+                signer_ai.clone(),
+                default_ai.clone(),
+                token_prog_ai.clone()
+            ],
+            &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
+        )?;
+        fund_data.mngo_accrued = parse_token_account(fund_mngo_vault_ai)?.amount;
 
         // update manager share on every redeem
         let man_share = U64F64::to_num(U64F64::from_num(mngo_delta).checked_mul(fund_data.performance_fee_percentage / 100).unwrap());
@@ -425,36 +457,31 @@ impl Fund {
         fund_data.mngo_per_share = fund_data.mngo_per_share.checked_add(
             U64F64::from_num(mngo_delta).checked_div(U64F64::from_num(fund_data.deposits)).unwrap()
         ).unwrap();
-        // update accrued mngo for next cycle
-        fund_data.mngo_accrued = fund_data.mngo_accrued.checked_add(mngo_delta).unwrap();
 
         // mngo due to investor
         let inv_mngo_share = fund_data.mngo_per_share.checked_sub(investor_data.mngo_debt).unwrap();
         let inv_mngo = U64F64::to_num(inv_mngo_share.checked_mul(U64F64::from_num(investor_data.amount)).unwrap());
 
         msg!("investor mngo:: {:?}", inv_mngo);
-        let open_orders_accs = [Pubkey::default(); MAX_PAIRS];
         invoke_signed(
-            &withdraw(mango_prog_ai.key, mango_group_ai.key, mango_account_ai.key, fund_pda_ai.key,
-                mango_cache_ai.key, mngo_root_bank_ai.key, mngo_node_bank_ai.key, mngo_bank_vault_ai.key, inv_mngo_ai.key,
-                signer_ai.key, &open_orders_accs, inv_mngo, false)?,
+            &(spl_token::instruction::transfer(
+                token_prog_ai.key,
+                fund_mngo_vault_ai.key,
+                inv_mngo_ai.key,
+                fund_pda_ai.key,
+                &[fund_pda_ai.key],
+                inv_mngo
+            ))?,
             &[
-                mango_prog_ai.clone(),
-                mango_group_ai.clone(),
-                mango_account_ai.clone(),
-                fund_pda_ai.clone(),
-                mango_cache_ai.clone(),
-                mngo_root_bank_ai.clone(),
-                mngo_node_bank_ai.clone(),
-                mngo_bank_vault_ai.clone(),
+                fund_mngo_vault_ai.clone(),
                 inv_mngo_ai.clone(),
-                signer_ai.clone(),
-                default_ai.clone(),
+                fund_pda_ai.clone(),
                 token_prog_ai.clone()
             ],
             &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
         )?;
-        fund_data.mngo_accrued = fund_data.mngo_accrued.checked_sub(inv_mngo).unwrap();
+
+        fund_data.mngo_accrued = parse_token_account(fund_mngo_vault_ai)?.amount;
         investor_data.mngo_debt = fund_data.mngo_per_share;
 
         Ok(())
@@ -464,13 +491,14 @@ impl Fund {
         program_id: &Pubkey,
         accounts: &[AccountInfo],
     ) -> Result<(), ProgramError> {
-        const NUM_FIXED:usize = 16;
+        const NUM_FIXED:usize = 17;
         let accounts = array_ref![accounts, 0, NUM_FIXED];
 
         let [
             fund_state_ai,
             manager_ai,
             mango_prog_ai,
+            fund_mngo_vault_ai,
             man_mngo_ai,
 
             mango_group_ai,
@@ -492,6 +520,9 @@ impl Fund {
         check!(manager_ai.is_signer, ProgramError::MissingRequiredSignature);
         check_eq!(fund_data.manager_account, *manager_ai.key);
 
+        // check mngo vault
+        check_eq!(fund_data.mngo_vault_key, *fund_mngo_vault_ai.key);
+
         // redeem all mango accrued to mango account
         invoke_signed(
             &redeem_mngo(mango_prog_ai.key, mango_group_ai.key,
@@ -522,9 +553,30 @@ impl Fund {
             &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
         )?;
 
-        // update mngo accrued
-        let mngo_deposits = get_mngo_accrued(mango_account_ai, mango_group_ai, mango_cache_ai, mango_prog_ai, mngo_root_bank_ai)?;
-        let mut mngo_delta = mngo_deposits.checked_sub(fund_data.mngo_accrued).unwrap();
+        // get mngo to withdraw to mngo vault
+        let mut mngo_delta = get_mngo_accrued(mango_account_ai, mango_group_ai, mango_cache_ai, mango_prog_ai, mngo_root_bank_ai)?;   
+        let open_orders_accs = [Pubkey::default(); MAX_PAIRS];
+        invoke_signed(
+            &withdraw(mango_prog_ai.key, mango_group_ai.key, mango_account_ai.key, fund_pda_ai.key,
+                mango_cache_ai.key, mngo_root_bank_ai.key, mngo_node_bank_ai.key, mngo_bank_vault_ai.key, fund_mngo_vault_ai.key,
+                signer_ai.key, &open_orders_accs, mngo_delta, false)?,
+            &[
+                mango_prog_ai.clone(),
+                mango_group_ai.clone(),
+                mango_account_ai.clone(),
+                fund_pda_ai.clone(),
+                mango_cache_ai.clone(),
+                mngo_root_bank_ai.clone(),
+                mngo_node_bank_ai.clone(),
+                mngo_bank_vault_ai.clone(),
+                fund_mngo_vault_ai.clone(),
+                signer_ai.clone(),
+                default_ai.clone(),
+                token_prog_ai.clone()
+            ],
+            &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
+        )?;
+        fund_data.mngo_accrued = parse_token_account(fund_mngo_vault_ai)?.amount;
 
         // update manager share on every redeem
         let man_share = U64F64::to_num(U64F64::from_num(mngo_delta).checked_mul(fund_data.performance_fee_percentage / 100).unwrap());
@@ -536,32 +588,27 @@ impl Fund {
         fund_data.mngo_per_share = fund_data.mngo_per_share.checked_add(
             U64F64::from_num(mngo_delta).checked_div(U64F64::from_num(fund_data.deposits)).unwrap()
         ).unwrap();
-        // update accrued mngo for next cycle
-        fund_data.mngo_accrued = fund_data.mngo_accrued.checked_add(mngo_delta).unwrap();
 
         msg!("manager mngo due:: {:?}", fund_data.mngo_manager);
-        let open_orders_accs = [Pubkey::default(); MAX_PAIRS];
         invoke_signed(
-            &withdraw(mango_prog_ai.key, mango_group_ai.key, mango_account_ai.key, fund_pda_ai.key,
-                mango_cache_ai.key, mngo_root_bank_ai.key, mngo_node_bank_ai.key, mngo_bank_vault_ai.key, man_mngo_ai.key,
-                signer_ai.key, &open_orders_accs, fund_data.mngo_manager, false)?,
+            &(spl_token::instruction::transfer(
+                token_prog_ai.key,
+                fund_mngo_vault_ai.key,
+                man_mngo_ai.key,
+                fund_pda_ai.key,
+                &[fund_pda_ai.key],
+                fund_data.mngo_manager
+            ))?,
             &[
-                mango_prog_ai.clone(),
-                mango_group_ai.clone(),
-                mango_account_ai.clone(),
-                fund_pda_ai.clone(),
-                mango_cache_ai.clone(),
-                mngo_root_bank_ai.clone(),
-                mngo_node_bank_ai.clone(),
-                mngo_bank_vault_ai.clone(),
+                fund_mngo_vault_ai.clone(),
                 man_mngo_ai.clone(),
-                signer_ai.clone(),
-                default_ai.clone(),
+                fund_pda_ai.clone(),
                 token_prog_ai.clone()
             ],
             &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
         )?;
 
+        fund_data.mngo_accrued = parse_token_account(fund_mngo_vault_ai)?.amount;
         Ok(())
     }
 
@@ -628,11 +675,12 @@ impl Fund {
         program_id: &Pubkey,
         accounts: &[AccountInfo],
     ) -> Result<(), ProgramError> {
-        const NUM_FIXED:usize = 13;
+        const NUM_FIXED:usize = 15;
         let accounts = array_ref![accounts, 0, NUM_FIXED];
 
         let [
             fund_state_ai,
+            fund_mngo_vault_ai,
             mango_prog_ai,
             mango_group_ai,
             mango_cache_ai,
@@ -645,56 +693,79 @@ impl Fund {
             mngo_bank_vault_ai,
             signer_ai,
             token_prog_ai,
+            default_ai
         ] = accounts;
 
         let mut fund_data = FundData::load_mut_checked(fund_state_ai, program_id)?;
 
-        // redeem all mango accrued to mango account
-        invoke_signed(
-            &redeem_mngo(mango_prog_ai.key, mango_group_ai.key,
-                mango_cache_ai.key,
-                mango_account_ai.key,
-                fund_pda_ai.key,
-                perp_market_ai.key,
-                mngo_perp_vault_ai.key,
-                mngo_root_bank_ai.key,
-                mngo_node_bank_ai.key,
-                mngo_bank_vault_ai.key,
-                signer_ai.key,
-            )?,
-            &[
-                mango_prog_ai.clone(),
-                mango_group_ai.clone(),
-                mango_cache_ai.clone(),
-                mango_account_ai.clone(),
-                fund_pda_ai.clone(),
-                perp_market_ai.clone(),
-                mngo_perp_vault_ai.clone(),
-                mngo_root_bank_ai.clone(),
-                mngo_node_bank_ai.clone(),
-                mngo_bank_vault_ai.clone(),
-                signer_ai.clone(),
-                token_prog_ai.clone()
-            ],
-            &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
-        )?;
+         // check mngo vault
+         check_eq!(fund_data.mngo_vault_key, *fund_mngo_vault_ai.key);
 
-        // update mngo accrued
-        let mngo_deposits = get_mngo_accrued(mango_account_ai, mango_group_ai, mango_cache_ai, mango_prog_ai, mngo_root_bank_ai)?;
-        let mut mngo_delta = mngo_deposits.checked_sub(fund_data.mngo_accrued).unwrap();
-
-        // update manager share on every redeem
-        let man_share = U64F64::to_num(U64F64::from_num(mngo_delta).checked_mul(fund_data.performance_fee_percentage / 100).unwrap());
-        fund_data.mngo_manager = fund_data.mngo_manager.checked_add(man_share).unwrap();
-
-        // rest gets distributed to investors
-        mngo_delta = mngo_delta.checked_sub(man_share).unwrap();
-        // update mngo per share values
-        fund_data.mngo_per_share = fund_data.mngo_per_share.checked_add(
-            U64F64::from_num(mngo_delta).checked_div(U64F64::from_num(fund_data.deposits)).unwrap()
-        ).unwrap();
-        // update accrued mngo for next cycle
-        fund_data.mngo_accrued = fund_data.mngo_accrued.checked_add(mngo_delta).unwrap();
+         // redeem all mango accrued to mango account
+         invoke_signed(
+             &redeem_mngo(mango_prog_ai.key, mango_group_ai.key,
+                 mango_cache_ai.key,
+                 mango_account_ai.key,
+                 fund_pda_ai.key,
+                 perp_market_ai.key,
+                 mngo_perp_vault_ai.key,
+                 mngo_root_bank_ai.key,
+                 mngo_node_bank_ai.key,
+                 mngo_bank_vault_ai.key,
+                 signer_ai.key,
+             )?,
+             &[
+                 mango_prog_ai.clone(),
+                 mango_group_ai.clone(),
+                 mango_cache_ai.clone(),
+                 mango_account_ai.clone(),
+                 fund_pda_ai.clone(),
+                 perp_market_ai.clone(),
+                 mngo_perp_vault_ai.clone(),
+                 mngo_root_bank_ai.clone(),
+                 mngo_node_bank_ai.clone(),
+                 mngo_bank_vault_ai.clone(),
+                 signer_ai.clone(),
+                 token_prog_ai.clone()
+             ],
+             &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
+         )?;
+ 
+         // get mngo to withdraw to mngo vault
+         let mut mngo_delta = get_mngo_accrued(mango_account_ai, mango_group_ai, mango_cache_ai, mango_prog_ai, mngo_root_bank_ai)?;   
+         let open_orders_accs = [Pubkey::default(); MAX_PAIRS];
+         invoke_signed(
+             &withdraw(mango_prog_ai.key, mango_group_ai.key, mango_account_ai.key, fund_pda_ai.key,
+                 mango_cache_ai.key, mngo_root_bank_ai.key, mngo_node_bank_ai.key, mngo_bank_vault_ai.key, fund_mngo_vault_ai.key,
+                 signer_ai.key, &open_orders_accs, mngo_delta, false)?,
+             &[
+                 mango_prog_ai.clone(),
+                 mango_group_ai.clone(),
+                 mango_account_ai.clone(),
+                 fund_pda_ai.clone(),
+                 mango_cache_ai.clone(),
+                 mngo_root_bank_ai.clone(),
+                 mngo_node_bank_ai.clone(),
+                 mngo_bank_vault_ai.clone(),
+                 fund_mngo_vault_ai.clone(),
+                 signer_ai.clone(),
+                 default_ai.clone(),
+                 token_prog_ai.clone()
+             ],
+             &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
+         )?;
+         fund_data.mngo_accrued = parse_token_account(fund_mngo_vault_ai)?.amount;
+ 
+         // update manager share on every redeem
+         let man_share = U64F64::to_num(U64F64::from_num(mngo_delta).checked_mul(fund_data.performance_fee_percentage / 100).unwrap());
+         fund_data.mngo_manager = fund_data.mngo_manager.checked_add(man_share).unwrap();
+ 
+         // rest gets distributed to investors
+         mngo_delta = mngo_delta.checked_sub(man_share).unwrap();
+         // update mngo per share values
+         fund_data.mngo_per_share = fund_data.mngo_per_share.checked_add(
+             U64F64::from_num(mngo_delta).checked_div(U64F64::from_num(fund_data.deposits)).unwrap()
+         ).unwrap();
         
         Ok(())
     }

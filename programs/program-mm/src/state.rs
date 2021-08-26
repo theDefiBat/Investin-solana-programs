@@ -66,6 +66,9 @@ pub struct FundData {
     /// Vault account key
     pub vault_key: Pubkey,
 
+    /// Fund Mngo Vault
+    pub mngo_vault_key: Pubkey,
+
     /// Vault balance
     pub vault_balance: u64,
 
