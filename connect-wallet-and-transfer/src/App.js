@@ -4,24 +4,11 @@ import './App.css';
 import { useEffect, useState } from 'react';
 
 import { GlobalState } from './store/globalState'
-import { getTransactions } from './utils/getTransactions';
-import { connection } from './utils/constants';
-import TransactionsView from './components/Transactions';
-import { SendGreating } from './components/SendGreating';
-import { Deposit } from './components/Deposit';
 import { InitialisedFund } from './components/InitialisedFund';
-import { Swap } from './components/Swap';
+import { Deposit } from './components/Deposit';
 import { Withdraw } from './components/Withdraw';
-import { Transfer } from './components/Transfer';
-import { Claim } from './components/ClaimFee';
-import { Testing } from './components/Testing';
-import { GetPrices } from './components/GetPrices';
-import { MangoInitialize } from './components/MangoInitialize';
+// import { Claim } from './components/ClaimFee';
 import { MangoPlaceOrder } from './components/MangoPlaceOrder';
-import { AdminControl } from './components/AdminControl';
-
-
-
 
 
 function App() {
@@ -50,18 +37,11 @@ function App() {
         {/* {
           transactions && <TransactionsView transactions={transactions} />
         } */}
-        <SendGreating />
         <InitialisedFund />
         <Deposit />
-	      <Transfer />
-        <Swap />
-        <Testing />
         <Withdraw />
-        <Claim />
-        <GetPrices />
-        <MangoInitialize />
+        {/* <Claim /> */}
         <MangoPlaceOrder />
-        <AdminControl />
       </Container>
     </div>
   );

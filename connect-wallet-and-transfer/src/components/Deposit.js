@@ -2,12 +2,10 @@ import { PublicKey, Transaction, TransactionInstruction } from '@solana/web3.js'
 import React, { useState } from 'react'
 import { GlobalState } from '../store/globalState';
 import { connection, programId, platformStateAccount, FUND_ACCOUNT_KEY, TOKEN_PROGRAM_ID } from '../utils/constants';
-import { nu64, struct, u8 } from 'buffer-layout';
-import { createKeyIfNotExists, findAssociatedTokenAddress, setWalletTransaction, signAndSendTransaction, createAssociatedTokenAccountIfNotExist } from '../utils/web3';
-import { FUND_DATA, INVESTOR_DATA, PLATFORM_DATA } from '../utils/programLayouts';
-import { MANGO_TOKENS } from '../utils/tokens'
-import { devnet_pools } from '../utils/pools'
-import { updatePoolPrices } from './updatePrices';
+import { nu64, struct, u32 } from 'buffer-layout';
+import { createKeyIfNotExists, findAssociatedTokenAddress, signAndSendTransaction, createAssociatedTokenAccountIfNotExist } from '../utils/web3';
+import { FUND_DATA, INVESTOR_DATA } from '../utils/programLayouts';
+import { IDS, MangoClient } from '@blockworks-foundation/mango-client';
 
 export const Deposit = () => {
 
@@ -18,6 +16,8 @@ export const Deposit = () => {
 
 
   const walletProvider = GlobalState.useState(s => s.walletProvider);
+  const ids = IDS['groups'][0]
+
 
 
   const handleDeposit = async () => {
@@ -29,49 +29,47 @@ export const Deposit = () => {
       return;
     };
   
-    const baseTokenAccount = await findAssociatedTokenAddress(key, new PublicKey(MANGO_TOKENS['USDC'].mintAddress));
+    let fundStateInfo = await connection.getAccountInfo(new PublicKey(fundStateAccount))
+    let fundState = FUND_DATA.decode(fundStateInfo.data)
+    console.log("fundState:: ", fundState)
+
+    let client = new MangoClient(connection, new PublicKey(ids.mangoProgramId))
+
+    let mangoGroup = await client.getMangoGroup(new PublicKey(ids.publicKey))
+    console.log("mango group:: ", mangoGroup)
 
     const transaction = new Transaction()
-
-    const RPDA = await PublicKey.findProgramAddress([Buffer.from("router")], programId);
-    const FPDA = new PublicKey(fundPDA);
-
-    const associatedTokenAddress1 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(MANGO_TOKENS['USDC'].mintAddress), RPDA[0], transaction);    
-
-    const investerStateAccount = await createKeyIfNotExists(walletProvider, null, programId, FPDA.toBase58().substr(0, 31), INVESTOR_DATA.span, transaction)
-    
-    // await updatePoolPrices(transaction, devnet_pools)
-    
-    console.log("RPDA:", RPDA[0].toBase58())
-    console.log("FPDA: ", FPDA.toBase58())
-    console.log("fundStateAccountRead:: ", fundStateAccount)
-    console.log("baseTokenAccount:: ", baseTokenAccount)
-
-    console.log("investorStateAccountRead:: ", investerStateAccount.toBase58())
+  
+    const invBaseTokenAccount = await findAssociatedTokenAddress(key, new PublicKey(ids.tokens[0].mintKey));
+    const investerStateAccount = await createKeyIfNotExists(walletProvider, null, programId, fundPDA.substr(0, 31), INVESTOR_DATA.span, transaction)
 
     console.log("account size::: ", INVESTOR_DATA.span)
-    console.log("associatedTokenaccount:: ", associatedTokenAddress1.toBase58())
 
-    const dataLayout = struct([u8('instruction'), nu64('amount')])
+    const dataLayout = struct([u32('instruction'), nu64('amount')])
     const data = Buffer.alloc(dataLayout.span)
     dataLayout.encode(
       {
         instruction: 1,
-        amount: amount * ( 10 ** MANGO_TOKENS['USDC'].decimals)
+        amount: amount * ( 10 ** ids.tokens[0].decimals)
       },
       data
     )
 
-    // DdzREMVFg6pa5825HBKVzeCrEi8EJiREfb8UrxSZB64w
-    // HUHuQCZUvxCiuFg54vRStrXSbCFeBhmXRqSuR5eEVB6o
-    // HW18fiAHKzs7ZSaT5ibAhnSWVde25sazTSbMzss4Fcty
     const instruction = new TransactionInstruction({
       keys: [
         { pubkey: new PublicKey(fundStateAccount), isSigner: false, isWritable: true }, //fund State Account
         { pubkey: investerStateAccount, isSigner: false, isWritable: true },
         { pubkey: key, isSigner: true, isWritable: true },
-        { pubkey: baseTokenAccount, isSigner: false, isWritable: true }, // Investor Base Token Account
-        { pubkey: associatedTokenAddress1, isSigner: false, isWritable: true }, // Router Base Token Account
+        { pubkey: invBaseTokenAccount, isSigner: false, isWritable: true }, // Investor Base Token Account
+        { pubkey: fundState.vault_key, isSigner: false, isWritable: true }, // Router Base Token Account
+        
+        { pubkey: new PublicKey(ids.mangoProgramId), isSigner: false, isWritable: true },
+        { pubkey: new PublicKey(ids.publicKey), isSigner: false, isWritable: true },
+        { pubkey: fundState.mango_account, isSigner: false, isWritable: true },
+        { pubkey: mangoGroup.mangoCache, isSigner: false, isWritable: true },
+
+
+        
         { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: true }
       ],
       programId,
@@ -80,7 +78,7 @@ export const Deposit = () => {
     transaction.add(instruction)
     transaction.feePayer = walletProvider?.publicKey;
     let hash = await connection.getRecentBlockhash();
-    console.log("blockhash", hash);
+    console.log("tx", transaction);
     transaction.recentBlockhash = hash.blockhash;
 
     const sign = await signAndSendTransaction(walletProvider, transaction);
@@ -106,9 +104,6 @@ export const Deposit = () => {
     
   const handleFunds = async () => {
     let managers = []
-    const platformDataAcc = await connection.getAccountInfo(platformStateAccount)
-    const platformData = PLATFORM_DATA.decode(platformDataAcc.data)
-    console.log("platformData :: ", platformData)
 
     let funds = await connection.getProgramAccounts(programId, { filters: [{ dataSize: FUND_DATA.span }] });
     console.log(`funds :::: `, funds)

@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from 'react'
 import { createAssociatedTokenAccount, createAssociatedTokenAccountIfNotExist, createKeyIfNotExists, createTokenAccountIfNotExist, findAssociatedTokenAddress, setWalletTransaction, signAndSendTransaction } from '../utils/web3'
-import { connection, FUND_ACCOUNT_KEY, platformStateAccount, PLATFORM_ACCOUNT_KEY, programId } from '../utils/constants'
+import { connection, FUND_ACCOUNT_KEY, MARGIN_ACCOUNT_KEY_1, platformStateAccount, PLATFORM_ACCOUNT_KEY, programId } from '../utils/constants'
 import { GlobalState } from '../store/globalState';
-import { nu64, struct, u8 } from 'buffer-layout';
+import { nu64, struct, u8, u32} from 'buffer-layout';
 import { PublicKey, Transaction, TransactionInstruction } from '@solana/web3.js';
 import { TOKEN_PROGRAM_ID } from '@project-serum/serum/lib/token-instructions';
 import { FUND_DATA, PLATFORM_DATA, u64, U64F64 } from '../utils/programLayouts';
 import { Badge } from 'reactstrap';
-import { MANGO_TOKENS } from "../utils/tokens";
+import { IDS, MangoAccountLayout } from '@blockworks-foundation/mango-client'
 import BN from 'bn.js';
 
 export const InitialisedFund = () => {
@@ -17,57 +17,53 @@ export const InitialisedFund = () => {
   const handleInitialFund = async () => {
 
     const transaction = new Transaction()
+    let ids = IDS['groups'][0]
+
 
     const fundPDA = await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId);
-    const routerPDA = await PublicKey.findProgramAddress([Buffer.from("router")], programId);
 
-    // ***what should be in the place of wallet provider in platformAccount
-    const platformAccount = platformStateAccount;
-    // const platformAccount = await createKeyIfNotExists(walletProvider, "", programId, PLATFORM_ACCOUNT_KEY, PLATFORM_DATA.span, transaction)
     const fundAccount = await createKeyIfNotExists(walletProvider, "", programId, FUND_ACCOUNT_KEY, FUND_DATA.span, transaction)
+    const mangoAccount = await createKeyIfNotExists(walletProvider, "", new PublicKey(ids.mangoProgramId), MARGIN_ACCOUNT_KEY_1, MangoAccountLayout.span, transaction)
 
-    console.log(`PLATFORM_DATA.span :::: `, PLATFORM_DATA.span)
     console.log(`FUND_DATA.span :::: `, FUND_DATA.span) 
 
 
     console.log(`fundPDA::: `, fundPDA[0].toBase58())
-    console.log('routerPDA:: ', routerPDA[0].toBase58())
-    console.log(`platformData ::: `, platformAccount.toBase58())
     console.log(`fundAccount ::: `, fundAccount.toBase58())
 
-    const fundData = await connection.getAccountInfo(fundAccount, "max");
-    const platformData = await connection.getAccountInfo(platformAccount, "max");
-
-    const x = PLATFORM_DATA.decode(platformData.data)
-    console.log("plat data:: ", x)
-
     if (1) {
-      const dataLayout = struct([u8('instruction'), nu64('min_amount'), nu64('min_return'), nu64('performance_fee_percentage'), u8('count')])
+      const dataLayout = struct([u32('instruction'), nu64('min_amount'), nu64('min_return'), nu64('performance_fee_percentage'), u8('perp_market_index')])
 
       const data = Buffer.alloc(dataLayout.span)
       dataLayout.encode(
         {
           instruction: 0,
-          min_amount: min_amount * (10 ** MANGO_TOKENS['USDC'].decimals),
+          min_amount: min_amount * (10 ** ids.tokens[0].decimals),
           min_return: min_return * 100,
           performance_fee_percentage: platform_fee_percentage * 100,
-          count: 2
+          perp_market_index: 1
         },
         data
       )
 
-      const associatedTokenAddress1 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(MANGO_TOKENS['USDC'].mintAddress), fundPDA[0], transaction);
-      const associatedTokenAddress2 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(MANGO_TOKENS['SRM'].mintAddress), fundPDA[0], transaction);
 
+      const fundBaseVault = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(ids.tokens[0].mintKey), fundPDA[0], transaction);
+      const fundMngoVault = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(ids.tokens[1].mintKey), fundPDA[0], transaction);
+
+      console.log("IDS:: ", ids)
       const instruction = new TransactionInstruction({
         keys: [
-          { pubkey: platformAccount, isSigner: false, isWritable: true },
           { pubkey: fundAccount, isSigner: false, isWritable: true },
           { pubkey: walletProvider?.publicKey, isSigner: true, isWritable: true },
-          { pubkey: associatedTokenAddress1, isSigner: false, isWritable: true },
+          { pubkey: fundPDA[0], isSigner: false, isWritable: true },
 
-          { pubkey: new PublicKey(MANGO_TOKENS['USDC'].mintAddress), isSigner: false, isWritable: true },
-          { pubkey: new PublicKey(MANGO_TOKENS['SRM'].mintAddress), isSigner: false, isWritable: true },
+          { pubkey: fundBaseVault, isSigner: false, isWritable: true },
+          { pubkey: fundMngoVault, isSigner: false, isWritable: true },
+    
+          { pubkey: new PublicKey(ids.publicKey), isSigner: false, isWritable: true },
+          { pubkey: mangoAccount, isSigner: false, isWritable: true },
+          { pubkey: new PublicKey(ids.mangoProgramId), isSigner: false, isWritable: true },
+
         ],
         programId,
         data
