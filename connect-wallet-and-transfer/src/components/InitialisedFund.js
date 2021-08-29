@@ -17,7 +17,7 @@ export const InitialisedFund = () => {
   const handleInitialFund = async () => {
 
     const transaction = new Transaction()
-    let ids = IDS['groups'][0]
+    let ids = IDS['groups'][1]
 
 
     const fundPDA = await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId);

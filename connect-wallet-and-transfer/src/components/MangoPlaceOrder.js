@@ -15,7 +15,7 @@ export const MangoPlaceOrder = () => {
     const [side, setSide] = useState('');
     
     const walletProvider = GlobalState.useState(s => s.walletProvider);
-    const ids = IDS['groups'][0]
+    const ids = IDS['groups'][1]
 
     const handleMangoDeposit = async () => {
     

@@ -9,13 +9,13 @@ export const PRICE_ACCOUNT_KEY = "margin_account_key_22"
 
 export const adminAccount = new PublicKey('Fepyuf4vy7mKZVgpzS52UoUeSLmVvGnoMDyraCsjYUqn')
 
-// export const cluster = "https://api.devnet.solana.com";
-export const cluster = "https://mango.rpcpool.com";
+export const cluster = "https://api.devnet.solana.com";
+// export const cluster = "https://mango.rpcpool.com";
 
 export const connection = new Connection(cluster, "confirmed");
 
-// export const programId = new PublicKey('J65z283avUTTgWCEbMQk1HCVyJkTRoofLMsgAmvjHWBk');
-export const programId = new PublicKey('BX8FpMj7MgTYr2YBan2kG9KX2UGimtBrECk2DabTYEYP');
+export const programId = new PublicKey('J65z283avUTTgWCEbMQk1HCVyJkTRoofLMsgAmvjHWBk');
+// export const programId = new PublicKey('BX8FpMj7MgTYr2YBan2kG9KX2UGimtBrECk2DabTYEYP');
 
 
 export const SYSTEM_PROGRAM_ID = new PublicKey('11111111111111111111111111111111')

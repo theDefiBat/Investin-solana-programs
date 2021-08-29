@@ -17,7 +17,7 @@ export const Withdraw = () => {
 
   const walletProvider = GlobalState.useState(s => s.walletProvider);
   const fundAccount = GlobalState.useState(s => s.createFundPublicKey);
-  const ids = IDS['groups'][0]
+  const ids = IDS['groups'][1]
 
 
   const handleWithdraw = async () => {
