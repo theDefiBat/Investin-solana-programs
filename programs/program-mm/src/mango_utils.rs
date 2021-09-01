@@ -48,7 +48,7 @@ pub fn mango_deposit (
     let accounts = array_ref![accounts, 0, NUM_FIXED];
     let [
         fund_state_acc,
-        manager_acc,
+        manager_acc, // or delegate
         mango_prog_ai,
         mango_group_ai,         // read
         mango_account_ai,       // write
@@ -65,7 +65,9 @@ pub fn mango_deposit (
 
     check!(fund_data.is_initialized, ProgramError::InvalidAccountData);
     check!(manager_acc.is_signer, ProgramError::MissingRequiredSignature);
-    check_eq!(fund_data.manager_account, *manager_acc.key);
+    
+    // check_eq!(fund_data.manager_account, *manager_acc.key);
+    check!((fund_data.manager_account == *manager_acc.key) || (fund_data.delegate == *manager_acc.key), FundError::ManagerMismatch);
 
     // check fund vault
     check_eq!(fund_data.vault_key, *owner_token_account_ai.key); 
@@ -127,7 +129,9 @@ pub fn mango_place_perp_order (
     let fund_data = FundData::load_mut_checked(fund_state_acc, program_id)?;
 
     check!(manager_acc.is_signer, ProgramError::MissingRequiredSignature);
-    check_eq!(fund_data.manager_account, *manager_acc.key);
+
+    // check_eq!(fund_data.manager_account, *manager_acc.key);
+    check!((fund_data.manager_account == *manager_acc.key) || (fund_data.delegate == *manager_acc.key), FundError::ManagerMismatch);
     
     let open_orders_accs = [Pubkey::default(); MAX_PAIRS];
     invoke_signed(
@@ -177,9 +181,10 @@ pub fn mango_cancel_perp_by_id (
 
     let fund_data = FundData::load_mut_checked(fund_state_acc, program_id)?;
 
-    check!(manager_acc.is_signer, ProgramError::MissingRequiredSignature);
+    // check!(manager_acc.is_signer, ProgramError::MissingRequiredSignature);
+    check!((fund_data.manager_account == *manager_acc.key) || (fund_data.delegate == *manager_acc.key), FundError::ManagerMismatch);
     check_eq!(fund_data.manager_account, *manager_acc.key);
-    
+
     invoke_signed(
         &cancel_perp_order_by_client_id(mango_prog_ai.key, mango_group_ai.key, mango_account_ai.key, fund_pda_acc.key,
             perp_market_ai.key, bids_ai.key, asks_ai.key, client_order_id)?,
@@ -227,7 +232,9 @@ pub fn mango_withdraw (
 
     check!(fund_data.is_initialized, ProgramError::InvalidAccountData);
     check!(manager_ai.is_signer, ProgramError::MissingRequiredSignature);
-    check_eq!(fund_data.manager_account, *manager_ai.key);
+
+    // check_eq!(fund_data.manager_account, *manager_ai.key);
+    check!((fund_data.manager_account == *manager_ai.key) || (fund_data.delegate == *manager_ai.key), FundError::ManagerMismatch);
 
     // check fund vault
     check_eq!(fund_data.vault_key, *fund_vault_ai.key); 

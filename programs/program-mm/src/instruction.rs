@@ -223,6 +223,11 @@ pub enum FundInstruction {
     /// 10. `[]` token_prog_ai - SPL Token program id
     RedeemMngo,
 
+    // Add delegate to call place/cancel mango instructions
+    /// 0. []   fund_state_ai - Fund state account
+    /// 1. []   manager_ai - Manager Account
+    /// 2. []   delegate_ai - Delegate account
+    AddDelegate
 }
 
 impl FundInstruction {
@@ -299,6 +304,9 @@ impl FundInstruction {
             },
             10 => {
                 FundInstruction::RedeemMngo
+            },
+            11 => {
+                FundInstruction::AddDelegate
             },
             _ => { return None; }
         })

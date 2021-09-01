@@ -47,7 +47,6 @@ pub struct FundData {
     pub padding: u8,
     pub no_of_investments: u32,
 
-  
     /// Minimum Amount
     pub min_amount: u64,
 
@@ -60,8 +59,23 @@ pub struct FundData {
     /// Fund AUM
     pub total_amount: U64F64,
 
+    /// Preformance in fund
+    pub prev_performance: U64F64,
+
+    /// Performance Fee
+    pub performance_fee: U64F64,
+
     /// Fund Deposits
     pub deposits: u64,
+
+    /// Vault balance
+    pub vault_balance: u64,
+
+    /// Wallet Address of the Manager
+    pub manager_account: Pubkey,
+
+    /// Fund PDA
+    pub fund_pda: Pubkey,
 
     /// Vault account key
     pub vault_key: Pubkey,
@@ -69,14 +83,8 @@ pub struct FundData {
     /// Fund Mngo Vault
     pub mngo_vault_key: Pubkey,
 
-    /// Vault balance
-    pub vault_balance: u64,
-
-    /// Preformance in fund
-    pub prev_performance: U64F64,
-
-    /// Performance Fee
-    pub performance_fee: U64F64,
+    /// Mango account for the fund
+    pub mango_account: Pubkey,
 
     /// Mango per share accrued
     pub mngo_per_share: U64F64,
@@ -87,14 +95,11 @@ pub struct FundData {
     /// Mango Accrued in Mango Account
     pub mngo_accrued: u64,
 
-    /// Wallet Address of the Manager
-    pub manager_account: Pubkey,
+    // Delegate for Manager to call place/cancel
+    pub delegate: Pubkey,
 
-    /// Fund PDA
-    pub fund_pda: Pubkey,
-
-    /// Mango account for the fund
-    pub mango_account: Pubkey
+    // all time Mngo accrual
+    pub total_mngo_accrued: u64
 }
 impl_loadable!(FundData);
 
@@ -108,9 +113,6 @@ pub struct InvestorData {
     pub withdrawn_from_margin: bool,
     pub padding: [u8; 5],
 
-    /// Investor wallet address
-    pub owner: Pubkey,
-
     /// The Initial deposit (in USDC tokens)
     pub amount: u64,
 
@@ -119,6 +121,9 @@ pub struct InvestorData {
 
     // mngo reward debt
     pub mngo_debt: U64F64,
+
+    /// Investor wallet address
+    pub owner: Pubkey,
 
     // Fund manager wallet key
     pub manager: Pubkey
