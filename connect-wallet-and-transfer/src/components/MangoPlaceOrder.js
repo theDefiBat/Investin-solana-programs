@@ -379,12 +379,13 @@ export const MangoPlaceOrder = () => {
 
   const transaction = new Transaction()
 
-  const dataLayout = struct([u32('instruction'), nu64('quantity')])
+  const dataLayout = struct([u32('instruction'), nu64('client_order_id'), u8('invalid_ok')])
   const data = Buffer.alloc(dataLayout.span)
   dataLayout.encode(
     {
-      instruction: 7,
-      quantity: size * 10**ids.tokens[0].decimals
+      instruction: 9,
+      client_order_id: 333,
+      invalid_ok: 0,
     },
     data
   )
@@ -398,14 +399,10 @@ export const MangoPlaceOrder = () => {
       { pubkey: new PublicKey(ids.publicKey), isSigner: false, isWritable: true },
       { pubkey: fundState.mango_account, isSigner: false, isWritable: true },
       { pubkey: fundPDA[0], isSigner: false, isWritable: false },
-      { pubkey: mangoGroup.mangoCache , isSigner: false, isWritable: false },
-      { pubkey: new PublicKey(ids.tokens[0].rootKey), isSigner: false, isWritable: false },
-      { pubkey: new PublicKey(ids.tokens[0].nodeKeys[0]), isSigner: false, isWritable: true },
-      { pubkey: nodeBank.vault, isSigner: false, isWritable: true },
-      { pubkey: fundState.vault_key, isSigner: false, isWritable: true }, // Fund Vault
-      { pubkey: mangoGroup.signerKey, isSigner: false, isWritable: true },
-      { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: true },
-      { pubkey: PublicKey.default, isSigner: false, isWritable: true },
+
+      { pubkey: new PublicKey(ids.perpMarkets[0].publicKey) , isSigner: false, isWritable: true },
+      { pubkey: new PublicKey(ids.perpMarkets[0].bidsKey) , isSigner: false, isWritable: true },
+      { pubkey: new PublicKey(ids.perpMarkets[0].asksKey) , isSigner: false, isWritable: true },
     ],
     programId,
     data
@@ -544,6 +541,8 @@ export const MangoPlaceOrder = () => {
           <button onClick={handleMangoRedeem}>Redeem Mngo </button>
 
           <br />
+          <button onClick={handleMangoCancelPerp}>Mango Cancel perp </button>
+
 
         </div>
     )
