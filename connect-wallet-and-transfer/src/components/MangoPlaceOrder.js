@@ -220,6 +220,9 @@ export const MangoPlaceOrder = () => {
   // let mangoAcc = await client.getMangoAccount(new PublicKey('9rzuDYREjQ1UoiXgU2gJmixik5J2vSn5DoWitzKAmeJm'), ids.serumProgramId)
 
   let mangoCache = await mangoGroup.loadCache(connection)
+  let price = (mangoCache.priceCache[1].price * 10)
+  let price_adj = mangoAcc.perpAccounts[1].basePosition > 0 ? price * 0.95 : price * 1.05
+  console.log("mangoCAche:: ", mangoCache)
 
   console.log("mangoAcc:: ", mangoAcc)
   console.log("mangogroup:: ", mangoGroup)
@@ -231,7 +234,7 @@ export const MangoPlaceOrder = () => {
   dataLayout.encode(
     {
       instruction: 8,
-      price: (mangoCache.priceCache[1].price * 1).toString(),
+      price: price_adj,
       quantity: Math.abs(mangoAcc.perpAccounts[1].basePosition),
       client_order_id: 333,
       side: mangoAcc.perpAccounts[1].basePosition < 0 ? 0: 1,
