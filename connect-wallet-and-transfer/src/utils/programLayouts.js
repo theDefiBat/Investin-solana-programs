@@ -66,6 +66,11 @@ export function u128(property = "") {
   return new BNLayout(16, property);
 }
 
+
+export function i64(property = '') {
+  return new BNLayout(8, property, true);
+}
+
 export const FUND_DATA = struct([
   u8('is_initialized'),
   u8('signer_nonce'),
@@ -91,7 +96,9 @@ export const FUND_DATA = struct([
 
   U64F64('mngo_per_share'),
   u64('mngo_manager'),
-  u64('mngo_accrued')
+  u64('mngo_accrued'),
+  publicKeyLayout('delegate'),
+  u64('total_mngo_accrued')
 ])
 
 export const INVESTOR_DATA = struct([

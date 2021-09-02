@@ -62,7 +62,8 @@ export const Deposit = () => {
         { pubkey: key, isSigner: true, isWritable: true },
         { pubkey: invBaseTokenAccount, isSigner: false, isWritable: true }, // Investor Base Token Account
         { pubkey: fundState.vault_key, isSigner: false, isWritable: true }, // Router Base Token Account
-        
+        { pubkey: new PublicKey('2C7AtpEbcdfmDzh5g4cFBzCXbgZJmxhY2bWPMi7QKqBH'), isSigner: false, isWritable: true },
+
         { pubkey: new PublicKey(ids.mangoProgramId), isSigner: false, isWritable: true },
         { pubkey: new PublicKey(ids.publicKey), isSigner: false, isWritable: true },
         { pubkey: fundState.mango_account, isSigner: false, isWritable: true },

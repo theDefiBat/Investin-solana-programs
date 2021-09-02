@@ -1,8 +1,8 @@
-import { PublicKey, Transaction, TransactionInstruction } from '@solana/web3.js';
+import { Account, PublicKey, Transaction, TransactionInstruction } from '@solana/web3.js';
 import React, { useState } from 'react'
 import { GlobalState } from '../store/globalState';
-import { connection, FUND_ACCOUNT_KEY, programId, TOKEN_PROGRAM_ID } from '../utils/constants';
-import { nu64, struct, u32 } from 'buffer-layout';
+import { connection, FUND_ACCOUNT_KEY, programId, SYSTEM_PROGRAM_ID, TOKEN_PROGRAM_ID } from '../utils/constants';
+import { struct, u32, u8, u16, ns64, nu64 } from 'buffer-layout';
 import { createAssociatedTokenAccountIfNotExist, signAndSendTransaction } from '../utils/web3';
 import { FUND_DATA } from '../utils/programLayouts';
 
@@ -11,6 +11,7 @@ import { IDS, MangoClient, I80F48, NodeBankLayout, PerpAccountLayout, PerpMarket
 
 export const MangoPlaceOrder = () => {
     const [size, setSize] = useState(0);
+    const [price, setPrice] = useState(0);
     const [index, setIndex] = useState(0);
     const [side, setSide] = useState('');
     
@@ -113,59 +114,83 @@ export const MangoPlaceOrder = () => {
     let nodeBank = NodeBankLayout.decode(nodeBankInfo.data)
     console.log("nodebank:: ", nodeBank)
 
-    let client = new MangoClient(connection, ids.mangoProgramId)
+    let client = new MangoClient(connection, new PublicKey(ids.mangoProgramId))
     let mangoGroup = await client.getMangoGroup(new PublicKey(ids.publicKey))
     let mangoAcc = await client.getMangoAccount(fundState.mango_account, ids.serumProgramId)
+    // let mangoAcc = await client.getMangoAccount(new PublicKey('9rzuDYREjQ1UoiXgU2gJmixik5J2vSn5DoWitzKAmeJm'), ids.serumProgramId)
+
     console.log("mangoAcc:: ", mangoAcc)
     console.log("mangogroup:: ", mangoGroup)
-
     let mangoCache = await mangoGroup.loadCache(connection)
+
+    let perpMarket = await client.getPerpMarket( mangoGroup.perpMarkets[1].perpMarket,  mangoGroup.tokens[1].decimals, mangoGroup.tokens[15].decimals )
+
+    console.log("perpmarket:: ", perpMarket)
+
+    console.log("wallet account:: ", walletProvider)
+    
+    let rootBanks = await mangoGroup.loadRootBanks(connection)
+    // try {
+    //   let tx = await client.settlePnl(mangoGroup, mangoCache, mangoAcc, perpMarket, rootBanks[15], mangoCache.priceCache[1].price, walletProvider)
+    // }
+    // catch (e) {
+    //   console.error("yooo", e)
+    // }
+    // //console.log("tx:: ", tx)
+
+
 
     console.log("mangocache:: ", mangoCache)
 
+    const transaction = new Transaction()
   
-    // const dataLayout = struct([u32('instruction'), i64('price'), i64('quantity'), nu64('client_order_id'), u8('side'), u8('order_type')])
-    // const data = Buffer.alloc(dataLayout.span)
-    // dataLayout.encode(
-    //   {
-    //     instruction: 8,
-    //     price: size * ids.tokens[0].decimals
-    //   },
-    //   data
-    // )
+    const dataLayout = struct([u32('instruction'), ns64('price'), ns64('quantity'), nu64('client_order_id'), u8('side'), u8('order_type')])
+    const data = Buffer.alloc(dataLayout.span)
+    dataLayout.encode(
+      {
+        instruction: 8,
+        price: price,
+        quantity: size * 10**4,
+        client_order_id: 333,
+        side: 1,
+        order_type: 0
+      },
+      data
+    )
 
-    // const instruction = new TransactionInstruction({
-    //   keys: [
-    //     { pubkey: fundStateAccount, isSigner: false, isWritable: true },
-    //     { pubkey: key, isSigner: true, isWritable: true },
+    const instruction = new TransactionInstruction({
+      keys: [
+        { pubkey: fundStateAccount, isSigner: false, isWritable: true },
+        { pubkey: key, isSigner: true, isWritable: true },
         
-    //     { pubkey: new PublicKey(ids.mangoProgramId), isSigner: false, isWritable: false },
-    //     { pubkey: new PublicKey(ids.publicKey), isSigner: false, isWritable: false },
-    //     { pubkey: fundState.mango_account, isSigner: false, isWritable: false },
-    //     { pubkey: new PublicKey(fundPDA), isSigner: false, isWritable: false },
-    //     { pubkey: mangoGroup.mangoCache , isSigner: false, isWritable: false },
-    //     { pubkey: new PublicKey(ids.tokens[0].rootKey), isSigner: false, isWritable: false },
-    //     { pubkey: new PublicKey(ids.tokens[0].nodeKeys[0]), isSigner: false, isWritable: false },
-    //     { pubkey: nodeBank.vault, isSigner: false, isWritable: false },
-    //     { pubkey: investorBaseTokenAccount, isSigner: false, isWritable: true }, // Investor Token Accounts
-    //     { pubkey: mangoGroup.signerKey, isSigner: false, isWritable: true },
-    //     { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: true },
-    //     { pubkey: fundState.vault_key, isSigner: false, isWritable: true },
-    //   ],
-    //   programId,
-    //   data
-    // });
+        { pubkey: new PublicKey(ids.mangoProgramId), isSigner: false, isWritable: false },
+        { pubkey: new PublicKey(ids.publicKey), isSigner: false, isWritable: true },
+        { pubkey: fundState.mango_account, isSigner: false, isWritable: true },
+        { pubkey: fundPDA[0], isSigner: false, isWritable: true },
+        { pubkey: mangoGroup.mangoCache , isSigner: false, isWritable: true },
 
-    // transaction.add(instruction);
-    // console.log(`transaction ::: `, transaction)
-    // console.log(`walletProvider?.publicKey ::: `, walletProvider?.publicKey.toBase58())
-    // transaction.feePayer = key;
-    // let hash = await connection.getRecentBlockhash("finalized");
-    // console.log("blockhash", hash);
-    // transaction.recentBlockhash = hash.blockhash;
+        { pubkey: new PublicKey(ids.perpMarkets[0].publicKey) , isSigner: false, isWritable: true },
+        { pubkey: new PublicKey(ids.perpMarkets[0].bidsKey) , isSigner: false, isWritable: true },
+        { pubkey: new PublicKey(ids.perpMarkets[0].asksKey) , isSigner: false, isWritable: true },
+        { pubkey: new PublicKey(ids.perpMarkets[0].eventsKey) , isSigner: false, isWritable: true },
 
-    // const sign = await signAndSendTransaction(walletProvider, transaction);
-    // console.log("tx::: ", sign)
+        { pubkey: SYSTEM_PROGRAM_ID , isSigner: false, isWritable: false },
+
+      ],
+      programId,
+      data
+    });
+
+    transaction.add(instruction);
+    console.log(`transaction ::: `, transaction)
+    console.log(`walletProvider?.publicKey ::: `, walletProvider?.publicKey.toBase58())
+    transaction.feePayer = key;
+    let hash = await connection.getRecentBlockhash("finalized");
+    console.log("blockhash", hash);
+    transaction.recentBlockhash = hash.blockhash;
+
+    const sign = await signAndSendTransaction(walletProvider, transaction);
+    console.log("tx::: ", sign)
 
     }
 
@@ -331,6 +356,9 @@ export const MangoPlaceOrder = () => {
             <h4>Mango Place</h4>
             Size ::: {' '}
             <input type="number" value={size} onChange={(event) => setSize(event.target.value)} />
+            <br />
+            Price ::: {' '}
+            <input type="number" value={price} onChange={(event) => setPrice(event.target.value)} />
             <br />
             <label htmlFor="side">Buy/Sell</label>
 
