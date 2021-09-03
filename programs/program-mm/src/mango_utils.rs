@@ -181,9 +181,8 @@ pub fn mango_cancel_perp_by_id (
 
     let fund_data = FundData::load_mut_checked(fund_state_acc, program_id)?;
 
-    // check!(manager_acc.is_signer, ProgramError::MissingRequiredSignature);
+    check!(manager_acc.is_signer, ProgramError::MissingRequiredSignature);
     check!((fund_data.manager_account == *manager_acc.key) || (fund_data.delegate == *manager_acc.key), FundError::ManagerMismatch);
-    check_eq!(fund_data.manager_account, *manager_acc.key);
 
     invoke_signed(
         &cancel_perp_order_by_client_id(mango_prog_ai.key, mango_group_ai.key, mango_account_ai.key, fund_pda_acc.key,

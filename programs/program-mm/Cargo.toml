@@ -25,7 +25,7 @@ num-traits = "0.2"
 num_enum = "^0.5.1"
 thiserror = "^1.0.24"
 spl-token = { version = "^3.0.0", features = ["no-entrypoint"] }
-mango = { version = "3.0.4", git = "https://github.com/blockworks-foundation/mango-v3.git", default-features=false, features = ["no-entrypoint", "devnet"], branch="main" }
+mango = { version = "3.0.4", git = "https://github.com/blockworks-foundation/mango-v3.git", default-features=false, features = ["no-entrypoint"], branch="main" }
 
 
 

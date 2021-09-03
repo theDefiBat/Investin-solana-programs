@@ -145,7 +145,7 @@ impl Fund {
         accounts: &[AccountInfo],
         amount: u64
     ) -> Result<(), ProgramError> {
-        const NUM_FIXED:usize = 10;
+        const NUM_FIXED:usize = 11;
         let accounts = array_ref![accounts, 0, NUM_FIXED];
 
         let [
@@ -185,6 +185,27 @@ impl Fund {
         // check for transfers
         check!(*token_prog_ai.key == spl_token::id(), FundError::IncorrectProgramId);
         check_eq!(fund_data.vault_key, *fund_vault_ai.key);
+        check_eq!(investin_vault::ID, *investin_vault_ai.key);
+
+        let protocol_fees = U64F64::to_num(U64F64::from_num(amount).checked_mul(U64F64!(0.005)).unwrap());
+
+        let adj_amount = amount.checked_sub(protocol_fees).unwrap();
+        invoke(
+            &(spl_token::instruction::transfer(
+                token_prog_ai.key,
+                investor_btoken_ai.key,
+                investin_vault_ai.key,
+                investor_ai.key,
+                &[&investor_ai.key],
+                protocol_fees
+            ))?,
+            &[
+                investor_btoken_ai.clone(),
+                investin_vault_ai.clone(),
+                investor_ai.clone(),
+                token_prog_ai.clone()
+            ]
+        )?;
 
         msg!("Depositing tokens..");
         let deposit_instruction = spl_token::instruction::transfer(
@@ -193,7 +214,7 @@ impl Fund {
             fund_vault_ai.key,
             investor_ai.key,
             &[&investor_ai.key],
-            amount
+            adj_amount
         )?;
         let deposit_accs = [
             investor_btoken_ai.clone(),
@@ -205,12 +226,12 @@ impl Fund {
 
         // update balances
         fund_data.vault_balance = parse_token_account(fund_vault_ai)?.amount;
-        fund_data.total_amount = fund_data.total_amount.checked_add(U64F64::from_num(amount)).unwrap();
-        fund_data.deposits = fund_data.deposits.checked_add(amount).unwrap();
+        fund_data.total_amount = fund_data.total_amount.checked_add(U64F64::from_num(adj_amount)).unwrap();
+        fund_data.deposits = fund_data.deposits.checked_add(adj_amount).unwrap();
         fund_data.no_of_investments += 1;
 
         // update investor acc
-        investor_data.amount = amount;
+        investor_data.amount = adj_amount;
         investor_data.start_performance = fund_data.prev_performance;
         investor_data.mngo_debt = fund_data.mngo_per_share;
         msg!("Deposit done..");
@@ -260,12 +281,16 @@ impl Fund {
         check_eq!(investor_data.manager, fund_data.manager_account);
 
         fund_data.vault_balance = parse_token_account(fund_vault_ai)?.amount;
-        let mango_deposits = 
+        let (mango_deposits, pnl) = 
             update_amount_and_performance(&mut fund_data, mango_account_ai, mango_group_ai, mango_cache_ai, mango_prog_ai, true)?;
         let share = get_share(&mut fund_data, &mut investor_data)?;
         msg!("share:: {:?}", share);
-        let withdrawable_amount = U64F64::to_num(share.checked_mul(fund_data.total_amount).unwrap());
+        let mut withdrawable_amount = U64F64::to_num(share.checked_mul(fund_data.total_amount).unwrap());
         
+        if fund_data.no_of_investments == 1 {
+            withdrawable_amount += 1;
+        }
+
         msg!("withdrawable_amount:: {:?}", withdrawable_amount);
         // if free USDC available, transfer whole amount from vault
         if fund_data.vault_balance >= withdrawable_amount {
@@ -354,20 +379,14 @@ impl Fund {
 
             }
 
-            let (side1, price1, quantity1) = get_perp_withdraw(share, fund_data.perp_market_index as usize,
-                mango_account_ai, mango_group_ai, mango_cache_ai, perp_market_ai, bids_ai, asks_ai, mango_prog_ai)?;
-            // close perp positions according to share ratio (if any)
-            msg!("side:: {:?}, price:: {:?}, qty:: {:?}", side1, price1, quantity1);
+            let withdraw_mango = get_mango_withdraw(share, mango_deposits, fund_data.perp_market_index as usize,
+                pnl, mango_account_ai, mango_group_ai, mango_cache_ai, perp_market_ai, mango_prog_ai)?;
 
-            // withdraw USDC from mango account
-            let mango_withdraw:u64 = U64F64::to_num(share.checked_mul(U64F64::from_num(mango_deposits)).unwrap());
-
-            msg!("withdraw:: {:?}", mango_withdraw);
-            msg!("deposits:: {:?}", mango_deposits);
+            msg!("withdrawing from mango:{:?}", withdraw_mango);
             invoke_signed(
                 &withdraw(mango_prog_ai.key, mango_group_ai.key, mango_account_ai.key, fund_pda_ai.key,
                     mango_cache_ai.key, root_bank_ai.key, node_bank_ai.key, vault_ai.key, inv_token_ai.key,
-                    signer_ai.key, &open_orders_accs, mango_withdraw - 1, false)?,
+                    signer_ai.key, &open_orders_accs, withdraw_mango - 1, false)?,
                 &[
                     mango_prog_ai.clone(),
                     mango_group_ai.clone(),
@@ -629,11 +648,12 @@ impl Fund {
 
         // rest gets distributed to investors
         mngo_delta = mngo_delta.checked_sub(man_share).unwrap();
+        if fund_data.deposits != 0 {
         // update mngo per share values
-        fund_data.mngo_per_share = fund_data.mngo_per_share.checked_add(
-            U64F64::from_num(mngo_delta).checked_div(U64F64::from_num(fund_data.deposits)).unwrap()
-        ).unwrap();
-
+            fund_data.mngo_per_share = fund_data.mngo_per_share.checked_add(
+                U64F64::from_num(mngo_delta).checked_div(U64F64::from_num(fund_data.deposits)).unwrap()
+            ).unwrap();
+        }
         msg!("manager mngo due:: {:?}", fund_data.mngo_manager);
         invoke_signed(
             &(spl_token::instruction::transfer(
@@ -809,10 +829,12 @@ impl Fund {
  
          // rest gets distributed to investors
          mngo_delta = mngo_delta.checked_sub(man_share).unwrap();
-         // update mngo per share values
-         fund_data.mngo_per_share = fund_data.mngo_per_share.checked_add(
-             U64F64::from_num(mngo_delta).checked_div(U64F64::from_num(fund_data.deposits)).unwrap()
-         ).unwrap();
+         if fund_data.deposits != 0 {
+            // update mngo per share values
+            fund_data.mngo_per_share = fund_data.mngo_per_share.checked_add(
+                U64F64::from_num(mngo_delta).checked_div(U64F64::from_num(fund_data.deposits)).unwrap()
+            ).unwrap();
+        }
         
         Ok(())
     }
@@ -925,23 +947,20 @@ pub fn get_perp_withdraw(
     mango_prog_ai: &AccountInfo
 ) -> Result<(Side, i64, i64), ProgramError> {
 
-    msg!("entry");
     let mango_group = MangoGroup::load_checked(mango_group_ai, mango_prog_ai.key)?;
     let mango_account = MangoAccount::load_checked(mango_account_ai, mango_prog_ai.key, mango_group_ai.key)?;
     let mut perp_market = PerpMarket::load_mut_checked(perp_market_ai, mango_prog_ai.key, mango_group_ai.key)?;
     let mut book = Book::load_checked(mango_prog_ai.key, bids_ai, asks_ai, &perp_market)?;
 
-    msg!("loaded");
     let a = mango_account.perp_accounts[market_index].base_position;
     msg!("base pos:: {:?}", a);
     let mut b:i64 = I80F48::to_num(I80F48::from_fixed(share_ratio).checked_mul(I80F48::from_num(a)).unwrap());
-    msg!("share: {:?}", I80F48::from_fixed(share_ratio));
-    msg!("settling pos:: {:?}", b);
+ 
     let mut side;
     let mut price;
     let mut quantity;
 
-    if b > 0 {
+    if a > 0 {
         side = Side::Ask;
         quantity = b;
         price = I80F48::to_num(I80F48::from_num(book.get_best_bid_price().unwrap()).checked_mul(I80F48::from_num(0.95)).unwrap()) 
@@ -960,6 +979,39 @@ pub fn get_perp_withdraw(
     }
 }
 
+// calculate amount to withdraw from mango account
+pub fn get_mango_withdraw(
+    share_ratio: U64F64,
+    native_deposits: I80F48,
+    market_index: usize,
+    before_pnl: I80F48,
+    mango_account_ai: &AccountInfo,
+    mango_group_ai: &AccountInfo,
+    mango_cache_ai: &AccountInfo,
+    perp_market_ai: &AccountInfo,
+    mango_prog_ai: &AccountInfo
+) -> Result<u64, ProgramError> {
+
+    let mango_group = MangoGroup::load_checked(mango_group_ai, mango_prog_ai.key)?;
+    let mango_account = MangoAccount::load_checked(mango_account_ai, mango_prog_ai.key, mango_group_ai.key)?;
+    let mango_cache = MangoCache::load_checked(mango_cache_ai, mango_prog_ai.key, &mango_group)?;
+    let root_bank_cache = &mango_cache.root_bank_cache[QUOTE_INDEX];
+
+    let (base_val, quote_val) = mango_account.perp_accounts[market_index].get_val(&mango_group.perp_markets[market_index], &mango_cache.perp_market_cache[market_index],
+        mango_cache.price_cache[market_index].price)?;
+    let pnl = base_val.checked_add(quote_val).unwrap();
+    msg!("pnl after:: {:?}", pnl);
+
+    let pnl_diff = before_pnl.checked_sub(pnl).unwrap();
+    let mut withdraw_share = I80F48::from_fixed(share_ratio).checked_mul(native_deposits).unwrap();
+
+    // only if pnl goes down after
+    if pnl_diff > 0 {
+        withdraw_share = withdraw_share.checked_sub(pnl_diff).unwrap();
+    }
+    Ok(I80F48::to_num(withdraw_share))
+}
+
 // calculate prices, get fund valuation and performance
 pub fn update_amount_and_performance(
     fund_data: &mut FundData,
@@ -968,7 +1020,7 @@ pub fn update_amount_and_performance(
     mango_cache_ai: &AccountInfo,
     mango_prog_ai: &AccountInfo,
     update_perf: bool
-) -> Result<u64, ProgramError> {
+) -> Result<(I80F48, I80F48), ProgramError> {
     
     let market_index = fund_data.perp_market_index as usize;
 
@@ -985,16 +1037,11 @@ pub fn update_amount_and_performance(
     fund_val = fund_val.checked_add(native_deposits).unwrap();
 
     // Calculate pnl for perp account
-    let a = mango_account.perp_accounts[market_index];
-    let price = mango_cache.price_cache[market_index].price;
-    let contract_size = mango_group.perp_markets[market_index].base_lot_size;
-    let new_quote_pos = I80F48::from_num(-a.base_position * contract_size) * price;
-    let pnl = a.quote_position - new_quote_pos;
-    msg!("pnl:: {:?}", pnl);
+    let (base_val, quote_val) = mango_account.perp_accounts[market_index].get_val(&mango_group.perp_markets[market_index],
+        &mango_cache.perp_market_cache[market_index], mango_cache.price_cache[market_index].price)?;
 
-    if pnl < 0 {
-        native_deposits = native_deposits.checked_add(pnl.checked_mul(I80F48!(1.5)).unwrap()).unwrap();
-    }
+    let pnl = base_val.checked_add(quote_val).unwrap();
+    msg!("pnl before:: {:?}", base_val + quote_val);
 
     fund_val = fund_val.checked_add(pnl).unwrap();
    
@@ -1018,7 +1065,7 @@ pub fn update_amount_and_performance(
     msg!("updated amount: {:?}", fund_data.total_amount);
     msg!("updated perf {:?}", fund_data.prev_performance);
     
-    Ok(I80F48::to_num(native_deposits))
+    Ok((native_deposits, pnl))
 }
 
 pub fn parse_token_account (account_info: &AccountInfo) -> Result<Account, ProgramError> {
