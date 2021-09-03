@@ -20,37 +20,26 @@ export const Claim = () => {
     const handleClaim = async () => {
     
         const key = walletProvider?.publicKey;
-        
-        const fundPDA = await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId);
-        
+        const ids = IDS['groups'][0]
+                
+        const fundStateAccount = await PublicKey.createWithSeed(
+          key,
+          FUND_ACCOUNT_KEY,
+          programId,
+        );
+    
+        let fundStateInfo = await connection.getAccountInfo((fundStateAccount))
+        let fundState = FUND_DATA.decode(fundStateInfo.data)
+        console.log("fundState:: ", fundState)
+    
+        let client = new MangoClient(connection, new PublicKey(ids.mangoProgramId))
+        let mangoGroup = await client.getMangoGroup(new PublicKey(ids.publicKey))
+        console.log("mango group:: ", mangoGroup)
 
-        console.log("FUND STTE:: ", fundStateAccount.toBase58())
-        setFundStateAccount(fundStateAccount.toBase58())
-
-        let x = await connection.getAccountInfo(fundStateAccount)
-        if (x == null)
-        {
-          alert("fund account not found")
-          return
-        }
-
-        if (!key) {
-          alert("connect wallet")
-          return;
-        };
-
-        if (fundStateAccount == ''){
-          alert("get info first!")
-          return
-        }
-
-        const fundBaseTokenAccount = await findAssociatedTokenAddress(fundPDA[0], new PublicKey(TEST_TOKENS['USDR'].mintAddress));
-        const managerBaseTokenAccount = await findAssociatedTokenAddress(key, new PublicKey(TEST_TOKENS['USDR'].mintAddress));
-        const investinBaseTokenAccount = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['USDR'].mintAddress), adminAccount); 
-        
         const transaction = new Transaction()
 
-        updatePoolPrices(transaction, devnet_pools)
+        const fundBaseVault = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(ids.tokens[0].mintKey), fundState.fund_pda, transaction);
+        const managerBaseTokenAccount = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(ids.tokens[0].mintKey), key, transaction);
 
         const dataLayout = struct([u8('instruction')])
         const data = Buffer.alloc(dataLayout.span)
@@ -64,15 +53,15 @@ export const Claim = () => {
         const claim_instruction = new TransactionInstruction({
         keys: [
         {pubkey: fundStateAccount, isSigner: false, isWritable: true},
-
-        {pubkey: priceStateAccount, isSigner: false, isWritable:true},
-        {pubkey: SYSVAR_CLOCK_PUBKEY, isSigner: false, isWritable:true},
-
         {pubkey: key, isSigner: true, isWritable: true },
-        {pubkey: fundBaseTokenAccount, isSigner: false, isWritable:true},
         {pubkey: managerBaseTokenAccount, isSigner: false, isWritable:true},
-        {pubkey: investinBaseTokenAccount, isSigner: false, isWritable:true},
-        {pubkey: fundPDA[0], isSigner: false, isWritable:true},
+        {pubkey: fundBaseVault, isSigner: false, isWritable:true},
+        { pubkey: new PublicKey(ids.mangoProgramId), isSigner: false, isWritable: false },
+         { pubkey: new PublicKey(ids.publicKey), isSigner: false, isWritable: false },
+         { pubkey: mangoGroup.mangoCache , isSigner: false, isWritable: false },
+        { pubkey: fundState.mango_account, isSigner: false, isWritable: true },
+        { pubkey: fundState.fund_pda, isSigner: false, isWritable: false },
+
         {pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: true},
 
     ],
@@ -90,39 +79,7 @@ export const Claim = () => {
     console.log("tx perf: ", sign)
   }
     
-  const handleGetFee = async () => {
 
-    const key = walletProvider?.publicKey;  
-    if (!key ) {
-      alert("connect wallet")
-      return;
-    }
-
-    const fundStateAcc = await PublicKey.createWithSeed(
-      key,
-      FUND_ACCOUNT_KEY,
-      programId,
-    );
-
-    console.log("FUND STTE:: ", fundStateAcc.toBase58())
-    setFundStateAccount(fundStateAcc)
-
-    let x = await connection.getAccountInfo(fundStateAcc)
-    if (x == null)
-    {
-      alert("fund account not found")
-      return
-    }
-    console.log(x)
-    let fundState = FUND_DATA.decode(x.data)
-    if (!fundState.is_initialized) {
-      alert("fund not initialized!")
-      return
-    }
-    console.log(fundState)
-    setPerformanceFee(parseInt(fundState.performance_fee) / (10**fundState.tokens[0].decimals))
-  }
-    
 
     return (
         <div className="form-div">

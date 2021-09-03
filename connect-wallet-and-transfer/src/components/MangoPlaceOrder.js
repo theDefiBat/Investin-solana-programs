@@ -42,6 +42,8 @@ export const MangoPlaceOrder = () => {
     let mangoGroup = await client.getMangoGroup(new PublicKey(ids.publicKey))
     console.log("mango group:: ", mangoGroup)
 
+    let mangoAcc = await client.getMangoAccount(new PublicKey('9rzuDYREjQ1UoiXgU2gJmixik5J2vSn5DoWitzKAmeJm'), ids.serumProgramId)
+    console.log("manogACc:: ", mangoAcc)
     let nodeBankInfo = await connection.getAccountInfo(new PublicKey(ids.tokens[0].nodeKeys[0]))
     let nodeBank = NodeBankLayout.decode(nodeBankInfo.data)
     console.log("nodebank:: ", nodeBank)
