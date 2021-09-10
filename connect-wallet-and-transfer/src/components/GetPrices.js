@@ -4,7 +4,6 @@ import { GlobalState } from '../store/globalState';
 import { signAndSendTransaction } from '../utils/web3'
 import { connection, programId, priceStateAccount, platformStateAccount } from '../utils/constants';
 import { struct, u8 } from 'buffer-layout';
-import { MANGO_TOKENS } from '../utils/tokens'
 import { PLATFORM_DATA, PRICE_DATA } from '../utils/programLayouts';
 import { pools } from '../utils/pools';
 
@@ -108,7 +107,7 @@ export const GetPrices = () => {
       }
 
     return (
-        <div className="form-div">
+        <div className="form-div">ls
           <h4>Get Token Prices</h4>
           <label htmlFor="funds">Select Token:</label>
 

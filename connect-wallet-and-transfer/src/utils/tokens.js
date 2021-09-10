@@ -25,42 +25,42 @@ export const NATIVE_SOL = {
   decimals: 9
 }
 
-export const MANGO_TOKENS = {
+// export const MANGO_TOKENS = {
   
-  'BTC': {
-    symbol: 'BTC',
-    name: 'BTC MANGO Test Token',
-    mintAddress: '9n4nbM75f5Ui33ZbPYXn59EwSgE8CGsHtAeTH5YFeJ9E',
-    decimals: 6
-  },
+//   'BTC': {
+//     symbol: 'BTC',
+//     name: 'BTC MANGO Test Token',
+//     mintAddress: '9n4nbM75f5Ui33ZbPYXn59EwSgE8CGsHtAeTH5YFeJ9E',
+//     decimals: 6
+//   },
 
-  'ETH': {
-    symbol: 'ETH',
-    name: 'ETH coin',
-    mintAddress: '2FPyTwcZLUg1MDrwsyoP4D6s1tM7hAkHYRjkNb5w6Pxk',
-    decimals: 6,
-  },
+//   'ETH': {
+//     symbol: 'ETH',
+//     name: 'ETH coin',
+//     mintAddress: '2FPyTwcZLUg1MDrwsyoP4D6s1tM7hAkHYRjkNb5w6Pxk',
+//     decimals: 6,
+//   },
 
-  'SOL': {
-    symbol: 'SOL',
-    name: 'SOL coin',
-    mintAddress: 'So11111111111111111111111111111111111111112',
-    decimals: 9,
-  },
+//   'SOL': {
+//     symbol: 'SOL',
+//     name: 'SOL coin',
+//     mintAddress: 'So11111111111111111111111111111111111111112',
+//     decimals: 9,
+//   },
 
-  'SRM': {
-    symbol: 'SRM',
-    name: 'SRM coin',
-    mintAddress: 'SRMuApVNdxXokk5GT7XD5cUUgXMBCoAz2LHeuAoKWRt',
-    decimals: 6,
-  },
-  'USDC': {
-    symbol: 'USDC',
-    name: 'USDC MANGO Base Test Token',
-    mintAddress: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
-    decimals: 6
-  },
-}
+//   'SRM': {
+//     symbol: 'SRM',
+//     name: 'SRM coin',
+//     mintAddress: 'SRMuApVNdxXokk5GT7XD5cUUgXMBCoAz2LHeuAoKWRt',
+//     decimals: 6,
+//   },
+//   'USDC': {
+//     symbol: 'USDC',
+//     name: 'USDC MANGO Base Test Token',
+//     mintAddress: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+//     decimals: 6
+//   },
+// }
 
 export const TOKENS = {
   WSOL: {
@@ -528,7 +528,101 @@ export const TOKENS = {
     decimals: 6,
     referrer: 'HF7mhT9YgD5CULAFDYQmhnUMi1FnNbKeBFCy9SZDh2XE',
     tags: ['raydium']
-  }
+  },
+  ATLAS: {
+    symbol: 'ATLAS',
+    name: 'ATLAS',
+    mintAddress: 'ATLASXmbPQxBUYbxPsV97usA3fPQYEqzQBUHgiFCUsXx',
+    decimals: 8,
+    referrer: '9t9mzbkMtLdazj1D9JycS15Geb1KVtcDt4XyAkpM72Ee',
+
+    detailLink: 'https://raydium.medium.com/star-atlas-is-launching-on-acceleraytor-fa35cfe3291f',
+    details:
+      'POLIS is the primary governance token of Star Atlas.\n\nStar Atlas is a grand strategy game that combines space exploration, territorial conquest, and political domination. In the distant future, players can join one of three galactic factions to directly influence the course of the metaverse and earn real-world income for their contributions.\n\nThe Star Atlas offers a unique gaming experience by combining block chain mechanics with traditional game mechanics. All assets in the metaverse are directly owned by players, and can be traded on the marketplace or exchanged on other cryptocurrency networks.',
+    docs: {
+      website: 'https://staratlas.com/',
+      whitepaper: 'https://staratlas.com/files/star-atlas-white-paper.pdf'
+    },
+    socials: {
+      Twitter: 'https://twitter.com/staratlas',
+      Telegram: 'https://t.me/staratlasgame',
+      Medium: 'https://medium.com/star-atlas',
+      Discord: 'https://discord.gg/staratlas',
+      Twitch: 'https://www.twitch.tv/staratlasgame',
+      Youtube: 'https://www.youtube.com/channel/UCt-y8Npwje5KDG5MSZ0a9Jw/videos'
+    },
+    tags: ['raydium']
+  },
+  POLIS: {
+    symbol: 'POLIS',
+    name: 'POLIS',
+    mintAddress: 'poLisWXnNRwC6oBu1vHiuKQzFjGL4XDSu4g9qjz9qVk',
+    decimals: 8,
+    referrer: 'CQ7HWCeSSp3tAfWzqH7ZEzgnTBr5Tvz1No3Y1xbiWzBm',
+
+    detailLink: 'https://raydium.medium.com/star-atlas-is-launching-on-acceleraytor-fa35cfe3291f',
+    details:
+      'POLIS is the primary governance token of Star Atlas.\n\nStar Atlas is a grand strategy game that combines space exploration, territorial conquest, and political domination. In the distant future, players can join one of three galactic factions to directly influence the course of the metaverse and earn real-world income for their contributions.\n\nThe Star Atlas offers a unique gaming experience by combining block chain mechanics with traditional game mechanics. All assets in the metaverse are directly owned by players, and can be traded on the marketplace or exchanged on other cryptocurrency networks.',
+    docs: {
+      website: 'https://staratlas.com/',
+      whitepaper: 'https://staratlas.com/files/star-atlas-white-paper.pdf'
+    },
+    socials: {
+      Twitter: 'https://twitter.com/staratlas',
+      Telegram: 'https://t.me/staratlasgame',
+      Medium: 'https://medium.com/star-atlas',
+      Discord: 'https://discord.gg/staratlas',
+      Twitch: 'https://www.twitch.tv/staratlasgame',
+      Youtube: 'https://www.youtube.com/channel/UCt-y8Npwje5KDG5MSZ0a9Jw/videos'
+    },
+    tags: ['raydium']
+  },
+  GRAPE: {
+    symbol: 'GRAPE',
+    name: 'GRAPE',
+    mintAddress: '8upjSpvjcdpuzhfR1zriwg5NXkwDruejqNE9WNbPRtyA',
+    decimals: 6,
+    referrer: 'M4nDMB9krXbaNFPVu1DjrBTfqPUHbKEQLZSSDNH2JrL',
+
+    detailLink: 'https://raydium.medium.com/grape-protocol-launching-on-acceleraytor-547f58c12937',
+    details:
+      'The GRAPE “Great Ape” community is a token-based membership community focused on accelerating the growth and adoption of Solana. GRAPE token holders at different tiers are rewarded with exclusive benefits and monthly emissions of GRAPE. You can find more details on the GRAPE membership tiers and benefits here.\n\nThe GRAPE toolset creates a framework for decentralized and tokenized communities to better organize and coordinate their activities, unlocking a whole new world of possibility for these dynamic groups. The GRAPE roadmap includes modules for DAO Management, non-custodial tipping, escrow, and event planning to be deployed in the next 6 months.\n\nGRAPE protocol’s first tool, Grape Access, creates a Dynamic Balance-Based Membership solution by connecting members’ social accounts to cryptographic keys. All Solana tokens are supported by Multi-Coin configurations, which grants users permission and access rights based on SPL tokens, token pairs, and LP tokens in their wallet.',
+    docs: {
+      website: 'https://grapes.network/'
+      // whitepaper: '' // TODO
+    },
+    socials: {
+      Discord: 'https://discord.com/invite/greatape',
+      Medium: 'https://medium.com/great-ape',
+      Twitter: 'https://twitter.com/grapeprotocol',
+      Twitch: 'https://www.twitch.tv/whalesfriend'
+    },
+    tags: ['raydium']
+  },
+  CHEEMS: {
+    symbol: 'CHEEMS',
+    name: 'CHEEMS',
+    mintAddress: '3FoUAsGDbvTD6YZ4wVKJgTB76onJUKz7GPEBNiR5b8wc',
+    decimals: 4,
+    referrer: '',
+    tags: ['raydium']
+  },
+  stSOL: {
+    symbol: 'stSOL',
+    name: 'stSOL',
+    mintAddress: '7dHbWXmci3dT8UFYWYZweBLXgycu7Y3iL6trKn1Y7ARj',
+    decimals: 9,
+    referrer: '8Mq4Tugv1fcT4gb1wf5ChdEFmdqNGKxFVCnM9TVe44vD',
+    tags: ['raydium']
+  },
+  CRP: {
+    symbol: 'CRP',
+    name: 'CRP',
+    mintAddress: 'DubwWZNWiNGMMeeQHPnMATNj77YZPZSAz2WVR5WjLJqz',
+    decimals: 9,
+    referrer: 'FKocyVJptELTbnkUkDRmT7y6hUem2JYrqHoph9uyvQXt',
+    tags: ['raydium']
+  },
 }
 
 export const LP_TOKENS = {

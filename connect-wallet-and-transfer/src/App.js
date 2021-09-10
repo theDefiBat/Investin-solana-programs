@@ -6,18 +6,18 @@ import { useEffect, useState } from 'react';
 import { GlobalState } from './store/globalState'
 import { getTransactions } from './utils/getTransactions';
 import { connection } from './utils/constants';
-import TransactionsView from './components/Transactions';
-import { SendGreating } from './components/SendGreating';
-import { Deposit } from './components/Deposit';
-import { InitialisedFund } from './components/InitialisedFund';
-import { Swap } from './components/Swap';
-import { Withdraw } from './components/Withdraw';
-import { Transfer } from './components/Transfer';
-// import { Claim } from './components/ClaimFee';
+// import TransactionsView from './components/Transactions';
+// import { SendGreating } from './components/SendGreating';
+// import { Deposit } from './components/Deposit';
+// import { InitialisedFund } from './components/InitialisedFund';
+// import { Swap } from './components/Swap';
+// import { Withdraw } from './components/Withdraw';
+// import { Transfer } from './components/Transfer';
+// // import { Claim } from './components/ClaimFee';
 import { GetPrices } from './components/GetPrices';
-import { MangoInitialize } from './components/MangoInitialize';
-import { MangoPlaceOrder } from './components/MangoPlaceOrder';
-import { AdminControl } from './components/AdminControl';
+// import { MangoInitialize } from './components/MangoInitialize';
+// import { MangoPlaceOrder } from './components/MangoPlaceOrder';
+// import { AdminControl } from './components/AdminControl';
 
 function App() {
   const walletProvider = GlobalState.useState(s => s.walletProvider);
@@ -28,10 +28,10 @@ function App() {
     <div>
       <Container>
         <CustomNavbar />
-        {
+        {/* {
           address &&
           <p>Connected to {address}</p>
-        }
+        } */}
         {/* {
           transactions && <TransactionsView transactions={transactions} />
         } */}
@@ -40,15 +40,15 @@ function App() {
         
         <Claim />
         */}
-        <InitialisedFund />
+        {/* <InitialisedFund />
         <Deposit />
         <Transfer />
         <Withdraw /> 
         <Swap />
         <MangoInitialize />
-        <MangoPlaceOrder />
+        <MangoPlaceOrder /> */}
         <GetPrices />
-        <AdminControl />
+        {/* <AdminControl /> */}
       </Container>
     </div>
   );
