@@ -8,7 +8,7 @@ import { getTransactions } from './utils/getTransactions';
 import { connection } from './utils/constants';
 // import TransactionsView from './components/Transactions';
 // import { SendGreating } from './components/SendGreating';
-// import { Deposit } from './components/Deposit';
+import { Deposit } from './components/Deposit';
 // import { InitialisedFund } from './components/InitialisedFund';
 // import { Swap } from './components/Swap';
 // import { Withdraw } from './components/Withdraw';
@@ -18,6 +18,8 @@ import { GetPrices } from './components/GetPrices';
 // import { MangoInitialize } from './components/MangoInitialize';
 // import { MangoPlaceOrder } from './components/MangoPlaceOrder';
 // import { AdminControl } from './components/AdminControl';
+import { IVN } from './components/IVN';
+
 
 function App() {
   const walletProvider = GlobalState.useState(s => s.walletProvider);
@@ -41,7 +43,6 @@ function App() {
         <Claim />
         */}
         {/* <InitialisedFund />
-        <Deposit />
         <Transfer />
         <Withdraw /> 
         <Swap />
@@ -49,6 +50,9 @@ function App() {
         <MangoPlaceOrder /> */}
         <GetPrices />
         {/* <AdminControl /> */}
+        <Deposit />
+        <IVN />
+
       </Container>
     </div>
   );

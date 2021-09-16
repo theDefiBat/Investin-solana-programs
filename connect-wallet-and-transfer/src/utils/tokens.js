@@ -615,6 +615,14 @@ export const TOKENS = {
     referrer: '8Mq4Tugv1fcT4gb1wf5ChdEFmdqNGKxFVCnM9TVe44vD',
     tags: ['raydium']
   },
+  MNGO: {
+    symbol: 'MNGO',
+    name: 'Mango',
+    mintAddress: 'MangoCzJ36AjZyKwVj3VnYU4GTonjfVEnJmvvWaxLac',
+    decimals: 6,
+    referrer: 'CijuvE6qDpxZ5WqdEQEe7mS11fXEKiiHc7RR8wRiGzjY',
+    tags: ['raydium']
+  },
   CRP: {
     symbol: 'CRP',
     name: 'CRP',
