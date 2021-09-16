@@ -1,28 +1,23 @@
-import React, { useEffect, useState } from 'react'
-import { createAssociatedTokenAccount, createAssociatedTokenAccountIfNotExist, createKeyIfNotExists, createTokenAccountIfNotExist, findAssociatedTokenAddress, setWalletTransaction, signAndSendTransaction } from '../utils/web3'
-import { connection, FUND_ACCOUNT_KEY, platformStateAccount, PLATFORM_ACCOUNT_KEY, programId } from '../utils/constants'
+import React, { useState } from 'react'
+import { createAssociatedTokenAccountIfNotExist, findAssociatedTokenAddress, signAndSendTransaction } from '../utils/web3'
+import { connection } from '../utils/constants'
 import { GlobalState } from '../store/globalState';
-import { nu64, struct, u8 } from 'buffer-layout';
+import { nu64, struct } from 'buffer-layout';
 import { PublicKey, Transaction, TransactionInstruction } from '@solana/web3.js';
 import { TOKEN_PROGRAM_ID } from '@project-serum/serum/lib/token-instructions';
-import { PLATFORM_DATA } from '../utils/programLayouts';
-import { Badge } from 'reactstrap';
-import { MANGO_TOKENS, TOKENS } from "../utils/tokens";
-import BN from 'bn.js';
-import { find } from 'lodash';
 
 export const ivnProgId = new PublicKey('DNZb9BgKyXdCyqXQUaH8Na4Labko15M8RTgCfKyGUNPW')
 
 export const ABIVN_TOKEN = {
     symbol: 'ABIVN',
     name: 'allBridge IVN',
-    mintAddress: '5jdUrtqKexD33y2bqkmgJhEY6rVo2RTieJnCVrXaDpMr',
+    mintAddress: '2ZfTbMeJqfTRR2wmMYCbT2W9tkEwEZwf4u5x5LMiCsj1',
     decimals: 9
 }
 export const IVN_TOKEN = {
     symbol: 'IVN',
     name: 'Investin Token',
-    mintAddress: '3HNv4QoF3DhbzXoKwfmaMyFHP39Px9JFMVZhymBb8AcC',
+    mintAddress: 'iVNcrNE9BRZBC9Aqf753iZiZfbszeAVUoikgT9yvr2a',
     decimals: 6
   }
 
@@ -36,7 +31,7 @@ export const IVN = () => {
         const key = walletProvider.publicKey
         console.log("publick:: ", key)
         let pdaAcc = await PublicKey.findProgramAddress(
-            [Buffer.from('router')],
+            [Buffer.from('swap')],
             ivnProgId
           )
         console.log("PDA:: ", pdaAcc[0].toBase58())
