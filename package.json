@@ -13,6 +13,7 @@
     "clean": "npm run clean:program-fund && npm run clean:program-aggregator",
     "build:program-aggregator": "cargo build-bpf --manifest-path=./programs/program-aggregator/Cargo.toml --bpf-out-dir=dist/program-aggregator",
     "build:program-fund": "cargo build-bpf --manifest-path=./programs/program-fund/Cargo.toml --bpf-out-dir=dist/program-fund",
+    "build:program-ivn": "cargo build-bpf --manifest-path=./programs/program-ivn/Cargo.toml --bpf-out-dir=dist/program-ivn",
     "clean:program-aggregator": "cargo clean --manifest-path=./programs/program-aggregator/Cargo.toml && rm -rf ./dist/program-aggregator",
     "clean:program-fund": "cargo clean --manifest-path=./programs/program-fund/Cargo.toml && rm -rf ./dist/program-fund",
     "postinstall": "cargo update --manifest-path=programs/program-fund/Cargo.toml"
