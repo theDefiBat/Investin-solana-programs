@@ -553,6 +553,7 @@ impl Fund {
                         investor_data.margin_debt[i]).unwrap();
                     // update margin equity for current withdrawal
                     investor_data.withdrawn_from_margin = true;
+                    fund_data.mango_positions[i].debtors += 1;
                     margin_equity[i] = margin_equity[i].checked_sub(margin_equity[i].checked_mul(share).unwrap()).unwrap();
                 }
             }

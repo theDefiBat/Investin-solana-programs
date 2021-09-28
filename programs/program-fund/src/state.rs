@@ -199,11 +199,12 @@ pub struct MarginInfo {
     // margin account pubkey to check if the passed acc is correct
     pub margin_account: Pubkey,
 
-    // 0: inactive, 1: deposited, 2: position_open, 3: settled_open, 4: position_closed, 5: settled_close
+    // 0: inactive, 1: deposited, 2: position_open, 3: settled_open, 4: position_closed, 5: settled_close, 6: stale
     pub state: u8, 
     pub margin_index: u8, // token_index for the trade
     pub position_side: u8, // 0 for LONG, 1 for SHORT
-    pub padding: [u8; 3],
+    pub debtors: u8,
+    pub padding: [u8; 2],
     pub position_id: u16, // unique id for the position
     
     pub trade_amount: u64, // 8 for PnL calculation
