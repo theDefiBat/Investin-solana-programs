@@ -27,7 +27,8 @@ pub enum FundInstruction {
     /// 5. []       PDA of Manager (Fund Address)
     /// 6. []       Token Program
     InvestorDeposit {
-        amount: u64
+        amount: u64,
+        index: u8 // index of the investor slot
     },
 
     /// 0. []       Platform State Account
@@ -44,7 +45,9 @@ pub enum FundInstruction {
     /// 9. []       PDA of Router
     /// 10. []       Token Program
     /// 11..11+MAX_INVESTORS Investor State Accounts for the fund
-    ManagerTransfer,
+    ManagerTransfer {
+        count: u8 // no of investors to be passed
+    },
     
     /// 0. [WRITE]  Platform State Account
     /// 1. [WRITE]  Fund State Account (derived from FA)
@@ -386,13 +389,22 @@ impl FundInstruction {
                 }
             },
             1 => {
-                let amount = array_ref![data, 0, 8];
+                let data = array_ref![data, 0, 8 + 1];
+                let (
+                    amount,
+                    index
+                ) = array_refs![data, 8, 1];
+
                 FundInstruction::InvestorDeposit {
-                    amount: u64::from_le_bytes(*amount)
+                    amount: u64::from_le_bytes(*amount),
+                    index: u8::from_le_bytes(*index)
                 }
             },
             2 => {
-                FundInstruction::ManagerTransfer
+                let count = array_ref![data, 0, 1];
+                FundInstruction::ManagerTransfer {
+                    count: u8::from_le_bytes(*count)
+                }
             },
             3 => {
                 FundInstruction::InvestorWithdrawFromFund
@@ -500,6 +512,7 @@ impl FundInstruction {
                     count: u8::from_le_bytes(*count)
                 }
             },
+            // TODO:: remove redunant instruction
             19 => {
                 let count = array_ref![data, 0, 1];
                 FundInstruction::UpdateTokenPrices {

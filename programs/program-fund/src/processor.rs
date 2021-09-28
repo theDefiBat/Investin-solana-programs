@@ -142,7 +142,8 @@ impl Fund {
     pub fn deposit (
         program_id: &Pubkey,
         accounts: &[AccountInfo],
-        amount: u64
+        amount: u64,
+        index: u8
     ) -> Result<(), ProgramError> {
         const NUM_FIXED:usize = 6;
         let accounts = array_ref![accounts, 0, NUM_FIXED];
@@ -179,7 +180,9 @@ impl Fund {
         investor_data.manager = fund_data.manager_account;
 
         // update queue
-        let index = fund_data.no_of_investments - fund_data.number_of_active_investments;
+        // let index = fund_data.no_of_investments - fund_data.number_of_active_investments;
+        // queue slot should be empty
+        check_eq!(fund_data.investors[index as usize], Pubkey::default());
         fund_data.investors[index as usize] = *investor_state_acc.key;
         fund_data.no_of_investments += 1;
 
@@ -214,6 +217,7 @@ impl Fund {
     pub fn transfer (
         program_id: &Pubkey,
         accounts: &[AccountInfo],
+        count: u8
     ) -> Result<(), ProgramError> {
 
         const NUM_FIXED:usize = 11;
@@ -264,15 +268,43 @@ impl Fund {
         // check if router PDA matches
         check!(*pda_router_acc.key == platform_data.router, FundError::IncorrectPDA);
 
-        msg!("Calculating transfer amount");
-        let transferable_amount: u64 = U64F64::to_num(U64F64::from_num(fund_data.amount_in_router)
-        .checked_mul(U64F64::from_num(98)).unwrap()
-        .checked_div(U64F64::from_num(100)).unwrap());
+        // update start performance for investors
+        update_amount_and_performance(&platform_data, &mut fund_data, &clock_sysvar_acc, margin_equity, true)?;
+
+        let mut transferable_amount: u64 = 0;
+        let mut fee: u64 = 0;
+
+        for i in 0..count as usize {
+            let investor_state_acc = &investor_state_accs[i];
+            let index = fund_data.get_investor_index(investor_state_acc.key).unwrap();
+            check_eq!(fund_data.investors[index], *investor_state_acc.key);
+            
+            let mut investor_data = InvestorData::load_mut_checked(investor_state_acc, program_id)?;
+            check!(investor_data.amount_in_router > 0, ProgramError::InvalidAccountData);
+            check_eq!(investor_data.manager, *manager_acc.key);
+
+            investor_data.amount = U64F64::to_num(U64F64::from_num(investor_data.amount_in_router).checked_mul(U64F64!(0.98)).unwrap());
+
+            // update transfer variables
+            transferable_amount = transferable_amount.checked_add(investor_data.amount).unwrap();
+            fee = fee.checked_add(U64F64::to_num(
+                U64F64::from_num(investor_data.amount).checked_div(U64F64::from_num(100)).unwrap()
+            )).unwrap();
+
+            // update fund amount in router
+            fund_data.amount_in_router = fund_data.amount_in_router.checked_sub(investor_data.amount_in_router).unwrap();
+            
+            // update investor variables
+            investor_data.amount_in_router = 0;
+            investor_data.start_performance = fund_data.prev_performance;
+
+            // zero out slot
+            fund_data.investors[i] = Pubkey::default();
+        }
 
         msg!("transferable amount:: {:?}", transferable_amount);
 
         msg!("Calling transfer instructions");
-
         invoke_signed(
             &(spl_token::instruction::transfer(
                 token_prog_acc.key,
@@ -291,10 +323,7 @@ impl Fund {
             &[&["router".as_ref(), bytes_of(&platform_data.router_nonce)]]
         )?;
 
-        msg!("Management Fee Transfer");
-        let management_fee: u64 = U64F64::to_num(U64F64::from_num(fund_data.amount_in_router)
-        .checked_div(U64F64::from_num(100)).unwrap());
-
+        msg!("Management Fee Transfer {:?}", fee);
         invoke_signed(
             &(spl_token::instruction::transfer(
                 token_prog_acc.key,
@@ -302,7 +331,7 @@ impl Fund {
                 manager_btoken_acc.key,
                 pda_router_acc.key,
                 &[pda_router_acc.key],
-                management_fee
+                fee
             ))?,
             &[
                 router_btoken_acc.clone(),
@@ -312,11 +341,9 @@ impl Fund {
             ],
             &[&["router".as_ref(), bytes_of(&platform_data.router_nonce)]]
         )?;
+
         msg!("Protocol Fee Transfer");
         check_eq!(platform_data.investin_vault, *investin_btoken_acc.key);
-        let protocol_fee: u64 = U64F64::to_num(U64F64::from_num(fund_data.amount_in_router)
-        .checked_div(U64F64::from_num(100)).unwrap());
-
         invoke_signed(
             &(spl_token::instruction::transfer(
                 token_prog_acc.key,
@@ -324,7 +351,7 @@ impl Fund {
                 investin_btoken_acc.key,
                 pda_router_acc.key,
                 &[pda_router_acc.key],
-                protocol_fee
+                fee
             ))?,
             &[
                 router_btoken_acc.clone(),
@@ -336,30 +363,11 @@ impl Fund {
         )?;
         
         msg!("Transfers completed");
-        
-        // dont update performance; just amount
-        update_amount_and_performance(&platform_data, &mut fund_data, &clock_sysvar_acc, margin_equity, true)?;
-
-        let in_queue = fund_data.no_of_investments - fund_data.number_of_active_investments;
-        for i in 0..in_queue as usize {
-            let investor_state_acc = &investor_state_accs[i];
-            let mut investor_data = InvestorData::load_mut_checked(investor_state_acc, program_id)?;
-            check_eq!(fund_data.investors[i], *investor_state_acc.key);
-            msg!("investor account update");
-            if investor_data.amount_in_router != 0 {
-                investor_data.amount =
-                    U64F64::to_num(U64F64::from_num(investor_data.amount_in_router).checked_mul(U64F64!(0.98)).unwrap());
-                investor_data.start_performance = fund_data.prev_performance;
-                investor_data.amount_in_router = 0;
-            }
-            fund_data.investors[i] = Pubkey::default();
-        }
 
         fund_data.tokens[0].balance = parse_token_account(&fund_btoken_acc)?.amount;
         // dont update performance now
         update_amount_and_performance(&platform_data, &mut fund_data, &clock_sysvar_acc, margin_equity, false)?;
         fund_data.number_of_active_investments = fund_data.no_of_investments;
-        fund_data.amount_in_router = 0;
 
         Ok(())
     }
@@ -793,13 +801,13 @@ impl Fund {
                 msg!("FundInstruction::Initialize");
                 return Self::initialize(program_id, accounts, min_amount, min_return, performance_fee_percentage, no_of_tokens);
             }
-            FundInstruction::InvestorDeposit { amount } => {
+            FundInstruction::InvestorDeposit { amount, index } => {
                 msg!("FundInstruction::InvestorDeposit");
-                return Self::deposit(program_id, accounts, amount);
+                return Self::deposit(program_id, accounts, amount, index);
             }
-            FundInstruction::ManagerTransfer => {
+            FundInstruction::ManagerTransfer { count } => {
                 msg!("FundInstruction::ManagerTransfer");
-                return Self::transfer(program_id, accounts);
+                return Self::transfer(program_id, accounts, count);
             }
             FundInstruction::InvestorWithdrawFromFund => {
                 msg!("FundInstruction::InvestorWithdraw");
@@ -1105,14 +1113,14 @@ pub fn swap_instruction(
             *pool_prog_acc.key,
             &data,
             vec![
-                AccountMeta::new(*token_prog_acc.key, false),
+                AccountMeta::new_readonly(*token_prog_acc.key, false),
                 AccountMeta::new(*amm_id.key, false),
                 AccountMeta::new(*amm_authority.key, false),
                 AccountMeta::new(*amm_open_orders.key, false),
                 AccountMeta::new(*amm_target_orders.key, false),
                 AccountMeta::new(*pool_coin_token_acc.key, false),
                 AccountMeta::new(*pool_pc_token_acc.key, false),
-                AccountMeta::new(*dex_prog_acc.key, false),
+                AccountMeta::new_readonly(*dex_prog_acc.key, false),
                 AccountMeta::new(*dex_market_acc.key, false),
                 AccountMeta::new(*bids_acc.key, false),
                 AccountMeta::new(*asks_acc.key, false),
