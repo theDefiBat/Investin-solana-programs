@@ -314,6 +314,9 @@ impl FundData {
     pub fn get_margin_index(&self, margin_account_pk: &Pubkey) -> Option<usize> {
         self.mango_positions.iter().position(|pos| pos.margin_account == *margin_account_pk)
     }
+    pub fn get_investor_index(&self, inv_state_pk: &Pubkey) -> Option<usize> {
+        self.investors.iter().position(|pos| *pos == *inv_state_pk)
+    }
 }
 
 impl InvestorData {
