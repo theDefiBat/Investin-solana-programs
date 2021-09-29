@@ -45,9 +45,7 @@ pub enum FundInstruction {
     /// 9. []       PDA of Router
     /// 10. []       Token Program
     /// 11..11+MAX_INVESTORS Investor State Accounts for the fund
-    ManagerTransfer {
-        count: u8 // no of investors to be passed
-    },
+    ManagerTransfer,
     
     /// 0. [WRITE]  Platform State Account
     /// 1. [WRITE]  Fund State Account (derived from FA)
@@ -401,10 +399,7 @@ impl FundInstruction {
                 }
             },
             2 => {
-                let count = array_ref![data, 0, 1];
-                FundInstruction::ManagerTransfer {
-                    count: u8::from_le_bytes(*count)
-                }
+                FundInstruction::ManagerTransfer
             },
             3 => {
                 FundInstruction::InvestorWithdrawFromFund
