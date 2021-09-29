@@ -216,20 +216,17 @@ impl Fund {
     // manager transfer
     pub fn transfer (
         program_id: &Pubkey,
-        accounts: &[AccountInfo],
-        count: u8
+        accounts: &[AccountInfo]
     ) -> Result<(), ProgramError> {
 
         const NUM_FIXED:usize = 11;
-        let accounts = array_ref![accounts, 0, NUM_FIXED + 3*NUM_MARGIN + MAX_INVESTORS];
-
         let (
             fixed_accs,
             margin_accs,
             open_orders_accs,
             oracle_accs,
             investor_state_accs
-        ) = array_refs![accounts, NUM_FIXED, NUM_MARGIN, NUM_MARGIN, NUM_MARGIN, MAX_INVESTORS];
+        ) = array_refs![accounts, NUM_FIXED, NUM_MARGIN, NUM_MARGIN, NUM_MARGIN; ..;];
 
         let [
             platform_acc,
@@ -274,12 +271,12 @@ impl Fund {
         let mut transferable_amount: u64 = 0;
         let mut fee: u64 = 0;
 
-        for i in 0..count as usize {
-            let investor_state_acc = &investor_state_accs[i];
+        for investor_state_acc in investor_state_accs.iter() {
             let index = fund_data.get_investor_index(investor_state_acc.key).unwrap();
-            check_eq!(fund_data.investors[index], *investor_state_acc.key);
-            
             let mut investor_data = InvestorData::load_mut_checked(investor_state_acc, program_id)?;
+
+            // validation checks
+            check_eq!(fund_data.investors[index], *investor_state_acc.key);            
             check!(investor_data.amount_in_router > 0, ProgramError::InvalidAccountData);
             check_eq!(investor_data.manager, *manager_acc.key);
 
@@ -299,7 +296,7 @@ impl Fund {
             investor_data.start_performance = fund_data.prev_performance;
 
             // zero out slot
-            fund_data.investors[i] = Pubkey::default();
+            fund_data.investors[index] = Pubkey::default();
         }
 
         msg!("transferable amount:: {:?}", transferable_amount);
@@ -428,6 +425,8 @@ impl Fund {
             fund_data.no_of_investments -= 1;
             investor_data.amount_in_router = 0;
             investor_data.is_initialized = false;
+            let index = fund_data.get_investor_index(investor_state_acc.key).unwrap();
+            fund_data.investors[index] = Pubkey::default();
             // close investor account
             close_investor_account(investor_acc, investor_state_acc)?;
         } 
@@ -804,9 +803,9 @@ impl Fund {
                 msg!("FundInstruction::InvestorDeposit");
                 return Self::deposit(program_id, accounts, amount, index);
             }
-            FundInstruction::ManagerTransfer { count } => {
+            FundInstruction::ManagerTransfer => {
                 msg!("FundInstruction::ManagerTransfer");
-                return Self::transfer(program_id, accounts, count);
+                return Self::transfer(program_id, accounts);
             }
             FundInstruction::InvestorWithdrawFromFund => {
                 msg!("FundInstruction::InvestorWithdraw");
