@@ -61,7 +61,7 @@ pub enum FundInstruction {
     /// 10. []      Token Program
     /// 11..11+(NUM_FIXED)*3  MarginAccounts , OpenOrderAccounts, OracleAccounts  
     /// 11+(NUM_FIXED)*3..MAX_INVESTORS Investor State Accounts for the fund
-    DynamicPerformance,
+    // DynamicPerformance,
     
     /// 0. [WRITE]  Platform State Account
     /// 1. [WRITE]  Fund State Account (derived from FA)
