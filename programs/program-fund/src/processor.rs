@@ -44,11 +44,11 @@ macro_rules! check_eq {
     }
 }
 
-// pub mod investin_admin {
-//     use solana_program::declare_id;
-//     // set investin admin
-//     declare_id!("owZmWQkqtY3Kqnxfua1KTHtR2S6DgBTP75JKbh15VWG");
-// }
+pub mod investin_admin {
+    use solana_program::declare_id;
+    // set investin admin
+    declare_id!("owZmWQkqtY3Kqnxfua1KTHtR2S6DgBTP75JKbh15VWG");
+}
 
 pub struct Fund {}
 
