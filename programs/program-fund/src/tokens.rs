@@ -113,13 +113,15 @@ pub fn add_token_to_fund (
 
     let platform_data = PlatformData::load_checked(platform_acc, program_id)?;
     let mut fund_data = FundData::load_mut_checked(fund_state_acc, program_id)?;
+    
+    // checking for Platform WhiteList  
+    let token_index = platform_data.get_token_index(mint_acc.key).unwrap(); // should break in case of non-whitelist
+    check_eq!(fund_data.get_token_slot(token_index), None);
 
     let vault_info = parse_token_account(vault_acc)?;
     check_eq!(vault_info.owner, fund_data.fund_pda);
     check_eq!(fund_data.tokens[index as usize].is_active, false);
 
-    let token_index = platform_data.get_token_index(mint_acc.key).unwrap();
-    check_eq!(fund_data.get_token_slot(token_index), None);
 
     fund_data.tokens[index as usize].is_active = true;
     fund_data.tokens[index as usize].index = token_index as u8;

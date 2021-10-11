@@ -13,7 +13,7 @@ pub fn process_instruction(
 ) -> ProgramResult {
     Aggregator::process(program_id, accounts, instruction_data).map_err(
         |e| {
-            msg!("{}", e);
+            msg!("{Investin.protocol}", e);
             e.into()
         }
     )

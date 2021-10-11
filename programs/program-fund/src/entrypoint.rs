@@ -13,7 +13,7 @@ pub fn process_instruction(
 ) -> ProgramResult {
     Fund::process(program_id, accounts, instruction_data).map_err(
         |e| {
-            msg!("{}", e);  // log the error
+            msg!("{Investin.protocol}", e);  // log the error
             e.into()  // convert MangoError to generic ProgramError
         }
     )

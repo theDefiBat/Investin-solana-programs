@@ -9,8 +9,9 @@ pub enum FundInstruction {
     /// 0. [WRITE]  Platform State Account
     /// 1. [WRITE]  Fund State Account (derived from FA)
     /// 2. [SIGNER] Manager Wallet Account
-    /// 3. []       Fund Base Token Account
-    /// 4..4+NUM_TOKENS [] Token mints to be whitelisted
+    /// 3. [] USDC MINT Account
+    /// 4. [] Fund Base Token Account (USDC Associated Token Account)
+    /// 5..4+(no_of_tokens-1)*2 [] Token mints and Associated Token Accounts to be whitelisted
 
     Initialize {
         min_amount: u64,
@@ -24,7 +25,7 @@ pub enum FundInstruction {
     /// 2. [SIGNER] Investor Wallet Account
     /// 3. []       Investor Base Token Account
     /// 4. []       Router Base Token Account (derived)
-    /// 5. []       PDA of Manager (Fund Address)
+    /// 5. []       Platform State Account
     /// 6. []       Token Program
     InvestorDeposit {
         amount: u64,
@@ -33,9 +34,7 @@ pub enum FundInstruction {
 
     /// 0. []       Platform State Account
     /// 1. [WRITE]  Fund State Account
-    /// 2. [READ]   Price Account
-    ///             Open orders account
-    ///             mango oracle account
+    /// 3. []       mango group account
     /// 3. [READ]   Clock Sysvar Account
     /// 4. [SIGNER] Manager Wallet Account
     /// 5. []       Router Base Token Account
@@ -43,9 +42,26 @@ pub enum FundInstruction {
     /// 7. []       Manager Base Token Account
     /// 8. []       Investin Base Token Account
     /// 9. []       PDA of Router
-    /// 10. []       Token Program
-    /// 11..11+MAX_INVESTORS Investor State Accounts for the fund
+    /// 10. []      Token Program
+    /// 11..11+(NUM_FIXED)*3  MarginAccounts , OpenOrderAccounts, OracleAccounts  
+    /// 11+(NUM_FIXED)*3..MAX_INVESTORS Investor State Accounts for the fund
     ManagerTransfer,
+
+    /// 0. []       Platform State Account
+    /// 1. [WRITE]  Fund State Account
+    /// 2. [READ]   Price Account
+    /// 3. []       mango group account
+    /// 3. [READ]   Clock Sysvar Account
+    /// 4. [SIGNER] Manager Wallet Account
+    /// 5. []       Router Base Token Account
+    /// 6. []       Fund Base Token Account
+    /// 7. []       Manager Base Token Account
+    /// 8. []       Investin Base Token Account
+    /// 9. []       PDA of Router
+    /// 10. []      Token Program
+    /// 11..11+(NUM_FIXED)*3  MarginAccounts , OpenOrderAccounts, OracleAccounts  
+    /// 11+(NUM_FIXED)*3..MAX_INVESTORS Investor State Accounts for the fund
+    DynamicPerformance,
     
     /// 0. [WRITE]  Platform State Account
     /// 1. [WRITE]  Fund State Account (derived from FA)
@@ -70,6 +86,7 @@ pub enum FundInstruction {
     /// 8. [READ]   Clock Sysvar Account
     InvestorWithdrawSettleFunds,
 
+    ///  . platform state Account
     /// 0. [WRITE] Fund State Account
     /// 1. [] Raydium Pool Program
     /// 2. [] Token Program
@@ -354,6 +371,7 @@ pub enum FundInstruction {
     // Platform Account
     // Fund State account
     // Token mint account
+    //  vault_acc 
     RemoveTokenFromFund
 
 }

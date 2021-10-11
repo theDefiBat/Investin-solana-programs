@@ -33,18 +33,22 @@ macro_rules! check {
     }
 }
 macro_rules! check_eq {
-    ($x:expr, $y:expr) => {
+    ($x:expr, $y:expr,  $err:expr) => {
         if ($x != $y) {
-            return Err(FundError::Default.into())
+            if($err){
+                 return Err(($err).into())
+            } else {
+                 return Err(FundError::Default.into())
+            }
         }
     }
 }
 
-pub mod investin_admin {
-    use solana_program::declare_id;
-    // set investin admin
-    declare_id!("owZmWQkqtY3Kqnxfua1KTHtR2S6DgBTP75JKbh15VWG");
-}
+// pub mod investin_admin {
+//     use solana_program::declare_id;
+//     // set investin admin
+//     declare_id!("owZmWQkqtY3Kqnxfua1KTHtR2S6DgBTP75JKbh15VWG");
+// }
 
 pub struct Fund {}
 
@@ -126,7 +130,7 @@ impl Fund {
         fund_data.prev_performance = U64F64!(1.00);
         fund_data.number_of_active_investments = 0;
         fund_data.no_of_investments = 0;
-        fund_data.mango_positions[0].margin_account = Pubkey::default();
+        fund_data.mango_positions[0].margin_account = Pubkey::default(); 
         fund_data.mango_positions[1].margin_account = Pubkey::default();
 
         fund_data.is_initialized = true;
@@ -154,14 +158,19 @@ impl Fund {
             investor_acc,
             investor_btoken_acc,
             router_btoken_acc,
+            platform_acc,
             token_prog_acc
         ] = accounts;
 
         let mut fund_data = FundData::load_mut_checked(fund_state_acc, program_id)?;
         let mut investor_data = InvestorData::load_mut_checked(investor_state_acc, program_id)?;
-
+        let platform_data = PlatformData::load_mut_checked(platform_acc, program_id)?;
+        
         // check if fund state acc passed is initialised
-        check!(fund_data.is_initialized(), FundError::InvalidStateAccount);
+        check_eq!(router_btoken_acc.owner,platform_data.router);
+        check!(*token_prog_acc.key == spl_token::id(), FundError::IncorrectProgramId);
+
+        check!(depositors < 10, FundError::DepositLimitReached);
 
         let depositors: u64 = U64F64::to_num(U64F64::from_num(fund_data.no_of_investments).checked_sub(U64F64::from_num(fund_data.number_of_active_investments)).unwrap());
 
@@ -170,7 +179,6 @@ impl Fund {
         check!(amount >= fund_data.min_amount, FundError::InvalidAmount);
         // check if investor has signed the transaction
         check!(investor_acc.is_signer, FundError::IncorrectSignature);
-
         // check if investor_state_account is already initialised
         check!(!investor_data.is_initialized(), FundError::InvestorAccountAlreadyInit);
         
@@ -182,13 +190,12 @@ impl Fund {
         // update queue
         // let index = fund_data.no_of_investments - fund_data.number_of_active_investments;
         // queue slot should be empty
-        check_eq!(fund_data.investors[index as usize], Pubkey::default());
+        check_eq!(fund_data.investors[index as usize], Pubkey::default(), FundError::InvalidIndex); // IVN_ADMIN_CHECK_NEED ?? error-type
         fund_data.investors[index as usize] = *investor_state_acc.key;
         fund_data.no_of_investments += 1;
 
-        check!(*token_prog_acc.key == spl_token::id(), FundError::IncorrectProgramId);
 
-        msg!("Depositing tokens..");
+        msg!("IVN || Depositing tokens..");
         let deposit_instruction = spl_token::instruction::transfer(
             token_prog_acc.key,
             investor_btoken_acc.key,
@@ -205,7 +212,7 @@ impl Fund {
         ];
         invoke(&deposit_instruction, &deposit_accs)?;
 
-        msg!("Deposit done..");
+        msg!("IVN || Deposit done..");
         
         investor_data.amount_in_router += amount;
         fund_data.amount_in_router += amount;
@@ -245,25 +252,27 @@ impl Fund {
         let platform_data = PlatformData::load_checked(platform_acc, program_id)?;
         let mut fund_data = FundData::load_mut_checked(fund_state_acc, program_id)?;
 
+        check!(fund_data.is_initialized(), ProgramError::AccountAlreadyInitialized);
+        // check if manager signed the tx
+        check!(manager_acc.is_signer, FundError::IncorrectProgramId);
+        // check if manager account matches
+        check_eq!(fund_data.manager_account, *manager_acc.key);
+        // check if router PDA matches
+        check!(*pda_router_acc.key == platform_data.router, FundError::IncorrectPDA);
+
         let mut margin_equity = U64F64!(0);
         for i in 0..NUM_MARGIN {
             if fund_data.mango_positions[i as usize].state != 0 {
                 let mango_group_data = MangoGroup::load(mango_group_acc)?;
+                // TODO:  IVN_ADMIN_CHECK  check if margin_Acc is 
                 let margin_data = MarginAccount::load(&margin_accs[i])?;
                 let token_index = fund_data.mango_positions[i].margin_index as usize;
                 let equity = get_margin_valuation(token_index, &mango_group_data, &margin_data, &oracle_accs[i], &open_orders_accs[i])?;
-                msg!("equity now:: {:?}", equity);
+                msg!("IVN || equity now:: {:?}", equity);
                 margin_equity += equity.checked_mul(fund_data.mango_positions[i].fund_share / fund_data.mango_positions[i].share_ratio).unwrap();
             }
         }
 
-        // check if manager signed the tx
-        check!(manager_acc.is_signer, FundError::IncorrectProgramId);
-        check_eq!(fund_data.manager_account, *manager_acc.key);
-        check!(fund_data.is_initialized(), ProgramError::AccountAlreadyInitialized);
-
-        // check if router PDA matches
-        check!(*pda_router_acc.key == platform_data.router, FundError::IncorrectPDA);
 
         // update start performance for investors
         update_amount_and_performance(&platform_data, &mut fund_data, &clock_sysvar_acc, margin_equity, true)?;
@@ -299,9 +308,9 @@ impl Fund {
             fund_data.investors[index] = Pubkey::default();
         }
 
-        msg!("transferable amount:: {:?}", transferable_amount);
+        msg!("IVN || transferable amount:: {:?}", transferable_amount);
 
-        msg!("Calling transfer instructions");
+        msg!("IVN || Calling transfer instructions");
         invoke_signed(
             &(spl_token::instruction::transfer(
                 token_prog_acc.key,
@@ -320,7 +329,7 @@ impl Fund {
             &[&["router".as_ref(), bytes_of(&platform_data.router_nonce)]]
         )?;
 
-        msg!("Management Fee Transfer {:?}", fee);
+        msg!("IVN || Management Fee Transfer {:?}", fee);
         invoke_signed(
             &(spl_token::instruction::transfer(
                 token_prog_acc.key,
@@ -339,7 +348,7 @@ impl Fund {
             &[&["router".as_ref(), bytes_of(&platform_data.router_nonce)]]
         )?;
 
-        msg!("Protocol Fee Transfer");
+        msg!("IVN || Protocol Fee Transfer");
         check_eq!(platform_data.investin_vault, *investin_btoken_acc.key);
         invoke_signed(
             &(spl_token::instruction::transfer(
@@ -359,7 +368,7 @@ impl Fund {
             &[&["router".as_ref(), bytes_of(&platform_data.router_nonce)]]
         )?;
         
-        msg!("Transfers completed");
+        msg!("IVN || ManagerTransfer completed");
 
         fund_data.tokens[0].balance = parse_token_account(&fund_btoken_acc)?.amount;
         // dont update performance now
@@ -368,6 +377,9 @@ impl Fund {
 
         Ok(())
     }
+
+
+
     // investor withdraw
     pub fn withdraw_from_fund(
         program_id: &Pubkey,
@@ -430,7 +442,7 @@ impl Fund {
             // close investor account
             close_investor_account(investor_acc, investor_state_acc)?;
         } 
-
+        // shall we keep in ELSE part IVN_ADMIN_CHECK_NEED ??
         if investor_data.has_withdrawn == true {//&& investor_data.withdrawn_from_margin == false {
             for i in 0..NUM_TOKENS {
                 // TODO:: check if fund_debt on inv_acc <= fund_debt on fund
@@ -439,8 +451,8 @@ impl Fund {
                 }
                 check_eq!(investor_data.token_indexes[i], fund_data.tokens[i].index);
                 //check_eq!(fund_data.tokens[i].vault, *fund_token_accs[i].key);
-                msg!("withdrawing:: {:?}", investor_data.token_debts[i]);
-                msg!("balance:: {:?}", parse_token_account(&fund_token_accs[i])?.amount);
+                msg!("IVN || withdrawing:: {:?}", investor_data.token_debts[i]);
+                msg!("IVN || balance:: {:?}", parse_token_account(&fund_token_accs[i])?.amount);
                 invoke_signed(
                     &(spl_token::instruction::transfer(
                         token_prog_acc.key,
@@ -564,6 +576,8 @@ impl Fund {
         Ok(())
     }
 
+    // TODO : pool PC token acc 
+    // pool Coin token acc
     pub fn swap(
         program_id: &Pubkey,
         accounts: &[AccountInfo],
@@ -686,7 +700,7 @@ impl Fund {
         ];
         let signer_seeds = [fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)];
         invoke_signed(&transfer_instruction, &transfer_accs, &[&signer_seeds])?;
-        msg!("Transfer Complete");
+        msg!("IVN || Transfer Complete");
 
         fund_data.tokens[0].balance = parse_token_account(&fund_btoken_acc)?.amount;
         fund_data.performance_fee = U64F64!(0);
@@ -747,7 +761,7 @@ impl Fund {
             platform_data.token_list[0].pool_price = U64F64!(0);
             platform_data.token_count = 1;
         }
-        msg!("done");
+        msg!("IVN || platform Initialization done");
         // freeze the platform
         if freeze_platform == 1 {
             platform_data.is_initialized = false;
@@ -788,6 +802,162 @@ impl Fund {
         Ok(())
     }
 
+    // redeem
+    pub fn redeem_dynamic_performancefee (
+        program_id: &Pubkey,
+        accounts: &[AccountInfo]
+    ) -> Result<(), ProgramError> {
+
+        const NUM_FIXED:usize = 11;
+        let (
+            fixed_accs,
+            margin_accs,
+            open_orders_accs,
+            oracle_accs,
+            investor_state_accs
+        ) = array_refs![accounts, NUM_FIXED, NUM_MARGIN, NUM_MARGIN, NUM_MARGIN; ..;];
+
+        let [
+            platform_acc,
+            fund_state_acc,
+            mango_group_acc,
+            clock_sysvar_acc,
+            manager_acc,
+            router_btoken_acc,
+            fund_btoken_acc,
+            manager_btoken_acc,
+            investin_btoken_acc,
+            pda_router_acc,
+            token_prog_acc
+        ] = fixed_accs;
+
+        let platform_data = PlatformData::load_checked(platform_acc, program_id)?;
+        let mut fund_data = FundData::load_mut_checked(fund_state_acc, program_id)?;
+
+        let mut margin_equity = U64F64!(0);
+        for i in 0..NUM_MARGIN {
+            if fund_data.mango_positions[i as usize].state != 0 {
+                let mango_group_data = MangoGroup::load(mango_group_acc)?;
+                let margin_data = MarginAccount::load(&margin_accs[i])?;
+                let token_index = fund_data.mango_positions[i].margin_index as usize;
+                let equity = get_margin_valuation(token_index, &mango_group_data, &margin_data, &oracle_accs[i], &open_orders_accs[i])?;
+                msg!("IVN || equity now:: {:?}", equity);
+                margin_equity += equity.checked_mul(fund_data.mango_positions[i].fund_share / fund_data.mango_positions[i].share_ratio).unwrap();
+            }
+        }
+
+        // check if manager signed the tx
+        check!(manager_acc.is_signer, FundError::IncorrectProgramId);
+        check_eq!(fund_data.manager_account, *manager_acc.key);
+        check!(fund_data.is_initialized(), ProgramError::AccountAlreadyInitialized);
+
+        // check if router PDA matches
+        check!(*pda_router_acc.key == platform_data.router, FundError::IncorrectPDA);
+
+        // update start performance for investors
+        update_amount_and_performance(&platform_data, &mut fund_data, &clock_sysvar_acc, margin_equity, true)?;
+
+        let mut transferable_amount: u64 = 0;
+        let mut fee: u64 = 0;
+
+        for investor_state_acc in investor_state_accs.iter() {
+            let index = fund_data.get_investor_index(investor_state_acc.key).unwrap();
+            let mut investor_data = InvestorData::load_mut_checked(investor_state_acc, program_id)?;
+
+            // validation checks
+            check_eq!(fund_data.investors[index], *investor_state_acc.key);            
+            check!(investor_data.amount_in_router > 0, ProgramError::InvalidAccountData);
+            check_eq!(investor_data.manager, *manager_acc.key);
+
+            investor_data.amount = U64F64::to_num(U64F64::from_num(investor_data.amount_in_router).checked_mul(U64F64!(0.98)).unwrap());
+
+            // update transfer variables
+            transferable_amount = transferable_amount.checked_add(investor_data.amount).unwrap();
+            fee = fee.checked_add(U64F64::to_num(
+                U64F64::from_num(investor_data.amount).checked_div(U64F64::from_num(100)).unwrap()
+            )).unwrap();
+
+            // update fund amount in router
+            fund_data.amount_in_router = fund_data.amount_in_router.checked_sub(investor_data.amount_in_router).unwrap();
+            
+            // update investor variables
+            investor_data.amount_in_router = 0;
+            investor_data.start_performance = fund_data.prev_performance;
+
+            // zero out slot
+            fund_data.investors[index] = Pubkey::default();
+        }
+
+        msg!("IVN || transferable amount:: {:?}", transferable_amount);
+
+        msg!("IVN || Calling transfer instructions");
+        invoke_signed(
+            &(spl_token::instruction::transfer(
+                token_prog_acc.key,
+                router_btoken_acc.key,
+                fund_btoken_acc.key,
+                pda_router_acc.key,
+                &[pda_router_acc.key],
+                transferable_amount
+            ))?,
+            &[
+                router_btoken_acc.clone(),
+                fund_btoken_acc.clone(),
+                pda_router_acc.clone(),
+                token_prog_acc.clone()
+            ],
+            &[&["router".as_ref(), bytes_of(&platform_data.router_nonce)]]
+        )?;
+
+        msg!("IVN || Management Fee Transfer {:?}", fee);
+        invoke_signed(
+            &(spl_token::instruction::transfer(
+                token_prog_acc.key,
+                router_btoken_acc.key,
+                manager_btoken_acc.key,
+                pda_router_acc.key,
+                &[pda_router_acc.key],
+                fee
+            ))?,
+            &[
+                router_btoken_acc.clone(),
+                manager_btoken_acc.clone(),
+                pda_router_acc.clone(),
+                token_prog_acc.clone()
+            ],
+            &[&["router".as_ref(), bytes_of(&platform_data.router_nonce)]]
+        )?;
+
+        msg!("IVN || Protocol Fee Transfer");
+        check_eq!(platform_data.investin_vault, *investin_btoken_acc.key);
+        invoke_signed(
+            &(spl_token::instruction::transfer(
+                token_prog_acc.key,
+                router_btoken_acc.key,
+                investin_btoken_acc.key,
+                pda_router_acc.key,
+                &[pda_router_acc.key],
+                fee
+            ))?,
+            &[
+                router_btoken_acc.clone(),
+                investin_btoken_acc.clone(),
+                pda_router_acc.clone(),
+                token_prog_acc.clone()
+            ],
+            &[&["router".as_ref(), bytes_of(&platform_data.router_nonce)]]
+        )?;
+        
+        msg!("IVN || Transfers completed");
+
+        fund_data.tokens[0].balance = parse_token_account(&fund_btoken_acc)?.amount;
+        // dont update performance now
+        update_amount_and_performance(&platform_data, &mut fund_data, &clock_sysvar_acc, margin_equity, false)?;
+        fund_data.number_of_active_investments = fund_data.no_of_investments;
+
+        Ok(())
+    }
+
     // instruction processor
     pub fn process(
         program_id: &Pubkey,
@@ -797,41 +967,41 @@ impl Fund {
         let instruction = FundInstruction::unpack(data).ok_or(ProgramError::InvalidInstructionData)?;
         match instruction {
             FundInstruction::Initialize { min_amount, min_return, performance_fee_percentage, no_of_tokens } => {
-                msg!("FundInstruction::Initialize");
+                msg!("IVN ||FundInstruction::Initialize");
                 return Self::initialize(program_id, accounts, min_amount, min_return, performance_fee_percentage, no_of_tokens);
             }
             FundInstruction::InvestorDeposit { amount, index } => {
-                msg!("FundInstruction::InvestorDeposit");
+                msg!("IVN || FundInstruction::InvestorDeposit");
                 return Self::deposit(program_id, accounts, amount, index);
             }
             FundInstruction::ManagerTransfer => {
-                msg!("FundInstruction::ManagerTransfer");
+                msg!("IVN || FundInstruction::ManagerTransfer");
                 return Self::transfer(program_id, accounts);
             }
             FundInstruction::InvestorWithdrawFromFund => {
-                msg!("FundInstruction::InvestorWithdraw");
+                msg!("IVN || FundInstruction::InvestorWithdraw");
                 return Self::withdraw_from_fund(program_id, accounts);
             }
             FundInstruction::InvestorWithdrawSettleFunds => {
-                msg!("FundInstruction::InvestorWithdraw");
+                msg!("IVN || FundInstruction::InvestorWithdraw");
                 return Self::withdraw_settle(program_id, accounts);
             }
             FundInstruction::Swap { data } => {
-                msg!("FundInstruction::Swap");
+                msg!("IVN || FundInstruction::Swap");
                 return Self::swap(program_id, accounts, data);
             }
             FundInstruction::ClaimPerformanceFee {} => {
-                msg!("FundInstruction::ClaimPerformanceFee");
+                msg!("IVN || FundInstruction::ClaimPerformanceFee");
                 return Self::claim(program_id, accounts);
             }
             FundInstruction::MangoInitialize  => {
-                msg!("FundInstruction::MangoInitialize");
+                msg!("IVN || FundInstruction::MangoInitialize");
                 return mango_init_margin_account(program_id, accounts);
             }
             FundInstruction::AdminControl { intialize_platform,
                 freeze_platform, unfreeze_platform, change_vault, freeze_fund, unfreeze_fund,
                 change_min_amount, change_min_return, change_perf_fee } => {
-                msg!("FundInstruction::AdminControl");
+                msg!("IVN || FundInstruction::AdminControl");
                 return Self::admin_control(
                     program_id,
                     accounts,
@@ -847,51 +1017,51 @@ impl Fund {
                 );
             }
             FundInstruction::MangoDeposit { quantity } => {
-                msg!("FundInstruction::MangoDeposit");
+                msg!("IVN || FundInstruction::MangoDeposit");
                 return mango_deposit(program_id, accounts, quantity);
             }
             FundInstruction::MangoOpenPosition { side, price, trade_size } => {
-                msg!("FundInstruction::MangoPlaceOrder");
+                msg!("IVN || FundInstruction::MangoPlaceOrder");
                 return mango_open_position(program_id, accounts, side, price, trade_size);
             }
             FundInstruction::MangoSettlePosition => {
-                msg!("FundInstruction::MangoSettleFunds");
+                msg!("IVN || FundInstruction::MangoSettleFunds");
                 return mango_settle_position(program_id, accounts);
             }
             FundInstruction::MangoClosePosition { price } => {
-                msg!("FundInstruction::MangoClosePosition");
+                msg!("IVN || FundInstruction::MangoClosePosition");
                 return mango_close_position(program_id, accounts, price);
             }
             FundInstruction::MangoWithdrawToFund => {
-                msg!("FundInstruction::MangoWithdrawToFund");
+                msg!("IVN || FundInstruction::MangoWithdrawToFund");
                 return mango_withdraw_fund(program_id, accounts);
             }
             FundInstruction::MangoWithdrawInvestor => {
-                msg!("FundInstruction::MangoWithdrawInvestor");
+                msg!("IVN || FundInstruction::MangoWithdrawInvestor");
                 return mango_withdraw_investor(program_id, accounts);
             }
             FundInstruction::MangoWithdrawInvestorPlaceOrder { price } => {
-                msg!("FundInstruction::MangoWithdrawInvestorPlaceOrder");
+                msg!("IVN || FundInstruction::MangoWithdrawInvestorPlaceOrder");
                 return mango_withdraw_investor_place_order(program_id, accounts, price);
             }
             FundInstruction::MangoWithdrawInvestorSettle => {
-                msg!("FundInstruction::MangoWithdrawInvestorSettle");
+                msg!("IVN || FundInstruction::MangoWithdrawInvestorSettle");
                 return mango_withdraw_investor_settle(program_id, accounts);
             }
             FundInstruction::AddTokenToWhitelist => {
-                msg!("FundInstruction::AddTokenToWhitelist");
+                msg!("IVN || FundInstruction::AddTokenToWhitelist");
                 return add_token_to_whitelist(program_id, accounts);
             }
             FundInstruction::UpdateTokenPrices { count } => {
-                msg!("FundInstruction::UpdateTokenPrices");
+                msg!("IVN || FundInstruction::UpdateTokenPrices");
                 return update_token_prices(program_id, accounts, count);
             }
             FundInstruction::AddTokenToFund { index } => {
-                msg!("FundInstruction::AddTokenToFund");
+                msg!("IVN || FundInstruction::AddTokenToFund");
                 return add_token_to_fund(program_id, accounts, index);
             }
             FundInstruction::RemoveTokenFromFund => {
-                msg!("FundInstruction::RemoveTokenFromFund");
+                msg!("IVN || FundInstruction::RemoveTokenFromFund");
                 return remove_token_from_fund(program_id, accounts);
             }
         }
@@ -907,7 +1077,7 @@ pub fn update_amount_and_performance(
     update_perf: bool
 ) -> Result<(), ProgramError> {
     
-    msg!("called update_amount_and_performance");
+    msg!("IVN || called update_amount_and_performance");
 
     // get price account info
     let clock = &Clock::from_account_info(clock_sysvar_acc)?;
@@ -915,7 +1085,7 @@ pub fn update_amount_and_performance(
     // add USDT balance (not decimal adjusted)
     let mut fund_val = U64F64::from_num(fund_data.tokens[0].balance - fund_data.tokens[0].debt).
         checked_add(margin_equity).unwrap();
-    msg!("margin_equity:: {:?}", margin_equity);
+    msg!("IVN || margin_equity:: {:?}", margin_equity);
 
     // Calculate prices for all tokens with balances
     for i in 1..NUM_TOKENS {
@@ -927,7 +1097,7 @@ pub fn update_amount_and_performance(
         let token_info = platform_data.token_list[fund_data.tokens[i].index as usize];
 
         if clock.unix_timestamp - token_info.last_updated > 100 {
-            msg!("price not up-to-date.. aborting");
+            msg!("IVN || price not up-to-date.. aborting");
             return Err(FundError::PriceStaleInAccount.into())
         }
         // calculate price in terms of base token
@@ -942,7 +1112,7 @@ pub fn update_amount_and_performance(
         // when no investments and no performance fee for manager
         if fund_data.number_of_active_investments != 0 || fund_data.performance_fee != 0 {
             perf = fund_val.checked_div(fund_data.total_amount).unwrap()
-            .checked_mul(U64F64::from_num(fund_data.prev_performance)).unwrap();
+              .checked_mul(U64F64::from_num(fund_data.prev_performance)).unwrap();
         }
         // adjust for manager performance fee
         fund_data.performance_fee = U64F64::to_num(U64F64::from_num(perf)
@@ -953,7 +1123,7 @@ pub fn update_amount_and_performance(
     
     fund_data.total_amount = fund_val;
     
-    msg!("updated amount: {:?}", fund_data.total_amount);
+    msg!("IVN || updated amount: {:?}", fund_data.total_amount);
     
     Ok(())
 }
@@ -1059,12 +1229,12 @@ pub fn get_equity_and_coll_ratio(
 
 pub fn parse_token_account (account_info: &AccountInfo) -> Result<Account, ProgramError> {
     if account_info.owner != &spl_token::ID {
-        msg!("Account not owned by spl-token program");
+        msg!("IVN || Account not owned by spl-token program");
         return Err(ProgramError::IncorrectProgramId);
     }
     let parsed = Account::unpack(&account_info.try_borrow_data()?)?;
     if !parsed.is_initialized() {
-        msg!("Token account not initialized");
+        msg!("IVN || Token account not initialized");
         return Err(ProgramError::UninitializedAccount);
     }
     Ok(parsed)
@@ -1106,6 +1276,10 @@ pub fn swap_instruction(
         dest_token_acc,
         owner_token_acc
     ] = accounts;
+
+
+    check_eq!(fund_data.manager_account, *manager_acc.key);
+    check_eq!(manager_acc.is_signer, true);
 
     invoke_signed(
         &(Instruction::new_with_borsh(
@@ -1154,14 +1328,12 @@ pub fn swap_instruction(
         ],
         &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
     )?;
-    msg!("swap instruction done");
+    msg!("IVN || swap instruction done");
 
     let source_info = parse_token_account(source_token_acc)?;
     let dest_info = parse_token_account(dest_token_acc)?;
 
-    check_eq!(fund_data.manager_account, *manager_acc.key);
-    check_eq!(manager_acc.is_signer, true);
-
+    
     Ok((source_info, dest_info))
 }
 
@@ -1172,7 +1344,7 @@ pub fn get_share(
     let perf_share = U64F64::from_num(fund_data.prev_performance)
     .checked_div(U64F64::from_num(investor_data.start_performance)).unwrap();
 
-    msg!("performance: {:?}", perf_share);
+    msg!("IVN || performance: {:?}", perf_share);
 
     let actual_amount: u64 = investor_data.amount;
 

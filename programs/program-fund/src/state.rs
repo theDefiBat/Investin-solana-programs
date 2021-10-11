@@ -125,13 +125,13 @@ pub struct FundData {
     /// Tokens owned
     pub tokens: [TokenSlot; NUM_TOKENS],
 
-    // Store investor state account addresses
+    /// Store inactive investor state account addresses waiting to be transferred
     pub investors: [Pubkey; MAX_INVESTORS],
 
-    // margin position info
+    /// margin position info
     pub mango_positions: [MarginInfo; 2],
 
-    // padding for future use
+    /// padding for future use
     pub xpadding: [u8; 32]
 }
 impl_loadable!(FundData);
@@ -166,7 +166,7 @@ pub struct InvestorData {
     /// Investor wallet address
     pub owner: Pubkey,
 
-    /// The Initial deposit (in USDT tokens)
+    /// The current deposit (in USDT tokens)
     pub amount: u64,
 
     // start performance of investor
@@ -188,8 +188,13 @@ pub struct InvestorData {
     pub token_indexes: [u8; NUM_TOKENS],
     pub token_debts: [u64; NUM_TOKENS],
 
+    /// The initial deposit (in USDT tokens) 
+    // opens up for partial withdraw and dynamic perfomance
+    // good for UI also to show amt without removing 2%
+    pub current_amount: u64,
+
     // padding for future use
-    pub xpadding: [u8; 32]
+    pub xpadding: [u8; 24] 
 }
 impl_loadable!(InvestorData);
 

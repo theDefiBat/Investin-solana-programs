@@ -6,54 +6,57 @@ use thiserror::Error;
 #[derive(Clone, Debug, Eq, Error, FromPrimitive, PartialEq)]
 pub enum FundError {
 
-    #[error("FundAccount is Already Initialised")]
+    #[error("IVN || FundAccount is Already Initialised")]
     FundAccountAlreadyInit,
 
-    #[error("InvestorAccount is Already Initialised")]
+    #[error("IVN || InvestorAccount is Already Initialised")]
     InvestorAccountAlreadyInit,
 
-    #[error("Invorrect signature")]
+    #[error("IVN || Invorrect signature")]
     IncorrectSignature,
 
-    #[error("Incorrect program id passed")]
+    #[error("IVN || Incorrect program id passed")]
     IncorrectProgramId,
 
-    #[error("Incorrect PDA passed")]
+    #[error("IVN || Incorrect PDA passed")]
     IncorrectPDA,
 
-    #[error("Invalid Token Accounts passed")]
+    #[error("IVN || Invalid Token Accounts passed")]
     InvalidTokenAccount,
 
-    #[error("Invalid State Accounts passed")]
+    #[error("IVN || Invalid State Accounts passed")]
     InvalidStateAccount,
 
     /// Invalid instruction
-    #[error("Invalid Instruction")]
+    #[error("IVN || Invalid Instruction")]
     InvalidInstruction,
 
     /// Amount less than minimum Amount
-    #[error("Amount less than minimum amount")]
+    #[error("IVN || Amount less than minimum amount")]
     InvalidAmount,
 
     /// Investor Mismatch
-    #[error("Investor Mismatch")]
+    #[error("IVN || Investor Mismatch")]
     InvestorMismatch,
 
     /// Manager Mismatch
-    #[error("Manager Mismatch")]
+    #[error("IVN || Manager Mismatch")]
     ManagerMismatch,
 
     /// Maximum Number of Depositors at a time reached
-    #[error("Wait for Manager Transfer")]
+    #[error("IVN || Wait for Manager Transfer")]
     DepositLimitReached,
 
-    #[error("Stale price in account")]
+    #[error("IVN || Stale price in account")]
     PriceStaleInAccount,
 
-    #[error("Invalid Margin Instruction State")]
+    #[error("IVN || Invalid Margin Instruction State")]
     InvalidMangoState,
 
-    #[error("Default Error")]
+    #[error("IVN || Invalid Index passed")]
+    InvalidIndex,
+
+    #[error("IVN || Default Error")]
     Default
 }
 
