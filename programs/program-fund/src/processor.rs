@@ -173,10 +173,11 @@ impl Fund {
 
         let mut fund_data = FundData::load_mut_checked(fund_state_acc, program_id)?;
         let mut investor_data = InvestorData::load_mut_checked(investor_state_acc, program_id)?;
-        // let platform_data = PlatformData::load_mut_checked(platform_acc, program_id)?;
+        let platform_data = PlatformData::load_mut_checked(platform_acc, program_id)?;
         
+        let router_btoken_data = parse_token_account(router_btoken_acc)?;
         // check if fund state acc passed is initialised**
-        // check_eq!(router_btoken_acc.owner,*platform_data.router);
+        check_eq!(router_btoken_data.owner,platform_data.router);
 
         check!(*token_prog_acc.key == spl_token::id(), FundError::IncorrectProgramId);
 
@@ -985,7 +986,7 @@ pub fn get_price(
     oracle_acc: &AccountInfo,
     token_index: usize
 ) -> Result<U64F64, ProgramError> {
-    let mut price = U64F64!(0);
+    // let mut price = U64F64!(0);
     let quote_decimals: u8 = mango_group.mint_decimals[NUM_MARKETS];
 
     check_eq!(mango_group.oracles[token_index], *oracle_acc.key);
@@ -999,7 +1000,7 @@ pub fn get_price(
     let value = U64F64::from_num(answer.median);
 
     let base_adj = U64F64::from_num(10u64.pow(mango_group.mint_decimals[token_index] as u32));
-    price = quote_adj.checked_div(base_adj).unwrap().checked_mul(value).unwrap();
+    let price = quote_adj.checked_div(base_adj).unwrap().checked_mul(value).unwrap();
 
     Ok(price)
 }
