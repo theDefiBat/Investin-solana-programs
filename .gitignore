@@ -10,7 +10,5 @@ src/program-fund/Cargo.lock
 test-ledger/
 programs/program-fund/target
 programs/program-fund/Cargo.lock
-programs/program-aggregator/Cargo.lock
-programs/program-aggregator/target
 package-lock.json
 connect-wallet-and-transfer/node_modules
