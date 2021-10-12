@@ -1,0 +1,25 @@
+# config
+$ solana config get
+Config File: /Users/aw/.config/solana/cli/config.yml
+RPC URL: https://api.devnet.solana.com 
+WebSocket URL: wss://api.devnet.solana.com/ (computed)
+Keypair Path: /Users/aw/.config/solana/id.json 
+Commitment: confirmed 
+
+# set to localhost
+solana config set --url localhost
+
+# set to devnet
+solana config set --url devnet
+
+# get address 
+solana address
+
+# get full details about a account
+solana account <address from above>
+
+# Next, start the local network. This is going to be a local Solana node that we can deploy to for testing:
+solana-test-validator
+
+# airdrop
+solana airdrop 100
