@@ -4,7 +4,6 @@ use solana_program::{
     account_info::{AccountInfo, next_account_info},
     program_error::ProgramError,
     program_pack::Pack,
-    msg,
     pubkey::Pubkey,
     clock::Clock,
     sysvar::Sysvar

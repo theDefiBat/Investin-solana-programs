@@ -20,7 +20,7 @@ use spl_token::state::{Account, Mint};
 
 use crate::error::FundError;
 use crate::instruction::{FundInstruction, Data};
-use crate::state::{NUM_TOKENS, MAX_INVESTORS, NUM_MARGIN, FundData, InvestorData, PlatformData};
+use crate::state::{NUM_TOKENS, NUM_MARGIN, FundData, InvestorData, PlatformData};
 use crate::mango_utils::*;
 use crate::tokens::*;
 use mango::state::{MarginAccount, MangoGroup, NUM_MARKETS, load_open_orders, Loadable as MangoLoadable};
@@ -32,17 +32,26 @@ macro_rules! check {
         }
     }
 }
+
 macro_rules! check_eq {
-    ($x:expr, $y:expr,  $err:expr) => {
+    ($x:expr, $y:expr) => {
         if ($x != $y) {
-            if($err){
-                 return Err(($err).into())
-            } else {
-                 return Err(FundError::Default.into())
-            }
+            return Err(FundError::Default.into())
         }
     }
 }
+
+// macro_rules! check_eq {
+//     ($x:expr, $y:expr,  $err:expr) => {
+//         if ($x != $y) {
+//             if($err){
+//                  return Err(($err).into())
+//             } else {
+//                  return Err(FundError::Default.into())
+//             }
+//         }
+//     }
+// }
 
 pub mod investin_admin {
     use solana_program::declare_id;
@@ -149,7 +158,7 @@ impl Fund {
         amount: u64,
         index: u8
     ) -> Result<(), ProgramError> {
-        const NUM_FIXED:usize = 6;
+        const NUM_FIXED:usize = 7;
         let accounts = array_ref![accounts, 0, NUM_FIXED];
 
         let [
@@ -164,13 +173,12 @@ impl Fund {
 
         let mut fund_data = FundData::load_mut_checked(fund_state_acc, program_id)?;
         let mut investor_data = InvestorData::load_mut_checked(investor_state_acc, program_id)?;
-        let platform_data = PlatformData::load_mut_checked(platform_acc, program_id)?;
+        // let platform_data = PlatformData::load_mut_checked(platform_acc, program_id)?;
         
-        // check if fund state acc passed is initialised
-        check_eq!(router_btoken_acc.owner,platform_data.router);
-        check!(*token_prog_acc.key == spl_token::id(), FundError::IncorrectProgramId);
+        // check if fund state acc passed is initialised**
+        // check_eq!(router_btoken_acc.owner,*platform_data.router);
 
-        check!(depositors < 10, FundError::DepositLimitReached);
+        check!(*token_prog_acc.key == spl_token::id(), FundError::IncorrectProgramId);
 
         let depositors: u64 = U64F64::to_num(U64F64::from_num(fund_data.no_of_investments).checked_sub(U64F64::from_num(fund_data.number_of_active_investments)).unwrap());
 
@@ -190,7 +198,7 @@ impl Fund {
         // update queue
         // let index = fund_data.no_of_investments - fund_data.number_of_active_investments;
         // queue slot should be empty
-        check_eq!(fund_data.investors[index as usize], Pubkey::default(), FundError::InvalidIndex); // IVN_ADMIN_CHECK_NEED ?? error-type
+        check_eq!(fund_data.investors[index as usize], Pubkey::default()); // IVN_ADMIN_CHECK_NEED ?? error-type
         fund_data.investors[index as usize] = *investor_state_acc.key;
         fund_data.no_of_investments += 1;
 

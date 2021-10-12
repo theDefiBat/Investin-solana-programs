@@ -25,8 +25,8 @@ use std::num::NonZeroU64;
 use arrayref::{array_ref, array_refs};
 
 use crate::error::FundError;
-use crate::state::{MAX_INVESTORS_WITHDRAW, NUM_MARGIN, FundData, InvestorData};
-use crate::state::Loadable;
+use crate::state::{NUM_MARGIN, FundData, InvestorData};
+// use crate::state::Loadable;
 use crate::processor::{ parse_token_account, get_margin_valuation};
 
 use mango::state::{MarginAccount, MangoGroup, NUM_MARKETS};
@@ -704,7 +704,7 @@ pub fn get_investor_place_amount (
 
     let inv_share = investor_data.margin_debt[pos_index] / fund_data.mango_positions[pos_index].share_ratio;
     // msg!("investor share:: {:?}", inv_share);
-    let mut place_amount;
+    let place_amount;
     let position_amount;
 
     if fund_data.mango_positions[pos_index].position_side == 0 { // LONG
@@ -991,7 +991,7 @@ pub fn get_investor_settle_amount (
     let token_index = fund_data.mango_positions[index].margin_index as usize;
     let equity = get_margin_valuation(token_index, &mango_group, &margin_data, oracle_acc, open_orders_acc)?;
 
-    let dust_amount = U64F64::from_num(10u64.pow((mango_group.mint_decimals[NUM_MARKETS] - 1) as u32));
+    // let dust_amount = U64F64::from_num(10u64.pow((mango_group.mint_decimals[NUM_MARKETS] - 1) as u32));
 
     let inv_debt = equity.checked_mul(investor_data.margin_debt[index] / fund_data.mango_positions[index].share_ratio).unwrap();
     //.checked_sub(dust_amount).unwrap();
