@@ -10,6 +10,8 @@ import TransactionsView from './components/Transactions';
 import { SendGreating } from './components/SendGreating';
 import { Deposit } from './components/Deposit';
 import { InitialisedFund } from './components/InitialisedFund';
+import { DisplayInfo } from './components/DisplayInfo';
+
 import { Swap } from './components/Swap';
 import { Withdraw } from './components/Withdraw';
 import { Transfer } from './components/Transfer';
@@ -51,6 +53,7 @@ function App() {
           transactions && <TransactionsView transactions={transactions} />
         } */}
         <SendGreating />
+        <DisplayInfo/>
         <InitialisedFund />
         <Deposit />
 	      <Transfer />

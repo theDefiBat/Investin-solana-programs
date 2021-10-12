@@ -7,14 +7,15 @@ export const MARGIN_ACCOUNT_KEY_2 = "margin_account_key_22"
 export const PRICE_ACCOUNT_KEY = "margin_account_key_22"
 
 
-export const adminAccount = new PublicKey('Fepyuf4vy7mKZVgpzS52UoUeSLmVvGnoMDyraCsjYUqn')
+export const adminAccount = new PublicKey('B1J3ttZ2PLCG4KUQHLtkgYSZUmD6f8KNLjGSWzz8eE1Y')
 
 export const cluster = "https://api.devnet.solana.com";
 //export const cluster = "https://solana-api.projectserum.com";
 
 export const connection = new Connection(cluster, "confirmed");
 
-export const programId = new PublicKey('8dbbmZXbLsUirEsgaBVcPBEdciESza6L2zkEuer4crR');
+export const programId = new PublicKey('6HwgHw4QdgKR6kjHpdFdwGoP8MBy1gHGtde4JkS1GQmE');
+//main = 8dbbmZXbLsUirEsgaBVcPBEdciESza6L2zkEuer4crR
 
 // change later
 export const platformStateAccount = new PublicKey('GYmNA5Tw15e9MkuDHKB2ynqrgNFweTNAVT6yDQCPDWrv')
