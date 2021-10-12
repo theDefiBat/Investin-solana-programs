@@ -133,6 +133,8 @@ export const Withdraw = () => {
 
     const sign = await signAndSendTransaction(walletProvider, transaction);
     console.log("tx::: ", sign)
+    console.log("signature tx url:: ", `https://solscan.io/tx/{sign}`) 
+
   }
   const handleWithdraw = async () => {
 
@@ -227,6 +229,8 @@ export const Withdraw = () => {
 
     const sign = await signAndSendTransaction(walletProvider, transaction);
     console.log("tx::: ", sign)
+    console.log("signature tx url:: ", `https://solscan.io/tx/{sign}`) 
+
   }
   
   const handleFunds = async () => {
@@ -386,6 +390,8 @@ export const Withdraw = () => {
 
       const sign = await signAndSendTransaction(walletProvider, transaction);
       console.log("signature tx:: ", sign)
+      console.log("signature tx url:: ", `https://solscan.io/tx/{sign}`) 
+
     }
 
       

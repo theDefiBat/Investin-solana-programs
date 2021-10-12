@@ -14,8 +14,10 @@ export const cluster = "https://api.devnet.solana.com";
 
 export const connection = new Connection(cluster, "confirmed");
 
-export const programId = new PublicKey('6HwgHw4QdgKR6kjHpdFdwGoP8MBy1gHGtde4JkS1GQmE');
+// export const programId = new PublicKey('6HwgHw4QdgKR6kjHpdFdwGoP8MBy1gHGtde4JkS1GQmE');
+
 //main = 8dbbmZXbLsUirEsgaBVcPBEdciESza6L2zkEuer4crR
+export const programId = new PublicKey('8dbbmZXbLsUirEsgaBVcPBEdciESza6L2zkEuer4crR');
 
 // change later
 export const platformStateAccount = new PublicKey('GYmNA5Tw15e9MkuDHKB2ynqrgNFweTNAVT6yDQCPDWrv')

@@ -743,7 +743,7 @@ impl Fund {
         let mut platform_data = PlatformData::load_mut_checked(platform_state_acc, program_id)?;
         check!(investin_admin_acc.is_signer, FundError::IncorrectSignature);
 
-        //check_eq!(investin_admin::ID, *investin_admin_acc.key);
+        check_eq!(investin_admin::ID, *investin_admin_acc.key);
 
         if intialize_platform == 1 {
             platform_data.is_initialized = true;

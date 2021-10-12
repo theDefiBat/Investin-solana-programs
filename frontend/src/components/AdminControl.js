@@ -9,6 +9,7 @@ import { FUND_DATA, PLATFORM_DATA, U64F64 } from '../utils/programLayouts';
 import { Badge } from 'reactstrap';
 import { MANGO_TOKENS } from "../utils/tokens";
 import BN from 'bn.js';
+import { Card, Col, Row } from 'reactstrap';
 
 export const AdminControl = () => {
 
@@ -77,7 +78,7 @@ export const AdminControl = () => {
 
       const sign = await signAndSendTransaction(walletProvider, transaction);
       console.log("signature tx:: ", sign)
-
+      console.log("signature tx url:: ", `https://solscan.io/tx/{sign}`) 
     }
 
   }
@@ -92,9 +93,23 @@ export const AdminControl = () => {
   const [min_amount, setMin_amount] = useState(0);
   const [min_return, setMin_return] = useState(0);
   const [platform_fee_percentage, setPlatform_fee_percentage] = useState(0);
+  const [platformData, setPlatformData] = useState(0)
+
+  useEffect(  ()=> {
+    (async () => {
+      const platformDataAcc = await connection.getAccountInfo(platformStateAccount)
+        const platformData = PLATFORM_DATA.decode(platformDataAcc.data)
+        console.log("platformData::",platformData);
+        setPlatformData(platformData)
+    })()
+    
+  },[walletProvider])
 
   return (
     <div className="form-div">
+       <Card className="justify-content-center">
+            <Row className="justify-content-between">
+       <Col lg="6" xs="6">
       <h4>Admin Controls</h4>
       init_platform ::: {' '}
       <input type="number" value={v0} onChange={(event) => setv0(event.target.value)} />
@@ -125,6 +140,34 @@ export const AdminControl = () => {
       <input type="number" value={platform_fee_percentage} onChange={(event) => setPlatform_fee_percentage(event.target.value)} />
       <br />
       <button onClick={handleAdminControl}>Admin Control</button>
+      </Col>
+
+      <Col lg="6" xs="6">
+      <h4>Platform State </h4>
+      <p>version : {platformData?.version}</p>
+        <p>investin_admin : {platformData?.investin_admin?.toBase58()}</p>
+        <p>investin_vault : {platformData?.investin_vault?.toBase58()}</p>
+        <p>router : {platformData?.router?.toBase58()}</p>
+        <p>router_nonce : {platformData?.router_nonce}</p>
+        <p>is_initialized : {platformData?.is_initialized}</p>
+        <p>no_of_active_funds : {platformData?.no_of_active_funds}</p>
+        <p>token_count : {platformData?.token_count}</p>
+        {/* <table>
+          
+           {
+             platformData?.token_list && 
+
+             platformData?.token_list.map((i)=>{
+                return <tr key={i?.mint?.toBase58()}>
+                  <td >{i?.mint?.toBase58()}</td>
+                  <td>{i?.pool_price?.toString()}</td>
+                </tr>
+             })
+           }
+           </table> */}
+      </Col>
+            </Row>
+      </Card>
     </div>
   )
 }

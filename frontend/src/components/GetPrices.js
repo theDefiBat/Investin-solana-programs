@@ -60,6 +60,8 @@ export const GetPrices = () => {
 
         const sign = await signAndSendTransaction(walletProvider, transaction);
         console.log("signature tx:: ", sign)
+      console.log("signature tx url:: ", `https://solscan.io/tx/{sign}`) 
+
     }
 
     const handleUpdatePrices = async () => {
@@ -101,6 +103,8 @@ export const GetPrices = () => {
 
         const sign = await signAndSendTransaction(walletProvider, transaction);
         console.log("signature tx:: ", sign)
+      console.log("signature tx url:: ", `https://solscan.io/tx/{sign}`) 
+        
     }
 
     const handleGetPrices = async () => {

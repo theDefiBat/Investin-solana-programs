@@ -21,6 +21,7 @@ import { GetPrices } from './components/GetPrices';
 import { MangoInitialize } from './components/MangoInitialize';
 import { MangoPlaceOrder } from './components/MangoPlaceOrder';
 import { AdminControl } from './components/AdminControl';
+import { AllFundsInvestors } from './components/AllFundsInvestors';
 
 
 
@@ -65,6 +66,7 @@ function App() {
         <MangoInitialize />
         <MangoPlaceOrder />
         <AdminControl />
+        <AllFundsInvestors/>
       </Container>
     </div>
   );
