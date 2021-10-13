@@ -1,9 +1,9 @@
 import { Connection, PublicKey } from "@solana/web3.js";
 
-export const PLATFORM_ACCOUNT_KEY = "platAccKey_11";
-export const FUND_ACCOUNT_KEY = "fundAccKey_11";
-export const MARGIN_ACCOUNT_KEY_1 = "margin_account_key_11"
-export const MARGIN_ACCOUNT_KEY_2 = "margin_account_key_22"
+export const PLATFORM_ACCOUNT_KEY = "pacck"; //"platAccKey_11";
+export const FUND_ACCOUNT_KEY = "facck"; //"fundAccKey_11";
+export const MARGIN_ACCOUNT_KEY_1 = "macck1"; //"margin_account_key_11"
+export const MARGIN_ACCOUNT_KEY_2 = "macck2";//"margin_account_key_22"
 export const PRICE_ACCOUNT_KEY = "margin_account_key_22"
 
 export const cluster = process.env.REACT_APP_CLUSTER_URL;

@@ -12,8 +12,8 @@ import { updatePoolPrices } from './updatePrices';
 
 export const Claim = () => {
     const [fundPDA, setFundPDA] = useState('');
-    const [fundStateAccount, setFundStateAccount] = useState('')
-    const [performanceFee, setPerformanceFee] = useState(0)
+    const [fundStateAccount, setFundStateAccount] = useState('');
+    const [performanceFee, setPerformanceFee] = useState(0);
 
     const walletProvider = GlobalState.useState(s => s.walletProvider);
 

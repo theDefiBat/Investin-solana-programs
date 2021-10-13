@@ -1,12 +1,12 @@
 import { PublicKey, Transaction, TransactionInstruction } from '@solana/web3.js'
 import { nu64, struct, u8 } from 'buffer-layout'
-import React, { useState } from 'react'
+import React, { useState , useEffect} from 'react'
 import { GlobalState } from '../store/globalState'
 import { connection, programId, TOKEN_PROGRAM_ID, FUND_ACCOUNT_KEY, LIQUIDITY_POOL_PROGRAM_ID_V4, platformStateAccount } from '../utils/constants'
 import { devnet_pools } from '../utils/pools'
-import { AMM_INFO_LAYOUT_V4 } from '../utils/programLayouts'
+import { AMM_INFO_LAYOUT_V4, FUND_DATA, PLATFORM_DATA } from '../utils/programLayouts'
 import { TokenAmount } from '../utils/safe-math'
-import { NATIVE_SOL, TEST_TOKENS, TOKENS } from '../utils/tokens'
+import { MANGO_TOKENS, NATIVE_SOL, TEST_TOKENS, TOKENS } from '../utils/tokens'
 import { createAssociatedTokenAccountIfNotExist, createTokenAccountIfNotExist, findAssociatedTokenAddress, sendNewTransaction, signAndSendTransaction } from '../utils/web3'
 
 export const Swap = () => {
@@ -192,6 +192,72 @@ export const Swap = () => {
   //const [selectedFirstToken, setSelectedFirstToken] = useState('RAY-USDT');
   const [selectedFirstToken, setSelectedFirstToken] = useState('SRM-USDC');
 
+   const [fundStateAccount, setFundStateAccount] = useState('');
+   const [platformData, setPlatformData] = useState(0)
+
+  const [fundData, setFundData] = useState(0)
+  const [tokenList, setTokenList] = useState([])
+  const [selectedTokenSymbol, setSelectedTokenSymbol] = useState('')
+   useEffect(  ()=> {
+     (async () => {
+
+      const platformDataAcc = await connection.getAccountInfo(platformStateAccount)
+      const platformData = PLATFORM_DATA.decode(platformDataAcc.data)
+      // console.log("platformData::",platformData);
+      setPlatformData(platformData)
+      const platformTokens = platformData?.token_list;
+      // console.log("platformTokens::",platformTokens);
+
+      let pt = []; 
+      if(platformTokens?.length) {
+        pt = platformTokens.map( (i) => {
+          return {
+            symbol: (Object.keys(MANGO_TOKENS).find( k => MANGO_TOKENS[k].mintAddress ===i.mint.toBase58()) ),
+            mintAddress: i.mint.toBase58(),
+            decimals: i.decimals?.toString()
+          }
+        })
+      } 
+      console.log("platform tokens::",pt);
+
+
+      const key = walletProvider?.publicKey;  
+        if (!key ) {
+          // alert("connect wallet")
+          return;
+        }
+        const fundStateAcc = await PublicKey.createWithSeed(
+          key,
+          FUND_ACCOUNT_KEY,
+          programId,
+        );
+        console.log("FUND fundStateAcc:: ", fundStateAcc.toBase58())
+        setFundStateAccount(fundStateAcc.toBase58())
+
+        const fundDataAcc = await connection.getAccountInfo(fundStateAcc);
+        console.log("fundDataAcc::",fundDataAcc);
+        if (fundDataAcc == null)
+        {
+           alert("fundDataAcc info not found")
+           return;
+        }
+         const fundData = FUND_DATA.decode(fundDataAcc.data)
+         console.log("fundData::",fundData);
+         setFundData(fundData)
+         const fundTokens = fundData?.tokens;
+         console.log("fundTokens ::",fundTokens);
+
+         let t = []; 
+         if(fundTokens?.length){
+           t = fundTokens.map( (i) => pt[i.index] )
+         } 
+         console.log("fundTokens tokens::",t);
+
+         setTokenList(t)
+     })()
+     
+   },[walletProvider])
+
   const handleBuy = async () => {
     // const ammInfo = await connection.getAccountInfo(new PublicKey('6Xec3XR8NqNWbn6CFtGr9DbdKqSunzbXFFRiRpmxPxF2'))
     // const ammData = AMM_INFO_LAYOUT_V4.decode(ammInfo.data)
@@ -250,15 +316,22 @@ export const Swap = () => {
   return (
     <div className="form-div">
       <h4>Swap</h4>
+      fundStateAccount : {fundStateAccount}
+      <br />
       Swap ::: {selectedFirstToken}  
       <br />
 
       <label htmlFor="tokens">From Token:</label>
 
-      <select name="tokens" onClick={handleFirstTokenSelect}>
-        {
+      <select name="tokens" onChange={handleFirstTokenSelect}>
+        {/* {
           devnet_pools.map((pool) => {
             return (<option key={pool.coin.name} value={pool.coin.symbol}>{pool.coin.name}</option>)
+          })
+        } */}
+         {
+          tokenList.map((i,index) => {
+            return (<option key={index} value={i.symbol}>{i.symbol}</option>)
           })
         }
       </select>

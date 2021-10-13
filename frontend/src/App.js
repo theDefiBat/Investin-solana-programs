@@ -58,11 +58,11 @@ function App() {
         <InitialisedFund />
         <Deposit />
 	      <Transfer />
+        <GetPrices />
         <Swap />
         <Testing />
         <Withdraw />
         <Claim />
-        <GetPrices />
         <MangoInitialize />
         <MangoPlaceOrder />
         <AdminControl />

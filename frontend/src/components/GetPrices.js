@@ -1,5 +1,5 @@
 import { PublicKey, SYSVAR_CLOCK_PUBKEY, Transaction, TransactionInstruction } from '@solana/web3.js';
-import React, { useState } from 'react'
+import React, { useState , useEffect} from 'react'
 import { GlobalState } from '../store/globalState';
 import { signAndSendTransaction } from '../utils/web3'
 import { connection, programId, priceStateAccount, platformStateAccount } from '../utils/constants';
@@ -9,16 +9,49 @@ import { PLATFORM_DATA, PRICE_DATA } from '../utils/programLayouts';
 import { devnet_pools, pools } from '../utils/pools';
 
 const priceProgramId = new PublicKey('CB6oEYpfSsrF3oWG41KQxwfg4onZ38JMj1hk17UNe1Fn')
-const tokensList = [
-    MANGO_TOKENS['SRM']
-]
+// const tokensList = [
+//     MANGO_TOKENS['SRM']
+// ]
 
 export const GetPrices = () => {
+  const walletProvider = GlobalState.useState(s => s.walletProvider);
+  const [tokenList, setTokenList] = useState([MANGO_TOKENS['SRM']])
     const [priceAccount, setPriceAccount] = useState('');
     const [poolName, setPoolName] = useState('');
+    const [platformData, setPlatformData] = useState(0)
+   const [tokenPrice, setTokenPrice] = useState(0)
+   const [selectedTokenSymbol, setSelectedTokenSymbol] = useState('')
 
-    const walletProvider = GlobalState.useState(s => s.walletProvider);
 
+    useEffect(  ()=> {
+      (async () => {
+        const platformDataAcc = await connection.getAccountInfo(platformStateAccount)
+          const platformData = PLATFORM_DATA.decode(platformDataAcc.data)
+          // console.log("platformData::",platformData);
+          setPlatformData(platformData)
+          const platformTokens = platformData?.token_list;
+          // console.log("platformTokens::",platformTokens);
+
+          let t = []; 
+          if(platformTokens?.length){
+            t = platformTokens.map( (i) => {
+              return {
+                symbol: (Object.keys(MANGO_TOKENS).find( k => MANGO_TOKENS[k].mintAddress ===i.mint.toBase58()) ),
+                mintAddress: i.mint.toBase58(),
+                decimals: i.decimals?.toString()
+              }
+            })
+          } 
+          console.log("platform tokens::",t);
+
+          setTokenList(t)
+      })()
+      
+    },[walletProvider])
+    
+    const handleGetAllPlatformTokens = async () => {
+
+    }
 
     const handleAddToken = async () => {
        
@@ -108,33 +141,55 @@ export const GetPrices = () => {
     }
 
     const handleGetPrices = async () => {
-        let acc = connection.getAccountInfo(platformStateAccount)
-        let data = PLATFORM_DATA.decode((await acc).data)
+        // let acc = connection.getAccountInfo(platformStateAccount)
+        // let data = PLATFORM_DATA.decode((await acc).data)
+        // console.log("price data::: ", data)
+      if(selectedTokenSymbol){
+        const getMint = tokenList?.find( i => i.symbol === selectedTokenSymbol);
+        const p = platformData?.token_list.find( i => i.mint.toBase58() === getMint.mintAddress)
+        // console.log("price of selected token :",p)
 
-        console.log("price data::: ", data)
+        const selectedToken = {
+          mint : p.mint.toBase58(),
+          symbol : getMint.symbol,
+          price : p.pool_price.toString()
+        }
+        console.log("price of selectedToken **:",selectedToken)
+
+        setTokenPrice( p.pool_price.toString() );
+      } else {
+        alert("select token first")
+      }
+      
     }
     const handleTokenSelect = async(event) => {
         setPoolName(`${event.target.value}-USDC`)
+       setSelectedTokenSymbol(event.target.value)
       }
 
     return (
         <div className="form-div">
           <h4>Get Token Prices</h4>
-          <label htmlFor="funds">Select Token:</label>
 
-            <select name="funds" width = "100px" onClick={handleTokenSelect}>
-            {
-                tokensList.map((token) => {
-                    return (<option key={token.symbol} value={token.symbol}>{token.symbol}</option>)
+          <button onClick={handleGetAllPlatformTokens}>Get ALL platform Tokens</button>
+
+          <label htmlFor="funds">Select a platform Token:</label>
+
+            <select name="funds" width = "100px"  onChange={handleTokenSelect}>
+            { tokenList && 
+                tokenList.map((token,index) => {
+                    return (<option key={index} value={token.symbol}>{token.symbol}</option>)
                 })
             }
             </select>
           <br />
-          <button onClick={handleGetPrices}>Get Prices</button>
-            
-          <button onClick={handleAddToken}>Add Token</button>
+          <button onClick={handleGetPrices}>Get Price</button>
 
-          <button onClick={handleUpdatePrices}>Update Price</button>
+          <p> Selcted Token price: {tokenPrice}</p>
+            
+          <button onClick={handleAddToken}>Add Token to fund</button>
+
+          <button onClick={handleUpdatePrices}>Update token Price</button>
 
         </div>
       )
