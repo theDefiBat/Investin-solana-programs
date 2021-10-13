@@ -17,9 +17,6 @@ export const AllFundsInvestors = () => {
   const [funds, setFunds] = useState([])
 
   const handleGetAllInvestments = async () => {
-
-   
-
     let investments = await connection.getProgramAccounts(programId, { filters: [{ dataSize: INVESTOR_DATA.span }] });
     // console.log("investments::",investments)
     const newInvestors = []
@@ -32,6 +29,33 @@ export const AllFundsInvestors = () => {
     }
     console.log("newInvestors::",newInvestors)
     setInvestments(newInvestors);
+  }
+
+  const handleGetAllFunds = async () => {
+    const managers = []
+    const allFunds = await connection.getProgramAccounts(programId, { filters: [{ dataSize: FUND_DATA.span }] });
+
+    for (const data of allFunds) {
+        const decodedData = FUND_DATA.decode(data.account.data);
+        // if (decodedData.is_initialized) {
+            // const { updatedPerformance, currentAum } = await getPerformance(mapTokens(platformData.token_list, decodedData.tokens), prices, (decodedData.prev_performance), decodedData.total_amount, (await fundMarginData(decodedData))?.balance ?? 0)
+            managers.push({
+                fundState : decodedData,
+                fundPDA: decodedData.fund_pda.toBase58(),
+                fundManager: decodedData.manager_account.toBase58(),
+                fundStateAccount: data.pubkey.toBase58(),
+                // fundName: decodedData.fund_pda.toBase58(),
+                // totalAmount: (new TokenAmount(decodedData.total_amount, TOKENS.USDC.decimals)).toEther().toNumber(),
+                // currentPerformance: decodedData.number_of_active_investments == 0 ?
+                //     (decodedData.prev_performance - 1) * 100
+                //     : updatedPerformance,
+                // currentAum,
+                // minAmount: (new TokenAmount(decodedData.min_amount.toNumber(), TOKENS.USDC.decimals)).toEther().toNumber()
+            });
+        // }
+    }
+    console.log("managers:",managers);
+    setFunds(managers);
   }
 
   return (
@@ -60,7 +84,7 @@ export const AllFundsInvestors = () => {
                           </thead>
 
 
-                          <tbody>
+        <tbody>
           {
             investments && 
 
@@ -88,19 +112,45 @@ export const AllFundsInvestors = () => {
       <Col lg="10" xs="10">
       <h4>Funds</h4>
       
-        {/* <table>
-          
-           {
-             platformData?.token_list && 
+      <button onClick={handleGetAllFunds}> get All Funds</button>
 
-             platformData?.token_list.map((i)=>{
-                return <tr key={i?.mint?.toBase58()}>
-                  <td >{i?.mint?.toBase58()}</td>
-                  <td>{i?.pool_price?.toString()}</td>
-                </tr>
-             })
-           }
-           </table> */}
+      <Table 
+        className="tablesorter"
+        responsive
+        width="100%"
+        style={{ overflow: 'hidden !important', textAlign: 'center' }}
+        >
+            <thead className="text-primary">
+                            <tr>
+                              <th style={{ width: "15%" }}>index</th>
+                              <th style={{ width: "15%" }}>fundManager</th>
+                              <th style={{ width: "15%" }}>fundPDA</th>
+                              <th style={{ width: "15%" }}>fundStateAccount</th>
+                              {/* <th style={{ width: "15%" }}>amount</th>
+                              <th style={{ width: "15%" }}>amount_in_router</th> */}
+                            </tr>
+                          </thead>
+
+
+        <tbody>
+          {
+            funds && 
+
+            funds.map((i,x)=>{
+               return <tr key={x}>
+                 <td >{x}</td>
+                 <td >{i?.fundManager}</td>
+                 <td >{i?.fundPDA}</td>
+                 <td >{i?.fundStateAccount}</td>
+                 {/* <td>{i?.amount?.toString()/10**6}</td>
+                 <td>{i?.amount_in_router?.toString()/10**6}</td> */}
+               
+               </tr>
+            })
+          }
+            </tbody>
+          </Table> 
+
       </Col>
             </Row>
       </Card>

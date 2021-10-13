@@ -114,8 +114,9 @@ pub enum FundInstruction {
     ClaimPerformanceFee,
 
     /// 0. [WRITE] Platform State Account
-    /// 1. [SIGNER] investin Wallet Account 
-    /// 2. []       Fund state Account / 2. []     Base Token Mint Address
+    /// 1. [SIGNER] investin admin Wallet Account 
+    /// 2 . []     investin vault Acccount
+    /// 3 . []   usdc mint account
     AdminControl{
         intialize_platform: u8,
         freeze_platform: u8,

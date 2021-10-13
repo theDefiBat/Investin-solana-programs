@@ -387,8 +387,6 @@ impl Fund {
         Ok(())
     }
 
-
-
     // investor withdraw
     pub fn withdraw_from_fund(
         program_id: &Pubkey,
