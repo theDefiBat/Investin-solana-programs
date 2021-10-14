@@ -13,6 +13,8 @@ import { InitialisedFund } from './components/InitialisedFund';
 import { DisplayInfo } from './components/DisplayInfo';
 
 import { Swap } from './components/Swap';
+import { OrcaSwap } from './components/OrcaSwap';
+
 import { Withdraw } from './components/Withdraw';
 import { Transfer } from './components/Transfer';
 import { Claim } from './components/ClaimFee';
@@ -60,6 +62,7 @@ function App() {
 	      <Transfer />
         <GetPrices />
         <Swap />
+        <OrcaSwap />
         <Testing />
         <Withdraw />
         <Claim />

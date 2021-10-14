@@ -9,7 +9,7 @@ import { TokenAmount } from '../utils/safe-math'
 import { MANGO_TOKENS, NATIVE_SOL, TEST_TOKENS, TOKENS } from '../utils/tokens'
 import { createAssociatedTokenAccountIfNotExist, createTokenAccountIfNotExist, findAssociatedTokenAddress, sendNewTransaction, signAndSendTransaction } from '../utils/web3'
 
-export const Swap = () => {
+export const OrcaSwap = () => {
 
   const swapInstruction = async (
     poolProgramId,
@@ -315,7 +315,7 @@ export const Swap = () => {
 
   return (
     <div className="form-div">
-      <h4>Radium Swap</h4>
+      <h4>Orca Swap</h4>
       fundStateAccount : {fundStateAccount}
       <br />
       Swap ::: {selectedFirstToken}  
