@@ -415,8 +415,8 @@ impl FundInstruction {
             5 => {
                 let data = array_ref![data, 0, 1 + 1 + 8 + 8];
                 let (
-                    instruction,
                     swap_index,
+                    instruction,
                     amount_in,
                     min_amount_out
                 ) = array_refs![data, 1, 1, 8, 8];

@@ -52,6 +52,17 @@ pub mod usdc_mint {
     declare_id!("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
 }
 
+pub mod raydium_id {
+    use solana_program::declare_id;
+    // set investin admin
+    declare_id!("675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8");
+}
+
+pub mod orca_id {
+    use solana_program::declare_id;
+    // set investin admin
+    declare_id!("9W959DqEETiGZocYWCQPaJ6sBmUzgfxXfqGeTEdp3aQP");
+}
 
 pub struct Fund {}
 
@@ -617,25 +628,36 @@ impl Fund {
             _ => return Err(ProgramError::InvalidArgument)
         };
 
-        let source_index = platform_data.get_token_index(&source_info.mint, swap_index).unwrap();
-        let dest_index = platform_data.get_token_index(&dest_info.mint, swap_index).unwrap();
+        let source_index = platform_data.get_token_index(&source_info.mint, swap_index);
+        let dest_index = platform_data.get_token_index(&dest_info.mint, swap_index);
+        msg!("source_index:: {:?} ", source_index);
+        msg!("dest index:: {:?}", dest_index);
 
-        let si = fund_data.get_token_slot(source_index, swap_index as usize).unwrap();
-        let di = fund_data.get_token_slot(dest_index, swap_index as usize).unwrap();
+        msg!("source mint:: {:?}", source_info.mint);
+        msg!("dest mint:: {:?}", dest_info.mint);
 
-        fund_data.tokens[si].balance = source_info.amount;
-        fund_data.tokens[di].balance = dest_info.amount;
-
-        // update mux
-        if source_index == 0 { // USDC -> coin transfer
+        if source_info.mint == usdc_mint::ID {
+            let di = fund_data.get_token_slot(dest_index.unwrap(), swap_index as usize).unwrap();
+            fund_data.tokens[0].balance = source_info.amount;
+            fund_data.tokens[di].balance = dest_info.amount;
             fund_data.tokens[di].mux = swap_index;
+            // check the balance validity
+            check!(fund_data.tokens[di].balance >= fund_data.tokens[di].debt, ProgramError::InsufficientFunds);
+        }
+        else if dest_info.mint == usdc_mint::ID {
+            let si = fund_data.get_token_slot(source_index.unwrap(), swap_index as usize).unwrap();
+            fund_data.tokens[0].balance = dest_info.amount;
+            fund_data.tokens[si].balance = source_info.amount;
+            fund_data.tokens[si].mux = swap_index;
+            // check balance validity
+            check!(fund_data.tokens[si].balance >= fund_data.tokens[si].debt, ProgramError::InsufficientFunds);
         }
         else {
-            fund_data.tokens[si].mux = swap_index;
+            return Err(ProgramError::InvalidAccountData)
         }
 
-        check!(fund_data.tokens[si].balance >= fund_data.tokens[si].debt, ProgramError::InsufficientFunds);
-        check!(fund_data.tokens[di].balance >= fund_data.tokens[di].debt, ProgramError::InsufficientFunds);
+        // check USDC balance validity
+        check!(fund_data.tokens[0].balance >= fund_data.tokens[0].debt, ProgramError::InsufficientFunds);
 
         Ok(())
     }
@@ -1204,6 +1226,13 @@ pub fn swap_instruction_raydium(
     let source_info = parse_token_account(source_token_acc)?;
     let dest_info = parse_token_account(dest_token_acc)?;
 
+    // owner checks
+    check_eq!(source_info.owner, fund_data.fund_pda);
+    check_eq!(dest_info.owner, fund_data.fund_pda);
+
+    // check program id
+    check_eq!(*pool_prog_acc.key, raydium_id::ID);
+
     check_eq!(fund_data.manager_account, *manager_acc.key);
     check_eq!(manager_acc.is_signer, true);
 
@@ -1269,6 +1298,13 @@ pub fn swap_instruction_orca(
 
     let source_info = parse_token_account(user_source)?;
     let dest_info = parse_token_account(user_dest)?;
+
+     // owner checks
+    check_eq!(source_info.owner, fund_data.fund_pda);
+    check_eq!(dest_info.owner, fund_data.fund_pda);
+
+    // check program id
+    check_eq!(*orca_prog_id.key, orca_id::ID);
 
     check_eq!(fund_data.manager_account, *manager_acc.key);
     check_eq!(manager_acc.is_signer, true);

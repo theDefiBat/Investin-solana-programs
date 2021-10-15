@@ -135,7 +135,7 @@ pub fn add_token_to_fund (
     let token_index_2 = platform_data.get_token_index(mint_acc.key, 1);
     
     // both indexes cant be None
-    check!((token_index_1 == None) && (token_index_2 == None), ProgramError::InvalidAccountData);
+    check!(((token_index_1 != None) || (token_index_2 != None)), ProgramError::InvalidAccountData);
 
     if token_index_1 != None {
         fund_data.tokens[index as usize].mux = 0;

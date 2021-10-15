@@ -284,7 +284,7 @@ impl PlatformData {
         Ok(data)
     }
     pub fn get_token_index(&self, mint_pk: &Pubkey, token_id: u8) -> Option<usize> {
-        self.token_list.iter().position(|token| (token.mint == *mint_pk) && (token.token_id == token_id))
+        self.token_list.iter().position(|token| ((token.mint == *mint_pk) && (token.token_id == token_id)))
     }
     pub fn get_token_index_by_coin(&self, pool_coin_account: &Pubkey) -> Option<usize> {
         self.token_list.iter().position(|token| token.pool_coin_account == *pool_coin_account)
