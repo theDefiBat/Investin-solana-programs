@@ -78,6 +78,7 @@ pub enum FundInstruction {
     /// 19. [] Destination Token Account
     /// 20. [] PDA of Manager
     Swap {
+        swap_index: u8,
         data: Data
     },
 
@@ -332,7 +333,9 @@ pub enum FundInstruction {
     /// 5. []   Pool Base Token Account
     /// ............
     /// N. 
-    AddTokenToWhitelist,
+    AddTokenToWhitelist {
+        token_id: u8
+    },
 
     /// Accounts Expected
     /// 0. [WRITE] Platform Account
@@ -354,7 +357,9 @@ pub enum FundInstruction {
     // Platform Account
     // Fund State account
     // Token mint account
-    RemoveTokenFromFund
+    RemoveTokenFromFund {
+        index: u8 // index of slot
+    }
 
 }
 
@@ -408,14 +413,16 @@ impl FundInstruction {
                 FundInstruction::InvestorWithdrawSettleFunds
             }
             5 => {
-                let data = array_ref![data, 0, 1 + 8 + 8];
+                let data = array_ref![data, 0, 1 + 1 + 8 + 8];
                 let (
+                    swap_index,
                     instruction,
                     amount_in,
                     min_amount_out
-                ) = array_refs![data, 1, 8, 8];
+                ) = array_refs![data, 1, 1, 8, 8];
 
                 FundInstruction::Swap {
+                    swap_index: u8::from_le_bytes(*swap_index),
                     data: Data {
                         instr: u8::from_le_bytes(*instruction),
                         amount_in: u64::from_le_bytes(*amount_in),
@@ -499,7 +506,10 @@ impl FundInstruction {
                 FundInstruction::MangoWithdrawInvestorSettle
             },
             17 => {
-                FundInstruction::AddTokenToWhitelist
+                let token_id = array_ref![data, 0, 1];
+                FundInstruction::AddTokenToWhitelist {
+                    token_id: u8::from_le_bytes(*token_id)
+                }
             },
             18 => {
                 let count = array_ref![data, 0, 1];
@@ -521,7 +531,10 @@ impl FundInstruction {
                 }
             },
             21 => {
-                FundInstruction::RemoveTokenFromFund
+                let index = array_ref![data, 0, 1];
+                FundInstruction::RemoveTokenFromFund{
+                    index: u8::from_le_bytes(*index)
+                }
             }
             _ => { return None; }
         })

@@ -141,8 +141,9 @@ impl_loadable!(FundData);
 pub struct TokenSlot {
     // state vars
     pub is_active: bool,
-    pub index: u8,
-    pub padding: [u8; 6],
+    pub index: [u8; 3],
+    pub mux: u8,
+    pub padding: [u8; 3],
 
     // token balances & debts
     pub balance: u64,
@@ -199,12 +200,11 @@ pub struct MarginInfo {
     // margin account pubkey to check if the passed acc is correct
     pub margin_account: Pubkey,
 
-    // 0: inactive, 1: deposited, 2: position_open, 3: settled_open, 4: position_closed, 5: settled_close, 6: stale
+    // 0: inactive, 1: deposited, 2: position_open, 3: settled_open, 4: position_closed, 5: settled_close
     pub state: u8, 
     pub margin_index: u8, // token_index for the trade
     pub position_side: u8, // 0 for LONG, 1 for SHORT
-    pub debtors: u8,
-    pub padding: [u8; 2],
+    pub padding: [u8; 3],
     pub position_id: u16, // unique id for the position
     
     pub trade_amount: u64, // 8 for PnL calculation
@@ -252,8 +252,9 @@ pub struct TokenInfo {
     // last updated timestamp
     pub last_updated: UnixTimestamp,
 
-    // padding for serum prices
-    pub padding: u64,
+    pub token_id: u8, // 0 -> raydium, 1-> orca, 2 -> strategy
+    // padding for future use
+    pub padding: [u8; 7],
 }
 impl_loadable!(TokenInfo);
 
@@ -282,8 +283,11 @@ impl PlatformData {
         let data = Self::load(account)?;
         Ok(data)
     }
-    pub fn get_token_index(&self, mint_pk: &Pubkey) -> Option<usize> {
-        self.token_list.iter().position(|token| token.mint == *mint_pk)
+    pub fn get_token_index(&self, mint_pk: &Pubkey, token_id: u8) -> Option<usize> {
+        self.token_list.iter().position(|token| ((token.mint == *mint_pk) && (token.token_id == token_id)))
+    }
+    pub fn get_token_index_by_coin(&self, pool_coin_account: &Pubkey) -> Option<usize> {
+        self.token_list.iter().position(|token| token.pool_coin_account == *pool_coin_account)
     }
 }
 
@@ -309,8 +313,8 @@ impl FundData {
         let data = Self::load(account)?;
         Ok(data)
     }
-    pub fn get_token_slot(&self, index: usize) -> Option<usize> {
-        self.tokens.iter().position(|token| token.index as usize == index)
+    pub fn get_token_slot(&self, index: usize, mux: usize) -> Option<usize> {
+        self.tokens.iter().position(|token| token.index[mux] as usize == index)
     }
     pub fn get_margin_index(&self, margin_account_pk: &Pubkey) -> Option<usize> {
         self.mango_positions.iter().position(|pos| pos.margin_account == *margin_account_pk)
