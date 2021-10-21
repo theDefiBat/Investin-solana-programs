@@ -175,13 +175,13 @@ export const GetPrices = () => {
 
           <label htmlFor="funds">Select a platform Token:</label>
 
-            <select name="funds" width = "100px"  onChange={handleTokenSelect}>
+            {/* <select name="funds" width = "100px"  onChange={handleTokenSelect}>
             { tokenList && 
                 tokenList.map((token,index) => {
                     return (<option key={index} value={token.symbol}>{token.symbol}</option>)
                 })
             }
-            </select>
+            </select> */}
           <br />
           <button onClick={handleGetPrices}>Get Price</button>
 

@@ -123,8 +123,10 @@ export const FUND_DATA = struct([
   seq(
     struct([
       u8('is_initialized'),
-      u8('index'),
-      seq(u8(), 6, 'padding'),
+      // u8('index'),
+      seq(u8(),3,'index'),
+      u8('mux'),
+      seq(u8(), 3, 'padding'),
 
       u64('balance'),
       u64('debt'),
@@ -140,7 +142,8 @@ export const FUND_DATA = struct([
       u8('state'),
       u8('margin_index'),
       u8('position_side'),
-      seq(u8('padding'), 3),
+      u8('debtors'),
+      seq(u8('padding'), 2),
       u16('position_id'),
 
       u64('trade_amount'),

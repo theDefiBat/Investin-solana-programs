@@ -323,18 +323,13 @@ export const OrcaSwap = () => {
 
       <label htmlFor="tokens">From Token:</label>
 
-      <select name="tokens" onChange={handleFirstTokenSelect}>
-        {/* {
-          devnet_pools.map((pool) => {
-            return (<option key={pool.coin.name} value={pool.coin.symbol}>{pool.coin.name}</option>)
-          })
-        } */}
+      {/* <select name="tokens" onChange={handleFirstTokenSelect}>
          {
           tokenList.map((i,index) => {
             return (<option key={index} value={i.symbol}>{i.symbol}</option>)
           })
         }
-      </select>
+      </select> */}
       <br />
 
       amount : {' '}<input type="number" value={amountIn} onChange={(e) => setAmountIn(e.target.value)} />

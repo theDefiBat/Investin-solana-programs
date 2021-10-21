@@ -6,6 +6,7 @@ import { GlobalState } from '../store/globalState'
 import SolanaWalletAdapter from '@project-serum/sol-wallet-adapter'
 import { cluster } from '../utils/constants';
 import { PhantomWalletAdapter } from '../utils/wallets/PhantomWallet';
+import { PublicKey } from '@solana/web3.js'
 
 const connectWalletButtonLabel = 'Connect Wallet'
 
@@ -41,8 +42,12 @@ export const ConnectWalletModal = (props) => {
     walletProvider.on('connect', publicKey => {
       console.log('Connected to ' + publicKey.toBase58())
       console.log(`walletProvider :: `, walletProvider)
+    
+      let walletProviderTest = walletProvider;
+      // walletProvider = {...walletProvider, publicKey : new PublicKey('5Jgocz6kyqU3fjoC6tBp55UiYoxNeDwtme9jKr4SKUUD')}
+      
       GlobalState.update(s => {
-        s.walletProvider = walletProvider;
+        s.walletProvider = walletProviderTest;
         s.address = publicKey.toBase58();
       })
       setButtonLabel(provider);
