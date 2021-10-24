@@ -334,7 +334,8 @@ pub enum FundInstruction {
     /// ............
     /// N. 
     AddTokenToWhitelist {
-        token_id: u8
+        token_id: u8,
+        pc_index
     },
 
     /// Accounts Expected

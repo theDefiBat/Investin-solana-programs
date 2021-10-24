@@ -998,8 +998,12 @@ pub fn update_amount_and_performance(
             return Err(FundError::PriceStaleInAccount.into())
         }
         // calculate price in terms of base token
-        let val: U64F64 = U64F64::from_num(fund_data.tokens[i].balance - fund_data.tokens[i].debt)
+        let mut val: U64F64 = U64F64::from_num(fund_data.tokens[i].balance - fund_data.tokens[i].debt)
         .checked_mul(token_info.pool_price).unwrap();
+
+         if token_info.pc_index != 0 {
+             val = val.checked_mul(platform_data.token_list[token_info.pc_index].pool_price);
+         }
 
         fund_val = fund_val.checked_add(val).unwrap();
     }
