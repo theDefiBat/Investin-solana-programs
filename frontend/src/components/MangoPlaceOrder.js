@@ -7,7 +7,6 @@ import { createKeyIfNotExists, findAssociatedTokenAddress, setWalletTransaction,
 import { FUND_DATA, INVESTOR_DATA } from '../utils/programLayouts';
 import { MarginAccountLayout, selfTradeBehaviorLayout } from '../utils/MangoLayout';
 import { devnet_pools, pools } from '../utils/pools'
-import { MANGO_TOKENS } from '../utils/tokens'
 import { updatePoolPrices } from './updatePrices';
 
 import {mangoClosePosition, mangoOpenPosition} from '../utils/mango'

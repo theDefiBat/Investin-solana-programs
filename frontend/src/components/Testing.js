@@ -6,9 +6,10 @@ import { nu64, struct, u8 } from 'buffer-layout';
 import { createKeyIfNotExists, findAssociatedTokenAddress, setWalletTransaction, signAndSendTransaction, createAssociatedTokenAccountIfNotExist } from '../utils/web3';
 import { FUND_DATA } from '../utils/programLayouts';
 import { devnet_pools } from '../utils/pools'
-import { MANGO_TOKENS, TEST_TOKENS } from '../utils/tokens'
+
 import { updatePoolPrices } from './updatePrices';
 import { u64 } from '@project-serum/borsh';
+import { TOKENS } from '../utils/tokens';
 
 export const Testing = () => {
 
@@ -37,8 +38,8 @@ export const Testing = () => {
             programId,
         );
 
-        const fundBaseTokenAccount = await findAssociatedTokenAddress(fundPDA[0], new PublicKey(MANGO_TOKENS['USDC'].mintAddress));
-        const managerBaseTokenAccount = await findAssociatedTokenAddress(key, new PublicKey( MANGO_TOKENS['USDC'].mintAddress));
+        const fundBaseTokenAccount = await findAssociatedTokenAddress(fundPDA[0], new PublicKey(TOKENS['USDC'].mintAddress));
+        const managerBaseTokenAccount = await findAssociatedTokenAddress(key, new PublicKey( TOKENS['USDC'].mintAddress));
         console.log("amount deposit: ", amount)
 
         const dataLayout = struct([u8('instruction'), nu64('amount')])
@@ -47,7 +48,7 @@ export const Testing = () => {
         dataLayout.encode(
             {
             instruction: 16,
-            amount: amount * (10 ** MANGO_TOKENS['USDC'].decimals),
+            amount: amount * (10 ** TOKENS['USDC'].decimals),
             },
             data
         )
@@ -106,8 +107,8 @@ export const Testing = () => {
             programId,
         );
 
-        const fundBaseTokenAccount = await findAssociatedTokenAddress(fundPDA[0], new PublicKey( MANGO_TOKENS['USDC'].mintAddress));
-        const managerBaseTokenAccount = await findAssociatedTokenAddress(key, new PublicKey( MANGO_TOKENS['USDC'].mintAddress));
+        const fundBaseTokenAccount = await findAssociatedTokenAddress(fundPDA[0], new PublicKey( TOKENS['USDC'].mintAddress));
+        const managerBaseTokenAccount = await findAssociatedTokenAddress(key, new PublicKey( TOKENS['USDC'].mintAddress));
         
         console.log("amount withdraww: ", amount)
         const dataLayout = struct([u8('instruction'), nu64('amount')])
@@ -116,7 +117,7 @@ export const Testing = () => {
         dataLayout.encode(
             {
             instruction: 17,
-            amount: amount * (10 ** MANGO_TOKENS['USDC'].decimals),
+            amount: amount * (10 ** TOKENS['USDC'].decimals),
             },
             data
         )

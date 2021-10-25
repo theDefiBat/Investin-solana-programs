@@ -4,7 +4,7 @@ import { GlobalState } from '../store/globalState';
 
 import { adminAccount, connection, FUND_ACCOUNT_KEY, platformStateAccount, priceStateAccount, programId } from '../utils/constants';
 import { blob, nu64, struct, u32, u8 } from 'buffer-layout';
-import { FUND_DATA } from '../utils/programLayouts';
+import { FUND_DATA, SPL_TOKEN_MINT_DATA } from '../utils/programLayouts';
 
 import { Card, Col, Row ,Table} from 'reactstrap';
 
@@ -29,8 +29,8 @@ const handleGetFundData = async () => {
     return;
   }
 
-    const key = new PublicKey('ysh2B9XKTbX8DdsWM3HrzjuZ5otrFc24Y6H8naAmoYi');
-  // const key = walletProvider?.publicKey;  
+  // const key = new PublicKey('ysh2B9XKTbX8DdsWM3HrzjuZ5otrFc24Y6H8naAmoYi');
+  const key = walletProvider?.publicKey;  
   if (!key ) {
     alert("connect wallet ")
     return;
@@ -56,17 +56,31 @@ const handleGetFundData = async () => {
     setFundData(fundData);
 
     // display fundState
-    let fundStateTokens = fundData?.tokens.map((i)=> {
-      return {
+    
+    let fundStateTokens = [];
+    for (let j =0; j<fundData?.tokens.length; j++) {
+       const i = fundData?.tokens[j];
+       const vault_info = await connection.getAccountInfo(i.vault);
+       const data = SPL_TOKEN_MINT_DATA.decode(vault_info.data)
+      //  console.log("tokenData ::",data);
+      //  if(data?.mint_authority?.toBase58()==='iVNcrNE9BRZBC9Aqf753iZiZfbszeAVUoikgT9yvr2a'){
+      //     const ivnBalance = await connection.getTokenAccountBalance(i.vault, "max");
+      //     console.log("balance::",(ivnBalance.value.uiAmount))
+      //   }
+      
+      const obj =  {
         balance : i.balance.toString(),
         debt : i.debt.toString(),
         vault : i.vault.toBase58(),
+        mint_authority: data?.mint_authority?.toBase58(),
         index : i.index,
         is_initialized : i.is_initialized,
         mux : i.mux,
         padding : i.padding
       }
-    });
+      fundStateTokens.push(obj);
+    }
+   
     setFundTokens(fundStateTokens);
     console.error("parsed fundState tokens: ",fundStateTokens);
 }
@@ -183,6 +197,7 @@ const handleGetFundData = async () => {
                                 <tr>
                                 <th style={{ width: "15%" }}>index</th>
                                   <th style={{ width: "15%" }}>vault</th>
+                                  <th style={{ width: "15%" }}>mint_authority</th>
                                   <th style={{ width: "15%" }}>balance</th>
                                   <th style={{ width: "15%" }}>debt</th>
                                   <th style={{ width: "15%" }}>index</th>
@@ -197,6 +212,7 @@ const handleGetFundData = async () => {
                       return <tr key={x}>
                         <td >{x}</td>
                         <td >{i?.vault}</td>
+                        <td >{i?.mint_authority}</td>
                         <td >{i?.balance}</td>
                         <td >{i?.debt}</td>
                         <td >{i?.index}</td>

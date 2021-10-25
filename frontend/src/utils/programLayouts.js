@@ -178,6 +178,14 @@ export const INVESTOR_DATA = struct([
 
 ])
 
+export const SPL_TOKEN_MINT_DATA = struct([
+  publicKeyLayout('mint_authority'),
+  u64('supply'),
+  u8('decimals'),
+  u8('is_initialized'),
+  publicKeyLayout('freez_authority'),
+])
+
 
 
 export const AMM_INFO_LAYOUT_V4 = struct([

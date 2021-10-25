@@ -4,18 +4,16 @@ import { GlobalState } from '../store/globalState';
 import { signAndSendTransaction } from '../utils/web3'
 import { connection, programId, priceStateAccount, platformStateAccount } from '../utils/constants';
 import { struct, u8 } from 'buffer-layout';
-import { MANGO_TOKENS } from '../utils/tokens'
+import { TOKENS } from '../utils/tokens'
 import { PLATFORM_DATA, PRICE_DATA } from '../utils/programLayouts';
 import { devnet_pools, pools } from '../utils/pools';
 
 const priceProgramId = new PublicKey('CB6oEYpfSsrF3oWG41KQxwfg4onZ38JMj1hk17UNe1Fn')
-// const tokensList = [
-//     MANGO_TOKENS['SRM']
-// ]
+
 
 export const GetPrices = () => {
   const walletProvider = GlobalState.useState(s => s.walletProvider);
-  const [tokenList, setTokenList] = useState([MANGO_TOKENS['SRM']])
+  const [tokenList, setTokenList] = useState([TOKENS['SRM']])
     const [priceAccount, setPriceAccount] = useState('');
     const [poolName, setPoolName] = useState('');
     const [platformData, setPlatformData] = useState(0)
@@ -36,7 +34,7 @@ export const GetPrices = () => {
           if(platformTokens?.length){
             t = platformTokens.map( (i) => {
               return {
-                symbol: (Object.keys(MANGO_TOKENS).find( k => MANGO_TOKENS[k].mintAddress ===i.mint.toBase58()) ),
+                symbol: (Object.keys(TOKENS).find( k => TOKENS[k].mintAddress ===i.mint.toBase58()) ),
                 mintAddress: i.mint.toBase58(),
                 decimals: i.decimals?.toString()
               }

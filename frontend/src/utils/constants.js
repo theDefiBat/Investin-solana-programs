@@ -18,6 +18,7 @@ export const ASSOCIATED_TOKEN_PROGRAM_ID = new PublicKey(process.env.REACT_APP_A
 
 export const LIQUIDITY_POOL_PROGRAM_ID_V4 = new PublicKey(process.env.REACT_APP_LIQUIDITY_POOL_PROGRAM_ID_V4)
 export const SERUM_PROGRAM_ID_V3 = new PublicKey(process.env.REACT_APP_SERUM_PROGRAM_ID_V3)
+export const ORCA_SWAP_PROGRAM_ID = new PublicKey('9W959DqEETiGZocYWCQPaJ6sBmUzgfxXfqGeTEdp3aQP')
 
 export const MANGO_PROGRAM_ID_V2 = new PublicKey(process.env.REACT_APP_MANGO_PROGRAM_ID_V2)
 export const MANGO_GROUP_ACCOUNT = new PublicKey(process.env.REACT_APP_MANGO_GROUP_ACCOUNT)
