@@ -334,7 +334,8 @@ pub enum FundInstruction {
     /// ............
     /// N. 
     AddTokenToWhitelist {
-        token_id: u8
+        token_id: u8,
+        pc_index: u8
     },
 
     /// Accounts Expected
@@ -506,9 +507,14 @@ impl FundInstruction {
                 FundInstruction::MangoWithdrawInvestorSettle
             },
             17 => {
-                let token_id = array_ref![data, 0, 1];
+                let data = array_ref![data, 0, 2];
+                let (
+                    token_id,
+                    pc_index
+                ) = array_refs![data, 1, 1]; 
                 FundInstruction::AddTokenToWhitelist {
-                    token_id: u8::from_le_bytes(*token_id)
+                    token_id: u8::from_le_bytes(*token_id),
+                    pc_index: u8::from_le_bytes(*pc_index)
                 }
             },
             18 => {
