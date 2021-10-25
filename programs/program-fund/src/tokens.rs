@@ -62,8 +62,8 @@ pub fn add_token_to_whitelist (
     let pool_pc_data = parse_token_account(pool_pc_account)?;
 
     check_eq!(pool_coin_data.mint, *mint_account.key);
-    check_eq!(pool_pc_data.mint, platform_data.token_list[pc_index].mint); // 0 -> USDC... pc should be whitlisted first which is refrenced here
-    check_eq!(platform_data.token_list[pc_index].pc_index, 0); // pc should either be USDC itself or have a USDC pair
+    check_eq!(pool_pc_data.mint, platform_data.token_list[pc_index as usize].mint); // 0 -> USDC... pc should be whitlisted first which is refrenced here
+    check_eq!(platform_data.token_list[pc_index as usize].pc_index, 0); // pc should either be USDC itself or have a USDC pair
     check_eq!(platform_data.get_token_index(mint_account.key, token_id), None);
 
     let index = platform_data.token_count as usize;

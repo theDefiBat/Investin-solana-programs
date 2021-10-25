@@ -943,9 +943,9 @@ impl Fund {
                 msg!("FundInstruction::MangoWithdrawInvestorSettle");
                 return mango_withdraw_investor_settle(program_id, accounts);
             }
-            FundInstruction::AddTokenToWhitelist { token_id } => {
+            FundInstruction::AddTokenToWhitelist { token_id, pc_index} => {
                 msg!("FundInstruction::AddTokenToWhitelist");
-                return add_token_to_whitelist(program_id, accounts, token_id);
+                return add_token_to_whitelist(program_id, accounts, token_id, pc_index);
             }
             FundInstruction::UpdateTokenPrices { count } => {
                 msg!("FundInstruction::UpdateTokenPrices");
@@ -1002,7 +1002,7 @@ pub fn update_amount_and_performance(
         .checked_mul(token_info.pool_price).unwrap();
 
          if token_info.pc_index != 0 {
-             val = val.checked_mul(platform_data.token_list[token_info.pc_index].pool_price);
+             val = val.checked_mul(platform_data.token_list[token_info.pc_index as usize].pool_price).unwrap();
          }
 
         fund_val = fund_val.checked_add(val).unwrap();
