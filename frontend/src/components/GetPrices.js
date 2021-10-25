@@ -42,7 +42,6 @@ export const GetPrices = () => {
               }
             })
           } 
-          console.log("platform tokens::",t);
 
           setTokenList(t)
       })()
@@ -50,6 +49,7 @@ export const GetPrices = () => {
     },[walletProvider])
     
     const handleGetAllPlatformTokens = async () => {
+          console.log("platform tokens::",tokenList);
 
     }
 
@@ -171,17 +171,17 @@ export const GetPrices = () => {
         <div className="form-div">
           <h4>Get Token Prices</h4>
 
-          <button onClick={handleGetAllPlatformTokens}>Get ALL platform Tokens</button>
+          <button onClick={handleGetAllPlatformTokens}>Get ALL platform Tokens in log</button>
 
           <label htmlFor="funds">Select a platform Token:</label>
 
-            {/* <select name="funds" width = "100px"  onChange={handleTokenSelect}>
+            <select name="funds" width = "100px"  onChange={handleTokenSelect}>
             { tokenList && 
                 tokenList.map((token,index) => {
                     return (<option key={index} value={token.symbol}>{token.symbol}</option>)
                 })
             }
-            </select> */}
+            </select>
           <br />
           <button onClick={handleGetPrices}>Get Price</button>
 

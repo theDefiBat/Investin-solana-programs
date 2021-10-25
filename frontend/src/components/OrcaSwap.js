@@ -218,7 +218,7 @@ export const OrcaSwap = () => {
           }
         })
       } 
-      console.log("platform tokens::",pt);
+      // console.log("platform tokens::",pt);
 
 
       const key = walletProvider?.publicKey;  

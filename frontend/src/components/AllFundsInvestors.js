@@ -17,7 +17,14 @@ export const AllFundsInvestors = () => {
   const [funds, setFunds] = useState([])
 
   const handleGetAllInvestments = async () => {
-    let investments = await connection.getProgramAccounts(programId, { filters: [{ dataSize: INVESTOR_DATA.span }] });
+
+     const userkey = new PublicKey('zRzdC1b2zJte4rMjfaSFZwbnBfL1kNYaTAF4UC4bqpx');
+    let investments = await connection.getProgramAccounts(programId, { filters: [
+      { dataSize: INVESTOR_DATA.span },
+      {
+        memcmp: { offset: INVESTOR_DATA.offsetOf('owner'), bytes: userkey.toBase58() }
+      }
+    ] });
     // console.log("investments::",investments)
     const newInvestors = []
     for (const investment of investments) {
@@ -80,9 +87,14 @@ export const AllFundsInvestors = () => {
                               <th style={{ width: "15%" }}>owner</th>
                               <th style={{ width: "15%" }}>amount</th>
                               <th style={{ width: "15%" }}>amount_in_router</th>
+                              <th style={{ width: "15%" }}>start_performance</th>
                               <th style={{ width: "15%" }}>is_initialized</th>
                               <th style={{ width: "15%" }}>has_withdrawn</th>
                               <th style={{ width: "15%" }}>withdrawn_from_margin</th>
+
+                              <th style={{ width: "15%" }}>margin_debt</th>
+                              <th style={{ width: "15%" }}>margin_position_id</th>
+                              <th style={{ width: "15%" }}>8TokensIndexsAndDebts</th>
 
                             </tr>
                           </thead>
@@ -100,9 +112,16 @@ export const AllFundsInvestors = () => {
                  <td >{i?.owner?.toBase58()}</td>
                  <td>{i?.amount?.toString()/10**6}</td>
                  <td>{i?.amount_in_router?.toString()/10**6}</td>
+                 <td>{i?.start_performance?.toString()}</td>
+
                  <td>{i?.is_initialized}</td>
                  <td>{i?.has_withdrawn}</td>
                  <td>{i?.withdrawn_from_margin}</td>
+
+                 <td>{`${i?.margin_debt[0]} <==>  ${i?.margin_debt[1]}`}</td>
+                 <td>{`${i?.margin_position_id[0]} <==>  ${i?.margin_position_id[1]}`}</td>
+
+                 <td>8TokensIndexsAndDebts</td>
                </tr>
             })
           }

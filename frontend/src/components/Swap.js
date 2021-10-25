@@ -218,7 +218,7 @@ export const Swap = () => {
           }
         })
       } 
-      console.log("platform tokens::",pt);
+      // console.log("platform tokens::",pt);
 
 
       const key = walletProvider?.publicKey;  

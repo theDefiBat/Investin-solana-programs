@@ -39,15 +39,11 @@ export const ConnectWalletModal = (props) => {
     }
     await walletProvider.connect();
     console.log(`walletProvider ::: `, walletProvider)
+
     walletProvider.on('connect', publicKey => {
-      console.log('Connected to ' + publicKey.toBase58())
-      console.log(`walletProvider :: `, walletProvider)
-    
-      let walletProviderTest = walletProvider;
-      // walletProvider = {...walletProvider, publicKey : new PublicKey('5Jgocz6kyqU3fjoC6tBp55UiYoxNeDwtme9jKr4SKUUD')}
       
       GlobalState.update(s => {
-        s.walletProvider = walletProviderTest;
+        s.walletProvider = walletProvider;
         s.address = publicKey.toBase58();
       })
       setButtonLabel(provider);
