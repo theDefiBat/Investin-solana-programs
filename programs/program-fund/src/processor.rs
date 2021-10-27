@@ -133,7 +133,7 @@ impl Fund {
             let token_index_2 = platform_data.get_token_index(mint_acc.key, 1);
             
             // both indexes cant be None
-            check!((token_index_1 == None) && (token_index_2 == None), ProgramError::InvalidAccountData);
+            check!(((token_index_1 != None) || (token_index_2 != None)), ProgramError::InvalidAccountData);
         
             if token_index_1 != None {
                 fund_data.tokens[index as usize].mux = 0;
@@ -653,7 +653,17 @@ impl Fund {
             check!(fund_data.tokens[si].balance >= fund_data.tokens[si].debt, ProgramError::InsufficientFunds);
         }
         else {
-            return Err(ProgramError::InvalidAccountData)
+            let si = fund_data.get_token_slot(source_index.unwrap(), swap_index as usize).unwrap();
+            let di = fund_data.get_token_slot(dest_index.unwrap(), swap_index as usize).unwrap();
+
+            fund_data.tokens[si].balance = source_info.amount;
+            fund_data.tokens[di].balance = dest_info.amount;
+
+            fund_data.tokens[si].mux = swap_index;
+            fund_data.tokens[di].mux = swap_index;
+
+            check!(fund_data.tokens[si].balance >= fund_data.tokens[si].debt, ProgramError::InsufficientFunds);
+            check!(fund_data.tokens[di].balance >= fund_data.tokens[di].debt, ProgramError::InsufficientFunds);
         }
 
         // check USDC balance validity
