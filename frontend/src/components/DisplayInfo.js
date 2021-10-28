@@ -28,8 +28,14 @@ const handleGetFundData = async () => {
     alert("connect wallet ")
     return;
   }
-
-  // const key = new PublicKey('ysh2B9XKTbX8DdsWM3HrzjuZ5otrFc24Y6H8naAmoYi');
+  // chiro addr : zRzdC1b2zJte4rMjfaSFZwbnBfL1kNYaTAF4UC4bqpx
+  // darkness :  ysh2B9XKTbX8DdsWM3HrzjuZ5otrFc24Y6H8naAmoYi
+  // double mango : CS22VrmEuNH7Jb1sJVLMubr4aBFiXTkxB1iv5SiZGiA4
+  // baigan : B9YVBghroTdohKoTQb7SofHh2U6FxAybuF6UwZEw7c1x
+  // aak : 5Arakn7JSt3sPkXdWvy1887Bjd2d755b57BTEwBR7cW3
+  // the Moon (lucio) :FRaWwEyKTwFgcU7tZa3xbSCxkEH61rdpCWqVV7z1Zj7S
+  
+  // const key = new PublicKey('zRzdC1b2zJte4rMjfaSFZwbnBfL1kNYaTAF4UC4bqpx');
   const key = walletProvider?.publicKey;  
   if (!key ) {
     alert("connect wallet ")
@@ -60,7 +66,17 @@ const handleGetFundData = async () => {
     let fundStateTokens = [];
     for (let j =0; j<fundData?.tokens.length; j++) {
        const i = fundData?.tokens[j];
+       console.log("vault vault_info token::",i);
+       if(!i.is_initialized)
+        continue;
+
        const vault_info = await connection.getAccountInfo(i.vault);
+       console.log("vault vault_info ::",vault_info);
+       if(!vault_info)
+         {
+           console.log("vault error ::");
+           continue;
+         }
        const data = SPL_TOKEN_MINT_DATA.decode(vault_info.data)
       //  console.log("tokenData ::",data);
       //  if(data?.mint_authority?.toBase58()==='iVNcrNE9BRZBC9Aqf753iZiZfbszeAVUoikgT9yvr2a'){
