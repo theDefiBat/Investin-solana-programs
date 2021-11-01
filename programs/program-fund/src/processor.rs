@@ -133,7 +133,7 @@ impl Fund {
             let token_index_2 = platform_data.get_token_index(mint_acc.key, 1);
             
             // both indexes cant be None
-            check!((token_index_1 == None) && (token_index_2 == None), ProgramError::InvalidAccountData);
+            check!(((token_index_1 != None) || (token_index_2 != None)), ProgramError::InvalidAccountData);
         
             if token_index_1 != None {
                 fund_data.tokens[index as usize].mux = 0;
@@ -653,7 +653,17 @@ impl Fund {
             check!(fund_data.tokens[si].balance >= fund_data.tokens[si].debt, ProgramError::InsufficientFunds);
         }
         else {
-            return Err(ProgramError::InvalidAccountData)
+            let si = fund_data.get_token_slot(source_index.unwrap(), swap_index as usize).unwrap();
+            let di = fund_data.get_token_slot(dest_index.unwrap(), swap_index as usize).unwrap();
+
+            fund_data.tokens[si].balance = source_info.amount;
+            fund_data.tokens[di].balance = dest_info.amount;
+
+            fund_data.tokens[si].mux = swap_index;
+            fund_data.tokens[di].mux = swap_index;
+
+            check!(fund_data.tokens[si].balance >= fund_data.tokens[si].debt, ProgramError::InsufficientFunds);
+            check!(fund_data.tokens[di].balance >= fund_data.tokens[di].debt, ProgramError::InsufficientFunds);
         }
 
         // check USDC balance validity
@@ -943,9 +953,9 @@ impl Fund {
                 msg!("FundInstruction::MangoWithdrawInvestorSettle");
                 return mango_withdraw_investor_settle(program_id, accounts);
             }
-            FundInstruction::AddTokenToWhitelist { token_id } => {
+            FundInstruction::AddTokenToWhitelist { token_id, pc_index} => {
                 msg!("FundInstruction::AddTokenToWhitelist");
-                return add_token_to_whitelist(program_id, accounts, token_id);
+                return add_token_to_whitelist(program_id, accounts, token_id, pc_index);
             }
             FundInstruction::UpdateTokenPrices { count } => {
                 msg!("FundInstruction::UpdateTokenPrices");
@@ -998,8 +1008,12 @@ pub fn update_amount_and_performance(
             return Err(FundError::PriceStaleInAccount.into())
         }
         // calculate price in terms of base token
-        let val: U64F64 = U64F64::from_num(fund_data.tokens[i].balance - fund_data.tokens[i].debt)
+        let mut val: U64F64 = U64F64::from_num(fund_data.tokens[i].balance - fund_data.tokens[i].debt)
         .checked_mul(token_info.pool_price).unwrap();
+
+         if token_info.pc_index != 0 {
+             val = val.checked_mul(platform_data.token_list[token_info.pc_index as usize].pool_price).unwrap();
+         }
 
         fund_val = fund_val.checked_add(val).unwrap();
     }

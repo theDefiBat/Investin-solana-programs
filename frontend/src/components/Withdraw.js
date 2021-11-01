@@ -8,11 +8,12 @@ import { createKeyIfNotExists, findAssociatedTokenAddress, setWalletTransaction,
 import { devnet_pools } from '../utils/pools';
 import { keyBy } from 'lodash';
 import { INVESTOR_DATA, PLATFORM_DATA, FUND_DATA } from '../utils/programLayouts';
-import { TEST_TOKENS } from '../utils/tokens';
+
 import { updatePoolPrices } from './updatePrices';
 import { MarginAccountLayout, NUM_MARKETS, MangoGroupLayout } from '../utils/MangoLayout';
-import { MANGO_TOKENS } from '../utils/tokens'
+
 import { mangoWithdrawInvestor, placeOrder, placeOrder2 } from '../utils/mango';
+import { TOKENS } from '../utils/tokens';
 
 
 const getPoolAccounts = () => {
@@ -161,15 +162,15 @@ export const Withdraw = () => {
 
     // updatePoolPrices(transaction, devnet_pools)
 
-    const routerAssociatedTokenAddress = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(MANGO_TOKENS['USDC'].mintAddress), RPDA[0], transaction);
+    const routerAssociatedTokenAddress = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TOKENS['USDC'].mintAddress), RPDA[0], transaction);
 
-    const investorBaseTokenAccount = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(MANGO_TOKENS['USDC'].mintAddress), key, transaction);
-    const investorTokenAccount2 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(MANGO_TOKENS['SRM'].mintAddress), key, transaction);
+    const investorBaseTokenAccount = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TOKENS['USDC'].mintAddress), key, transaction);
+    const investorTokenAccount2 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TOKENS['SRM'].mintAddress), key, transaction);
     // const investorTokenAccount3 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['ALPHA'].mintAddress), key, transaction);
 
-    const fundAssociatedTokenAddress1 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(MANGO_TOKENS['USDC'].mintAddress), new PublicKey(fundPDA), transaction);
-    const fundAssociatedTokenAddress2 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(MANGO_TOKENS['SRM'].mintAddress), new PublicKey(fundPDA), transaction);
-    // const fundAssociatedTokenAddress3 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['ALPHA'].mintAddress), MPDA, transaction);
+    const fundAssociatedTokenAddress1 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TOKENS['USDC'].mintAddress), new PublicKey(fundPDA), transaction);
+    const fundAssociatedTokenAddress2 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TOKENS['SRM'].mintAddress), new PublicKey(fundPDA), transaction);
+    // const fundAssociatedTokenAddress3 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TOKENS['ALPHA'].mintAddress), MPDA, transaction);
 
     console.log("USDC vault:: ", fundAssociatedTokenAddress1)
     console.log("SRM vault:: ", fundAssociatedTokenAddress2)

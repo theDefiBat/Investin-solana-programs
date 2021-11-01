@@ -35,7 +35,8 @@ macro_rules! check {
 pub fn add_token_to_whitelist (
     program_id: &Pubkey,
     accounts: &[AccountInfo],
-    token_id: u8
+    token_id: u8,
+    pc_index: u8
 ) -> Result<(), ProgramError> {
     let accounts_iter = &mut accounts.iter();
 
@@ -61,7 +62,8 @@ pub fn add_token_to_whitelist (
     let pool_pc_data = parse_token_account(pool_pc_account)?;
 
     check_eq!(pool_coin_data.mint, *mint_account.key);
-    check_eq!(pool_pc_data.mint, platform_data.token_list[0].mint); // USDC
+    check_eq!(pool_pc_data.mint, platform_data.token_list[pc_index as usize].mint); // 0 -> USDC... pc should be whitlisted first which is refrenced here
+    check_eq!(platform_data.token_list[pc_index as usize].pc_index, 0); // pc should either be USDC itself or have a USDC pair
     check_eq!(platform_data.get_token_index(mint_account.key, token_id), None);
 
     let index = platform_data.token_count as usize;
@@ -70,6 +72,7 @@ pub fn add_token_to_whitelist (
     platform_data.token_list[index].decimals = mint_data.decimals as u64;
     platform_data.token_list[index].pool_coin_account = *pool_coin_account.key;
     platform_data.token_list[index].pool_pc_account = *pool_pc_account.key;
+    platform_data.token_list[index].pc_index = pc_index;
     platform_data.token_list[index].pool_price = U64F64::from_num(pool_pc_data.amount)
     .checked_div(U64F64::from_num(pool_coin_data.amount)).unwrap();
     platform_data.token_list[index].last_updated = clock.unix_timestamp;

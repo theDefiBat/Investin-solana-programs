@@ -7,7 +7,7 @@ import { PublicKey, Transaction, TransactionInstruction } from '@solana/web3.js'
 import { TOKEN_PROGRAM_ID } from '@project-serum/serum/lib/token-instructions';
 import { FUND_DATA, PLATFORM_DATA, U64F64 } from '../utils/programLayouts';
 import { Badge } from 'reactstrap';
-import { MANGO_TOKENS } from "../utils/tokens";
+import {  TOKENS } from "../utils/tokens";
 import BN from 'bn.js';
 import { Card, Col, Row } from 'reactstrap';
 
@@ -50,20 +50,20 @@ export const AdminControl = () => {
           change_vault: v3,
           freeze_fund: v4,
           unfreeze_fund: v5,
-          min_amount: min_amount * (10 ** MANGO_TOKENS['USDC'].decimals),
+          min_amount: min_amount * (10 ** TOKENS['USDC'].decimals),
           min_return: new BN(min_return),
           performance_fee_percentage: new BN(platform_fee_percentage),
         },
         data
       )
-      const associatedTokenAddress1 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(MANGO_TOKENS['USDC'].mintAddress), walletProvider?.publicKey, transaction);
+      const associatedTokenAddress1 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TOKENS['USDC'].mintAddress), walletProvider?.publicKey, transaction);
 
       const instruction = new TransactionInstruction({
         keys: [
           { pubkey: platformAccount, isSigner: false, isWritable: true },
           { pubkey: walletProvider?.publicKey, isSigner: true, isWritable: true },
           { pubkey: associatedTokenAddress1, isSigner: false, isWritable: true },
-          { pubkey: new PublicKey(MANGO_TOKENS.USDC.mintAddress), isSigner: false, isWritable: true },
+          { pubkey: new PublicKey(TOKENS.USDC.mintAddress), isSigner: false, isWritable: true },
 
           // { pubkey: fundAccount, isSigner: false, isWritable: true },
         ],

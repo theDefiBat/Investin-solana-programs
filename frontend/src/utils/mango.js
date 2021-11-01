@@ -30,7 +30,8 @@ import {
 
 import { createKeyIfNotExists, findAssociatedTokenAddress } from './web3';
 import { INVESTOR_DATA } from '../utils/programLayouts';
-import { MANGO_TOKENS } from './tokens';
+import { TOKENS } from './tokens';
+
 
 
 
@@ -202,7 +203,7 @@ export async function mangoOpenPosition(
       openOrdersKeys.push(marginAccount.openOrders[i])
     }
   }
-  const fundBaseTokenAccount = await findAssociatedTokenAddress(fundPDA, new PublicKey(MANGO_TOKENS['USDC'].mintAddress));
+  const fundBaseTokenAccount = await findAssociatedTokenAddress(fundPDA, new PublicKey(TOKENS['USDC'].mintAddress));
   const dlout = struct([u8('instruction'), nu64('quantity')])
       const data = Buffer.alloc(dlout.span)
       dlout.encode(
@@ -453,8 +454,8 @@ export async function mangoClosePosition(
     (1 + rates.taker)
   )
   const depositQuantity = spotMarket.quoteSizeLotsToNumber(maxQuoteQuantity)
-  const depositAmount = depositQuantity * 10**MANGO_TOKENS['USDC'].decimals
-  const placeAmount = size * 10**MANGO_TOKENS['BTC'].decimals
+  const depositAmount = depositQuantity * 10**TOKENS['USDC'].decimals
+  const placeAmount = size * 10**TOKENS['BTC'].decimals
 
   console.log('deposit qty::', depositQuantity.toString())
 
@@ -535,7 +536,7 @@ export async function mangoClosePosition(
       openOrdersKeys.push(marginAccount.openOrders[i])
     }
   }
-  const fundBaseTokenAccount = await findAssociatedTokenAddress(fundPDA, new PublicKey(MANGO_TOKENS['USDC'].mintAddress));
+  const fundBaseTokenAccount = await findAssociatedTokenAddress(fundPDA, new PublicKey(TOKENS['USDC'].mintAddress));
   let keys1 = [
     { isSigner: false, isWritable: true, pubkey: fundStateAccount },
     { isSigner: true, isWritable: true, pubkey: wallet?.publicKey },
@@ -792,8 +793,8 @@ export async function mangoWithdrawInvestor(
     (1 + rates.taker)
   )
   const depositQuantity = spotMarket.quoteSizeLotsToNumber(maxQuoteQuantity)
-  const depositAmount = depositQuantity * 10**MANGO_TOKENS['USDC'].decimals
-  const placeAmount = size * 10**MANGO_TOKENS['BTC'].decimals
+  const depositAmount = depositQuantity * 10**TOKENS['USDC'].decimals
+  const placeAmount = size * 10**TOKENS['BTC'].decimals
 
   console.log('deposit qty::', depositQuantity.toString())
 
@@ -859,7 +860,7 @@ export async function mangoWithdrawInvestor(
       openOrdersKeys.push(marginAccount.openOrders[i])
     }
   }
-  const invBaseTokenAccount = await findAssociatedTokenAddress(wallet?.publicKey, new PublicKey(MANGO_TOKENS['USDC'].mintAddress));
+  const invBaseTokenAccount = await findAssociatedTokenAddress(wallet?.publicKey, new PublicKey(TOKENS['USDC'].mintAddress));
   let keys1 = [
     { isSigner: false, isWritable: true, pubkey: fundStateAccount },
     { isSigner: false, isWritable: true, pubkey: invStateAccount },

@@ -5,7 +5,7 @@ import { connection, programId, platformStateAccount, FUND_ACCOUNT_KEY, TOKEN_PR
 import { nu64, struct, u8 } from 'buffer-layout';
 import { createKeyIfNotExists, findAssociatedTokenAddress, setWalletTransaction, signAndSendTransaction, createAssociatedTokenAccountIfNotExist } from '../utils/web3';
 import { FUND_DATA, INVESTOR_DATA, PLATFORM_DATA } from '../utils/programLayouts';
-import { MANGO_TOKENS } from '../utils/tokens'
+import { TOKENS } from '../utils/tokens'
 import { devnet_pools } from '../utils/pools'
 import { updatePoolPrices } from './updatePrices';
 
@@ -29,14 +29,14 @@ export const Deposit = () => {
       return;
     };
   
-    const baseTokenAccount = await findAssociatedTokenAddress(key, new PublicKey(MANGO_TOKENS['USDC'].mintAddress));
+    const baseTokenAccount = await findAssociatedTokenAddress(key, new PublicKey(TOKENS['USDC'].mintAddress));
 
     const transaction = new Transaction()
 
     const RPDA = await PublicKey.findProgramAddress([Buffer.from("router")], programId);
     const FPDA = new PublicKey(fundPDA);
 
-    const associatedTokenAddress1 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(MANGO_TOKENS['USDC'].mintAddress), RPDA[0], transaction);    
+    const associatedTokenAddress1 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TOKENS['USDC'].mintAddress), RPDA[0], transaction);    
 
     const investerStateAccount = await createKeyIfNotExists(walletProvider, null, programId, FPDA.toBase58().substr(0, 31), INVESTOR_DATA.span, transaction)
     
@@ -57,7 +57,7 @@ export const Deposit = () => {
     dataLayout.encode(
       {
         instruction: 1,
-        amount: amount * ( 10 ** MANGO_TOKENS['USDC'].decimals)
+        amount: amount * ( 10 ** TOKENS['USDC'].decimals)
       },
       data
     )

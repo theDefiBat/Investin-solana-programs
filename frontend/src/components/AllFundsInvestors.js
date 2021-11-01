@@ -4,9 +4,8 @@ import { connection, FUND_ACCOUNT_KEY, platformStateAccount, PLATFORM_ACCOUNT_KE
 import { GlobalState } from '../store/globalState';
 import { PublicKey, Transaction, TransactionInstruction } from '@solana/web3.js';
 import { TOKEN_PROGRAM_ID } from '@project-serum/serum/lib/token-instructions';
-import { FUND_DATA, INVESTOR_DATA, PLATFORM_DATA, U64F64 } from '../utils/programLayouts';
+import { FUND_DATA, INVESTOR_DATA, PLATFORM_DATA, SPL_TOKEN_MINT_DATA, U64F64 } from '../utils/programLayouts';
 import { Badge } from 'reactstrap';
-import { MANGO_TOKENS } from "../utils/tokens";
 import BN from 'bn.js';
 import { Card, Col, Row ,Table} from 'reactstrap';
 import { Blob, seq, struct, u32, u8, u16, ns64 ,nu64} from 'buffer-layout';
@@ -42,8 +41,38 @@ export const AllFundsInvestors = () => {
     const managers = []
     const allFunds = await connection.getProgramAccounts(programId, { filters: [{ dataSize: FUND_DATA.span }] });
 
+    // let fundsWithIVNAmt = [];
+
     for (const data of allFunds) {
         const decodedData = FUND_DATA.decode(data.account.data);
+        
+        //to get funds with non-zero IVN holdings
+        // for (let j =0 ; j<decodedData?.tokens.length; j++){
+        //   let i = decodedData?.tokens[j];
+        //   if(i.vault.toBase58() === '11111111111111111111111111111111')
+        //    continue;
+        //   const vault_info = await connection.getAccountInfo(i.vault);
+        //   if(!vault_info)
+        //    continue;
+        //   const token_data = SPL_TOKEN_MINT_DATA.decode(vault_info?.data);
+         
+        //   if(token_data?.mint_authority?.toBase58()==='iVNcrNE9BRZBC9Aqf753iZiZfbszeAVUoikgT9yvr2a'){
+        //     const ivnBalance = await connection.getTokenAccountBalance(i.vault, "max");
+        //     if(Number(ivnBalance.value.uiAmount) >0){
+        //         console.log("balance::",(ivnBalance.value.uiAmount));
+        //         fundsWithIVNAmt.push({  
+        //           //  fundState : decodedData,
+        //             fundPDA: decodedData.fund_pda.toBase58(),
+        //             fundManager: decodedData.manager_account.toBase58(),
+        //             fundStateAccount: data.pubkey.toBase58(),
+        //             ivnBalance : (ivnBalance.value.uiAmount), 
+        //             ivnVault : i.vault.toBase58()
+        //         })
+        //      }
+        //   }
+        // }
+       
+
         // if (decodedData.is_initialized) {
             // const { updatedPerformance, currentAum } = await getPerformance(mapTokens(platformData.token_list, decodedData.tokens), prices, (decodedData.prev_performance), decodedData.total_amount, (await fundMarginData(decodedData))?.balance ?? 0)
             managers.push({
@@ -62,6 +91,9 @@ export const AllFundsInvestors = () => {
         // }
     }
     console.log("managers:",managers);
+
+    // console.error("fundsWithIVNAmt:",fundsWithIVNAmt);
+
     setFunds(managers);
   }
 

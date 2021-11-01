@@ -6,7 +6,7 @@ import { connection, programId, TOKEN_PROGRAM_ID, FUND_ACCOUNT_KEY, LIQUIDITY_PO
 import { devnet_pools } from '../utils/pools'
 import { AMM_INFO_LAYOUT_V4, FUND_DATA, PLATFORM_DATA } from '../utils/programLayouts'
 import { TokenAmount } from '../utils/safe-math'
-import { MANGO_TOKENS, NATIVE_SOL, TEST_TOKENS, TOKENS } from '../utils/tokens'
+import { NATIVE_SOL, TEST_TOKENS, TOKENS } from '../utils/tokens'
 import { createAssociatedTokenAccountIfNotExist, createTokenAccountIfNotExist, findAssociatedTokenAddress, sendNewTransaction, signAndSendTransaction } from '../utils/web3'
 
 export const OrcaSwap = () => {
@@ -212,7 +212,7 @@ export const OrcaSwap = () => {
       if(platformTokens?.length) {
         pt = platformTokens.map( (i) => {
           return {
-            symbol: (Object.keys(MANGO_TOKENS).find( k => MANGO_TOKENS[k].mintAddress ===i.mint.toBase58()) ),
+            symbol: (Object.keys(TOKENS).find( k => TOKENS[k].mintAddress ===i.mint.toBase58()) ),
             mintAddress: i.mint.toBase58(),
             decimals: i.decimals?.toString()
           }

@@ -253,8 +253,10 @@ pub struct TokenInfo {
     pub last_updated: UnixTimestamp,
 
     pub token_id: u8, // 0 -> raydium, 1-> orca, 2 -> strategy
+
+    pub pc_index: u8, // 0 -> USDC (index of the pc i.e base's tokenInfo in platformState)
     // padding for future use
-    pub padding: [u8; 7],
+    pub padding: [u8; 6],
 }
 impl_loadable!(TokenInfo);
 
