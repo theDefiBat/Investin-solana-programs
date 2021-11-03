@@ -203,9 +203,9 @@ impl Fund {
         // check if fund state acc passed is initialised
         check!(fund_data.is_initialized(), FundError::InvalidStateAccount);
 
-        let depositors: u64 = U64F64::to_num(U64F64::from_num(fund_data.no_of_investments).checked_sub(U64F64::from_num(fund_data.number_of_active_investments)).unwrap());
+        // let depositors: u64 = U64F64::to_num(U64F64::from_num(fund_data.no_of_investments).checked_sub(U64F64::from_num(fund_data.number_of_active_investments)).unwrap());
 
-        check!(depositors < 10, FundError::DepositLimitReached);
+        // check!(depositors < 10, FundError::DepositLimitReached);
         // check if amount deposited is more than the minimum amount for the fund
         check!(amount >= fund_data.min_amount, FundError::InvalidAmount);
         // check if investor has signed the transaction
@@ -337,6 +337,7 @@ impl Fund {
 
             // zero out slot
             fund_data.investors[index] = Pubkey::default();
+            fund_data.number_of_active_investments += 1;
         }
 
         msg!("transferable amount:: {:?}", transferable_amount);
@@ -404,7 +405,6 @@ impl Fund {
         fund_data.tokens[0].balance = parse_token_account(&fund_btoken_acc)?.amount;
         // dont update performance now
         update_amount_and_performance(&platform_data, &mut fund_data, &clock_sysvar_acc, margin_equity, false)?;
-        fund_data.number_of_active_investments = fund_data.no_of_investments;
 
         Ok(())
     }
