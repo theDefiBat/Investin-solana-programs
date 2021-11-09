@@ -46,6 +46,24 @@ pub mod investin_admin {
     declare_id!("owZmWQkqtY3Kqnxfua1KTHtR2S6DgBTP75JKbh15VWG");
 }
 
+pub mod usdc_mint {
+    use solana_program::declare_id;
+    // set investin admin
+    declare_id!("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+}
+
+pub mod raydium_id {
+    use solana_program::declare_id;
+    // set investin admin
+    declare_id!("675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8");
+}
+
+pub mod orca_id {
+    use solana_program::declare_id;
+    // set investin admin
+    declare_id!("9W959DqEETiGZocYWCQPaJ6sBmUzgfxXfqGeTEdp3aQP");
+}
+
 pub struct Fund {}
 
 impl Fund {
@@ -94,7 +112,9 @@ impl Fund {
         check_eq!(usdc_vault.owner, fund_data.fund_pda);
         check_eq!(usdc_vault.mint, *usdc_mint_acc.key); // check for USDC mint
 
-        fund_data.tokens[0].index = 0;
+        fund_data.tokens[0].index[0] = 0;
+        fund_data.tokens[0].index[1] = 0;
+        fund_data.tokens[0].mux = 0;
         fund_data.tokens[0].balance = 0;
         fund_data.tokens[0].debt = 0;
         fund_data.tokens[0].is_active = true;
@@ -102,19 +122,39 @@ impl Fund {
         fund_data.no_of_assets = 1;
 
         // whitelisted tokens
-        for i in 1..no_of_tokens {
+        for index in 1..no_of_tokens {
             let mint_acc = next_account_info(accounts_iter)?;
             let vault_acc = next_account_info(accounts_iter)?;
 
             let asset_vault = parse_token_account(vault_acc)?;
             check_eq!(asset_vault.owner, fund_data.fund_pda);
 
-            let index = platform_data.get_token_index(mint_acc.key).unwrap();
-            fund_data.tokens[i as usize].index = index as u8;
-            fund_data.tokens[i as usize].balance = 0;
-            fund_data.tokens[i as usize].debt = 0;
-            fund_data.tokens[i as usize].vault = *vault_acc.key;
-            fund_data.tokens[i as usize].is_active = true;
+            let token_index_1 = platform_data.get_token_index(mint_acc.key, 0);
+            let token_index_2 = platform_data.get_token_index(mint_acc.key, 1);
+            
+            // both indexes cant be None
+            check!(((token_index_1 != None) || (token_index_2 != None)), ProgramError::InvalidAccountData);
+        
+            if token_index_1 != None {
+                fund_data.tokens[index as usize].mux = 0;
+                fund_data.tokens[index as usize].index[0] = token_index_1.unwrap() as u8;
+            }
+            else {
+                fund_data.tokens[index as usize].index[0] = 255; // Max u8
+            }
+        
+            if token_index_2 != None {
+                fund_data.tokens[index as usize].mux = 1;
+                fund_data.tokens[index as usize].index[1] = token_index_2.unwrap() as u8;
+            }
+            else {
+                fund_data.tokens[index as usize].index[1] = 255;
+            }
+        
+            fund_data.tokens[index as usize].is_active = true;    
+            fund_data.tokens[index as usize].balance = 0;
+            fund_data.tokens[index as usize].debt = 0;
+            fund_data.tokens[index as usize].vault = *vault_acc.key;
             fund_data.no_of_assets += 1;
         }
 
@@ -142,7 +182,8 @@ impl Fund {
     pub fn deposit (
         program_id: &Pubkey,
         accounts: &[AccountInfo],
-        amount: u64
+        amount: u64,
+        index: u8
     ) -> Result<(), ProgramError> {
         const NUM_FIXED:usize = 6;
         let accounts = array_ref![accounts, 0, NUM_FIXED];
@@ -179,7 +220,9 @@ impl Fund {
         investor_data.manager = fund_data.manager_account;
 
         // update queue
-        let index = fund_data.no_of_investments - fund_data.number_of_active_investments;
+        // let index = fund_data.no_of_investments - fund_data.number_of_active_investments;
+        // queue slot should be empty
+        check_eq!(fund_data.investors[index as usize], Pubkey::default());
         fund_data.investors[index as usize] = *investor_state_acc.key;
         fund_data.no_of_investments += 1;
 
@@ -213,19 +256,17 @@ impl Fund {
     // manager transfer
     pub fn transfer (
         program_id: &Pubkey,
-        accounts: &[AccountInfo],
+        accounts: &[AccountInfo]
     ) -> Result<(), ProgramError> {
 
         const NUM_FIXED:usize = 11;
-        let accounts = array_ref![accounts, 0, NUM_FIXED + 3*NUM_MARGIN + MAX_INVESTORS];
-
         let (
             fixed_accs,
             margin_accs,
             open_orders_accs,
             oracle_accs,
             investor_state_accs
-        ) = array_refs![accounts, NUM_FIXED, NUM_MARGIN, NUM_MARGIN, NUM_MARGIN, MAX_INVESTORS];
+        ) = array_refs![accounts, NUM_FIXED, NUM_MARGIN, NUM_MARGIN, NUM_MARGIN; ..;];
 
         let [
             platform_acc,
@@ -264,15 +305,43 @@ impl Fund {
         // check if router PDA matches
         check!(*pda_router_acc.key == platform_data.router, FundError::IncorrectPDA);
 
-        msg!("Calculating transfer amount");
-        let transferable_amount: u64 = U64F64::to_num(U64F64::from_num(fund_data.amount_in_router)
-        .checked_mul(U64F64::from_num(98)).unwrap()
-        .checked_div(U64F64::from_num(100)).unwrap());
+        // update start performance for investors
+        update_amount_and_performance(&platform_data, &mut fund_data, &clock_sysvar_acc, margin_equity, true)?;
+
+        let mut transferable_amount: u64 = 0;
+        let mut fee: u64 = 0;
+
+        for investor_state_acc in investor_state_accs.iter() {
+            let index = fund_data.get_investor_index(investor_state_acc.key).unwrap();
+            let mut investor_data = InvestorData::load_mut_checked(investor_state_acc, program_id)?;
+
+            // validation checks
+            check_eq!(fund_data.investors[index], *investor_state_acc.key);            
+            check!(investor_data.amount_in_router > 0, ProgramError::InvalidAccountData);
+            check_eq!(investor_data.manager, *manager_acc.key);
+
+            investor_data.amount = U64F64::to_num(U64F64::from_num(investor_data.amount_in_router).checked_mul(U64F64!(0.98)).unwrap());
+
+            // update transfer variables
+            transferable_amount = transferable_amount.checked_add(investor_data.amount).unwrap();
+            fee = fee.checked_add(U64F64::to_num(
+                U64F64::from_num(investor_data.amount).checked_div(U64F64::from_num(100)).unwrap()
+            )).unwrap();
+
+            // update fund amount in router
+            fund_data.amount_in_router = fund_data.amount_in_router.checked_sub(investor_data.amount_in_router).unwrap();
+            
+            // update investor variables
+            investor_data.amount_in_router = 0;
+            investor_data.start_performance = fund_data.prev_performance;
+
+            // zero out slot
+            fund_data.investors[index] = Pubkey::default();
+        }
 
         msg!("transferable amount:: {:?}", transferable_amount);
 
         msg!("Calling transfer instructions");
-
         invoke_signed(
             &(spl_token::instruction::transfer(
                 token_prog_acc.key,
@@ -291,10 +360,7 @@ impl Fund {
             &[&["router".as_ref(), bytes_of(&platform_data.router_nonce)]]
         )?;
 
-        msg!("Management Fee Transfer");
-        let management_fee: u64 = U64F64::to_num(U64F64::from_num(fund_data.amount_in_router)
-        .checked_div(U64F64::from_num(100)).unwrap());
-
+        msg!("Management Fee Transfer {:?}", fee);
         invoke_signed(
             &(spl_token::instruction::transfer(
                 token_prog_acc.key,
@@ -302,7 +368,7 @@ impl Fund {
                 manager_btoken_acc.key,
                 pda_router_acc.key,
                 &[pda_router_acc.key],
-                management_fee
+                fee
             ))?,
             &[
                 router_btoken_acc.clone(),
@@ -312,11 +378,9 @@ impl Fund {
             ],
             &[&["router".as_ref(), bytes_of(&platform_data.router_nonce)]]
         )?;
+
         msg!("Protocol Fee Transfer");
         check_eq!(platform_data.investin_vault, *investin_btoken_acc.key);
-        let protocol_fee: u64 = U64F64::to_num(U64F64::from_num(fund_data.amount_in_router)
-        .checked_div(U64F64::from_num(100)).unwrap());
-
         invoke_signed(
             &(spl_token::instruction::transfer(
                 token_prog_acc.key,
@@ -324,7 +388,7 @@ impl Fund {
                 investin_btoken_acc.key,
                 pda_router_acc.key,
                 &[pda_router_acc.key],
-                protocol_fee
+                fee
             ))?,
             &[
                 router_btoken_acc.clone(),
@@ -336,30 +400,11 @@ impl Fund {
         )?;
         
         msg!("Transfers completed");
-        
-        // dont update performance; just amount
-        update_amount_and_performance(&platform_data, &mut fund_data, &clock_sysvar_acc, margin_equity, true)?;
-
-        let in_queue = fund_data.no_of_investments - fund_data.number_of_active_investments;
-        for i in 0..in_queue as usize {
-            let investor_state_acc = &investor_state_accs[i];
-            let mut investor_data = InvestorData::load_mut_checked(investor_state_acc, program_id)?;
-            check_eq!(fund_data.investors[i], *investor_state_acc.key);
-            msg!("investor account update");
-            if investor_data.amount_in_router != 0 {
-                investor_data.amount =
-                    U64F64::to_num(U64F64::from_num(investor_data.amount_in_router).checked_mul(U64F64!(0.98)).unwrap());
-                investor_data.start_performance = fund_data.prev_performance;
-                investor_data.amount_in_router = 0;
-            }
-            fund_data.investors[i] = Pubkey::default();
-        }
 
         fund_data.tokens[0].balance = parse_token_account(&fund_btoken_acc)?.amount;
         // dont update performance now
         update_amount_and_performance(&platform_data, &mut fund_data, &clock_sysvar_acc, margin_equity, false)?;
         fund_data.number_of_active_investments = fund_data.no_of_investments;
-        fund_data.amount_in_router = 0;
 
         Ok(())
     }
@@ -420,6 +465,8 @@ impl Fund {
             fund_data.no_of_investments -= 1;
             investor_data.amount_in_router = 0;
             investor_data.is_initialized = false;
+            let index = fund_data.get_investor_index(investor_state_acc.key).unwrap();
+            fund_data.investors[index] = Pubkey::default();
             // close investor account
             close_investor_account(investor_acc, investor_state_acc)?;
         } 
@@ -430,8 +477,9 @@ impl Fund {
                 if investor_data.token_debts[i] < 10 {
                     continue;
                 }
-                check_eq!(investor_data.token_indexes[i], fund_data.tokens[i].index);
-                //check_eq!(fund_data.tokens[i].vault, *fund_token_accs[i].key);
+                let mint_1 = platform_data.token_list[investor_data.token_indexes[i] as usize].mint;
+                let mint_2 = platform_data.token_list[fund_data.tokens[i].index[fund_data.tokens[i].mux as usize] as usize].mint;
+                check_eq!(mint_1, mint_2);
                 msg!("withdrawing:: {:?}", investor_data.token_debts[i]);
                 msg!("balance:: {:?}", parse_token_account(&fund_token_accs[i])?.amount);
                 invoke_signed(
@@ -522,7 +570,7 @@ impl Fund {
                 let mut withdraw_amount: u64 = U64F64::to_num(
                     U64F64::from_num(fund_data.tokens[i].balance-fund_data.tokens[i].debt)
                 .checked_mul(share).unwrap());
-                investor_data.token_indexes[i] = fund_data.tokens[i].index;
+                investor_data.token_indexes[i] = fund_data.tokens[i].index[fund_data.tokens[i].mux as usize];
                 if fund_data.number_of_active_investments == 1 { // ceil for last investor
                     withdraw_amount += 1; // ceil
                     if withdraw_amount + fund_data.tokens[i].debt > fund_data.tokens[i].balance {
@@ -545,7 +593,6 @@ impl Fund {
                         investor_data.margin_debt[i]).unwrap();
                     // update margin equity for current withdrawal
                     investor_data.withdrawn_from_margin = true;
-                    fund_data.mango_positions[i].debtors += 1;
                     margin_equity[i] = margin_equity[i].checked_sub(margin_equity[i].checked_mul(share).unwrap()).unwrap();
                 }
             }
@@ -560,6 +607,7 @@ impl Fund {
     pub fn swap(
         program_id: &Pubkey,
         accounts: &[AccountInfo],
+        swap_index: u8,
         data: Data
     ) -> Result<(), ProgramError> {
                 
@@ -572,20 +620,54 @@ impl Fund {
 
         check!(platform_data.is_initialized(), ProgramError::InvalidAccountData);
         check!(fund_data.is_initialized(), ProgramError::InvalidAccountData);
+        check!(swap_index < 2, ProgramError::InvalidArgument);
 
-        let (source_info, dest_info) = swap_instruction(&data, &fund_data, accounts)?;
+        let (source_info, dest_info) = match swap_index {
+            0 => swap_instruction_raydium(&data, &fund_data, accounts)?,
+            1 => swap_instruction_orca(&data, &fund_data, accounts)?,
+            _ => return Err(ProgramError::InvalidArgument)
+        };
 
-        let source_index = platform_data.get_token_index(&source_info.mint).unwrap();
-        let dest_index = platform_data.get_token_index(&dest_info.mint).unwrap();
+        let source_index = platform_data.get_token_index(&source_info.mint, swap_index);
+        let dest_index = platform_data.get_token_index(&dest_info.mint, swap_index);
+        msg!("source_index:: {:?} ", source_index);
+        msg!("dest index:: {:?}", dest_index);
 
-        let si = fund_data.get_token_slot(source_index).unwrap();
-        let di = fund_data.get_token_slot(dest_index).unwrap();
+        msg!("source mint:: {:?}", source_info.mint);
+        msg!("dest mint:: {:?}", dest_info.mint);
 
-        fund_data.tokens[si].balance = source_info.amount;
-        fund_data.tokens[di].balance = dest_info.amount;
+        if source_info.mint == usdc_mint::ID {
+            let di = fund_data.get_token_slot(dest_index.unwrap(), swap_index as usize).unwrap();
+            fund_data.tokens[0].balance = source_info.amount;
+            fund_data.tokens[di].balance = dest_info.amount;
+            fund_data.tokens[di].mux = swap_index;
+            // check the balance validity
+            check!(fund_data.tokens[di].balance >= fund_data.tokens[di].debt, ProgramError::InsufficientFunds);
+        }
+        else if dest_info.mint == usdc_mint::ID {
+            let si = fund_data.get_token_slot(source_index.unwrap(), swap_index as usize).unwrap();
+            fund_data.tokens[0].balance = dest_info.amount;
+            fund_data.tokens[si].balance = source_info.amount;
+            fund_data.tokens[si].mux = swap_index;
+            // check balance validity
+            check!(fund_data.tokens[si].balance >= fund_data.tokens[si].debt, ProgramError::InsufficientFunds);
+        }
+        else {
+            let si = fund_data.get_token_slot(source_index.unwrap(), swap_index as usize).unwrap();
+            let di = fund_data.get_token_slot(dest_index.unwrap(), swap_index as usize).unwrap();
 
-        check!(fund_data.tokens[si].balance >= fund_data.tokens[si].debt, ProgramError::InsufficientFunds);
-        check!(fund_data.tokens[di].balance >= fund_data.tokens[di].debt, ProgramError::InsufficientFunds);
+            fund_data.tokens[si].balance = source_info.amount;
+            fund_data.tokens[di].balance = dest_info.amount;
+
+            fund_data.tokens[si].mux = swap_index;
+            fund_data.tokens[di].mux = swap_index;
+
+            check!(fund_data.tokens[si].balance >= fund_data.tokens[si].debt, ProgramError::InsufficientFunds);
+            check!(fund_data.tokens[di].balance >= fund_data.tokens[di].debt, ProgramError::InsufficientFunds);
+        }
+
+        // check USDC balance validity
+        check!(fund_data.tokens[0].balance >= fund_data.tokens[0].debt, ProgramError::InsufficientFunds);
 
         Ok(())
     }
@@ -793,9 +875,9 @@ impl Fund {
                 msg!("FundInstruction::Initialize");
                 return Self::initialize(program_id, accounts, min_amount, min_return, performance_fee_percentage, no_of_tokens);
             }
-            FundInstruction::InvestorDeposit { amount } => {
+            FundInstruction::InvestorDeposit { amount, index } => {
                 msg!("FundInstruction::InvestorDeposit");
-                return Self::deposit(program_id, accounts, amount);
+                return Self::deposit(program_id, accounts, amount, index);
             }
             FundInstruction::ManagerTransfer => {
                 msg!("FundInstruction::ManagerTransfer");
@@ -809,9 +891,9 @@ impl Fund {
                 msg!("FundInstruction::InvestorWithdraw");
                 return Self::withdraw_settle(program_id, accounts);
             }
-            FundInstruction::Swap { data } => {
+            FundInstruction::Swap { swap_index, data } => {
                 msg!("FundInstruction::Swap");
-                return Self::swap(program_id, accounts, data);
+                return Self::swap(program_id, accounts, swap_index, data);
             }
             FundInstruction::ClaimPerformanceFee {} => {
                 msg!("FundInstruction::ClaimPerformanceFee");
@@ -871,9 +953,9 @@ impl Fund {
                 msg!("FundInstruction::MangoWithdrawInvestorSettle");
                 return mango_withdraw_investor_settle(program_id, accounts);
             }
-            FundInstruction::AddTokenToWhitelist => {
+            FundInstruction::AddTokenToWhitelist { token_id, pc_index} => {
                 msg!("FundInstruction::AddTokenToWhitelist");
-                return add_token_to_whitelist(program_id, accounts);
+                return add_token_to_whitelist(program_id, accounts, token_id, pc_index);
             }
             FundInstruction::UpdateTokenPrices { count } => {
                 msg!("FundInstruction::UpdateTokenPrices");
@@ -883,9 +965,9 @@ impl Fund {
                 msg!("FundInstruction::AddTokenToFund");
                 return add_token_to_fund(program_id, accounts, index);
             }
-            FundInstruction::RemoveTokenFromFund => {
+            FundInstruction::RemoveTokenFromFund {index} => {
                 msg!("FundInstruction::RemoveTokenFromFund");
-                return remove_token_from_fund(program_id, accounts);
+                return remove_token_from_fund(program_id, accounts, index);
             }
         }
     }
@@ -916,16 +998,22 @@ pub fn update_amount_and_performance(
         // dont update if token balance == 0
         if (fund_data.tokens[i].balance - fund_data.tokens[i].debt) == 0 { continue; }
 
+        // get last mux
+        let mux = fund_data.tokens[i].mux as usize;
         // get index of token
-        let token_info = platform_data.token_list[fund_data.tokens[i].index as usize];
+        let token_info = platform_data.token_list[fund_data.tokens[i].index[mux] as usize];
 
         if clock.unix_timestamp - token_info.last_updated > 100 {
             msg!("price not up-to-date.. aborting");
             return Err(FundError::PriceStaleInAccount.into())
         }
         // calculate price in terms of base token
-        let val: U64F64 = U64F64::from_num(fund_data.tokens[i].balance - fund_data.tokens[i].debt)
+        let mut val: U64F64 = U64F64::from_num(fund_data.tokens[i].balance - fund_data.tokens[i].debt)
         .checked_mul(token_info.pool_price).unwrap();
+
+         if token_info.pc_index != 0 {
+             val = val.checked_mul(platform_data.token_list[token_info.pc_index as usize].pool_price).unwrap();
+         }
 
         fund_val = fund_val.checked_add(val).unwrap();
     }
@@ -1069,7 +1157,7 @@ pub fn check_owner(account_info: &AccountInfo, key: &Pubkey) -> Result<(), Progr
     Ok(())
 }
 
-pub fn swap_instruction(
+pub fn swap_instruction_raydium(
     data: &Data,
     fund_data: &FundData,
     accounts: &[AccountInfo]
@@ -1105,14 +1193,14 @@ pub fn swap_instruction(
             *pool_prog_acc.key,
             &data,
             vec![
-                AccountMeta::new(*token_prog_acc.key, false),
+                AccountMeta::new_readonly(*token_prog_acc.key, false),
                 AccountMeta::new(*amm_id.key, false),
                 AccountMeta::new(*amm_authority.key, false),
                 AccountMeta::new(*amm_open_orders.key, false),
                 AccountMeta::new(*amm_target_orders.key, false),
                 AccountMeta::new(*pool_coin_token_acc.key, false),
                 AccountMeta::new(*pool_pc_token_acc.key, false),
-                AccountMeta::new(*dex_prog_acc.key, false),
+                AccountMeta::new_readonly(*dex_prog_acc.key, false),
                 AccountMeta::new(*dex_market_acc.key, false),
                 AccountMeta::new(*bids_acc.key, false),
                 AccountMeta::new(*asks_acc.key, false),
@@ -1152,12 +1240,91 @@ pub fn swap_instruction(
     let source_info = parse_token_account(source_token_acc)?;
     let dest_info = parse_token_account(dest_token_acc)?;
 
+    // owner checks
+    check_eq!(source_info.owner, fund_data.fund_pda);
+    check_eq!(dest_info.owner, fund_data.fund_pda);
+
+    // check program id
+    check_eq!(*pool_prog_acc.key, raydium_id::ID);
+
     check_eq!(fund_data.manager_account, *manager_acc.key);
     check_eq!(manager_acc.is_signer, true);
 
     Ok((source_info, dest_info))
 }
 
+pub fn swap_instruction_orca(
+    data: &Data,
+    fund_data: &FundData,
+    accounts: &[AccountInfo]
+) -> Result<(Account, Account), ProgramError>{
+
+    let accounts = array_ref![accounts, 0, 14];
+    let [
+        _platform_state_acc,
+        _fund_state_acc,
+        manager_acc,
+        orca_prog_id,
+        swap_acc,
+        swap_authority,
+        fund_pda_acc, // take this as transfer authority
+        user_source,
+        pool_source,
+        pool_dest,
+        user_dest,
+        pool_mint,
+        fee_account,
+        token_prog_acc
+    ] = accounts;
+
+    invoke_signed(
+        &(Instruction::new_with_borsh(
+            *orca_prog_id.key,
+            &data,
+            vec![
+                AccountMeta::new_readonly(*swap_acc.key, false),
+                AccountMeta::new_readonly(*swap_authority.key, false),
+                AccountMeta::new_readonly(*fund_pda_acc.key, true),
+                AccountMeta::new(*user_source.key, false),
+                AccountMeta::new(*pool_source.key, false),
+                AccountMeta::new(*pool_dest.key, false),
+                AccountMeta::new(*user_dest.key, false),
+                AccountMeta::new(*pool_mint.key, false),
+                AccountMeta::new(*fee_account.key, false),
+                AccountMeta::new_readonly(*token_prog_acc.key, false)
+            ],
+        )),
+        &[
+            swap_acc.clone(),
+            swap_authority.clone(),
+            fund_pda_acc.clone(),
+            user_source.clone(),
+            pool_source.clone(),
+            pool_dest.clone(),
+            user_dest.clone(),
+            pool_mint.clone(),
+            fee_account.clone(),
+            token_prog_acc.clone(),
+        ],
+        &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
+    )?;
+    msg!("swap instruction done");
+
+    let source_info = parse_token_account(user_source)?;
+    let dest_info = parse_token_account(user_dest)?;
+
+     // owner checks
+    check_eq!(source_info.owner, fund_data.fund_pda);
+    check_eq!(dest_info.owner, fund_data.fund_pda);
+
+    // check program id
+    check_eq!(*orca_prog_id.key, orca_id::ID);
+
+    check_eq!(fund_data.manager_account, *manager_acc.key);
+    check_eq!(manager_acc.is_signer, true);
+
+    Ok((source_info, dest_info))
+}
 pub fn get_share(
     fund_data: &mut FundData,
     investor_data: &mut InvestorData,
