@@ -164,7 +164,7 @@ pub struct FundData {
      pub investors: [Pubkey; MAX_INVESTORS],
  
      // margin position info
-     pub mango_positions: [MarginInfo; 2],
+     pub mango_positions: [MarginInfo],
  
      // padding for future use
      pub xpadding: [u8; 32]
@@ -215,7 +215,7 @@ pub struct InvestorData {
     pub manager: Pubkey,
 
     // margin percentage
-    pub margin_debt: [U64F64; NUM_MARGIN],
+    pub margin_debt: U64F64,
 
     // margin position id
     pub margin_position_id: [u64; NUM_MARGIN],
@@ -229,8 +229,7 @@ pub struct InvestorData {
     // // mngo reward debt
     // pub mngo_debt: U64F64
 
-    // // #TODO: Support perp_market_index to identify perp market on Mango
-    // pub perp_market_index: u8,
+    
 
     
 }
@@ -242,17 +241,28 @@ pub struct MarginInfo {
     // margin account pubkey to check if the passed acc is correct
     pub margin_account: Pubkey,
 
-    // 0: inactive, 1: deposited, 2: position_open, 3: settled_open, 4: position_closed, 5: settled_close
-    pub state: u8, 
-    pub margin_index: u8, // token_index for the trade
-    pub position_side: u8, // 0 for LONG, 1 for SHORT
-    pub padding: [u8; 3],
-    pub position_id: u16, // unique id for the position
+    // // 0: inactive, 1: deposited, 2: position_open, 3: settled_open, 4: position_closed, 5: settled_close
+    // pub state: u8, 
+    // pub margin_index: u8, // token_index for the trade
+    // pub position_side: u8, // 0 for LONG, 1 for SHORT
+    // pub padding: [u8; 3],
+    // pub position_id: u16, // unique id for the position
     
-    pub trade_amount: u64, // 8 for PnL calculation
+    // pub trade_amount: u64, // 8 for PnL calculation
+
+    pub perp_market_index: [u8; 4];
+    pub deposit_index: [u8; 2];
+    pub markets_active: u8;
+    pub deposits_active: u8;
+
+    pub mango_account: Pubkey;
 
     pub fund_share: U64F64,
     pub share_ratio: U64F64
+    // // #TODO: Support perp_market_index to identify perp market on Mango
+    // pub perp_market_index: u8,
+
+    pub mango_account: Pubkey;  
 }
 impl_loadable!(MarginInfo);
 
