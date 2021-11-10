@@ -215,7 +215,7 @@ pub struct InvestorData {
     pub manager: Pubkey,
 
     // margin percentage
-    pub margin_debt: U64F64,
+    pub margin_debt: [U64F64; NUM_MARGIN],
 
     // margin position id
     pub margin_position_id: [u64; NUM_MARGIN],
@@ -255,7 +255,7 @@ pub struct MarginInfo {
     pub markets_active: u8;
     pub deposits_active: u8;
 
-    pub mango_account: Pubkey;
+    // pub mango_account: Pubkey;
 
     pub fund_share: U64F64,
     pub share_ratio: U64F64

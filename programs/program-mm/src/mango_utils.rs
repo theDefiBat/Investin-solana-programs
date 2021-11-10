@@ -1,24 +1,32 @@
 use bytemuck::bytes_of;
 use fixed::types::I80F48;
-
+use fixed::types::U64F64;
 use solana_program::{
     account_info::AccountInfo,
     msg,
     instruction:: {AccountMeta, Instruction},
     program_error::ProgramError,
+    program_pack::Pack,
     pubkey::Pubkey,
     program::invoke_signed,
 };
+use num_enum::TryFromPrimitive;
+use std::convert::TryFrom;
+use std::convert::TryInto;
 
-use arrayref::array_ref;
+use fixed_macro::types::U64F64;
+pub const ONE_U64F64: U64F64 = U64F64!(1);
+use std::num::NonZeroU64;
+use arrayref::{array_ref, array_refs};
 
 use crate::error::FundError;
-use crate::state::FundData;
-use crate::processor::{ parse_token_account};
+use crate::state::{MAX_INVESTORS_WITHDRAW, NUM_MARGIN, FundData, InvestorData};
+use crate::state::Loadable;
+use crate::processor::{ parse_token_account, get_margin_valuation};
 
 use mango::state::{MangoAccount, MangoGroup, MangoCache, MAX_PAIRS};
 //use mango::state::Loadable as OtherLoadable;
-use mango::instruction::{deposit, withdraw, place_perp_order, cancel_perp_order_by_client_id, MangoInstruction};
+use mango::instruction::{init_mango_account, deposit, withdraw, place_perp_order, cancel_perp_order_by_client_id, MangoInstruction};
 use mango::matching::{Side, OrderType};
 
 macro_rules! check {
@@ -238,7 +246,7 @@ pub fn mango_withdraw (
     // check fund vault
     check_eq!(fund_data.vault_key, *fund_vault_ai.key); 
     
-    // withdraw USDC from mango account
+    // withdraw Tokens from mango account
     let open_orders_accs = [Pubkey::default(); MAX_PAIRS];
     invoke_signed(
         &withdraw(mango_prog_ai.key, mango_group_ai.key, mango_account_ai.key, fund_pda_ai.key,
