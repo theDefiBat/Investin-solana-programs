@@ -87,7 +87,7 @@ impl Fund {
         let mut fund_data = FundData::load_mut_checked(fund_state_acc, program_id)?;
 
         //  check if already init
-        //check!(!fund_data.is_initialized(), FundError::FundAccountAlreadyInit);
+        check!(!fund_data.is_initialized(), FundError::FundAccountAlreadyInit);
         //check_eq!(fund_data.version, 0);
         check!(platform_data.is_initialized(), ProgramError::InvalidAccountData);
         check!(min_return >= 500, ProgramError::InvalidArgument);
@@ -97,6 +97,7 @@ impl Fund {
 
         // save manager's wallet address
         fund_data.manager_account = *manager_acc.key;
+        check!(manager_acc.is_signer, ProgramError::MissingRequiredSignature);
 
         // get nonce for signing later
         let (pda, nonce) = Pubkey::find_program_address(&[&*manager_acc.key.as_ref()], program_id);
@@ -225,6 +226,11 @@ impl Fund {
         check_eq!(fund_data.investors[index as usize], Pubkey::default());
         fund_data.investors[index as usize] = *investor_state_acc.key;
         fund_data.no_of_investments += 1;
+
+        // check router vault account is owned by router
+        let (router_pda, _nonce) = Pubkey::find_program_address(&["router".as_ref()], program_id);
+        let router_owner = parse_token_account(router_btoken_acc)?.owner;
+        check_eq!(router_owner, router_pda);
 
         check!(*token_prog_acc.key == spl_token::id(), FundError::IncorrectProgramId);
 
@@ -510,8 +516,8 @@ impl Fund {
             investor_data.has_withdrawn = false;
             investor_data.is_initialized = false;
             // check if there are no margin debts
-            check_eq!(investor_data.margin_debt[0], 0);
-            check_eq!(investor_data.margin_debt[1], 0);
+            // check_eq!(investor_data.margin_debt[0], 0);
+            // check_eq!(investor_data.margin_debt[1], 0);
             // close investor account
             close_investor_account(investor_acc, investor_state_acc)?;
         }
@@ -772,6 +778,72 @@ impl Fund {
 
     }
 
+    pub fn flush_debts (
+        program_id: &Pubkey,
+        accounts: &[AccountInfo],
+        index: u8,
+        count: u8
+    ) -> Result<(), ProgramError> {
+
+        let accounts_iter = &mut accounts.iter();
+        let platform_state_acc = next_account_info(accounts_iter)?;
+        let fund_state_acc = next_account_info(accounts_iter)?;
+        let manager_acc = next_account_info(accounts_iter)?;
+        let vault_acc = next_account_info(accounts_iter)?;
+        let pda_man_acc = next_account_info(accounts_iter)?;
+        let token_prog_acc = next_account_info(accounts_iter)?;
+
+        let platform_data = PlatformData::load_checked(platform_state_acc, program_id)?;
+        let mut fund_data = FundData::load_mut_checked(fund_state_acc, program_id)?;
+
+        check_eq!(manager_acc.is_signer, true);
+        check_eq!(fund_data.manager_account, *manager_acc.key);
+        check_eq!(fund_data.fund_pda, *pda_man_acc.key);
+
+        check_eq!(fund_data.tokens[index as usize].is_active, true);
+        check_eq!(fund_data.tokens[index as usize].vault, *vault_acc.key);
+
+        let token_mint = platform_data.token_list[fund_data.tokens[index as usize].index[fund_data.tokens[index as usize].mux as usize] as usize].mint;
+
+        for i in 0..count {
+            let investor_state_acc = next_account_info(accounts_iter)?;
+            let investor_token_acc = next_account_info(accounts_iter)?;
+
+            let mut investor_data = InvestorData::load_mut_checked(investor_state_acc, program_id)?;
+            let mint_1 = platform_data.token_list[investor_data.token_indexes[index as usize] as usize].mint;
+
+            // validation checks
+            check_eq!(investor_data.manager, *manager_acc.key);
+            check_eq!(parse_token_account(investor_token_acc)?.owner, investor_data.owner);
+            check_eq!(token_mint, mint_1);
+
+            invoke_signed(
+                &(spl_token::instruction::transfer(
+                    token_prog_acc.key,
+                    vault_acc.key,
+                    investor_token_acc.key,
+                    pda_man_acc.key,
+                    &[pda_man_acc.key],
+                    investor_data.token_debts[index as usize]
+                ))?,
+                &[
+                    vault_acc.clone(),
+                    investor_token_acc.clone(),
+                    pda_man_acc.clone(),
+                    token_prog_acc.clone()
+                ],
+                &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
+            )?;
+            fund_data.tokens[index as usize].debt -= investor_data.token_debts[index as usize];
+            investor_data.token_debts[index as usize] = 0;
+            investor_data.token_indexes[index as usize] = 0;
+            
+        }
+        fund_data.tokens[index as usize].balance = parse_token_account(vault_acc)?.amount;
+
+        Ok(())
+    }
+
     pub fn admin_control (
         program_id: &Pubkey,
         accounts: &[AccountInfo],
@@ -968,6 +1040,10 @@ impl Fund {
             FundInstruction::RemoveTokenFromFund {index} => {
                 msg!("FundInstruction::RemoveTokenFromFund");
                 return remove_token_from_fund(program_id, accounts, index);
+            }
+            FundInstruction::FlushDebts {index, count} => {
+                msg!("FundInstruction::FlushDebts");
+                return Self::flush_debts(program_id, accounts, index, count);
             }
         }
     }

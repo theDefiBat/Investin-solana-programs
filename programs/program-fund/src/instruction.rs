@@ -360,6 +360,11 @@ pub enum FundInstruction {
     // Token mint account
     RemoveTokenFromFund {
         index: u8 // index of slot
+    },
+
+    FlushDebts {
+        index: u8,
+        count: u8
     }
 
 }
@@ -540,6 +545,17 @@ impl FundInstruction {
                 let index = array_ref![data, 0, 1];
                 FundInstruction::RemoveTokenFromFund{
                     index: u8::from_le_bytes(*index)
+                }
+            },
+            22 => {
+                let data = array_ref![data, 0, 2];
+                let (
+                    index,
+                    count
+                ) = array_refs![data, 1, 1]; 
+                FundInstruction::FlushDebts{
+                    index: u8::from_le_bytes(*index),
+                    count: u8::from_le_bytes(*count)
                 }
             }
             _ => { return None; }
