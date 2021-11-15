@@ -560,9 +560,9 @@ pub fn mango_withdraw_fund (
     // update investor state account debts
     let (debts, debts_share) = update_investor_debts(&fund_data, investor_accs, withdraw_amount, index)?;
 
-    msg!("debts_share settled:: {:?}", debts_share);
-    msg!("fund_share:: {:?}", fund_data.mango_positions[index].fund_share);
-    msg!("share_ratio:: {:?}", fund_data.mango_positions[index].share_ratio);
+    // msg!("debts_share settled:: {:?}", debts_share);
+    // msg!("fund_share:: {:?}", fund_data.mango_positions[index].fund_share);
+    // msg!("share_ratio:: {:?}", fund_data.mango_positions[index].share_ratio);
     
     // all investors should be passed
     //check!(fund_data.mango_positions[0].fund_share.checked_add(debts_share).unwrap() > U64F64!(0.9999),
