@@ -516,8 +516,8 @@ impl Fund {
             investor_data.has_withdrawn = false;
             investor_data.is_initialized = false;
             // check if there are no margin debts
-            // check_eq!(investor_data.margin_debt[0], 0);
-            // check_eq!(investor_data.margin_debt[1], 0);
+            check_eq!(investor_data.margin_debt[0], 0);
+            check_eq!(investor_data.margin_debt[1], 0);
             // close investor account
             close_investor_account(investor_acc, investor_state_acc)?;
         }
