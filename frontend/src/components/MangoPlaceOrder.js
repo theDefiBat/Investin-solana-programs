@@ -72,9 +72,41 @@ export const MangoPlaceOrder = () => {
 
       let mangoAcc = await client.getMangoAccount(new PublicKey('7BLzTNvjNjaCnZ2Nnpu1aFYqTBsL8Lz2FUxknSAZ8tDX'), ids.serumProgramId)
       console.log("manogACc:: ", mangoAcc)
+
+      let mangoAccountDecoded = {};
+      mangoAccountDecoded.mangoGroup = mangoAcc.mangoGroup.toBase58();
+      mangoAccountDecoded.borrows = mangoAcc.borrows.map( i => i.toString());
+      mangoAccountDecoded.clientOrderIds = mangoAcc.clientOrderIds.map( i => i.toString());
+      mangoAccountDecoded.deposits = mangoAcc.deposits.map( i => i.toString());
+      mangoAccountDecoded.orders = mangoAcc.orders.map( i => i.toString());
+
+      mangoAccountDecoded.perpAccounts =  mangoAcc.perpAccounts.map( i => {
+        return {
+          asksQuantity: i.asksQuantity.toString(),
+          basePosition: i.basePosition.toString(),
+          bidsQuantity: i.bidsQuantity.toString(),
+          longSettledFunding: i.longSettledFunding.toString(),
+          mngoAccrued: i.mngoAccrued.toString(),
+          quotePosition: i.quotePosition.toString(),
+          shortSettledFunding: i.shortSettledFunding.toString(),
+          takerBase: i.takerBase.toString(),
+          takerQuote: i.takerQuote.toString(),
+        }
+      });
+      mangoAccountDecoded.spotOpenOrders = mangoAcc.spotOpenOrders.map( i => i.toBase58());
+      console.error("mangoAccountDecoded DECODED**:: ", mangoAccountDecoded)
+
+
       let nodeBankInfo = await connection.getAccountInfo(new PublicKey(ids.tokens[0].nodeKeys[0]))
       let nodeBank = NodeBankLayout.decode(nodeBankInfo.data)
       console.log("nodebank:: ", nodeBank)
+      let nodeBankDecode = {
+        borrows:  nodeBank.borrows.toString(),
+        deposits: nodeBank.deposits.toString(),
+        vault: nodeBank.vault.toBase58()
+      }
+      console.error("nodeBankDecode:: ", nodeBankDecode)
+
       return;
     }
 
