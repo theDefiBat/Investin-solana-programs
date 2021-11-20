@@ -18,17 +18,69 @@ export const MangoPlaceOrder = () => {
     const walletProvider = GlobalState.useState(s => s.walletProvider);
     const ids = IDS['groups'][0]
 
-    const handleMangoDeposit = async () => {
-
+    const getAllDecodeMangoData = async () => {
       let client = new MangoClient(connection, new PublicKey(ids.mangoProgramId))
       let mangoGroup = await client.getMangoGroup(new PublicKey(ids.publicKey))
       console.log("mango group:: ", mangoGroup)
+      let mangoGroupDecoded = {};
+      mangoGroupDecoded.admin = mangoGroup.admin.toBase58();
+      mangoGroupDecoded.dexProgramId = mangoGroup.dexProgramId.toBase58();
+      mangoGroupDecoded.insuranceVault = mangoGroup.insuranceVault.toBase58();
+      mangoGroupDecoded.mangoCache = mangoGroup.mangoCache.toBase58();
+
+      mangoGroupDecoded.msrmVault = mangoGroup.msrmVault.toBase58();
+      mangoGroupDecoded.numOracles = mangoGroup.numOracles.toString();
+
+      mangoGroupDecoded.oracles =  mangoGroup.oracles.map( i => i.toBase58());
+
+      mangoGroupDecoded.perpMarkets =  mangoGroup.perpMarkets.map( i => {
+        return {
+          baseLotSize: i.baseLotSize.toString(),
+          initAssetWeight: i.initAssetWeight.toString(),
+          initLiabWeight: i.initLiabWeight.toString(),
+          liquidationFee: i.liquidationFee.toString(),
+          maintAssetWeight: i.maintAssetWeight.toString(),
+          maintLiabWeight: i.maintLiabWeight.toString(),
+          makerFee: i.makerFee.toString(),
+          perpMarket:  i.perpMarket.toBase58(),
+          quoteLotSize: i.quoteLotSize.toString(),
+          takerFee:  i.takerFee.toString(),
+        }
+      });
+
+      mangoGroupDecoded.spotMarkets =  mangoGroup.spotMarkets.map( i => {
+        return {
+          initAssetWeight: i.initAssetWeight.toString(),
+          initLiabWeight: i.initLiabWeight.toString(),
+          liquidationFee: i.liquidationFee.toString(),
+          maintAssetWeight: i.maintAssetWeight.toString(),
+          maintLiabWeight: i.maintLiabWeight.toString(),
+          spotMarket:  i.spotMarket.toBase58(),
+        }
+      });
+
+      mangoGroupDecoded.tokens =  mangoGroup.tokens.map( i => {
+        return {
+          decimals: i.decimals,
+          mint: i.mint.toBase58(),
+          rootBank: i.rootBank.toBase58(),
+        }
+      });
+      console.error("mango group DECODED**:: ", mangoGroupDecoded)
+
+    
 
       let mangoAcc = await client.getMangoAccount(new PublicKey('7BLzTNvjNjaCnZ2Nnpu1aFYqTBsL8Lz2FUxknSAZ8tDX'), ids.serumProgramId)
       console.log("manogACc:: ", mangoAcc)
       let nodeBankInfo = await connection.getAccountInfo(new PublicKey(ids.tokens[0].nodeKeys[0]))
       let nodeBank = NodeBankLayout.decode(nodeBankInfo.data)
       console.log("nodebank:: ", nodeBank)
+      return;
+    }
+
+    const handleMangoDeposit = async () => {
+
+      await getAllDecodeMangoData();
       return;
     
     const key = walletProvider?.publicKey;
@@ -48,6 +100,17 @@ export const MangoPlaceOrder = () => {
     let fundStateInfo = await connection.getAccountInfo((fundStateAccount))
     let fundState = FUND_DATA.decode(fundStateInfo.data)
     console.log("fundState:: ", fundState)
+
+    let client = new MangoClient(connection, new PublicKey(ids.mangoProgramId))
+      let mangoGroup = await client.getMangoGroup(new PublicKey(ids.publicKey))
+      console.log("mango group:: ", mangoGroup)
+
+      let mangoAcc = await client.getMangoAccount(new PublicKey('7BLzTNvjNjaCnZ2Nnpu1aFYqTBsL8Lz2FUxknSAZ8tDX'), ids.serumProgramId)
+      console.log("manogACc:: ", mangoAcc)
+      let nodeBankInfo = await connection.getAccountInfo(new PublicKey(ids.tokens[0].nodeKeys[0]))
+      let nodeBank = NodeBankLayout.decode(nodeBankInfo.data)
+      console.log("nodebank:: ", nodeBank)
+      return;
 
 
     const dataLayout = struct([u32('instruction'), nu64('quantity')])
