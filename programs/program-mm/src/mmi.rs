@@ -60,3 +60,18 @@ pub fn mango_init_margin_account (
 
     Ok(())
 }
+
+// Init Mango account for the fund
+invoke_signed(
+    &init_mango_account(mango_prog_ai.key, mango_group_ai.key, mango_account_ai.key, fund_pda_ai.key)?,
+    &[
+        mango_prog_ai.clone(),
+        mango_group_ai.clone(),
+        mango_account_ai.clone(),
+        fund_pda_ai.clone(),
+    ],
+    &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
+)?;
+fund_data.mango_account = *mango_account_ai.key;
+fund_data.delegate = Pubkey::default();
+

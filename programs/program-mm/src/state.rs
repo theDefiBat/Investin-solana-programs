@@ -14,6 +14,7 @@ pub const NUM_TOKENS:usize = 8;
 pub const MAX_TOKENS:usize = 50;
 pub const MAX_INVESTORS:usize = 10;
 pub const MAX_INVESTORS_WITHDRAW: usize = 2;
+pub const NUM_MARGIN: usize = 2;
 
 pub trait Loadable: Pod {
     fn load_mut<'a>(account: &'a AccountInfo) -> Result<RefMut<'a, Self>, ProgramError> {
@@ -163,8 +164,8 @@ pub struct FundData {
      // Store investor state account addresses
      pub investors: [Pubkey; MAX_INVESTORS],
  
-     // margin position info
-     pub mango_positions: [MarginInfo],
+     // mango position info
+     pub mango_positions: MangoInfo,
  
      // padding for future use
      pub xpadding: [u8; 32]
@@ -214,7 +215,7 @@ pub struct InvestorData {
     // Fund manager wallet key
     pub manager: Pubkey,
 
-    // margin percentage
+    // TODO Debt in Depost Tokens on Mango
     pub margin_debt: [U64F64; NUM_MARGIN],
 
     // margin position id
@@ -237,9 +238,9 @@ impl_loadable!(InvestorData);
 
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct MarginInfo {
+pub struct MangoInfo {
     // margin account pubkey to check if the passed acc is correct
-    pub margin_account: Pubkey,
+    pub mango_account: Pubkey,
 
     // // 0: inactive, 1: deposited, 2: position_open, 3: settled_open, 4: position_closed, 5: settled_close
     // pub state: u8, 
@@ -249,20 +250,12 @@ pub struct MarginInfo {
     // pub position_id: u16, // unique id for the position
     
     // pub trade_amount: u64, // 8 for PnL calculation
-
     pub perp_market_index: [u8; 4];
     pub deposit_index: [u8; 2];
     pub markets_active: u8;
     pub deposits_active: u8;
 
-    // pub mango_account: Pubkey;
-
-    pub fund_share: U64F64,
-    pub share_ratio: U64F64
-    // // #TODO: Support perp_market_index to identify perp market on Mango
-    // pub perp_market_index: u8,
-
-    pub mango_account: Pubkey;  
+    pub investor_debts: [u64; 2]; // cumulative investor debts for each deposit token 
 }
 impl_loadable!(MarginInfo);
 
