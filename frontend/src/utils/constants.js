@@ -1,20 +1,23 @@
 import { Connection, PublicKey } from "@solana/web3.js";
 
-export const PLATFORM_ACCOUNT_KEY = "platformAccountKey";
-export const FUND_ACCOUNT_KEY = "fundAccountKey";
+export const PLATFORM_ACCOUNT_KEY = "platAccKey_11";
+export const FUND_ACCOUNT_KEY = "fundAccKey_77777";
+export const MARGIN_ACCOUNT_KEY_1 = "margin_account_key_17"
+export const MARGIN_ACCOUNT_KEY_2 = "margin_account_key_22"
+export const PRICE_ACCOUNT_KEY = "margin_account_key_22"
+
 
 export const adminAccount = new PublicKey('Fepyuf4vy7mKZVgpzS52UoUeSLmVvGnoMDyraCsjYUqn')
 
-export const adminAccount = new PublicKey('Fepyuf4vy7mKZVgpzS52UoUeSLmVvGnoMDyraCsjYUqn')
+// export const cluster = "https://api.devnet.solana.com";
 export const cluster = "https://solana-api.projectserum.com";
+// export const cluster = "https://mango.rpcpool.com";
+
 export const connection = new Connection(cluster, "confirmed");
 
+// export const programId = new PublicKey('J65z283avUTTgWCEbMQk1HCVyJkTRoofLMsgAmvjHWBk');
 export const programId = new PublicKey('BX8FpMj7MgTYr2YBan2kG9KX2UGimtBrECk2DabTYEYP');
 
-// change later
-export const platformStateAccount = new PublicKey('8qnxdsxfkd6aTgPbQB9Yet58yQhYsWhNb2EWPMb9UApo')
-
-export const priceStateAccount = new PublicKey('AqmhwPoxBA9bJPd3kdet3RRFqk2Er2S5CCGpGGRcLWQD')
 
 export const SYSTEM_PROGRAM_ID = new PublicKey('11111111111111111111111111111111')
 export const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA')
@@ -23,8 +26,5 @@ export const RENT_PROGRAM_ID = new PublicKey('SysvarRent111111111111111111111111
 export const CLOCK_PROGRAM_ID = new PublicKey('SysvarC1ock11111111111111111111111111111111')
 export const ASSOCIATED_TOKEN_PROGRAM_ID = new PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL')
 
-export const LIQUIDITY_POOL_PROGRAM_ID_V4 = '675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8'
-export const SERUM_PROGRAM_ID_V3 = '9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PusVFin'
-//export const LIQUIDITY_POOL_PROGRAM_ID_V4 = '9rpQHSyFVM1dkkHFQ2TtTzPEW7DVmEyPmN8wVniqJtuC'
-//export const SERUM_PROGRAM_ID_V3 = 'DESVgJVGajEgKGXhb6XmqDHGz3VjdgP7rEVESBgxmroY'
- 
+// export const MANGO_PROGRAM_ID_V3 = new PublicKey('4skJ85cdxQAFVKbcGgfun8iZPL7BadVYXG3kGEGkufqA')
+// export const MANGO_GROUP_ACCOUNT = new PublicKey('Ec2enZyoC4nGpEfu2sUNAa2nUGJHWxoUWYSEJ2hNTWTA')

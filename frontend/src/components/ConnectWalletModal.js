@@ -5,6 +5,7 @@ import PropTypes from 'prop-types';
 import { GlobalState } from '../store/globalState'
 import SolanaWalletAdapter from '@project-serum/sol-wallet-adapter'
 import { cluster } from '../utils/constants';
+import { PhantomWalletAdapter } from '../utils/wallets/PhantomWallet';
 
 const connectWalletButtonLabel = 'Connect Wallet'
 
@@ -15,7 +16,7 @@ export const ConnectWalletModal = (props) => {
 
   const toggle = () => setModal(!modal);
 
-  const providers = ['Sollet Extension', 'Sollet'];
+  const providers = ['Sollet Extension', 'Sollet', 'Phantom'];
 
   const handleSelectProvider = async (provider) => {
     let walletProvider = {};
@@ -26,6 +27,10 @@ export const ConnectWalletModal = (props) => {
       }
       case providers[1]: {
         walletProvider = new SolanaWalletAdapter("https://www.sollet.io", cluster);
+        break;
+      }
+      case providers[2]: {
+        walletProvider = new PhantomWalletAdapter();
         break;
       }
       default:

@@ -48,15 +48,54 @@ export const TEST_TOKENS = {
   }
 }
 
-export const TEST_LP_TOKENS = {
-  'RAYT-USDR': {
-    symbol: 'RAYT-USDR',
-    name: 'RAYT-USDR LP',
-    coin: { ...TEST_TOKENS.RAYT },
-    pc: { ...TEST_TOKENS.USDR },
 
-    mintAddress: '14Wp3dxYTQpRMMz3AW7f2XGBTdaBrf1qb2NKjAN3Tb13',
-    decimals: TEST_TOKENS.USDR.decimals
+
+export const MANGO_TOKENS = {
+  
+  'BTC': {
+    symbol: 'BTC',
+    name: 'BTC MANGO Test Token',
+    mintAddress: 'bypQzRBaSDWiKhoAw3hNkf35eF3z3AZCU8Sxks6mTPP',
+    decimals: 6
+  },
+
+  'ETH': {
+    symbol: 'ETH',
+    name: 'ETH coin',
+    mintAddress: 'ErWGBLBQMwdyC4H3MR8ef6pFK6gyHAyBxy4o1mHoqKzm',
+    decimals: 6,
+  },
+
+  'SOL': {
+    symbol: 'SOL',
+    name: 'SOL coin',
+    mintAddress: 'So11111111111111111111111111111111111111112',
+    decimals: 9,
+  },
+
+  'SRM': {
+    symbol: 'SRM',
+    name: 'SRM coin',
+    mintAddress: '9FbAMDvXqNjPqZSYt4EWTguJuDrGkfvwr3gSFpiSbX9S',
+    decimals: 6,
+  },
+  'USDC': {
+    symbol: 'USDC',
+    name: 'USDC MANGO Base Test Token',
+    mintAddress: '8FRFC6MoGGkMFQwngccyu69VnYbzykGeez7ignHVAFSN',
+    decimals: 6
+  },
+}
+
+export const TEST_LP_TOKENS = {
+  'SRM-USDC': {
+    symbol: 'SRM-USDC',
+    name: 'SRM-USDC LP',
+    coin: { ...MANGO_TOKENS.SRM },
+    pc: { ...MANGO_TOKENS.USDC },
+
+    mintAddress: '2TZ3EP7RTNPwN7sRCraEKhwym9zzPQ64hPcCUMueZ6pA',
+    decimals: MANGO_TOKENS.USDC.decimals
   },
 }
 
@@ -379,6 +418,15 @@ export const TOKENS = {
       Telegram: 'https://t.me/MercurialFi',
       Medium: 'https://mercurialfi.medium.com/'
     }
+  },
+  TULIP: {
+    symbol: 'TULIP',
+    name: 'TULIP',
+    mintAddress: 'TuLipcqtGVXP9XR62wM8WWCm6a9vhLs7T1uoWBk6FDs',
+    decimals: 6,
+    referrer: '',
+    official: true,
+    showDefault: true
   }
 }
 
