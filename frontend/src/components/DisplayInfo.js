@@ -186,7 +186,6 @@ const getMangoAccountData = async () => {
       {
         fundData &&
           <>
-            <h4>FUND STATE</h4>
             <p> signer_nonce  : {fundData.signer_nonce}</p>
             <p> perp_market_index : {fundData.perp_market_index}</p>
             <p> padding   : u8</p>
@@ -326,6 +325,7 @@ const getMangoAccountData = async () => {
             <p> msrmVault : {mangoGroup.msrmVault}</p>
 
             <p> numOracles : {mangoGroup.numOracles}</p>
+            <b>mangoGroup-oracles</b>
             <ul>
             {
               mangoGroup.oracles &&
@@ -395,7 +395,7 @@ const getMangoAccountData = async () => {
 
            </> 
       }
-      <h4>USDC NODE BANK</h4>
+      <h4>USDC NODE BANK {ids.tokens[0].nodeKeys[0]}</h4>
       {nodeBank && 
         <>
             <p> borrows : {nodeBank.borrows}</p>
@@ -403,7 +403,7 @@ const getMangoAccountData = async () => {
             <p> vault : {nodeBank.vault}</p>
         </>
       }
-      <h4>USDC ROOT BANK</h4>
+      <h4>USDC ROOT BANK {ids.tokens[0].rootKey}</h4>
       {rootBank && 
         <>
             <p> depositIndex : {rootBank.depositIndex}</p>
