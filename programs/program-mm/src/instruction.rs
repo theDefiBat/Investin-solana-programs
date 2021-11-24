@@ -11,7 +11,8 @@ pub enum FundInstruction {
     /// 0. [WRITE]  Fund State Account
     /// 1. [SIGNER] Manager Wallet Account
     /// 2. []       Fund PDA Account
-    /// 3. []       Fund Vault Account
+    /// 3. []       Fund Vault USDC Account
+    /// 4. []       Fund Vault MNGO Account
     /// 4. []       Mango Group Account
     /// 5. []       Mango Account
     /// 6. []       Mango Prog Account
@@ -19,8 +20,8 @@ pub enum FundInstruction {
     Initialize {
         min_amount: u64,
         min_return: u64,
-        performance_fee_percentage: u64,
-        perp_market_index: u8
+        performance_fee_percentage: u64
+        // perp_market_index: u8
     },
 
     /// 0. [WRITE]  Fund State Account 
@@ -228,6 +229,11 @@ pub enum FundInstruction {
     /// 1. []   manager_ai - Manager Account
     /// 2. []   delegate_ai - Delegate account
     AddDelegate
+
+    // Add perp market to the fund
+    /// 0. [] fund_state_ai
+    /// 
+    AddPerpMarket
 }
 
 impl FundInstruction {
@@ -282,10 +288,11 @@ impl FundInstruction {
                 }
             },
             8 => {
-                let data_arr = array_ref![data, 0, 26];
-                let (price, quantity, client_order_id, side, order_type) =
-                array_refs![data_arr, 8, 8, 8, 1, 1];
+                let data_arr = array_ref![data, 0, 27];
+                let (perp_market_id, price, quantity, client_order_id, side, order_type) =
+                array_refs![data_arr, 1, 8, 8, 8, 1, 1];
                 FundInstruction::MangoPlacePerpOrder {
+                    perp_market_id: u8::from_le_bytes(*perp_market_id),
                     price: i64::from_le_bytes(*price),
                     quantity: i64::from_le_bytes(*quantity),
                     client_order_id: u64::from_le_bytes(*client_order_id),

@@ -43,7 +43,8 @@ pub struct FundData {
 
     pub is_initialized: bool,
     pub signer_nonce: u8,
-    pub perp_market_index: u8,
+    pub perp_market_indexes: [u8; 4],
+    pub markets_active: u8;
     pub padding: u8,
     pub no_of_investments: u32,
 
@@ -86,20 +87,20 @@ pub struct FundData {
     /// Mango account for the fund
     pub mango_account: Pubkey,
 
-    /// Mango per share accrued
-    pub mngo_per_share: U64F64,
+    // /// Mango per share accrued
+    // pub mngo_per_share: U64F64,
 
-    /// Mango due to Manager
-    pub mngo_manager: u64,
+    // /// Mango due to Manager
+    // pub mngo_manager: u64,
 
-    /// Mango Accrued in Mango Account
-    pub mngo_accrued: u64,
+    // /// Mango Accrued in Mango Account
+    // pub mngo_accrued: u64,
 
-    // Delegate for Manager to call place/cancel
-    pub delegate: Pubkey,
+    // // Delegate for Manager to call place/cancel
+    // pub delegate: Pubkey,
 
-    // all time Mngo accrual
-    pub total_mngo_accrued: u64
+    // // all time Mngo accrual
+    // pub total_mngo_accrued: u64
 }
 impl_loadable!(FundData);
 
@@ -119,8 +120,8 @@ pub struct InvestorData {
     // start performance of investor
     pub start_performance: U64F64,
 
-    // mngo reward debt
-    pub mngo_debt: U64F64,
+    // // mngo reward debt
+    // pub mngo_debt: U64F64,
 
     /// Investor wallet address
     pub owner: Pubkey,

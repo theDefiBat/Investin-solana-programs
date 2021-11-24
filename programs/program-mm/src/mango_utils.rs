@@ -100,6 +100,7 @@ pub fn mango_deposit (
 pub fn mango_place_perp_order (
     program_id: &Pubkey,
     accounts: &[AccountInfo],
+    perp_market_id: u8,
     side: Side,
     price: i64,
     quantity: i64,

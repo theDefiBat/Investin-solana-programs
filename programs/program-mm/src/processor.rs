@@ -54,7 +54,7 @@ pub struct Fund {}
 
 impl Fund {
     // Fund Initialize
-    pub fn initialize (
+    pub fn initialize(
         program_id: &Pubkey,
         accounts: &[AccountInfo],
         min_amount: u64,
@@ -127,12 +127,12 @@ impl Fund {
         fund_data.total_amount = U64F64!(0); 
         fund_data.prev_performance = U64F64!(1.00);
         fund_data.no_of_investments = 0;
-        fund_data.mngo_per_share = U64F64!(0);
+        // fund_data.mngo_per_share = U64F64!(0);
         fund_data.deposits = 0;
-        fund_data.mngo_accrued = 0;
-        fund_data.total_mngo_accrued = 0;
-        fund_data.mngo_manager = 0;
-        fund_data.perp_market_index = perp_market_index;
+        // fund_data.mngo_accrued = 0;
+        // fund_data.total_mngo_accrued = 0;
+        // fund_data.mngo_manager = 0;
+        // fund_data.perp_market_index = perp_market_index;
 
         fund_data.is_initialized = true;
 
@@ -140,7 +140,7 @@ impl Fund {
     }
 
     // investor deposit
-    pub fn deposit (
+    pub fn deposit(
         program_id: &Pubkey,
         accounts: &[AccountInfo],
         amount: u64
@@ -233,7 +233,7 @@ impl Fund {
         // update investor acc
         investor_data.amount = adj_amount;
         investor_data.start_performance = fund_data.prev_performance;
-        investor_data.mngo_debt = fund_data.mngo_per_share;
+        // investor_data.mngo_debt = fund_data.mngo_per_share;
         msg!("Deposit done..");
         
         Ok(())
@@ -415,266 +415,266 @@ impl Fund {
     }
 
 
-    pub fn investor_harvest_mngo (
-        program_id: &Pubkey,
-        accounts: &[AccountInfo],
-    ) -> Result<(), ProgramError> {
-        const NUM_FIXED:usize = 18;
-        let accounts = array_ref![accounts, 0, NUM_FIXED];
+    // pub fn investor_harvest_mngo (
+    //     program_id: &Pubkey,
+    //     accounts: &[AccountInfo],
+    // ) -> Result<(), ProgramError> {
+    //     const NUM_FIXED:usize = 18;
+    //     let accounts = array_ref![accounts, 0, NUM_FIXED];
 
-        let [
-            fund_state_ai,
-            investor_state_ai,
-            investor_ai,
-            mango_prog_ai,
-            fund_mngo_vault_ai,
-            inv_mngo_ai,
+    //     let [
+    //         fund_state_ai,
+    //         investor_state_ai,
+    //         investor_ai,
+    //         mango_prog_ai,
+    //         fund_mngo_vault_ai,
+    //         inv_mngo_ai,
 
-            mango_group_ai,
-            mango_cache_ai,
-            mango_account_ai,
-            fund_pda_ai,
-            perp_market_ai,
-            mngo_perp_vault_ai,
-            mngo_root_bank_ai,
-            mngo_node_bank_ai,
-            mngo_bank_vault_ai,
-            signer_ai,
-            token_prog_ai,
-            default_ai
-        ] = accounts;
+    //         mango_group_ai,
+    //         mango_cache_ai,
+    //         mango_account_ai,
+    //         fund_pda_ai,
+    //         perp_market_ai,
+    //         mngo_perp_vault_ai,
+    //         mngo_root_bank_ai,
+    //         mngo_node_bank_ai,
+    //         mngo_bank_vault_ai,
+    //         signer_ai,
+    //         token_prog_ai,
+    //         default_ai
+    //     ] = accounts;
 
-        let mut fund_data = FundData::load_mut_checked(fund_state_ai, program_id)?;
-        let mut investor_data = InvestorData::load_mut_checked(investor_state_ai, program_id)?;
+    //     let mut fund_data = FundData::load_mut_checked(fund_state_ai, program_id)?;
+    //     let mut investor_data = InvestorData::load_mut_checked(investor_state_ai, program_id)?;
 
-        check!(investor_ai.is_signer, FundError::IncorrectSignature);
-        check_eq!(investor_data.owner, *investor_ai.key);
-        check_eq!(investor_data.manager, fund_data.manager_account);
+    //     check!(investor_ai.is_signer, FundError::IncorrectSignature);
+    //     check_eq!(investor_data.owner, *investor_ai.key);
+    //     check_eq!(investor_data.manager, fund_data.manager_account);
 
-        // check mngo vault
-        check_eq!(fund_data.mngo_vault_key, *fund_mngo_vault_ai.key);
+    //     // check mngo vault
+    //     check_eq!(fund_data.mngo_vault_key, *fund_mngo_vault_ai.key);
 
-        // redeem all mango accrued to mango account
-        invoke_signed(
-            &redeem_mngo(mango_prog_ai.key, mango_group_ai.key,
-                mango_cache_ai.key,
-                mango_account_ai.key,
-                fund_pda_ai.key,
-                perp_market_ai.key,
-                mngo_perp_vault_ai.key,
-                mngo_root_bank_ai.key,
-                mngo_node_bank_ai.key,
-                mngo_bank_vault_ai.key,
-                signer_ai.key,
-            )?,
-            &[
-                mango_prog_ai.clone(),
-                mango_group_ai.clone(),
-                mango_cache_ai.clone(),
-                mango_account_ai.clone(),
-                fund_pda_ai.clone(),
-                perp_market_ai.clone(),
-                mngo_perp_vault_ai.clone(),
-                mngo_root_bank_ai.clone(),
-                mngo_node_bank_ai.clone(),
-                mngo_bank_vault_ai.clone(),
-                signer_ai.clone(),
-                token_prog_ai.clone()
-            ],
-            &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
-        )?;
+    //     // redeem all mango accrued to mango account
+    //     invoke_signed(
+    //         &redeem_mngo(mango_prog_ai.key, mango_group_ai.key,
+    //             mango_cache_ai.key,
+    //             mango_account_ai.key,
+    //             fund_pda_ai.key,
+    //             perp_market_ai.key,
+    //             mngo_perp_vault_ai.key,
+    //             mngo_root_bank_ai.key,
+    //             mngo_node_bank_ai.key,
+    //             mngo_bank_vault_ai.key,
+    //             signer_ai.key,
+    //         )?,
+    //         &[
+    //             mango_prog_ai.clone(),
+    //             mango_group_ai.clone(),
+    //             mango_cache_ai.clone(),
+    //             mango_account_ai.clone(),
+    //             fund_pda_ai.clone(),
+    //             perp_market_ai.clone(),
+    //             mngo_perp_vault_ai.clone(),
+    //             mngo_root_bank_ai.clone(),
+    //             mngo_node_bank_ai.clone(),
+    //             mngo_bank_vault_ai.clone(),
+    //             signer_ai.clone(),
+    //             token_prog_ai.clone()
+    //         ],
+    //         &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
+    //     )?;
 
-        // get mngo to withdraw to mngo vault
-        let mut mngo_delta = get_mngo_accrued(mango_account_ai, mango_group_ai, mango_cache_ai, mango_prog_ai, mngo_root_bank_ai)?;   
-        let open_orders_accs = [Pubkey::default(); MAX_PAIRS];
-        invoke_signed(
-            &withdraw(mango_prog_ai.key, mango_group_ai.key, mango_account_ai.key, fund_pda_ai.key,
-                mango_cache_ai.key, mngo_root_bank_ai.key, mngo_node_bank_ai.key, mngo_bank_vault_ai.key, fund_mngo_vault_ai.key,
-                signer_ai.key, &open_orders_accs, mngo_delta, false)?,
-            &[
-                mango_prog_ai.clone(),
-                mango_group_ai.clone(),
-                mango_account_ai.clone(),
-                fund_pda_ai.clone(),
-                mango_cache_ai.clone(),
-                mngo_root_bank_ai.clone(),
-                mngo_node_bank_ai.clone(),
-                mngo_bank_vault_ai.clone(),
-                fund_mngo_vault_ai.clone(),
-                signer_ai.clone(),
-                default_ai.clone(),
-                token_prog_ai.clone()
-            ],
-            &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
-        )?;
-        fund_data.mngo_accrued = parse_token_account(fund_mngo_vault_ai)?.amount;
-        fund_data.total_mngo_accrued = fund_data.total_mngo_accrued.checked_add(mngo_delta).unwrap();
+    //     // get mngo to withdraw to mngo vault
+        // let mut mngo_delta = get_mngo_accrued(mango_account_ai, mango_group_ai, mango_cache_ai, mango_prog_ai, mngo_root_bank_ai)?;   
+    //     let open_orders_accs = [Pubkey::default(); MAX_PAIRS];
+    //     invoke_signed(
+    //         &withdraw(mango_prog_ai.key, mango_group_ai.key, mango_account_ai.key, fund_pda_ai.key,
+    //             mango_cache_ai.key, mngo_root_bank_ai.key, mngo_node_bank_ai.key, mngo_bank_vault_ai.key, fund_mngo_vault_ai.key,
+    //             signer_ai.key, &open_orders_accs, mngo_delta, false)?,
+    //         &[
+    //             mango_prog_ai.clone(),
+    //             mango_group_ai.clone(),
+    //             mango_account_ai.clone(),
+    //             fund_pda_ai.clone(),
+    //             mango_cache_ai.clone(),
+    //             mngo_root_bank_ai.clone(),
+    //             mngo_node_bank_ai.clone(),
+    //             mngo_bank_vault_ai.clone(),
+    //             fund_mngo_vault_ai.clone(),
+    //             signer_ai.clone(),
+    //             default_ai.clone(),
+    //             token_prog_ai.clone()
+    //         ],
+    //         &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
+    //     )?;
+    //     fund_data.mngo_accrued = parse_token_account(fund_mngo_vault_ai)?.amount;
+    //     fund_data.total_mngo_accrued = fund_data.total_mngo_accrued.checked_add(mngo_delta).unwrap();
 
-        // update manager share on every redeem
-        let man_share = U64F64::to_num(U64F64::from_num(mngo_delta).checked_mul(fund_data.performance_fee_percentage / 100).unwrap());
-        fund_data.mngo_manager = fund_data.mngo_manager.checked_add(man_share).unwrap();
+    //     // update manager share on every redeem
+    //     let man_share = U64F64::to_num(U64F64::from_num(mngo_delta).checked_mul(fund_data.performance_fee_percentage / 100).unwrap());
+    //     fund_data.mngo_manager = fund_data.mngo_manager.checked_add(man_share).unwrap();
 
-        // rest gets distributed to investors
-        mngo_delta = mngo_delta.checked_sub(man_share).unwrap();
-        // update mngo per share values
-        fund_data.mngo_per_share = fund_data.mngo_per_share.checked_add(
-            U64F64::from_num(mngo_delta).checked_div(U64F64::from_num(fund_data.deposits)).unwrap()
-        ).unwrap();
+    //     // rest gets distributed to investors
+    //     mngo_delta = mngo_delta.checked_sub(man_share).unwrap();
+    //     // update mngo per share values
+    //     fund_data.mngo_per_share = fund_data.mngo_per_share.checked_add(
+    //         U64F64::from_num(mngo_delta).checked_div(U64F64::from_num(fund_data.deposits)).unwrap()
+    //     ).unwrap();
 
-        // mngo due to investor
-        let inv_mngo_share = fund_data.mngo_per_share.checked_sub(investor_data.mngo_debt).unwrap();
-        let inv_mngo = U64F64::to_num(inv_mngo_share.checked_mul(U64F64::from_num(investor_data.amount)).unwrap());
+    //     // mngo due to investor
+    //     let inv_mngo_share = fund_data.mngo_per_share.checked_sub(investor_data.mngo_debt).unwrap();
+    //     let inv_mngo = U64F64::to_num(inv_mngo_share.checked_mul(U64F64::from_num(investor_data.amount)).unwrap());
 
-        msg!("investor mngo:: {:?}", inv_mngo);
-        invoke_signed(
-            &(spl_token::instruction::transfer(
-                token_prog_ai.key,
-                fund_mngo_vault_ai.key,
-                inv_mngo_ai.key,
-                fund_pda_ai.key,
-                &[fund_pda_ai.key],
-                inv_mngo
-            ))?,
-            &[
-                fund_mngo_vault_ai.clone(),
-                inv_mngo_ai.clone(),
-                fund_pda_ai.clone(),
-                token_prog_ai.clone()
-            ],
-            &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
-        )?;
+    //     msg!("investor mngo:: {:?}", inv_mngo);
+    //     invoke_signed(
+    //         &(spl_token::instruction::transfer(
+    //             token_prog_ai.key,
+    //             fund_mngo_vault_ai.key,
+    //             inv_mngo_ai.key,
+    //             fund_pda_ai.key,
+    //             &[fund_pda_ai.key],
+    //             inv_mngo
+    //         ))?,
+    //         &[
+    //             fund_mngo_vault_ai.clone(),
+    //             inv_mngo_ai.clone(),
+    //             fund_pda_ai.clone(),
+    //             token_prog_ai.clone()
+    //         ],
+    //         &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
+    //     )?;
 
-        fund_data.mngo_accrued = parse_token_account(fund_mngo_vault_ai)?.amount;
-        investor_data.mngo_debt = fund_data.mngo_per_share;
+    //     fund_data.mngo_accrued = parse_token_account(fund_mngo_vault_ai)?.amount;
+    //     investor_data.mngo_debt = fund_data.mngo_per_share;
 
-        Ok(())
-    }
+    //     Ok(())
+    // }
 
-    pub fn manager_harvest_mngo (
-        program_id: &Pubkey,
-        accounts: &[AccountInfo],
-    ) -> Result<(), ProgramError> {
-        const NUM_FIXED:usize = 17;
-        let accounts = array_ref![accounts, 0, NUM_FIXED];
+    // pub fn manager_harvest_mngo (
+    //     program_id: &Pubkey,
+    //     accounts: &[AccountInfo],
+    // ) -> Result<(), ProgramError> {
+    //     const NUM_FIXED:usize = 17;
+    //     let accounts = array_ref![accounts, 0, NUM_FIXED];
 
-        let [
-            fund_state_ai,
-            manager_ai,
-            mango_prog_ai,
-            fund_mngo_vault_ai,
-            man_mngo_ai,
+    //     let [
+    //         fund_state_ai,
+    //         manager_ai,
+    //         mango_prog_ai,
+    //         fund_mngo_vault_ai,
+    //         man_mngo_ai,
 
-            mango_group_ai,
-            mango_cache_ai,
-            mango_account_ai,
-            fund_pda_ai,
-            perp_market_ai,
-            mngo_perp_vault_ai,
-            mngo_root_bank_ai,
-            mngo_node_bank_ai,
-            mngo_bank_vault_ai,
-            signer_ai,
-            token_prog_ai,
-            default_ai
-        ] = accounts;
+    //         mango_group_ai,
+    //         mango_cache_ai,
+    //         mango_account_ai,
+    //         fund_pda_ai,
+    //         perp_market_ai,
+    //         mngo_perp_vault_ai,
+    //         mngo_root_bank_ai,
+    //         mngo_node_bank_ai,
+    //         mngo_bank_vault_ai,
+    //         signer_ai,
+    //         token_prog_ai,
+    //         default_ai
+    //     ] = accounts;
 
-        let mut fund_data = FundData::load_mut_checked(fund_state_ai, program_id)?;
+    //     let mut fund_data = FundData::load_mut_checked(fund_state_ai, program_id)?;
 
-        check!(manager_ai.is_signer, ProgramError::MissingRequiredSignature);
-        check_eq!(fund_data.manager_account, *manager_ai.key);
+    //     check!(manager_ai.is_signer, ProgramError::MissingRequiredSignature);
+    //     check_eq!(fund_data.manager_account, *manager_ai.key);
 
-        // check mngo vault
-        check_eq!(fund_data.mngo_vault_key, *fund_mngo_vault_ai.key);
+    //     // check mngo vault
+    //     check_eq!(fund_data.mngo_vault_key, *fund_mngo_vault_ai.key);
 
-        // redeem all mango accrued to mango account
-        invoke_signed(
-            &redeem_mngo(mango_prog_ai.key, mango_group_ai.key,
-                mango_cache_ai.key,
-                mango_account_ai.key,
-                fund_pda_ai.key,
-                perp_market_ai.key,
-                mngo_perp_vault_ai.key,
-                mngo_root_bank_ai.key,
-                mngo_node_bank_ai.key,
-                mngo_bank_vault_ai.key,
-                signer_ai.key,
-            )?,
-            &[
-                mango_prog_ai.clone(),
-                mango_group_ai.clone(),
-                mango_cache_ai.clone(),
-                mango_account_ai.clone(),
-                fund_pda_ai.clone(),
-                perp_market_ai.clone(),
-                mngo_perp_vault_ai.clone(),
-                mngo_root_bank_ai.clone(),
-                mngo_node_bank_ai.clone(),
-                mngo_bank_vault_ai.clone(),
-                signer_ai.clone(),
-                token_prog_ai.clone()
-            ],
-            &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
-        )?;
+    //     // redeem all mango accrued to mango account
+    //     invoke_signed(
+    //         &redeem_mngo(mango_prog_ai.key, mango_group_ai.key,
+    //             mango_cache_ai.key,
+    //             mango_account_ai.key,
+    //             fund_pda_ai.key,
+    //             perp_market_ai.key,
+    //             mngo_perp_vault_ai.key,
+    //             mngo_root_bank_ai.key,
+    //             mngo_node_bank_ai.key,
+    //             mngo_bank_vault_ai.key,
+    //             signer_ai.key,
+    //         )?,
+    //         &[
+    //             mango_prog_ai.clone(),
+    //             mango_group_ai.clone(),
+    //             mango_cache_ai.clone(),
+    //             mango_account_ai.clone(),
+    //             fund_pda_ai.clone(),
+    //             perp_market_ai.clone(),
+    //             mngo_perp_vault_ai.clone(),
+    //             mngo_root_bank_ai.clone(),
+    //             mngo_node_bank_ai.clone(),
+    //             mngo_bank_vault_ai.clone(),
+    //             signer_ai.clone(),
+    //             token_prog_ai.clone()
+    //         ],
+    //         &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
+    //     )?;
 
-        // get mngo to withdraw to mngo vault
-        let mut mngo_delta = get_mngo_accrued(mango_account_ai, mango_group_ai, mango_cache_ai, mango_prog_ai, mngo_root_bank_ai)?;   
-        let open_orders_accs = [Pubkey::default(); MAX_PAIRS];
-        invoke_signed(
-            &withdraw(mango_prog_ai.key, mango_group_ai.key, mango_account_ai.key, fund_pda_ai.key,
-                mango_cache_ai.key, mngo_root_bank_ai.key, mngo_node_bank_ai.key, mngo_bank_vault_ai.key, fund_mngo_vault_ai.key,
-                signer_ai.key, &open_orders_accs, mngo_delta, false)?,
-            &[
-                mango_prog_ai.clone(),
-                mango_group_ai.clone(),
-                mango_account_ai.clone(),
-                fund_pda_ai.clone(),
-                mango_cache_ai.clone(),
-                mngo_root_bank_ai.clone(),
-                mngo_node_bank_ai.clone(),
-                mngo_bank_vault_ai.clone(),
-                fund_mngo_vault_ai.clone(),
-                signer_ai.clone(),
-                default_ai.clone(),
-                token_prog_ai.clone()
-            ],
-            &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
-        )?;
-        fund_data.mngo_accrued = parse_token_account(fund_mngo_vault_ai)?.amount;
-        fund_data.total_mngo_accrued = fund_data.total_mngo_accrued.checked_add(mngo_delta).unwrap();
+    //     // get mngo to withdraw to mngo vault
+    //     let mut mngo_delta = get_mngo_accrued(mango_account_ai, mango_group_ai, mango_cache_ai, mango_prog_ai, mngo_root_bank_ai)?;   
+    //     let open_orders_accs = [Pubkey::default(); MAX_PAIRS];
+    //     invoke_signed(
+    //         &withdraw(mango_prog_ai.key, mango_group_ai.key, mango_account_ai.key, fund_pda_ai.key,
+    //             mango_cache_ai.key, mngo_root_bank_ai.key, mngo_node_bank_ai.key, mngo_bank_vault_ai.key, fund_mngo_vault_ai.key,
+    //             signer_ai.key, &open_orders_accs, mngo_delta, false)?,
+    //         &[
+    //             mango_prog_ai.clone(),
+    //             mango_group_ai.clone(),
+    //             mango_account_ai.clone(),
+    //             fund_pda_ai.clone(),
+    //             mango_cache_ai.clone(),
+    //             mngo_root_bank_ai.clone(),
+    //             mngo_node_bank_ai.clone(),
+    //             mngo_bank_vault_ai.clone(),
+    //             fund_mngo_vault_ai.clone(),
+    //             signer_ai.clone(),
+    //             default_ai.clone(),
+    //             token_prog_ai.clone()
+    //         ],
+    //         &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
+    //     )?;
+        // fund_data.mngo_accrued = parse_token_account(fund_mngo_vault_ai)?.amount;
+        // fund_data.total_mngo_accrued = fund_data.total_mngo_accrued.checked_add(mngo_delta).unwrap();
 
-        // update manager share on every redeem
-        let man_share = U64F64::to_num(U64F64::from_num(mngo_delta).checked_mul(fund_data.performance_fee_percentage / 100).unwrap());
-        fund_data.mngo_manager = fund_data.mngo_manager.checked_add(man_share).unwrap();
+        // // update manager share on every redeem
+        // let man_share = U64F64::to_num(U64F64::from_num(mngo_delta).checked_mul(fund_data.performance_fee_percentage / 100).unwrap());
+        // fund_data.mngo_manager = fund_data.mngo_manager.checked_add(man_share).unwrap();
 
-        // rest gets distributed to investors
-        mngo_delta = mngo_delta.checked_sub(man_share).unwrap();
-        if fund_data.deposits != 0 {
-        // update mngo per share values
-            fund_data.mngo_per_share = fund_data.mngo_per_share.checked_add(
-                U64F64::from_num(mngo_delta).checked_div(U64F64::from_num(fund_data.deposits)).unwrap()
-            ).unwrap();
-        }
-        msg!("manager mngo due:: {:?}", fund_data.mngo_manager);
-        invoke_signed(
-            &(spl_token::instruction::transfer(
-                token_prog_ai.key,
-                fund_mngo_vault_ai.key,
-                man_mngo_ai.key,
-                fund_pda_ai.key,
-                &[fund_pda_ai.key],
-                fund_data.mngo_manager
-            ))?,
-            &[
-                fund_mngo_vault_ai.clone(),
-                man_mngo_ai.clone(),
-                fund_pda_ai.clone(),
-                token_prog_ai.clone()
-            ],
-            &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
-        )?;
+        // // rest gets distributed to investors
+        // mngo_delta = mngo_delta.checked_sub(man_share).unwrap();
+        // if fund_data.deposits != 0 {
+        // // update mngo per share values
+        //     fund_data.mngo_per_share = fund_data.mngo_per_share.checked_add(
+        //         U64F64::from_num(mngo_delta).checked_div(U64F64::from_num(fund_data.deposits)).unwrap()
+        //     ).unwrap();
+        // }
+        // msg!("manager mngo due:: {:?}", fund_data.mngo_manager);
+        // invoke_signed(
+        //     &(spl_token::instruction::transfer(
+        //         token_prog_ai.key,
+        //         fund_mngo_vault_ai.key,
+        //         man_mngo_ai.key,
+        //         fund_pda_ai.key,
+        //         &[fund_pda_ai.key],
+        //         fund_data.mngo_manager
+        //     ))?,
+        //     &[
+        //         fund_mngo_vault_ai.clone(),
+        //         man_mngo_ai.clone(),
+        //         fund_pda_ai.clone(),
+        //         token_prog_ai.clone()
+        //     ],
+        //     &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
+        // )?;
 
-        fund_data.mngo_accrued = parse_token_account(fund_mngo_vault_ai)?.amount;
-        fund_data.mngo_manager = 0;
+        // fund_data.mngo_accrued = parse_token_account(fund_mngo_vault_ai)?.amount;
+        // fund_data.mngo_manager = 0;
         Ok(())
     }
 
@@ -737,129 +737,129 @@ impl Fund {
 
     }
 
-    pub fn redeem_mngo_accrued (
-        program_id: &Pubkey,
-        accounts: &[AccountInfo],
-    ) -> Result<(), ProgramError> {
-        const NUM_FIXED:usize = 15;
-        let accounts = array_ref![accounts, 0, NUM_FIXED];
+    // pub fn redeem_mngo_accrued (
+    //     program_id: &Pubkey,
+    //     accounts: &[AccountInfo],
+    // ) -> Result<(), ProgramError> {
+    //     const NUM_FIXED:usize = 15;
+    //     let accounts = array_ref![accounts, 0, NUM_FIXED];
 
-        let [
-            fund_state_ai,
-            fund_mngo_vault_ai,
-            mango_prog_ai,
-            mango_group_ai,
-            mango_cache_ai,
-            mango_account_ai,
-            fund_pda_ai,
-            perp_market_ai,
-            mngo_perp_vault_ai,
-            mngo_root_bank_ai,
-            mngo_node_bank_ai,
-            mngo_bank_vault_ai,
-            signer_ai,
-            token_prog_ai,
-            default_ai
-        ] = accounts;
+    //     let [
+    //         fund_state_ai,
+    //         fund_mngo_vault_ai,
+    //         mango_prog_ai,
+    //         mango_group_ai,
+    //         mango_cache_ai,
+    //         mango_account_ai,
+    //         fund_pda_ai,
+    //         perp_market_ai,
+    //         mngo_perp_vault_ai,
+    //         mngo_root_bank_ai,
+    //         mngo_node_bank_ai,
+    //         mngo_bank_vault_ai,
+    //         signer_ai,
+    //         token_prog_ai,
+    //         default_ai
+    //     ] = accounts;
 
-        let mut fund_data = FundData::load_mut_checked(fund_state_ai, program_id)?;
+    //     let mut fund_data = FundData::load_mut_checked(fund_state_ai, program_id)?;
 
-         // check mngo vault
-         check_eq!(fund_data.mngo_vault_key, *fund_mngo_vault_ai.key);
+    //      // check mngo vault
+    //      check_eq!(fund_data.mngo_vault_key, *fund_mngo_vault_ai.key);
 
-         // redeem all mango accrued to mango account
-         invoke_signed(
-             &redeem_mngo(mango_prog_ai.key, mango_group_ai.key,
-                 mango_cache_ai.key,
-                 mango_account_ai.key,
-                 fund_pda_ai.key,
-                 perp_market_ai.key,
-                 mngo_perp_vault_ai.key,
-                 mngo_root_bank_ai.key,
-                 mngo_node_bank_ai.key,
-                 mngo_bank_vault_ai.key,
-                 signer_ai.key,
-             )?,
-             &[
-                 mango_prog_ai.clone(),
-                 mango_group_ai.clone(),
-                 mango_cache_ai.clone(),
-                 mango_account_ai.clone(),
-                 fund_pda_ai.clone(),
-                 perp_market_ai.clone(),
-                 mngo_perp_vault_ai.clone(),
-                 mngo_root_bank_ai.clone(),
-                 mngo_node_bank_ai.clone(),
-                 mngo_bank_vault_ai.clone(),
-                 signer_ai.clone(),
-                 token_prog_ai.clone()
-             ],
-             &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
-         )?;
+    //      // redeem all mango accrued to mango account
+    //      invoke_signed(
+    //          &redeem_mngo(mango_prog_ai.key, mango_group_ai.key,
+    //              mango_cache_ai.key,
+    //              mango_account_ai.key,
+    //              fund_pda_ai.key,
+    //              perp_market_ai.key,
+    //              mngo_perp_vault_ai.key,
+    //              mngo_root_bank_ai.key,
+    //              mngo_node_bank_ai.key,
+    //              mngo_bank_vault_ai.key,
+    //              signer_ai.key,
+    //          )?,
+    //          &[
+    //              mango_prog_ai.clone(),
+    //              mango_group_ai.clone(),
+    //              mango_cache_ai.clone(),
+    //              mango_account_ai.clone(),
+    //              fund_pda_ai.clone(),
+    //              perp_market_ai.clone(),
+    //              mngo_perp_vault_ai.clone(),
+    //              mngo_root_bank_ai.clone(),
+    //              mngo_node_bank_ai.clone(),
+    //              mngo_bank_vault_ai.clone(),
+    //              signer_ai.clone(),
+    //              token_prog_ai.clone()
+    //          ],
+    //          &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
+    //      )?;
  
-         // get mngo to withdraw to mngo vault
-         let mut mngo_delta = get_mngo_accrued(mango_account_ai, mango_group_ai, mango_cache_ai, mango_prog_ai, mngo_root_bank_ai)?;   
-         let open_orders_accs = [Pubkey::default(); MAX_PAIRS];
-         invoke_signed(
-             &withdraw(mango_prog_ai.key, mango_group_ai.key, mango_account_ai.key, fund_pda_ai.key,
-                 mango_cache_ai.key, mngo_root_bank_ai.key, mngo_node_bank_ai.key, mngo_bank_vault_ai.key, fund_mngo_vault_ai.key,
-                 signer_ai.key, &open_orders_accs, mngo_delta, false)?,
-             &[
-                 mango_prog_ai.clone(),
-                 mango_group_ai.clone(),
-                 mango_account_ai.clone(),
-                 fund_pda_ai.clone(),
-                 mango_cache_ai.clone(),
-                 mngo_root_bank_ai.clone(),
-                 mngo_node_bank_ai.clone(),
-                 mngo_bank_vault_ai.clone(),
-                 fund_mngo_vault_ai.clone(),
-                 signer_ai.clone(),
-                 default_ai.clone(),
-                 token_prog_ai.clone()
-             ],
-             &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
-         )?;
-         fund_data.mngo_accrued = parse_token_account(fund_mngo_vault_ai)?.amount;
-         fund_data.total_mngo_accrued = fund_data.total_mngo_accrued.checked_add(mngo_delta).unwrap();
+    //      // get mngo to withdraw to mngo vault
+    //      let mut mngo_delta = get_mngo_accrued(mango_account_ai, mango_group_ai, mango_cache_ai, mango_prog_ai, mngo_root_bank_ai)?;   
+    //      let open_orders_accs = [Pubkey::default(); MAX_PAIRS];
+    //      invoke_signed(
+    //          &withdraw(mango_prog_ai.key, mango_group_ai.key, mango_account_ai.key, fund_pda_ai.key,
+    //              mango_cache_ai.key, mngo_root_bank_ai.key, mngo_node_bank_ai.key, mngo_bank_vault_ai.key, fund_mngo_vault_ai.key,
+    //              signer_ai.key, &open_orders_accs, mngo_delta, false)?,
+    //          &[
+    //              mango_prog_ai.clone(),
+    //              mango_group_ai.clone(),
+    //              mango_account_ai.clone(),
+    //              fund_pda_ai.clone(),
+    //              mango_cache_ai.clone(),
+    //              mngo_root_bank_ai.clone(),
+    //              mngo_node_bank_ai.clone(),
+    //              mngo_bank_vault_ai.clone(),
+    //              fund_mngo_vault_ai.clone(),
+    //              signer_ai.clone(),
+    //              default_ai.clone(),
+    //              token_prog_ai.clone()
+    //          ],
+    //          &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
+    //      )?;
+    //      fund_data.mngo_accrued = parse_token_account(fund_mngo_vault_ai)?.amount;
+    //      fund_data.total_mngo_accrued = fund_data.total_mngo_accrued.checked_add(mngo_delta).unwrap();
  
-         // update manager share on every redeem
-         let man_share = U64F64::to_num(U64F64::from_num(mngo_delta).checked_mul(fund_data.performance_fee_percentage / 100).unwrap());
-         fund_data.mngo_manager = fund_data.mngo_manager.checked_add(man_share).unwrap();
+    //      // update manager share on every redeem
+    //      let man_share = U64F64::to_num(U64F64::from_num(mngo_delta).checked_mul(fund_data.performance_fee_percentage / 100).unwrap());
+    //      fund_data.mngo_manager = fund_data.mngo_manager.checked_add(man_share).unwrap();
  
-         // rest gets distributed to investors
-         mngo_delta = mngo_delta.checked_sub(man_share).unwrap();
-         if fund_data.deposits != 0 {
-            // update mngo per share values
-            fund_data.mngo_per_share = fund_data.mngo_per_share.checked_add(
-                U64F64::from_num(mngo_delta).checked_div(U64F64::from_num(fund_data.deposits)).unwrap()
-            ).unwrap();
-        }
+    //      // rest gets distributed to investors
+    //      mngo_delta = mngo_delta.checked_sub(man_share).unwrap();
+    //      if fund_data.deposits != 0 {
+    //         // update mngo per share values
+    //         fund_data.mngo_per_share = fund_data.mngo_per_share.checked_add(
+    //             U64F64::from_num(mngo_delta).checked_div(U64F64::from_num(fund_data.deposits)).unwrap()
+    //         ).unwrap();
+    //     }
         
-        Ok(())
-    }
+    //     Ok(())
+    // }
 
-    pub fn add_delegate (
-        program_id: &Pubkey,
-        accounts: &[AccountInfo],
-    ) -> Result<(), ProgramError> {
-        const NUM_FIXED:usize = 3;
-        let accounts = array_ref![accounts, 0, NUM_FIXED];
+    // pub fn add_delegate (
+    //     program_id: &Pubkey,
+    //     accounts: &[AccountInfo],
+    // ) -> Result<(), ProgramError> {
+    //     const NUM_FIXED:usize = 3;
+    //     let accounts = array_ref![accounts, 0, NUM_FIXED];
 
-        let [
-            fund_state_ai,
-            manager_ai,
-            delegate_ai
-        ] = accounts;
+    //     let [
+    //         fund_state_ai,
+    //         manager_ai,
+    //         delegate_ai
+    //     ] = accounts;
 
-        let mut fund_data = FundData::load_mut_checked(fund_state_ai, program_id)?;
+    //     let mut fund_data = FundData::load_mut_checked(fund_state_ai, program_id)?;
 
-        check!(manager_ai.is_signer, FundError::IncorrectSignature);
-        check_eq!(fund_data.manager_account, *manager_ai.key);
+    //     check!(manager_ai.is_signer, FundError::IncorrectSignature);
+    //     check_eq!(fund_data.manager_account, *manager_ai.key);
 
-        fund_data.delegate = *delegate_ai.key;
-        Ok(())
-    }
+    //     fund_data.delegate = *delegate_ai.key;
+    //     Ok(())
+    // }
 
 
     // instruction processor
@@ -902,7 +902,8 @@ impl Fund {
                 msg!("FundInstruction::MangoWithdraw");
                 return mango_withdraw(program_id, accounts, quantity);
             }
-            FundInstruction::MangoPlacePerpOrder { 
+            FundInstruction::MangoPlacePerpOrder {
+                perp_market_id, 
                 side,
                 price,
                 quantity,
@@ -911,6 +912,7 @@ impl Fund {
                 msg!("FundInstruction::MangoPlaceOrder");
                 return mango_place_perp_order(program_id,
                     accounts,
+                    perp_market_id,
                     side,
                     price,
                     quantity,

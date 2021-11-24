@@ -14,3 +14,6 @@ programs/program-fund/Cargo.lock
 
 package-lock.json
 frontend/node_modules
+connect-wallet-and-transfer/node_modules
+programs/program-mm/target
+
