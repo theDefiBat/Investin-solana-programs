@@ -374,7 +374,7 @@ const getMangoAccountData = async () => {
                         <thead className="text-primary">
                                         <tr>
                                         <th style={{ width: "15%" }}>index</th>
-
+                                        <th style={{ width: "15%" }}>perpMarket</th>
                                         <th style={{ width: "15%" }}>baseLotSize</th>
                                           <th style={{ width: "15%" }}>initAssetWeight</th>
                                           <th style={{ width: "15%" }}>initLiabWeight</th>
