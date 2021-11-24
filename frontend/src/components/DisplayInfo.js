@@ -366,6 +366,52 @@ const getMangoAccountData = async () => {
                         </tbody>
                 </Table>
             }
+            <b>ALL perp Markets</b>
+            {
+                 mangoGroup.perpMarkets?.length &&
+                 <Table  className="tablesorter" responsive width="100%" style={{ overflow: 'hidden !important', textAlign: 'center' }}
+                    >
+                        <thead className="text-primary">
+                                        <tr>
+                                        <th style={{ width: "15%" }}>index</th>
+
+                                        <th style={{ width: "15%" }}>baseLotSize</th>
+                                          <th style={{ width: "15%" }}>initAssetWeight</th>
+                                          <th style={{ width: "15%" }}>initLiabWeight</th>
+                                          <th style={{ width: "15%" }}>liquidationFee</th>
+                                          <th style={{ width: "15%" }}>maintAssetWeight</th>
+                                          <th style={{ width: "15%" }}>maintLiabWeight</th>
+                                          <th style={{ width: "15%" }}>makerFee</th>
+                                          <th style={{ width: "15%" }}>quoteLotSize</th>
+                                          <th style={{ width: "15%" }}>takerQuote</th>
+                                          <th style={{ width: "15%" }}>takerFee</th>
+                                        </tr>
+                        </thead>
+                        <tbody>
+                          {
+                            mangoGroup.perpMarkets && 
+                            mangoGroup.perpMarkets.map((i,x)=>{
+                              return <tr key={x}>
+                                <td >{x}</td>
+
+                                <td >{i?.perpMarket}</td>
+                                <td >{i?.baseLotSize}</td>
+                                <td >{i?.initAssetWeight}</td>
+                                <td >{i?.initLiabWeight}</td>
+                                <td >{i?.liquidationFee}</td>
+                                <td >{i?.maintAssetWeight}</td>
+                                <td >{i?.maintLiabWeight}</td>
+                                <td >{i?.makerFee}</td>
+                                <td >{i?.quoteLotSize}</td>
+                                <td >{i?.takerFee}</td>
+                               
+                              </tr>
+                            })
+                          }
+                        </tbody>
+                </Table>
+            }
+
             <b>TOKENS</b>
              {
                  mangoGroup.tokens?.length &&
