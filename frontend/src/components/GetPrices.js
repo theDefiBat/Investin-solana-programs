@@ -176,7 +176,7 @@ export const GetPrices = () => {
             <select name="funds" width = "100px"  onChange={handleTokenSelect}>
             { tokenList && 
                 tokenList.map((token,index) => {
-                    return (<option key={index} value={token.symbol}>{token.symbol}</option>)
+                    return (<option key={index} value={token.mintAddress}>{token.mintAddress}</option>)
                 })
             }
             </select>

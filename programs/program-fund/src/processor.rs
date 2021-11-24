@@ -43,7 +43,9 @@ macro_rules! check_eq {
 pub mod investin_admin {
     use solana_program::declare_id;
     // set investin admin
-    declare_id!("owZmWQkqtY3Kqnxfua1KTHtR2S6DgBTP75JKbh15VWG");
+    // declare_id!("owZmWQkqtY3Kqnxfua1KTHtR2S6DgBTP75JKbh15VWG");
+    declare_id!("B1J3ttZ2PLCG4KUQHLtkgYSZUmD6f8KNLjGSWzz8eE1Y"); // devnet admin
+    
 }
 
 pub mod usdc_mint {

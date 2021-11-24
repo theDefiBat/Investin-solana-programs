@@ -45,7 +45,14 @@ export const TEST_TOKENS = {
     name: 'ALPHA coin',
     mintAddress: 'HUHuQCZUvxCiuFg54vRStrXSbCFeBhmXRqSuR5eEVB6o',
     decimals: 9,
+  },
+  'SRM' : {
+    symbol: 'SRM',
+    name: 'SRM devnet coin',
+    mintAddress: '9FbAMDvXqNjPqZSYt4EWTguJuDrGkfvwr3gSFpiSbX9S',
+    decimals: 9,
   }
+
 }
 
 

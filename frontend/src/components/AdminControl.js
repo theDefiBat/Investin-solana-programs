@@ -3,11 +3,11 @@ import { createAssociatedTokenAccount, createAssociatedTokenAccountIfNotExist, c
 import { connection, FUND_ACCOUNT_KEY, platformStateAccount, PLATFORM_ACCOUNT_KEY, programId } from '../utils/constants'
 import { GlobalState } from '../store/globalState';
 import { nu64, struct, u8 } from 'buffer-layout';
-import { PublicKey, Transaction, TransactionInstruction } from '@solana/web3.js';
+import { PublicKey, SYSVAR_CLOCK_PUBKEY, Transaction, TransactionInstruction } from '@solana/web3.js';
 import { TOKEN_PROGRAM_ID } from '@project-serum/serum/lib/token-instructions';
 import { FUND_DATA, PLATFORM_DATA, U64F64 } from '../utils/programLayouts';
 import { Badge } from 'reactstrap';
-import {  TOKENS } from "../utils/tokens";
+import {  TEST_TOKENS, TOKENS } from "../utils/tokens";
 import BN from 'bn.js';
 import { Card, Col, Row } from 'reactstrap';
 
@@ -56,14 +56,14 @@ export const AdminControl = () => {
         },
         data
       )
-      const associatedTokenAddress1 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TOKENS['USDC'].mintAddress), walletProvider?.publicKey, transaction);
+      const associatedTokenAddress1 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['USDR'].mintAddress), walletProvider?.publicKey, transaction);
 
       const instruction = new TransactionInstruction({
         keys: [
           { pubkey: platformAccount, isSigner: false, isWritable: true },
           { pubkey: walletProvider?.publicKey, isSigner: true, isWritable: true },
           { pubkey: associatedTokenAddress1, isSigner: false, isWritable: true },
-          { pubkey: new PublicKey(TOKENS.USDC.mintAddress), isSigner: false, isWritable: true },
+          { pubkey: new PublicKey(TEST_TOKENS['USDR'].mintAddress), isSigner: false, isWritable: true },
 
           // { pubkey: fundAccount, isSigner: false, isWritable: true },
         ],
@@ -83,6 +83,52 @@ export const AdminControl = () => {
 
   }
 
+  const handleAddTokenToWhitelist = async () => {
+    let transaction = new Transaction()
+    
+    console.log("mintAddress,poolCoinTokenAccount, poolPcTokenAccount::",mintAddress,poolCoinTokenAccount, poolPcTokenAccount)
+    const associatedTokenAddress = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(mintAddress), walletProvider?.publicKey, transaction);
+    
+    const associatedTokenAddress = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(mintAddress), walletProvider?.publicKey, transaction);
+    
+    
+    const dataLayout = struct([u8('instruction'),u8('token_id'),u8('pc_index')])
+
+    const data = Buffer.alloc(dataLayout.span)
+    dataLayout.encode(
+        {
+            instruction: 17,
+            token_id : 0,
+            pc_index : 0,
+        },
+        data
+    )
+    const instruction = new TransactionInstruction({
+        keys: [
+          { pubkey: platformStateAccount, isSigner: false, isWritable: true },
+          { pubkey: SYSVAR_CLOCK_PUBKEY, isSigner: false, isWritable: true },
+          { pubkey: walletProvider?.publicKey, isSigner: true, isWritable: true },
+          { pubkey: new PublicKey(mintAddress), isSigner: false, isWritable: true },
+          { pubkey: associatedTokenAddress, isSigner: false, isWritable: false },
+          { pubkey: associatedTokenAddress, isSigner: false, isWritable: false },
+        ],
+        programId: programId,
+        data
+    });
+    transaction.add(instruction)
+    transaction.feePayer = walletProvider?.publicKey;
+    console.log("trnsaction:: ", transaction)
+    let hash = await connection.getRecentBlockhash();
+    console.log("blockhash", hash);
+    transaction.recentBlockhash = hash.blockhash;
+
+    const sign = await signAndSendTransaction(walletProvider, transaction);
+    console.log("signature tx:: ", sign)
+  console.log("signature tx url:: ", `https://solscan.io/tx/${sign}`) 
+  }
+
+ 
+
   const [v0, setv0] = useState(0);
   const [v1, setv1] = useState(0);
   const [v2, setv2] = useState(0);
@@ -94,6 +140,10 @@ export const AdminControl = () => {
   const [min_return, setMin_return] = useState(0);
   const [platform_fee_percentage, setPlatform_fee_percentage] = useState(0);
   const [platformData, setPlatformData] = useState(0)
+
+  const [mintAddress, setMintAddress] = useState('11111111111111111111111111111111')
+  const [poolCoinTokenAccount, setPoolCoinTokenAccount] = useState('11111111111111111111111111111111')
+  const [poolPcTokenAccount, setPoolPcTokenAccount] = useState('11111111111111111111111111111111')
 
   useEffect(  ()=> {
     (async () => {
@@ -140,6 +190,16 @@ export const AdminControl = () => {
       <input type="number" value={platform_fee_percentage} onChange={(event) => setPlatform_fee_percentage(event.target.value)} />
       <br />
       <button onClick={handleAdminControl}>Admin Control</button>
+
+      <br />
+      <hr/>
+      <br />
+       Whitelist token to platform {' '}<br />
+       mintAddress : <input type="text" style={{width:'400px'}} value={mintAddress} onChange={(event) => setMintAddress(event.target.value)} /><br />
+       poolCoinTokenAccount:  <input type="text" style={{width:'400px'}} value={poolCoinTokenAccount} onChange={(event) => setPoolCoinTokenAccount(event.target.value)} /><br />
+       poolPcTokenAccount : <input type="text" style={{width:'400px'}} value={poolPcTokenAccount} onChange={(event) => setPoolPcTokenAccount(event.target.value)} /><br />
+      <button onClick={handleAddTokenToWhitelist}>ADD</button>
+      <hr/>
       </Col>
 
       <Col lg="6" xs="6">
@@ -152,21 +212,24 @@ export const AdminControl = () => {
         <p>is_initialized : {platformData?.is_initialized}</p>
         <p>no_of_active_funds : {platformData?.no_of_active_funds}</p>
         <p>token_count : {platformData?.token_count}</p>
-        {/* <table>
-          
-           {
-             platformData?.token_list && 
-
-             platformData?.token_list.map((i)=>{
-                return <tr key={i?.mint?.toBase58()}>
-                  <td >{i?.mint?.toBase58()}</td>
-                  <td>{i?.pool_price?.toString()}</td>
-                </tr>
-             })
-           }
-           </table> */}
+       
       </Col>
-            </Row>
+    </Row>
+    <table>
+          
+          {
+            platformData?.token_list && 
+
+            platformData?.token_list.map((i,index)=>{
+               return <tr key={i?.mint?.toBase58()}>
+                 <td >{index}</td>
+                 <td >{i?.mint?.toBase58()}</td>
+                 <td>{i?.pool_coin_account?.toBase58()}</td>
+                 <td>{i?.pool_pc_account?.toBase58()}</td>
+               </tr>
+            })
+          }
+          </table>
       </Card>
     </div>
   )

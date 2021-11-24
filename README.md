@@ -11,6 +11,13 @@ Enabling anyone to invest or trade digital assets in a trustless and secure envi
 ### Architectural Overview
 ![download](https://user-images.githubusercontent.com/20189814/120890571-43e16f00-c621-11eb-9150-a8b5f431f002.png)
 
+### Branches
+1) master : main defi funds
+2) master_devnet : defi funds with devnet
+3) master_mm : main mm funds mangov3 
+4) master_mm_v3_perps : 
+5) master_defi_v3_perps :
+
 
 ### Build the on-chain program
 
