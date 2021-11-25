@@ -675,7 +675,7 @@ impl Fund {
 
         // fund_data.mngo_accrued = parse_token_account(fund_mngo_vault_ai)?.amount;
         // fund_data.mngo_manager = 0;
-        Ok(())
+        // Ok(())
     }
 
     // manager perf fee claim (non-mango)

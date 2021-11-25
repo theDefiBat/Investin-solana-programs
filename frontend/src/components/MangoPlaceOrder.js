@@ -5,21 +5,29 @@ import { connection, FUND_ACCOUNT_KEY, programId, SYSTEM_PROGRAM_ID, TOKEN_PROGR
 import { struct, u32, u8, u16, ns64, nu64 } from 'buffer-layout';
 import { createAssociatedTokenAccountIfNotExist, signAndSendTransaction } from '../utils/web3';
 import { FUND_DATA } from '../utils/programLayouts';
+import { Card, Col, Row ,Table} from 'reactstrap';
 
 
-import { IDS, MangoClient, I80F48, NodeBankLayout, PerpAccountLayout, PerpMarketLayout } from '@blockworks-foundation/mango-client';
+
+import { IDS, MangoClient, I80F48,
+   NodeBankLayout, PerpAccountLayout, PerpMarket, PerpMarketLayout,
+   Config ,getAllMarkets, getMarketByPublicKey, getMultipleAccounts,
+   BookSide, BookSideLayout
+  } from '@blockworks-foundation/mango-client';
 
 export const MangoPlaceOrder = () => {
     const [size, setSize] = useState(0);
     const [price, setPrice] = useState(0);
     const [index, setIndex] = useState(0);
     const [side, setSide] = useState('');
+
+    const [openOrders, setOpenOrders] = useState([])
+    const [perpPositions, setPerpPositions] = useState([])
     
     const walletProvider = GlobalState.useState(s => s.walletProvider);
     const ids = IDS['groups'][0]
-
-    
-
+    let client = new MangoClient(connection, new PublicKey(ids.mangoProgramId))
+  
     const handleMangoDeposit = async () => {
     
     const key = walletProvider?.publicKey;
@@ -94,9 +102,12 @@ export const MangoPlaceOrder = () => {
   }
 
     const handleMangoPlace = async () => {
+
+      console.log("---handleMangoPlace side::", side)
+
+      console.log("---handleMangoPlace size,price::", size,price)
         
-    
-        const key = walletProvider?.publicKey;
+      const key = walletProvider?.publicKey;
 
       if (!key ) {
         alert("connect wallet")
@@ -109,57 +120,55 @@ export const MangoPlaceOrder = () => {
         programId,
       );
   
-      let fundStateInfo = await connection.getAccountInfo(fundStateAccount)
+    let fundStateInfo = await connection.getAccountInfo(fundStateAccount)
     let fundState = FUND_DATA.decode(fundStateInfo.data)
     console.log("fundState:: ", fundState)
-
     console.log("vault_balance:: ", fundState.vault_balance.toNumber()/ 10 ** ids.tokens[0].decimals)
+
     let nodeBankInfo = await connection.getAccountInfo(new PublicKey(ids.tokens[0].nodeKeys[0]))
     let nodeBank = NodeBankLayout.decode(nodeBankInfo.data)
     console.log("nodebank:: ", nodeBank)
 
-    let client = new MangoClient(connection, new PublicKey(ids.mangoProgramId))
+    
     let mangoGroup = await client.getMangoGroup(new PublicKey(ids.publicKey))
     let mangoAcc = await client.getMangoAccount(fundState.mango_account, ids.serumProgramId)
-    // let mangoAcc = await client.getMangoAccount(new PublicKey('9rzuDYREjQ1UoiXgU2gJmixik5J2vSn5DoWitzKAmeJm'), ids.serumProgramId)
-
     console.log("mangoAcc:: ", mangoAcc)
     console.log("mangogroup:: ", mangoGroup)
+
     let mangoCache = await mangoGroup.loadCache(connection)
-
-    let perpMarket = await client.getPerpMarket( mangoGroup.perpMarkets[1].perpMarket,  mangoGroup.tokens[1].decimals, mangoGroup.tokens[15].decimals )
-
-    console.log("perpmarket:: ", perpMarket)
-
-    console.log("wallet account:: ", walletProvider)
-    
-    let rootBanks = await mangoGroup.loadRootBanks(connection)
-    // try {
-    //   let tx = await client.settlePnl(mangoGroup, mangoCache, mangoAcc, perpMarket, rootBanks[15], mangoCache.priceCache[1].price, walletProvider)
-    // }
-    // catch (e) {
-    //   console.error("yooo", e)
-    // }
-    // //console.log("tx:: ", tx)
-
-
-
     console.log("mangocache:: ", mangoCache)
 
+    let perpMarket = await client.getPerpMarket( mangoGroup.perpMarkets[fundState.perp_market_index].perpMarket,  mangoGroup.tokens[1].decimals, mangoGroup.tokens[15].decimals )
+    console.log("perpmarket:: ", perpMarket)
+
+      
+    const idsPerpmarket = fundState.perp_market_index == 1 ? 0 : 1
+
+    const market =  mangoGroup.perpMarkets[fundState.perp_market_index]
+    const lotSizerPrice = market.baseLotSize/ market.quoteLotSize;
+    console.log("lotSizerPrice:",lotSizerPrice)
+    // const lotSizerPrice = fundState.perp_market_index === 1 ? 10 : 100000;
+    const decimals = 6 //for BTC
+    const sizeMultiplier = decimals/market.baseLotSize;  // BTC = 4
+
+    let cachePrice = (mangoCache.priceCache[fundState.perp_market_index].price * lotSizerPrice)
+    let price_adj = side == 1 ? cachePrice * 0.95 : cachePrice*1.05
+     console.log("price_adj:",price_adj)
+
     const transaction = new Transaction()
-  
+
     const dataLayout = struct([u32('instruction'), ns64('price'), ns64('quantity'), nu64('client_order_id'), u8('side'), u8('order_type')])
     const data = Buffer.alloc(dataLayout.span)
     dataLayout.encode(
-      {
-        instruction: 8,
-        price: price,
-        quantity: size * 10**4,
-        client_order_id: 333,
-        side: 0,
-        order_type: 0
-      },
-      data
+        {
+            instruction: 8,
+            price: price_adj,
+            quantity: Math.abs(size* sizeMultiplier),
+            client_order_id: 21343,
+            side: 0,
+            order_type: 0
+        },
+        data
     )
 
     const instruction = new TransactionInstruction({
@@ -173,10 +182,10 @@ export const MangoPlaceOrder = () => {
         { pubkey: fundPDA[0], isSigner: false, isWritable: true },
         { pubkey: mangoGroup.mangoCache , isSigner: false, isWritable: true },
 
-        { pubkey: new PublicKey(ids.perpMarkets[0].publicKey) , isSigner: false, isWritable: true },
-        { pubkey: new PublicKey(ids.perpMarkets[0].bidsKey) , isSigner: false, isWritable: true },
-        { pubkey: new PublicKey(ids.perpMarkets[0].asksKey) , isSigner: false, isWritable: true },
-        { pubkey: new PublicKey(ids.perpMarkets[0].eventsKey) , isSigner: false, isWritable: true },
+        { pubkey: new PublicKey(ids.perpMarkets[1].publicKey) , isSigner: false, isWritable: true },
+        { pubkey: new PublicKey(ids.perpMarkets[1].bidsKey) , isSigner: false, isWritable: true },
+        { pubkey: new PublicKey(ids.perpMarkets[1].asksKey) , isSigner: false, isWritable: true },
+        { pubkey: new PublicKey(ids.perpMarkets[1].eventsKey) , isSigner: false, isWritable: true },
 
         { pubkey: SYSTEM_PROGRAM_ID , isSigner: false, isWritable: false },
 
@@ -426,7 +435,7 @@ export const MangoPlaceOrder = () => {
   const sign = await signAndSendTransaction(walletProvider, transaction);
   console.log("tx::: ", sign)
 
-}
+  }
 
   const handleMangoRedeem = async () => {
         
@@ -508,8 +517,169 @@ export const MangoPlaceOrder = () => {
   const sign = await signAndSendTransaction(walletProvider, transaction);
   console.log("tx::: ", sign)
 
-}
+  }
 
+  const  parsePerpOpenOrders = async(
+    market,
+    config,
+    mangoAccount,
+    accountInfos,
+    fundState
+  ) => {
+    const idsPerpmarket = fundState.perp_market_index == 1 ? 0 : 1
+
+    const bidData = (await connection.getAccountInfo(new PublicKey(ids.perpMarkets[idsPerpmarket].bidsKey))).data
+    
+    const askData = (await connection.getAccountInfo(new PublicKey(ids.perpMarkets[idsPerpmarket].asksKey))).data
+  
+    const bidOrderBook =
+      market && bidData
+        ? new BookSide(market.bids, market, BookSideLayout.decode(bidData))
+        : []
+    const askOrderBook =
+      market && askData
+        ? new BookSide(market.asks, market, BookSideLayout.decode(askData))
+        : [] 
+
+    const openOrdersForMarket = [...bidOrderBook, ...askOrderBook].filter((o) =>
+      o.owner.equals(mangoAccount.publicKey)
+    ) 
+  
+    return openOrdersForMarket.map((order) => ({
+      order,
+      market: { account: market, config: config },
+    }))
+  }
+
+  const getOrdersandPositions = async () => {
+
+    const key = walletProvider?.publicKey;
+    if (!key ) {
+      alert("connect wallet")
+      return;
+    };
+    const fundStateAccount = await PublicKey.createWithSeed(
+      key,
+      FUND_ACCOUNT_KEY,
+      programId,
+    );
+  let fundStateInfo = await connection.getAccountInfo(fundStateAccount)
+  if(!fundStateInfo){
+    alert("NOT A MM FUND")
+      return;
+  }
+  let fundState = FUND_DATA.decode(fundStateInfo.data)
+    
+    let mangoAcc = await client.getMangoAccount(fundState.mango_account, ids.serumProgramId)
+    let mangoGroup = await client.getMangoGroup(new PublicKey(ids.publicKey))
+    const cache = await mangoGroup.loadCache(connection);
+
+    // setBalances([{
+    //   asset: 'USDC',
+    //   balance: roundDownTo4Decimals(mangoAcc.getUiDeposit(cache.rootBankCache[15], mangoGroup, 15).toNumber()),
+    //   fundBalance: roundDownTo4Decimals(fundState.vault_balance.toNumber() / 10 ** TOKENS.USDC.decimals)
+    // }])
+
+    const positions = [];
+    const mangoPerpMarkets = ids.perpMarkets;
+
+    for(let i=0; i<mangoPerpMarkets.length;i++){
+      const perpMarket = mangoGroup.perpMarkets[i]
+      const perpMarketCache = cache.perpMarketCache[i];
+      const price = cache.priceCache[i].price;
+
+      positions.push({
+        market: mangoPerpMarkets[i].name,
+        side: mangoAcc.perpAccounts[i].basePosition.toNumber() < 0 ? 'SHORT' : 'LONG',
+        positionSize: (mangoAcc.perpAccounts[i].basePosition.toNumber() / 10 ** 4),
+        pnl: ((mangoAcc.perpAccounts[i].getPnl(perpMarket, perpMarketCache, price)).toNumber() / 10 ** 6),
+        mngoAccrued: mangoAcc.perpAccounts[i].mngoAccrued.toNumber()
+      })
+    }
+    setPerpPositions(positions);
+
+    // get open orders ::: 
+     function zipDict( keys, values) {
+        const result = {}
+        keys.forEach((key, index) => {
+            result[key] = values[index]
+        })
+        return result
+     }
+    const DEFAULT_MANGO_GROUP_CONFIG = Config.ids().getGroup(
+      'mainnet',
+      'mainnet.1'
+    )
+    const allMarketConfigs = getAllMarkets(DEFAULT_MANGO_GROUP_CONFIG)
+    const allMarketPks = allMarketConfigs.map((m) => m.publicKey)
+
+    const resp = await Promise.all([
+      getMultipleAccounts(connection, allMarketPks),
+      mangoGroup.loadCache(connection),
+      mangoGroup.loadRootBanks(connection),
+    ])
+    const allMarketAccountInfos = resp[0]
+    const allMarketAccounts = allMarketConfigs.map((config, i) => {
+      if (config.kind == 'perp') {
+        const decoded = PerpMarketLayout.decode(
+          allMarketAccountInfos[i].accountInfo.data
+        )
+        return new PerpMarket(
+          config.publicKey,
+          config.baseDecimals,
+          config.quoteDecimals,
+          decoded
+        )
+      }
+    })
+    const markets = zipDict(
+      allMarketPks.map((pk) => pk.toBase58()),
+      allMarketAccounts
+    )
+
+    let slot = 0;
+    const accountInfos = {};
+    for (const { publicKey, context, accountInfo } of allMarketAccountInfos) {
+      if (context.slot >= slot) {
+        slot = context.slot
+        accountInfos[publicKey.toBase58()] = accountInfo
+      }
+    }
+
+    allMarketAccountInfos
+      .forEach(({ publicKey, context, accountInfo }) => {
+        if (context.slot >= slot) {
+          slot = context.slot
+          accountInfos[publicKey.toBase58()] = accountInfo
+        }
+      })
+
+    let openOrders = Object.entries(markets).filter(([a, b]) => b != undefined).map(([address, market]) => {
+      if (market) {
+        const marketConfig = getMarketByPublicKey(DEFAULT_MANGO_GROUP_CONFIG, address)
+        return parsePerpOpenOrders(
+          market,
+          marketConfig,
+          mangoAcc,
+          accountInfos,
+          fundState
+        )
+      }
+    })
+
+    const orders = [];
+
+    for (const order of openOrders) {
+      orders.push(await order)
+    }
+
+    if (orders.length) {
+      console.log(`orders ::: `, ...orders)
+      setOpenOrders(...orders);
+    }
+
+
+  }
 
     return (
         <div className="form-div">
@@ -549,6 +719,68 @@ export const MangoPlaceOrder = () => {
 
           <br />
           <button onClick={handleMangoCancelPerp}>Mango Cancel perp </button>
+
+          <br/>
+          <hr/>
+          <br/>
+          <button onClick={getOrdersandPositions}>GET ALL PERPS POSITIONS AND ORDERS </button>
+         
+                 <Table  className="tablesorter" responsive width="100%" style={{ overflow: 'hidden !important', textAlign: 'center' }}>
+                        <thead className="text-primary">
+                                        <tr>
+                                          <th style={{ width: "15%" }}>index</th>
+                                          <th style={{ width: "15%" }}>market</th>
+                                          <th style={{ width: "15%" }}>side</th>
+                                          <th style={{ width: "15%" }}>positionSize</th>
+                                          <th style={{ width: "15%" }}>pnl</th>
+                                          <th style={{ width: "15%" }}>mngoAccrued</th>
+                                        </tr>
+                        </thead>
+                        <tbody>
+                          {
+                            perpPositions.length && 
+                            perpPositions.map((i,x)=>{
+                              return <tr key={x}>
+                                <td >{x}</td>
+                                <td >{i?.market}</td>
+                                <td >{i?.side}</td>
+                                <td >{i?.positionSize}</td>
+                                <td >{i?.pnl}</td>
+                                <td >{i?.mngoAccrued}</td>
+                              </tr>
+                            })
+                          }
+                        </tbody>
+                </Table>
+
+
+                <Table  className="tablesorter" responsive width="100%" style={{ overflow: 'hidden !important', textAlign: 'center' }}>
+                        <thead className="text-primary">
+                                        <tr>
+                                          <th style={{ width: "15%" }}>index</th>
+                                          <th scope="col">Market</th>
+                                          <th scope="col">Side</th>
+                                          <th scope="col">Position size</th>
+                                          <th scope="col">Price</th>
+                                        </tr>
+                        </thead>
+                        <tbody>
+                          {
+                            openOrders.length && 
+                            openOrders.map((p,x)=>{
+                              return <tr key={x}>
+                                <td >{x}</td>
+                                <td >{"FIND"}</td>
+                                <td>{`${p.order.side}`.toUpperCase()}</td>
+                                <td>{p.order.size}</td>
+                                <td>{p.order.price}</td>
+                                <td >{p?.mngoAccrued}</td>
+                              </tr>
+                            })
+                          }
+                        </tbody>
+                </Table>
+            
 
 
         </div>
