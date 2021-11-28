@@ -67,7 +67,7 @@ pub fn mango_deposit (
     check!(manager_acc.is_signer, ProgramError::MissingRequiredSignature);
     
     // check_eq!(fund_data.manager_account, *manager_acc.key);
-    check!((fund_data.manager_account == *manager_acc.key) || (fund_data.delegate == *manager_acc.key), FundError::ManagerMismatch);
+    check!((fund_data.manager_account == *manager_acc.key), FundError::ManagerMismatch);
 
     // check fund vault
     check_eq!(fund_data.vault_key, *owner_token_account_ai.key); 
@@ -132,7 +132,7 @@ pub fn mango_place_perp_order (
     check!(manager_acc.is_signer, ProgramError::MissingRequiredSignature);
 
     // check_eq!(fund_data.manager_account, *manager_acc.key);
-    check!((fund_data.manager_account == *manager_acc.key) || (fund_data.delegate == *manager_acc.key), FundError::ManagerMismatch);
+    check!((fund_data.manager_account == *manager_acc.key), FundError::ManagerMismatch);
     
     let open_orders_accs = [Pubkey::default(); MAX_PAIRS];
     invoke_signed(
@@ -183,7 +183,7 @@ pub fn mango_cancel_perp_by_id (
     let fund_data = FundData::load_mut_checked(fund_state_acc, program_id)?;
 
     check!(manager_acc.is_signer, ProgramError::MissingRequiredSignature);
-    check!((fund_data.manager_account == *manager_acc.key) || (fund_data.delegate == *manager_acc.key), FundError::ManagerMismatch);
+    check!((fund_data.manager_account == *manager_acc.key), FundError::ManagerMismatch);
 
     invoke_signed(
         &cancel_perp_order_by_client_id(mango_prog_ai.key, mango_group_ai.key, mango_account_ai.key, fund_pda_acc.key,
@@ -234,7 +234,7 @@ pub fn mango_withdraw (
     check!(manager_ai.is_signer, ProgramError::MissingRequiredSignature);
 
     // check_eq!(fund_data.manager_account, *manager_ai.key);
-    check!((fund_data.manager_account == *manager_ai.key) || (fund_data.delegate == *manager_ai.key), FundError::ManagerMismatch);
+    check!((fund_data.manager_account == *manager_ai.key), FundError::ManagerMismatch);
 
     // check fund vault
     check_eq!(fund_data.vault_key, *fund_vault_ai.key); 

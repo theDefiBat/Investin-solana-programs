@@ -177,6 +177,7 @@ pub enum FundInstruction {
     /// 6. `[writable]` asks_ai - asks account for this PerpMarket
     /// 7. `[writable]` event_queue_ai - EventQueue for this PerpMarket
     MangoPlacePerpOrder {
+        perp_market_id: u8,
         price: i64,
         quantity: i64,
         client_order_id: u64,
@@ -202,37 +203,9 @@ pub enum FundInstruction {
         invalid_id_ok: bool
     },
 
-    ///  Proxy to RedeemMngo instruction
-    /// 
-    ///  Redeem the mngo_accrued in a PerpAccount for MNGO in MangoAccount deposits
-    ///
-    /// Accounts expected by this instruction (11):
-    /// 
-    /// 0. []   fund_state_acc
-    /// 1. []   mango_group_acc
-    /// 
-    /// 0. `[]` mango_group_ai - MangoGroup that this mango account is for
-    /// 1. `[]` mango_cache_ai - MangoCache
-    /// 2. `[writable]` mango_account_ai - MangoAccount
-    /// 3. `[signer]` owner_ai - MangoAccount owner
-    /// 4. `[]` perp_market_ai - PerpMarket
-    /// 5. `[writable]` mngo_perp_vault_ai
-    /// 6. `[]` mngo_root_bank_ai
-    /// 7. `[writable]` mngo_node_bank_ai
-    /// 8. `[writable]` mngo_bank_vault_ai
-    /// 9. `[]` signer_ai - Group Signer Account
-    /// 10. `[]` token_prog_ai - SPL Token program id
-    RedeemMngo,
-
-    // Add delegate to call place/cancel mango instructions
-    /// 0. []   fund_state_ai - Fund state account
-    /// 1. []   manager_ai - Manager Account
-    /// 2. []   delegate_ai - Delegate account
-    AddDelegate
 
     // Add perp market to the fund
     /// 0. [] fund_state_ai
-    /// 
     AddPerpMarket
 }
 
@@ -242,19 +215,17 @@ impl FundInstruction {
         let op = u32::from_le_bytes(op);
         Some(match op {
             0 => {
-                let data = array_ref![data, 0, 8 + 8 + 8 + 1];
+                let data = array_ref![data, 0, 8 + 8 + 8];
                 let (
                     min_amount,
                     min_return,
-                    performance_fee_percentage,
-                    perp_market_index
-                ) = array_refs![data, 8, 8, 8, 1];
+                    performance_fee_percentage
+                ) = array_refs![data, 8, 8, 8];
 
                 FundInstruction::Initialize {
                     min_amount: u64::from_le_bytes(*min_amount),
                     min_return: u64::from_le_bytes(*min_return),
-                    performance_fee_percentage: u64::from_le_bytes(*performance_fee_percentage),
-                    perp_market_index: u8::from_le_bytes(*perp_market_index),
+                    performance_fee_percentage: u64::from_le_bytes(*performance_fee_percentage)
                 }
             },
             1 => {
@@ -310,10 +281,10 @@ impl FundInstruction {
                 }
             },
             10 => {
-                FundInstruction::RedeemMngo
-            },
-            11 => {
-                FundInstruction::AddDelegate
+                let data_arr = array_ref![data, 0, 1];
+                FundInstruction::AddPerpMarket {
+                    fund_state_index: u8::from_le_bytes(*data_arr)
+                }
             },
             _ => { return None; }
         })

@@ -43,8 +43,8 @@ pub struct FundData {
 
     pub is_initialized: bool,
     pub signer_nonce: u8,
-    pub perp_market_indexes: [u8; 4],
-    pub markets_active: u8;
+    pub perp_market_indexes: [i8; 4],
+    pub markets_active: u8,
     pub padding: u8,
     pub no_of_investments: u32,
 

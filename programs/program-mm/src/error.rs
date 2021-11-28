@@ -53,6 +53,9 @@ pub enum FundError {
     #[error("Invalid Margin Instruction State")]
     InvalidMangoState,
 
+    #[error("Invalid Index on Fund State")]
+    InvalidStateIndex,
+
     #[error("Default Error")]
     Default
 }
