@@ -43,7 +43,7 @@ pub struct FundData {
 
     pub is_initialized: bool,
     pub signer_nonce: u8,
-    pub perp_market_indexes: [i8; 4],
+    pub perp_market_indexes: [u8; 4],
     pub markets_active: u8,
     pub padding: u8,
     pub no_of_investments: u32,
@@ -82,7 +82,7 @@ pub struct FundData {
     pub vault_key: Pubkey,
 
     /// Fund Mngo Vault
-    pub mngo_vault_key: Pubkey,
+    // pub mngo_vault_key: Pubkey,
 
     /// Mango account for the fund
     pub mango_account: Pubkey,

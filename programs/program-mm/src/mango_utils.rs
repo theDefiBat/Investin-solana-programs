@@ -139,7 +139,7 @@ pub fn mango_place_perp_order (
         &place_perp_order(mango_prog_ai.key,
             mango_group_ai.key, mango_account_ai.key, fund_pda_acc.key,
             mango_cache_ai.key,perp_market_ai.key, bids_ai.key, asks_ai.key, event_queue_ai.key, &open_orders_accs,
-            side, price, quantity, client_order_id, order_type)?,
+            side, price, quantity, client_order_id, order_type, true)?,
         &[
             mango_prog_ai.clone(),
             mango_group_ai.clone(),
@@ -161,6 +161,7 @@ pub fn mango_cancel_perp_by_id (
     program_id: &Pubkey,
     accounts: &[AccountInfo],
     client_order_id: u64,
+    invalid_id_ok: bool
 ) -> Result<(), ProgramError>
 
 {
@@ -187,7 +188,7 @@ pub fn mango_cancel_perp_by_id (
 
     invoke_signed(
         &cancel_perp_order_by_client_id(mango_prog_ai.key, mango_group_ai.key, mango_account_ai.key, fund_pda_acc.key,
-            perp_market_ai.key, bids_ai.key, asks_ai.key, client_order_id)?,
+            perp_market_ai.key, bids_ai.key, asks_ai.key, client_order_id, invalid_id_ok)?,
         &[
             mango_prog_ai.clone(),
             mango_group_ai.clone(),

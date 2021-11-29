@@ -26,7 +26,6 @@ use crate::mango_utils::*;
 
 use mango::state::{MangoAccount, MangoGroup, MangoCache, PerpMarket, MAX_PAIRS, QUOTE_INDEX};
 use mango::instruction::{ cancel_all_perp_orders, withdraw, place_perp_order, consume_events };
-use mango::ids::mngo_token;
 use mango::matching::{Side, OrderType, Book};
 
 macro_rules! check {
@@ -62,7 +61,7 @@ impl Fund {
         performance_fee_percentage: u64
     ) -> Result<(), ProgramError> {
 
-        const NUM_FIXED:usize = 8;
+        const NUM_FIXED:usize = 7;
         let accounts = array_ref![accounts, 0, NUM_FIXED];
 
         let [
@@ -70,7 +69,6 @@ impl Fund {
             manager_ai,
             fund_pda_ai,
             fund_vault_ai,
-            fund_mngo_vault_ai,
             mango_group_ai,
             mango_account_ai,
             mango_prog_ai,
@@ -95,16 +93,12 @@ impl Fund {
 
         // check for ownership of vault
         let fund_vault = parse_token_account(fund_vault_ai)?;
-        let fund_mngo_vault = parse_token_account(fund_mngo_vault_ai)?;
 
         check_eq!(fund_vault.owner, fund_data.fund_pda);
-        check_eq!(fund_mngo_vault.owner, fund_data.fund_pda);
-        check_eq!(&fund_mngo_vault.mint, &mngo_token::ID); // check for mngo mint
 
         fund_data.vault_key = *fund_vault_ai.key;
-        fund_data.mngo_vault_key = *fund_mngo_vault_ai.key;
         fund_data.vault_balance = 0;
-        fund_data.perp_market_indexes = [-1; 4]; // Initializing with -1 as 0 is valid input (Perp mkt id for MNGO)
+        fund_data.perp_market_indexes = [u8::MAX; 4]; // Initializing with MaxValue as 0 is valid input (Perp mkt id for MNGO)
         // Init Mango account for the fund
         invoke_signed(
             &init_mango_account(mango_prog_ai.key, mango_group_ai.key, mango_account_ai.key, fund_pda_ai.key)?,
@@ -360,7 +354,7 @@ impl Fund {
                     &place_perp_order(mango_prog_ai.key,
                         mango_group_ai.key, mango_account_ai.key, fund_pda_ai.key,
                         mango_cache_ai.key,perp_market_ai.key, bids_ai.key, asks_ai.key, event_queue_ai.key, &open_orders_accs,
-                        side, price, quantity, 0, OrderType::ImmediateOrCancel)?,
+                        side, price, quantity, 0, OrderType::ImmediateOrCancel, true)?,
                     &[
                         mango_prog_ai.clone(),
                         mango_group_ai.clone(),
@@ -413,7 +407,7 @@ impl Fund {
         Ok(())
     }
 
-    pub fn add_perp_market (
+    pub fn add_perp_market(
         program_id: &Pubkey,
         accounts: &[AccountInfo],
         fund_state_index: u8  
@@ -434,19 +428,19 @@ impl Fund {
         
         // let mut perp_market = PerpMarket::load_mut_checked(mango_group.perp_markets[market_index].perp_market, mango_prog_ai.key, mango_group_ai.key)?;
         // check!(mango_group.perp_markets[market_index].perp_market != Pubkey::default()); would this work?
-        let market_index = mango_group.find_perp_market_index(perp_market_ai).unwrap();
+        let market_index = mango_group.find_perp_market_index(perp_market_ai.key).unwrap();
         
         //TDOD check for repetetive market indeices
         // check for manager's signature
         check!(manager_ai.is_signer, ProgramError::MissingRequiredSignature);
         check_eq!(fund_data.manager_account, *manager_ai.key);
         check!(market_index > 0 && (market_index as usize) < MAX_PAIRS, ProgramError::InvalidArgument);
-        check!(fund_data.perp_market_indexes[fund_state_index] == -1, FundError::InvalidStateIndex);
+        check!(fund_data.perp_market_indexes[fund_state_index as usize] == u8::MAX, FundError::InvalidStateIndex);
         for i in 0..4{
-            check!(fund_data.perp_market_indexes[i]!= market_index, FundError::Default);
+            check!(fund_data.perp_market_indexes[i]!= market_index as u8, FundError::Default);
         }
 
-        fund_data.perp_market_indexes[fund_state_index] = market_index;
+        fund_data.perp_market_indexes[fund_state_index as usize] = market_index as u8;
 
         Ok(())
 
@@ -523,9 +517,9 @@ impl Fund {
     ) -> Result<(), ProgramError> {
         let instruction = FundInstruction::unpack(data).ok_or(ProgramError::InvalidInstructionData)?;
         match instruction {
-            FundInstruction::Initialize { min_amount, min_return, performance_fee_percentage, perp_market_index } => {
+            FundInstruction::Initialize { min_amount, min_return, performance_fee_percentage } => {
                 msg!("FundInstruction::Initialize");
-                return Self::initialize(program_id, accounts, min_amount, min_return, performance_fee_percentage, perp_market_index);
+                return Self::initialize(program_id, accounts, min_amount, min_return, performance_fee_percentage);
             }
             FundInstruction::InvestorDeposit { amount } => {
                 msg!("FundInstruction::InvestorDeposit");
@@ -535,14 +529,14 @@ impl Fund {
                 msg!("FundInstruction::InvestorWithdraw");
                 return Self::investor_withdraw(program_id, accounts);
             }
-            FundInstruction::InvestorHarvestMngo => {
-                msg!("FundInstruction::InvestorHarvestMngo");
-                return Self::investor_harvest_mngo(program_id, accounts);
-            }
-            FundInstruction::ManagerHarvestMngo => {
-                msg!("FundInstruction::ManagerHarvestMngo");
-                return Self::manager_harvest_mngo(program_id, accounts);
-            }
+            // FundInstruction::InvestorHarvestMngo => {
+            //     msg!("FundInstruction::InvestorHarvestMngo");
+            //     return Self::investor_harvest_mngo(program_id, accounts);
+            // }
+            // FundInstruction::ManagerHarvestMngo => {
+            //     msg!("FundInstruction::ManagerHarvestMngo");
+            //     return Self::manager_harvest_mngo(program_id, accounts);
+            // }
             FundInstruction::ClaimPerformanceFee => {
                 msg!("FundInstruction::ClaimPerformanceFee");
                 return Self::claim(program_id, accounts);
@@ -572,17 +566,17 @@ impl Fund {
                     client_order_id,
                     order_type);
             }
-            FundInstruction::MangoCancelPerpById { client_order_id, invalid_id_ok: _ } => {
+            FundInstruction::MangoCancelPerpById { client_order_id, invalid_id_ok} => {
                 msg!("FundInstruction::MangoCancelPerpById");
-                return mango_cancel_perp_by_id(program_id, accounts, client_order_id);
+                return mango_cancel_perp_by_id(program_id, accounts, client_order_id, invalid_id_ok);
             }
-            FundInstruction::RedeemMngo => {
-                msg!("FundInstruction::RedeemMngo");
-                return Self::redeem_mngo_accrued(program_id, accounts);
-            }
-            FundInstruction::AddDelegate => {
-                msg!("FundInstruction::AddDelegate");
-                return Self::add_delegate(program_id, accounts);
+            // FundInstruction::RedeemMngo => {
+            //     msg!("FundInstruction::RedeemMngo");
+            //     return Self::redeem_mngo_accrued(program_id, accounts);
+            // }
+            FundInstruction::AddPerpMarket { fund_state_index } => {
+                msg!("FundInstruction::AddPerpMarket");
+                return Self::add_perp_market(program_id, accounts, fund_state_index);
             }
         }
     }
@@ -689,10 +683,10 @@ pub fn update_amount_and_performance(
     // account for native USDC deposits
     let mut native_deposits  = mango_account.get_native_deposit(root_bank_cache, QUOTE_INDEX)?;
     fund_val = fund_val.checked_add(native_deposits).unwrap();
-    let mut pnl = 0;
+    let mut pnl: I80F48;
     for i in 0..4 {
-        let market_index = fund_data.perp_market_indexes[i] as isize;
-        if(market_index==-1){
+        let market_index = fund_data.perp_market_indexes[i] as usize;
+        if(market_index == u8::MAX as usize){
             continue;
         }
         // Calculate pnl for perp account
@@ -730,7 +724,7 @@ pub fn update_amount_and_performance(
     Ok((native_deposits, pnl))
 }
 
-pub fn parse_token_account (account_info: &AccountInfo) -> Result<Account, ProgramError> {
+pub fn parse_token_account(account_info: &AccountInfo) -> Result<Account, ProgramError> {
     if account_info.owner != &spl_token::ID {
         msg!("Account not owned by spl-token program");
         return Err(ProgramError::IncorrectProgramId);

@@ -65,45 +65,45 @@ pub enum FundInstruction {
     /// 
     InvestorWithdraw,
 
-    /// 0.  [writable]  fund_state_acc - Fund State Account
-    /// 1.  [writable]  investor_state_acc - Investor State Account
-    /// 2.  []          investor_acc - Investor Account
-    /// 3.  []          mango_prog_acc - Mango Program Account
-    /// 4.  []          investor_mngo_acc - Investor Mango Account
-    /// 
-    /// 0. `[]` mango_group_ai - MangoGroup that this mango account is for
-    /// 1. `[]` mango_cache_ai - MangoCache
-    /// 2. `[writable]` mango_account_ai - MangoAccount
-    /// 3. `[signer]` owner_ai - MangoAccount owner (fund_pda_acc)
-    /// 4. `[]` perp_market_ai - PerpMarket
-    /// 5. `[writable]` mngo_perp_vault_ai
-    /// 6. `[]` mngo_root_bank_ai
-    /// 7. `[writable]` mngo_node_bank_ai
-    /// 8. `[writable]` mngo_bank_vault_ai
-    /// 9. `[]` signer_ai - Group Signer Account
-    /// 10. `[]` token_prog_ai - SPL Token program id
-    /// 11. `[]` default_ai - SPL Token program id
+    // /// 0.  [writable]  fund_state_acc - Fund State Account
+    // /// 1.  [writable]  investor_state_acc - Investor State Account
+    // /// 2.  []          investor_acc - Investor Account
+    // /// 3.  []          mango_prog_acc - Mango Program Account
+    // /// 4.  []          investor_mngo_acc - Investor Mango Account
+    // /// 
+    // /// 0. `[]` mango_group_ai - MangoGroup that this mango account is for
+    // /// 1. `[]` mango_cache_ai - MangoCache
+    // /// 2. `[writable]` mango_account_ai - MangoAccount
+    // /// 3. `[signer]` owner_ai - MangoAccount owner (fund_pda_acc)
+    // /// 4. `[]` perp_market_ai - PerpMarket
+    // /// 5. `[writable]` mngo_perp_vault_ai
+    // /// 6. `[]` mngo_root_bank_ai
+    // /// 7. `[writable]` mngo_node_bank_ai
+    // /// 8. `[writable]` mngo_bank_vault_ai
+    // /// 9. `[]` signer_ai - Group Signer Account
+    // /// 10. `[]` token_prog_ai - SPL Token program id
+    // /// 11. `[]` default_ai - SPL Token program id
 
-    InvestorHarvestMngo,
+    // InvestorHarvestMngo,
 
-    /// 0.  [writable]  fund_state_ai - Fund State Account
-    /// 1.  [writable]  manager_ai - Manager Account
-    /// 2.  []          mango_prog_ai - Mango Program Account
-    /// 3.  []          man_mngo_ai - Manager Mango Account
-    /// 
-    /// 0. `[]` mango_group_ai - MangoGroup that this mango account is for
-    /// 1. `[]` mango_cache_ai - MangoCache
-    /// 2. `[writable]` mango_account_ai - MangoAccount
-    /// 3. `[signer]` owner_ai - MangoAccount owner (fund_pda_acc)
-    /// 4. `[]` perp_market_ai - PerpMarket
-    /// 5. `[writable]` mngo_perp_vault_ai
-    /// 6. `[]` mngo_root_bank_ai
-    /// 7. `[writable]` mngo_node_bank_ai
-    /// 8. `[writable]` mngo_bank_vault_ai
-    /// 9. `[]` signer_ai - Group Signer Account
-    /// 10. `[]` token_prog_ai - SPL Token program id
-    /// 11. `[]` default_ai - SPL Token program id
-    ManagerHarvestMngo,
+    // /// 0.  [writable]  fund_state_ai - Fund State Account
+    // /// 1.  [writable]  manager_ai - Manager Account
+    // /// 2.  []          mango_prog_ai - Mango Program Account
+    // /// 3.  []          man_mngo_ai - Manager Mango Account
+    // /// 
+    // /// 0. `[]` mango_group_ai - MangoGroup that this mango account is for
+    // /// 1. `[]` mango_cache_ai - MangoCache
+    // /// 2. `[writable]` mango_account_ai - MangoAccount
+    // /// 3. `[signer]` owner_ai - MangoAccount owner (fund_pda_acc)
+    // /// 4. `[]` perp_market_ai - PerpMarket
+    // /// 5. `[writable]` mngo_perp_vault_ai
+    // /// 6. `[]` mngo_root_bank_ai
+    // /// 7. `[writable]` mngo_node_bank_ai
+    // /// 8. `[writable]` mngo_bank_vault_ai
+    // /// 9. `[]` signer_ai - Group Signer Account
+    // /// 10. `[]` token_prog_ai - SPL Token program id
+    // /// 11. `[]` default_ai - SPL Token program id
+    // ManagerHarvestMngo,
 
 
     // fund_state_ai,
@@ -206,7 +206,9 @@ pub enum FundInstruction {
 
     // Add perp market to the fund
     /// 0. [] fund_state_ai
-    AddPerpMarket
+    AddPerpMarket {
+        fund_state_index: u8
+    }
 }
 
 impl FundInstruction {
@@ -237,12 +239,12 @@ impl FundInstruction {
             2 => {
                 FundInstruction::InvestorWithdraw
             },
-            3 => {
-                FundInstruction::InvestorHarvestMngo
-            },
-            4 => {
-                FundInstruction::ManagerHarvestMngo
-            },
+            // 3 => {
+            //     FundInstruction::InvestorHarvestMngo
+            // },
+            // 4 => {
+            //     FundInstruction::ManagerHarvestMngo
+            // },
             5 => {
                 FundInstruction::ClaimPerformanceFee
             },
