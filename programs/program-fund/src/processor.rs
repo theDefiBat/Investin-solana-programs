@@ -23,7 +23,7 @@ use crate::instruction::{FundInstruction, Data};
 use crate::state::{NUM_TOKENS, MAX_INVESTORS, NUM_MARGIN, FundData, InvestorData, PlatformData};
 use crate::mango_utils::*;
 use crate::tokens::*;
-use mango::state::{MarginAccount, MangoGroup, NUM_MARKETS, load_open_orders, Loadable as MangoLoadable};
+use mango::state::{MarginAccount, MangoGroup, NUM_MARKETS, MAX_TOKENS, load_open_orders, Loadable as MangoLoadable};
 
 macro_rules! check {
     ($cond:expr, $err:expr) => {
@@ -291,17 +291,7 @@ impl Fund {
         let platform_data = PlatformData::load_checked(platform_acc, program_id)?;
         let mut fund_data = FundData::load_mut_checked(fund_state_acc, program_id)?;
 
-        let mut margin_equity = U64F64!(0);
-        for i in 0..NUM_MARGIN {
-            if fund_data.mango_positions[i as usize].state != 0 {
-                let mango_group_data = MangoGroup::load(mango_group_acc)?;
-                let margin_data = MarginAccount::load(&margin_accs[i])?;
-                let token_index = fund_data.mango_positions[i].margin_index as usize;
-                let equity = get_margin_valuation(token_index, &mango_group_data, &margin_data, &oracle_accs[i], &open_orders_accs[i])?;
-                msg!("equity now:: {:?}", equity);
-                margin_equity += equity.checked_mul(fund_data.mango_positions[i].fund_share / fund_data.mango_positions[i].share_ratio).unwrap();
-            }
-        }
+        
 
         // check if manager signed the tx
         check!(manager_acc.is_signer, FundError::IncorrectProgramId);
@@ -312,7 +302,7 @@ impl Fund {
         check!(*pda_router_acc.key == platform_data.router, FundError::IncorrectPDA);
 
         // update start performance for investors
-        update_amount_and_performance(&platform_data, &mut fund_data, &clock_sysvar_acc, margin_equity, true)?;
+        update_amount_and_performance(&platform_data, &mut fund_data, &clock_sysvar_acc, true)?;
 
         let mut transferable_amount: u64 = 0;
         let mut fee: u64 = 0;
@@ -410,7 +400,7 @@ impl Fund {
 
         fund_data.tokens[0].balance = parse_token_account(&fund_btoken_acc)?.amount;
         // dont update performance now
-        update_amount_and_performance(&platform_data, &mut fund_data, &clock_sysvar_acc, margin_equity, false)?;
+        update_amount_and_performance(&platform_data, &mut fund_data, false)?;
 
         Ok(())
     }
@@ -557,20 +547,8 @@ impl Fund {
         check_eq!(investor_data.manager, fund_data.manager_account);
         check_eq!(investor_data.has_withdrawn, false);
 
-        // calculate current margin equity for fund
-        let mut margin_equity = [U64F64!(0); 2];
-        for i in 0..NUM_MARGIN {
-            if fund_data.mango_positions[i as usize].state != 0 {
-                let mango_group_data = MangoGroup::load(mango_group_acc)?;
-                let margin_data = MarginAccount::load(&margin_accs[i])?;
-                let token_index = fund_data.mango_positions[i].margin_index as usize;
-                let equity = get_margin_valuation(token_index, &mango_group_data, &margin_data, &oracle_accs[i], &open_orders_accs[i])?;
-                margin_equity[i] += equity.checked_mul(fund_data.mango_positions[i].fund_share / fund_data.mango_positions[i].share_ratio).unwrap();
-            }
-        }
-
         if investor_data.amount != 0 && investor_data.start_performance != 0 {
-            update_amount_and_performance(&platform_data, &mut fund_data, &clock_sysvar_acc, margin_equity[0]+margin_equity[1], true)?;
+            update_amount_and_performance(&platform_data, &mut fund_data, true)?;
             let share = get_share(&mut fund_data, &mut investor_data)?;
             for i in 0..NUM_TOKENS {
                 let mut withdraw_amount: u64 = U64F64::to_num(
@@ -587,25 +565,13 @@ impl Fund {
                 fund_data.tokens[i].debt += withdraw_amount;
                 check!(fund_data.tokens[i].balance >= fund_data.tokens[i].debt, ProgramError::InvalidAccountData);
             }
-            // active margin trade
-            for i in 0..NUM_MARGIN {
-                if fund_data.mango_positions[i as usize].state != 0 {
-                    if margin_equity[i] < 0.1 {
-                        continue; // ignore
-                    }
-                    investor_data.margin_position_id[i] = fund_data.mango_positions[i].position_id as u64;
-                    investor_data.margin_debt[i] = share.checked_mul(fund_data.mango_positions[i].fund_share).unwrap();
-                    fund_data.mango_positions[i].fund_share = fund_data.mango_positions[i].fund_share.checked_sub(
-                        investor_data.margin_debt[i]).unwrap();
-                    // update margin equity for current withdrawal
-                    investor_data.withdrawn_from_margin = true;
-                    margin_equity[i] = margin_equity[i].checked_sub(margin_equity[i].checked_mul(share).unwrap()).unwrap();
-                }
-            }
+            // TODO Close Active Perp trades on mango and compute Dep Token Debt
+
+
             fund_data.number_of_active_investments -= 1;
             fund_data.no_of_investments -= 1;
             investor_data.has_withdrawn = true;
-            update_amount_and_performance(&platform_data, &mut fund_data, &clock_sysvar_acc, margin_equity[0]+margin_equity[1], false)?;
+            update_amount_and_performance(&platform_data, &mut fund_data, false)?;
         }
         Ok(())
     }
@@ -709,22 +675,11 @@ impl Fund {
         let mut fund_data = FundData::load_mut_checked(fund_state_acc, program_id)?;
         let platform_data = PlatformData::load_checked(platform_acc, program_id)?;
 
-
-        let mut margin_equity = U64F64!(0);
-        for i in 0..NUM_MARGIN {
-            if fund_data.mango_positions[i as usize].state != 0 {
-                let mango_group_data = MangoGroup::load(mango_group_acc)?;
-                let margin_data = MarginAccount::load(&margin_accs[i])?;
-                let token_index = fund_data.mango_positions[i].margin_index as usize;
-                let equity = get_margin_valuation(token_index, &mango_group_data, &margin_data, &oracle_accs[i], &open_orders_accs[i])?;
-                margin_equity += equity.checked_mul(fund_data.mango_positions[i].fund_share / fund_data.mango_positions[i].share_ratio).unwrap();
-            }
-        }
         // check if manager signed the tx
         check!(manager_acc.is_signer, FundError::IncorrectSignature);
         check_eq!(fund_data.manager_account, *manager_acc.key);
 
-        update_amount_and_performance(&platform_data, &mut fund_data, &clock_sysvar_acc, margin_equity, true)?;
+        update_amount_and_performance(&platform_data, &mut fund_dat, true)?;
 
         msg!("Invoking transfer instructions");
         let performance_fee_manager: u64 = U64F64::to_num(U64F64::from_num(fund_data.performance_fee)
@@ -772,7 +727,7 @@ impl Fund {
         fund_data.tokens[0].balance = parse_token_account(&fund_btoken_acc)?.amount;
         fund_data.performance_fee = U64F64!(0);
 
-        update_amount_and_performance(&platform_data, &mut fund_data, &clock_sysvar_acc, margin_equity, false)?;
+        update_amount_and_performance(&platform_data, &mut fund_data, false)?;
         
         Ok(())
 
@@ -1053,21 +1008,20 @@ impl Fund {
 pub fn update_amount_and_performance(
     platform_data: &PlatformData,
     fund_data: &mut FundData,
-    clock_sysvar_acc: &AccountInfo,
-    margin_equity: U64F64,
+    mango_account_ai: &AccountInfo,
+    mango_group_ai: &AccountInfo,
+    mango_cache_ai: &AccountInfo,
+    mango_prog_ai: &AccountInfo,
     update_perf: bool
 ) -> Result<(), ProgramError> {
     
     msg!("called update_amount_and_performance");
 
-    // get price account info
-    let clock = &Clock::from_account_info(clock_sysvar_acc)?;
 
+    // let mut fund_val = I80F48::from_num(fund_data.vault_balance); // add balance in fund vault
     // add USDT balance (not decimal adjusted)
-    let mut fund_val = U64F64::from_num(fund_data.tokens[0].balance - fund_data.tokens[0].debt).
-        checked_add(margin_equity).unwrap();
-    msg!("margin_equity:: {:?}", margin_equity);
-
+    let mut fund_val = U64F64::from_num(fund_data.tokens[0].balance - fund_data.tokens[0].debt)
+    let clock = Clock::get()?;
     // Calculate prices for all tokens with balances
     for i in 1..NUM_TOKENS {
 
@@ -1093,6 +1047,42 @@ pub fn update_amount_and_performance(
 
         fund_val = fund_val.checked_add(val).unwrap();
     }
+
+    let mango_group = MangoGroup::load_checked(mango_group_ai, mango_prog_ai.key)?;
+    let mango_account = MangoAccount::load_checked(mango_account_ai, mango_prog_ai.key, mango_group_ai.key)?;
+    let mango_cache = MangoCache::load_checked(mango_cache_ai, mango_prog_ai.key, &mango_group)?;
+    
+    let root_bank_cache = &mango_cache.root_bank_cache[QUOTE_INDEX];
+
+    // account for native USDC deposits
+    let mut native_deposits  = mango_account.get_native_deposit(root_bank_cache, QUOTE_INDEX)?;
+
+    //Check if deposit_index is valid
+    if(fund_data.mango_positions.deposit_index < MAX_TOKENS){
+        native_deposits = native_deposits.checked_add(mango_account.get_native_deposit(root_bank_cache, 
+            fund_data.mango_positions.deposit_index))
+    }
+    // Get for USDC and the deposit_index on funds
+    fund_val = fund_val.checked_add(native_deposits).unwrap();
+
+    let mut pnl: I80F48;
+    for i in 0..4 {
+        let market_index = fund_data.perp_market_indexes[i] as usize;
+        if(market_index == u8::MAX as usize){
+            continue;
+        }
+        // Calculate pnl for perp account
+        let (base_val, quote_val) = mango_account.perp_accounts[market_index].get_val(&mango_group.perp_markets[market_index],
+            &mango_cache.perp_market_cache[market_index], mango_cache.price_cache[market_index].price)?;
+
+        pnl = base_val.checked_add(quote_val).unwrap();
+        msg!("pnl before:: {:?}", base_val + quote_val);
+
+        fund_val = fund_val.checked_add(pnl).unwrap();
+        
+    }
+    
+   
     if update_perf {
         let mut perf = U64F64::from_num(fund_data.prev_performance);
         // only case where performance is not updated:
@@ -1105,12 +1095,13 @@ pub fn update_amount_and_performance(
         fund_data.performance_fee = U64F64::to_num(U64F64::from_num(perf)
             .checked_div(U64F64::from_num(fund_data.prev_performance)).unwrap()
             .checked_mul(U64F64::from_num(fund_data.performance_fee)).unwrap());
-        fund_data.prev_performance = U64F64::to_num(perf);
+            fund_data.prev_performance = U64F64::to_num(perf);
     }
     
-    fund_data.total_amount = fund_val;
+    fund_data.total_amount = U64F64::from_fixed(fund_val);
     
     msg!("updated amount: {:?}", fund_data.total_amount);
+    msg!("updated perf {:?}", fund_data.prev_performance);
     
     Ok(())
 }
@@ -1136,82 +1127,6 @@ pub fn get_price(
     price = quote_adj.checked_div(base_adj).unwrap().checked_mul(value).unwrap();
 
     Ok(price)
-}
-
-pub fn get_assets_liabs(
-    token_index: usize,
-    mango_group: &MangoGroup,
-    margin_account: &MarginAccount,
-    oracle_accs: &AccountInfo,
-    open_orders_acc: &AccountInfo
-) -> Result<(U64F64, U64F64), ProgramError> {
-
-    // asset valuation
-    let price = get_price(mango_group, oracle_accs, token_index)?;
-    let mut assets = mango_group.indexes[token_index].deposit
-    .checked_mul(margin_account.deposits[token_index]).unwrap()
-    .checked_mul(price).unwrap();
-
-    // USDC assets
-    assets =  mango_group.indexes[NUM_MARKETS].deposit
-    .checked_mul(margin_account.deposits[NUM_MARKETS]).unwrap()
-    .checked_add(assets).unwrap();
-
-    // open orders assets
-    if *open_orders_acc.key != Pubkey::default() {
-        let open_orders = load_open_orders(open_orders_acc)?;
-        assets = U64F64::from_num(open_orders.native_coin_total)
-        .checked_mul(price).unwrap()
-        .checked_add(U64F64::from_num(open_orders.native_pc_total + open_orders.referrer_rebates_accrued)).unwrap()
-        .checked_add(assets).unwrap();
-    }
-    
-    // token liabs
-    let mut liabs = mango_group.indexes[token_index].borrow
-    .checked_mul(margin_account.borrows[token_index]).unwrap()
-    .checked_mul(price).unwrap();
-
-    // USDC liabs
-    liabs = mango_group.indexes[NUM_MARKETS].borrow
-    .checked_mul(margin_account.borrows[NUM_MARKETS]).unwrap()
-    .checked_add(liabs).unwrap();
-    Ok((assets, liabs))
-}
-
-pub fn get_margin_valuation(
-    token_index: usize,
-    mango_group: &MangoGroup,
-    margin_account: &MarginAccount,
-    oracle_accs: &AccountInfo,
-    open_orders_acc: &AccountInfo
-) -> Result<U64F64, ProgramError> {
-    let (assets, liabs) = get_assets_liabs(token_index, mango_group, margin_account, oracle_accs, open_orders_acc)?;
-    if liabs > assets {
-        Ok(U64F64!(0))
-    }
-    else {
-        Ok(assets - liabs)
-    }
-}
-
-pub fn get_equity_and_coll_ratio(
-    token_index: usize,
-    mango_group: &MangoGroup,
-    margin_account: &MarginAccount,
-    oracle_accs: &AccountInfo,
-    open_orders_acc: &AccountInfo
-) -> Result<(U64F64, U64F64), ProgramError> {
-    let (assets, liabs) = get_assets_liabs(token_index, mango_group, margin_account, oracle_accs, open_orders_acc)?;
-    let mut coll_ratio = U64F64::MAX;
-    if liabs != 0 {
-        coll_ratio = assets.checked_div(liabs).unwrap();
-    }
-    if liabs > assets {
-        Ok((U64F64!(0), coll_ratio))
-    }
-    else {
-        Ok((assets - liabs, coll_ratio))
-    }
 }
 
 pub fn parse_token_account (account_info: &AccountInfo) -> Result<Account, ProgramError> {

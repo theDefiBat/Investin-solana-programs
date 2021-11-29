@@ -44,6 +44,7 @@ macro_rules! check_eq {
     }
 }
 
+
 /// Struct wrapping data and providing metadata
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -73,6 +74,7 @@ pub struct PlatformData {
 }
 impl_loadable!(PlatformData);
 
+
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct FundData {
@@ -94,7 +96,11 @@ pub struct FundData {
     /// version info
     pub version: u8,
     pub padding: [u8; 7],
-  
+    // pub signer_nonce: u8,
+    // pub perp_market_index: u8,
+    // pub padding: u8,
+    // pub no_of_investments: u32,
+
     /// Minimum Amount
     pub min_amount: u64,
 
@@ -122,17 +128,19 @@ pub struct FundData {
     /// Fund PDA
     pub fund_pda: Pubkey,
 
-    /// Tokens owned
-    pub tokens: [TokenSlot; NUM_TOKENS],
+     /// Tokens owned
+     pub tokens: [TokenSlot; NUM_TOKENS],
 
-    // Store investor state account addresses
-    pub investors: [Pubkey; MAX_INVESTORS],
+     // Store investor state account addresses
+     pub investors: [Pubkey; MAX_INVESTORS],
+ 
+     // mango position info
+     pub mango_positions: MangoInfo,
 
-    // margin position info
-    pub mango_positions: [MarginInfo; 2],
-
-    // padding for future use
-    pub xpadding: [u8; 32]
+     pub margin_update_padding: [u8; 80], //80 Bytes for Depr. MarginInfo Size
+ 
+     // padding for future use
+     pub xpadding: [u8; 32]
 }
 impl_loadable!(FundData);
 
@@ -143,7 +151,8 @@ pub struct TokenSlot {
     pub is_active: bool,
     pub index: [u8; 3],
     pub mux: u8,
-    pub padding: [u8; 3],
+    pub is_on_mango: u8,
+    pub padding: [u8; 2],
 
     // token balances & debts
     pub balance: u64,
@@ -167,7 +176,7 @@ pub struct InvestorData {
     /// Investor wallet address
     pub owner: Pubkey,
 
-    /// The Initial deposit (in USDT tokens)
+    /// The Initial deposit (in USDC tokens)
     pub amount: u64,
 
     // start performance of investor
@@ -179,8 +188,8 @@ pub struct InvestorData {
     // Fund manager wallet key
     pub manager: Pubkey,
 
-    // margin percentage
-    pub margin_debt: [U64F64; NUM_MARGIN],
+    // TODO Debt in Depost Tokens on Mango
+    pub margin_debt: [I80F48; NUM_MARGIN],
 
     // margin position id
     pub margin_position_id: [u64; NUM_MARGIN],
@@ -190,29 +199,29 @@ pub struct InvestorData {
     pub token_debts: [u64; NUM_TOKENS],
 
     // padding for future use
-    pub xpadding: [u8; 32]
+    pub xpadding: [u8; 32] 
 }
 impl_loadable!(InvestorData);
 
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct MarginInfo {
+pub struct MangoInfo {
     // margin account pubkey to check if the passed acc is correct
-    pub margin_account: Pubkey,
+    pub mango_account: Pubkey,
 
-    // 0: inactive, 1: deposited, 2: position_open, 3: settled_open, 4: position_closed, 5: settled_close
-    pub state: u8, 
-    pub margin_index: u8, // token_index for the trade
-    pub position_side: u8, // 0 for LONG, 1 for SHORT
-    pub padding: [u8; 3],
-    pub position_id: u16, // unique id for the position
+    // // 0: inactive, 1: deposited, 2: position_open, 3: settled_open, 4: position_closed, 5: settled_close
     
-    pub trade_amount: u64, // 8 for PnL calculation
-
-    pub fund_share: U64F64,
-    pub share_ratio: U64F64
+    pub perp_market_index: [u8; 4];
+    pub deposit_index: u8; //USDC by default
+    pub markets_active: u8;
+    pub deposits_active: u8;
+    pub xpadding: u8;
+    
+    pub investor_debts: [u64; 2]; // cumulative investor debts for each deposit token 
+    pub padding: [u8; 24];
 }
 impl_loadable!(MarginInfo);
+
 
 impl Sealed for InvestorData {}
 impl IsInitialized for InvestorData {

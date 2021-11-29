@@ -54,7 +54,7 @@ macro_rules! check_eq {
 }
 
 
-pub fn mango_init_margin_account (
+pub fn mango_init_mango_account (
     program_id: &Pubkey,
     accounts: &[AccountInfo],
 ) -> Result<(), ProgramError>
@@ -67,425 +67,177 @@ pub fn mango_init_margin_account (
     ) = array_refs![accounts, NUM_FIXED, NUM_MARGIN];
 
     let [
-        fund_state_acc,
-        manager_acc,
-        fund_pda_acc,
-        mango_prog_acc,
-        mango_group_acc,
-        rent_acc
+        fund_state_ai,
+        manager_ai,
+        fund_pda_ai,
+        mango_prog_ai,
+        mango_group_ai,
+        mango_account_ai,
     ] = fixed_accs;
 
     let mut fund_data = FundData::load_mut_checked(fund_state_acc, program_id)?;
-
-    check!(manager_acc.is_signer, ProgramError::MissingRequiredSignature);
+    //TODO --what if liquidtated once
+    check!(manager_ai.is_signer, ProgramError::MissingRequiredSignature);
     check_eq!(fund_data.manager_account, *manager_acc.key);
-
-
-    for i in 0..NUM_MARGIN {
-        check_eq!(fund_data.mango_positions[i].margin_account, Pubkey::default());
-        invoke_signed(
-            &init_margin_account(mango_prog_acc.key, mango_group_acc.key, margin_accs[i].key, fund_pda_acc.key)?,
-            &[
-                mango_prog_acc.clone(),
-                mango_group_acc.clone(),
-                margin_accs[i].clone(),
-                fund_pda_acc.clone(),
-                rent_acc.clone()
-            ],
-            &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
+    check_eq!(fund_data.mango_positions.mango_account, Pubkey::default());
+    invoke_signed(
+        &init_mango_account(mango_prog_ai.key, mango_group_ai.key, mango_account_ai.key, fund_pda_acc.key)?,
+        &[
+            mango_prog_ai.clone(),
+            mango_group_ai.clone(),
+            mango_account_ai.clone(),
+            fund_pda_acc.clone()
+        ],
+        &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
         )?;
-        fund_data.mango_positions[i].margin_account = *margin_accs[i].key;
-        fund_data.mango_positions[i].state = 0; // inactive state
-    }
+    fund_data.mango_positions.mango_account = *mango_account_ai.key;
+    
     Ok(())
 }
 
 pub fn mango_deposit (
     program_id: &Pubkey,
     accounts: &[AccountInfo],
+    token_index: u8,
     quantity: u64
 ) -> Result<(), ProgramError>
 {
-    const NUM_FIXED: usize = 10;
+    const NUM_FIXED: usize = 12;
     let accounts = array_ref![accounts, 0, NUM_FIXED];
     let [
-        fund_state_acc,
-        manager_acc,
-        fund_pda_acc,
-        mango_prog_acc,
-        mango_group_acc,
-        margin_account_acc,
-        token_account_acc,
-        vault_acc,
-        token_prog_acc,
-        clock_acc,
+        fund_state_ai,
+        manager_ai, // or delegate
+        fund_pda_ai,
+        mango_prog_ai,
+        mango_group_ai,         // read
+        mango_account_ai,       // write
+        mango_cache_ai,         // read
+        root_bank_ai,           // read
+        node_bank_ai,           // write
+        vault_ai,               // write
+        token_prog_ai,          // read
+        owner_token_account_ai, // write
     ] = accounts;
 
     let mut fund_data = FundData::load_mut_checked(fund_state_acc, program_id)?;
+    //TODO Check for USDC or Active deposit token index OR ELSE check for availabel deposit slot
+    //TODO check token_index passed matches the corresponding accounts
+    check!(token_index == 0 || )
     check!(fund_data.is_initialized, ProgramError::InvalidAccountData);
-
-    let index = fund_data.get_margin_index(margin_account_acc.key).unwrap();
-
-    check!(fund_data.mango_positions[index].state == 0, FundError::InvalidMangoState); // has to be inactive for deposit
     check!(manager_acc.is_signer, ProgramError::MissingRequiredSignature);
-    check_eq!(fund_data.manager_account, *manager_acc.key);
-
-    let mut amount_in_margin = 0;
-    if fund_data.no_of_margin_positions != 0 { // there's an active position
-        if index == 0 {
-            amount_in_margin = fund_data.mango_positions[1].trade_amount;
-        }
-        else {
-            amount_in_margin = fund_data.mango_positions[0].trade_amount;
-        }
-    }
-    let avail_amount = fund_data.total_amount.checked_mul(U64F64!(0.4)).unwrap()
-        .checked_sub(U64F64::from_num(amount_in_margin)).unwrap();
     
-    check!(U64F64::from_num(quantity) <= avail_amount, ProgramError::InsufficientFunds);
+    // check_eq!(fund_data.manager_account, *manager_acc.key);
+    check!((fund_data.manager_account == *manager_acc.key), FundError::ManagerMismatch);
+
+    // check fund vault
+    check_eq!(fund_data.vault_key, *owner_token_account_ai.key); 
     
     invoke_signed(
-        &deposit(mango_prog_acc.key, mango_group_acc.key, margin_account_acc.key, fund_pda_acc.key, token_account_acc.key, vault_acc.key, quantity)?,
+        &deposit(mango_prog_ai.key, mango_group_ai.key, mango_account_ai.key, fund_pda_acc.key,
+            mango_cache_ai.key, root_bank_ai.key, node_bank_ai.key, vault_ai.key, owner_token_account_ai.key, quantity)?,
         &[
-            mango_prog_acc.clone(),
-            mango_group_acc.clone(),
-            margin_account_acc.clone(),
+            mango_prog_ai.clone(),
+            mango_group_ai.clone(),
+            mango_account_ai.clone(),
             fund_pda_acc.clone(),
-            token_account_acc.clone(),
-            vault_acc.clone(),
-            token_prog_acc.clone(),
-            clock_acc.clone()
+            mango_cache_ai.clone(),
+            root_bank_ai.clone(),
+            node_bank_ai.clone(),
+            vault_ai.clone(),
+            owner_token_account_ai.clone(),
+            token_prog_ai.clone()
         ],
         &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
     )?;
 
     msg!("invoke done");
 
-    let token_account = parse_token_account(token_account_acc)?;
-
-    check_eq!(fund_data.tokens[0].vault, *token_account_acc.key); 
-
-    fund_data.tokens[0].balance = token_account.amount;
-    fund_data.mango_positions[index].trade_amount = quantity;
-    fund_data.mango_positions[index].state = 1; // set state to deposited
+    fund_data.vault_balance = parse_token_account(owner_token_account_ai)?.amount;
+    //TODO get mint from token_index and get token slot from mint and update tokenSolot acccordingly is_on_mango *if not USDC
+    //check if balance is > debt on token_slot >>Similar to Swap
     Ok(())
 }
 
-pub fn mango_open_position (
+pub fn mango_place_perp_order (
     program_id: &Pubkey,
     accounts: &[AccountInfo],
-    side: u8,
-    price: u64,
-    trade_size: u64
+    perp_market_id: u8,
+    side: Side,
+    quantity: i64
 ) -> Result<(), ProgramError>
 
 {
-    const NUM_FIXED: usize = 20;
-    let accounts = array_ref![accounts, 0, NUM_FIXED + 2 * NUM_MARKETS];
-    let (
-        fixed_accs,
-        open_orders_accs,
-        oracle_accs,
-    ) = array_refs![accounts, NUM_FIXED, NUM_MARKETS, NUM_MARKETS];
-
-    let [
-        fund_state_acc,
-        manager_acc,
-        fund_pda_acc,
-        mango_prog_acc,
-        mango_group_acc,
-        margin_account_acc,
-        clock_acc,
-        dex_prog_acc,
-        spot_market_acc,
-        dex_request_queue_acc,
-        dex_event_queue_acc,
-        bids_acc,
-        asks_acc,
-        vault_acc,
-        signer_acc,
-        dex_base_acc,
-        dex_quote_acc,
-        token_prog_acc,
-        rent_acc,
-        srm_vault_acc,
-    ] = fixed_accs;
-
-
-    // let mut margin_account = MarginAccount::load_mut(margin_account_acc)?;
-    let mut fund_data = FundData::load_mut_checked(fund_state_acc, program_id)?;
-    let index = fund_data.get_margin_index(margin_account_acc.key).unwrap();
-
-    check!(manager_acc.is_signer, ProgramError::MissingRequiredSignature);
-    check_eq!(fund_data.manager_account, *manager_acc.key);
-    check!(fund_data.mango_positions[index].state == 1, FundError::InvalidMangoState); // has to be deposited
-    
-    let coin_lots = convert_size_to_lots(spot_market_acc, dex_prog_acc.key, trade_size, false)?;
-    msg!("coin_lots:: {:?} ", coin_lots);
-
-    let pc_qty = convert_size_to_lots(spot_market_acc, dex_prog_acc.key, trade_size * price, true)?;
-    msg!("pc_qty:: {:?}", pc_qty);
-    let fee_rate:U64F64 = U64F64!(0.0022); // fee_bps = 22; BASE
-
-    let exact_fee: u64 = U64F64::to_num(fee_rate.checked_mul(U64F64::from_num(pc_qty)).unwrap());
-
-    let pc_qty_including_fees = pc_qty + exact_fee;
-    msg!("pc_qty:: {:?}", pc_qty_including_fees);
-
-    let order_side = serum_dex::matching::Side::try_from_primitive(side.try_into().unwrap()).unwrap();
-
-    let order = NewOrderInstructionV3 {
-        side: order_side,
-        limit_price: NonZeroU64::new(price).unwrap(),
-        max_coin_qty: NonZeroU64::new(coin_lots).unwrap(),
-        max_native_pc_qty_including_fees: NonZeroU64::new(pc_qty_including_fees).unwrap(),
-        order_type: OrderType::ImmediateOrCancel,
-        client_order_id: 1,
-        self_trade_behavior: SelfTradeBehavior::AbortTransaction,
-        limit: 65535,
-    };
-    invoke_signed(
-        &instruction_place_order(mango_prog_acc.key,
-            mango_group_acc.key, fund_pda_acc.key, margin_account_acc.key,
-            dex_prog_acc.key,spot_market_acc.key, dex_request_queue_acc.key,
-            dex_event_queue_acc.key, bids_acc.key, asks_acc.key, vault_acc.key,
-            signer_acc.key, dex_base_acc.key, dex_quote_acc.key, srm_vault_acc.key,
-            &[*open_orders_accs[0].key, *open_orders_accs[1].key, *open_orders_accs[2].key, *open_orders_accs[3].key],
-            &[*oracle_accs[0].key, *oracle_accs[1].key, *oracle_accs[2].key, *oracle_accs[3].key],
-            order)?,
-        &[
-            mango_prog_acc.clone(),
-            mango_group_acc.clone(),
-            margin_account_acc.clone(),
-            fund_pda_acc.clone(),
-            dex_prog_acc.clone(),
-            spot_market_acc.clone(),
-            dex_request_queue_acc.clone(),
-            dex_event_queue_acc.clone(), bids_acc.clone(), asks_acc.clone(), vault_acc.clone(),
-            signer_acc.clone(), dex_base_acc.clone(), dex_quote_acc.clone(), srm_vault_acc.clone(),
-            open_orders_accs[0].clone(), open_orders_accs[1].clone(), open_orders_accs[2].clone(), open_orders_accs[3].clone(),
-            oracle_accs[0].clone(), oracle_accs[1].clone(), oracle_accs[2].clone(), oracle_accs[3].clone(),
-            clock_acc.clone(), token_prog_acc.clone(), rent_acc.clone()
-        ],
-        &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
-    )?;
-    let margin_data = MarginAccount::load(margin_account_acc)?;
-    let mango_group_data = MangoGroup::load(mango_group_acc)?;
-
-    let prices = get_prices(&mango_group_data, oracle_accs)?;
-    let coll_ratio = margin_data.get_collateral_ratio(&mango_group_data, &prices, open_orders_accs)?;
-
-    // restrict to 2x leverage
-    check!(coll_ratio >= U64F64!(1.4), ProgramError::InsufficientFunds);
-
-    let token_index = mango_group_data.get_market_index(spot_market_acc.key).unwrap();
-
-    fund_data.no_of_margin_positions += 1;
-    fund_data.position_count += 1;
-    fund_data.mango_positions[index].fund_share = U64F64!(1);
-    fund_data.mango_positions[index].share_ratio = U64F64!(1);
-    fund_data.mango_positions[index].margin_index = u8::try_from(token_index).unwrap();
-    fund_data.mango_positions[index].state = 2; // change state to open_position
-    fund_data.mango_positions[index].position_side = side;
-    fund_data.mango_positions[index].position_id = fund_data.position_count;
-
-    Ok(())
-}
-
-pub fn mango_close_position (
-    program_id: &Pubkey,
-    accounts: &[AccountInfo],
-    price: u64,
-) -> Result<(), ProgramError>
-
-{
-    const NUM_FIXED: usize = 20;
-    let accounts = array_ref![accounts, 0, NUM_FIXED + 2 * NUM_MARKETS];
-    let (
-        fixed_accs,
-        open_orders_accs,
-        oracle_accs,
-    ) = array_refs![accounts, NUM_FIXED, NUM_MARKETS, NUM_MARKETS];
-
-    let [
-        fund_state_acc,
-        manager_acc,
-        fund_pda_acc,
-        mango_prog_acc,
-        mango_group_acc,
-        margin_account_acc,
-        clock_acc,
-        dex_prog_acc,
-        spot_market_acc,
-        dex_request_queue_acc,
-        dex_event_queue_acc,
-        bids_acc,
-        asks_acc,
-        vault_acc,
-        signer_acc,
-        dex_base_acc,
-        dex_quote_acc,
-        token_prog_acc,
-        rent_acc,
-        srm_vault_acc,
-    ] = fixed_accs;
-
-    let mut fund_data = FundData::load_mut_checked(fund_state_acc, program_id)?;
-    let index = fund_data.get_margin_index(margin_account_acc.key).unwrap();
-
-    check!(manager_acc.is_signer, ProgramError::MissingRequiredSignature);
-    check_eq!(fund_data.manager_account, *manager_acc.key);
-    check!(fund_data.mango_positions[index].state == 3, FundError::InvalidMangoState); // has to be settled_open
-
-    let side = fund_data.mango_positions[index].position_side;
-    let token_index = fund_data.mango_positions[index].margin_index as usize;
-    let close_amount = get_close_amount(margin_account_acc, mango_group_acc, side, token_index)?;
-
-    //let coin_lots = convert_size_to_lots(spot_market_acc, dex_prog_acc.key, close_amount, false)?;
-    let coin_lots = get_withdraw_lots(spot_market_acc, dex_prog_acc.key, close_amount, side)?;
-    //let coin_lots = convert_size_to_lots(spot_market_acc, dex_prog_acc.key, close_amount, false)?;
-    if coin_lots == 0 {
-        // allow for close when the trades have been settled by investors
-        fund_data.no_of_margin_positions -= 1;
-        fund_data.mango_positions[index].state = 4; // change to close_position
-        return Ok(())
-    }
-    msg!("coin_lots : {:?}", coin_lots);
-
-    let pc_qty = convert_size_to_lots(spot_market_acc, dex_prog_acc.key, close_amount * price, true)?;
-    let fee_rate:U64F64 = U64F64!(0.0022); // fee_bps = 22; BASE
-    let exact_fee: u64 = U64F64::to_num(fee_rate.checked_mul(U64F64::from_num(pc_qty)).unwrap());
-    let pc_qty_including_fees = pc_qty + exact_fee;
-
-    let side = serum_dex::matching::Side::try_from_primitive(side.try_into().unwrap()).unwrap();
-    let order = NewOrderInstructionV3 {
-        side: match side { // reverse of open position
-            Side::Bid => Side::Ask,
-            Side::Ask => Side::Bid,
-        },
-        limit_price: NonZeroU64::new(price).unwrap(),
-        max_coin_qty: NonZeroU64::new(coin_lots).unwrap(),
-        max_native_pc_qty_including_fees: NonZeroU64::new(pc_qty_including_fees).unwrap(),
-        order_type: OrderType::ImmediateOrCancel,
-        client_order_id: 1,
-        self_trade_behavior: SelfTradeBehavior::AbortTransaction,
-        limit: 65535,
-    };
-    invoke_signed(
-        &instruction_place_order(mango_prog_acc.key,
-            mango_group_acc.key, fund_pda_acc.key, margin_account_acc.key,
-            dex_prog_acc.key,spot_market_acc.key, dex_request_queue_acc.key,
-            dex_event_queue_acc.key, bids_acc.key, asks_acc.key, vault_acc.key,
-            signer_acc.key, dex_base_acc.key, dex_quote_acc.key, srm_vault_acc.key,
-            &[*open_orders_accs[0].key, *open_orders_accs[1].key, *open_orders_accs[2].key, *open_orders_accs[3].key],
-            &[*oracle_accs[0].key, *oracle_accs[1].key, *oracle_accs[2].key, *oracle_accs[3].key],
-            order)?,
-        &[
-            mango_prog_acc.clone(),
-            mango_group_acc.clone(),
-            margin_account_acc.clone(),
-            fund_pda_acc.clone(),
-            dex_prog_acc.clone(),
-            spot_market_acc.clone(),
-            dex_request_queue_acc.clone(),
-            dex_event_queue_acc.clone(), bids_acc.clone(), asks_acc.clone(), vault_acc.clone(),
-            signer_acc.clone(), dex_base_acc.clone(), dex_quote_acc.clone(), srm_vault_acc.clone(),
-            open_orders_accs[0].clone(), open_orders_accs[1].clone(), open_orders_accs[2].clone(), open_orders_accs[3].clone(),
-            oracle_accs[0].clone(), oracle_accs[1].clone(), oracle_accs[2].clone(), oracle_accs[3].clone(),
-            clock_acc.clone(), token_prog_acc.clone(), rent_acc.clone()
-        ],
-        &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
-    )?;
-
-    fund_data.no_of_margin_positions -= 1;
-    fund_data.mango_positions[index].state = 4; // change to close_position
-
-    Ok(())
-}
-
-pub fn mango_settle_position (
-    program_id: &Pubkey,
-    accounts: &[AccountInfo],
-) -> Result<(), ProgramError>
-{
-    const NUM_FIXED: usize = 17;
+    const NUM_FIXED: usize = 12;
     let accounts = array_ref![accounts, 0, NUM_FIXED];
 
     let [
         fund_state_acc,
         manager_acc,
-        fund_pda_acc,
-        mango_prog_acc,
-
-        mango_group_acc,
-        margin_account_acc,
-        clock_acc,
-        dex_prog_acc,
-        spot_market_acc,
-        open_orders_acc,
-        signer_acc,
-        dex_base_acc,
-        dex_quote_acc,
-        base_vault_acc,
-        quote_vault_acc,
-        dex_signer_acc,
-        token_prog_acc,
+        mango_prog_ai,
+        mango_group_ai,     // read
+        mango_account_ai,   // write
+        fund_pda_acc,           // read, signer
+        mango_cache_ai,     // read
+        perp_market_ai,     // write
+        bids_ai,            // write
+        asks_ai,            // write
+        event_queue_ai,    // write
+        default_acc,
     ] = accounts;
 
-    // let mut margin_account = MarginAccount::load_mut(margin_account_acc)?;
-    let mut fund_data = FundData::load_mut_checked(fund_state_acc, program_id)?;
-    let index = fund_data.get_margin_index(margin_account_acc.key).unwrap();
+    let fund_data = FundData::load_mut_checked(fund_state_acc, program_id)?;
+    //Check for perp_market_id matches derived from ai 
+    //Check for perp_market_id already active on fund/add perp_market if markets_active < 4
+    //Check if its close on full amount, if yes remove from active perp_markets on funds --> END
+    //Base_position + taker_base and quote_position and taker_quote should both be considered
+    //Settle PnL to be executed right after place_perp_order...
 
-    check!(fund_data.mango_positions[index].state == 2 || fund_data.mango_positions[index].state == 4, FundError::InvalidMangoState);
     check!(manager_acc.is_signer, ProgramError::MissingRequiredSignature);
-    check_eq!(fund_data.manager_account, *manager_acc.key);
 
+    // check_eq!(fund_data.manager_account, *manager_acc.key);
+    check!((fund_data.manager_account == *manager_acc.key), FundError::ManagerMismatch);
     
+    let open_orders_accs = [Pubkey::default(); MAX_PAIRS];
     invoke_signed(
-        &settle_funds(mango_prog_acc.key, mango_group_acc.key, fund_pda_acc.key, margin_account_acc.key,
-            dex_prog_acc.key, spot_market_acc.key, open_orders_acc.key, signer_acc.key,
-            dex_base_acc.key, dex_quote_acc.key, base_vault_acc.key, quote_vault_acc.key, dex_signer_acc.key)?,
+        &place_perp_order(mango_prog_ai.key,
+            mango_group_ai.key, mango_account_ai.key, fund_pda_acc.key,
+            mango_cache_ai.key,perp_market_ai.key, bids_ai.key, asks_ai.key, event_queue_ai.key, &open_orders_accs,
+            side, price, quantity, client_order_id, order_type, true)?,
         &[
-            mango_prog_acc.clone(), mango_group_acc.clone(), fund_pda_acc.clone(), margin_account_acc.clone(),
-            dex_prog_acc.clone(), spot_market_acc.clone(), open_orders_acc.clone(), signer_acc.clone(),
-            dex_base_acc.clone(), dex_quote_acc.clone(), base_vault_acc.clone(), quote_vault_acc.clone(),
-            dex_signer_acc.clone(), clock_acc.clone(), token_prog_acc.clone()
-        ],
-        &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
-    )?;
-
-    // settle borrows
-    let token_index;
-    let settle_amount;
-
-    if fund_data.mango_positions[index].position_side == 0 { // for LONG settle USDC
-        token_index = NUM_MARKETS;
-        settle_amount = get_settle_amount(margin_account_acc, mango_group_acc, NUM_MARKETS)?;
-    }
-    else { // for SHORT settle token
-        token_index = fund_data.mango_positions[index].margin_index as usize;
-        settle_amount = get_settle_amount(margin_account_acc, mango_group_acc, token_index)?;
-    }
-    msg!("settle_amount :{:?} for token: {:?}", settle_amount, token_index);
-    invoke_signed(
-        &settle_borrow(mango_prog_acc.key, mango_group_acc.key, margin_account_acc.key, fund_pda_acc.key, token_index,
-            settle_amount)?,
-        &[
-            mango_prog_acc.clone(),
-            mango_group_acc.clone(),
-            margin_account_acc.clone(),
+            mango_prog_ai.clone(),
+            mango_group_ai.clone(),
+            mango_account_ai.clone(),
             fund_pda_acc.clone(),
-            clock_acc.clone(),
+            perp_market_ai.clone(),
+            mango_cache_ai.clone(),
+            bids_ai.clone(),
+            asks_ai.clone(),
+            default_acc.clone(),
+            event_queue_ai.clone()
         ],
         &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
     )?;
-
-    fund_data.mango_positions[index].state += 1; // increement state
-    let margin_data = MarginAccount::load(margin_account_acc)?;
-    // sanity check
-    check!(*open_orders_acc.key == margin_data.open_orders[fund_data.mango_positions[index].margin_index as usize],
-        ProgramError::InvalidAccountData);
     Ok(())
+}
+
+//TODO::Update!!!
+pub fn mango_settle_pnl(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+) -> Result<(), ProgramError>
+{
+    const NUM_FIXED: usize = 9;
+    let accounts = array_ref![accounts, 0, NUM_FIXED];
+
+    let [
+        fund_state_ai,
+        manager_ai,
+        fund_pda_ai,
+        mango_prog_ai,
+        mango_group_ai,
+        mango_account_ai,  
+    ]
+
 }
 
 pub fn mango_withdraw_fund (
