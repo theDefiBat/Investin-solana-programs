@@ -211,12 +211,12 @@ pub struct MangoInfo {
 
     // // 0: inactive, 1: deposited, 2: position_open, 3: settled_open, 4: position_closed, 5: settled_close
     
-    pub perp_market_index: [u8; 4];
+    pub perp_market_indices: [u8; 4];
     pub deposit_index: u8; //USDC by default
     pub markets_active: u8;
     pub deposits_active: u8;
     pub xpadding: u8;
-    
+
     pub investor_debts: [u64; 2]; // cumulative investor debts for each deposit token 
     pub padding: [u8; 24];
 }
@@ -327,9 +327,9 @@ impl FundData {
     pub fn get_token_slot(&self, index: usize, mux: usize) -> Option<usize> {
         self.tokens.iter().position(|token| token.index[mux] as usize == index)
     }
-    pub fn get_margin_index(&self, margin_account_pk: &Pubkey) -> Option<usize> {
-        self.mango_positions.iter().position(|pos| pos.margin_account == *margin_account_pk)
-    }
+    // pub fn get_margin_index(&self, margin_account_pk: &Pubkey) -> Option<usize> {
+    //     self.mango_positions.iter().position(|pos| pos.margin_account == *margin_account_pk)
+    // }
     pub fn get_investor_index(&self, inv_state_pk: &Pubkey) -> Option<usize> {
         self.investors.iter().position(|pos| *pos == *inv_state_pk)
     }

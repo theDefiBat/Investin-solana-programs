@@ -112,68 +112,56 @@ pub enum FundInstruction {
         change_perf_fee: u64
     },
 
-    /// Initialize a margin account for a user
+    /// Initialize a mango account for a user
     ///
     /// Accounts expected by this instruction (4):
-    /// 0.  []  fund_state_acc - Fund State Account
-    /// 1.  [signer]  manager_acc - Manager Account
-    /// 2.  []  fund_pda_acc - Fund PDA Account
-    /// 3.  []  mango_prog_acc - Mango Program Account
-    /// 
-    /// 0. `[]` mango_group_acc - MangoGroup that this margin account is for
-    /// 1. `[writable]` margin_account_acc - the margin account data
-    /// 3. `[]` rent_acc - Rent sysvar account
+    ///
+    /// 0. `[]` mango_group_ai - MangoGroup that this mango account is for
+    /// 1. `[writable]` mango_account_ai - the mango account data
+    /// 2. `[signer]` owner_ai - Solana account of owner of the mango account
+    /// 3. `[]` rent_ai - Rent sysvar account
     MangoInitialize,
 
     /// Proxy to Deposit instruction on Mango
     /// 
-    /// 0.  [writable]  fund_state_acc - Fund State Account
-    /// 1.  [signer]    manager_acc - Manager Account to sign
-    /// 2.  []          fund_pda_acc - Fund PDA Account
-    /// 2.  []          mango_prog_acc - Mango Program Account
-    /// 
-    /// 3. `[writable]` mango_group_acc - MangoGroup that this margin account is for
-    /// 4. `[writable]` margin_account_acc - the margin account for this user
-    /// 6. `[writable]` token_account_acc - TokenAccount owned by user which will be sending the funds
-    /// 7. `[writable]` vault_acc - TokenAccount owned by MangoGroup
-    /// 8. `[]` token_prog_acc - acc pointed to by SPL token program id
-    /// 9. `[]` clock_acc - Clock sysvar account
+    /// fund_state_ai,
+    /// manager_ai,  
+    /// fund_pda_ai, 
+    /// mango_prog_ai,
+    /// mango_group_ai,         // read
+    /// mango_account_ai,       // write
+    /// mango_cache_ai,         // read
+    /// root_bank_ai,           // read
+    /// node_bank_ai,           // write
+    /// vault_ai,               // write
+    /// token_prog_ai,          // read
+    /// owner_token_account_ai, // write
     MangoDeposit {
+        token_slot_index: u8,
+        mango_token_index: u8,
         quantity: u64
     },
 
     /// Place an order on the Serum Dex and settle funds from the open orders account
     ///
     /// Accounts expected by this instruction (19 + 2 * NUM_MARKETS):
-    ///
-    /// 0.  [writable]  fund_state_acc - Fund State Account
-    /// 1.  [signer]    manager_acc - Manager Account to sign
-    /// 2.  []          fund_pda_acc - Fund PDA Account
-    /// 3.  []          mango_prog_acc - Mango Program Account
-    /// 
-    /// 0. `[writable]` mango_group_acc - MangoGroup that this margin account is for
-    /// 2. `[writable]` margin_account_acc - MarginAccount
-    /// 3. `[]` clock_acc - Clock sysvar account
-    /// 4. `[]` dex_prog_acc - program id of serum dex
-    /// 5. `[writable]` spot_market_acc - serum dex MarketState
-    /// 6. `[writable]` dex_request_queue_acc - serum dex request queue for this market
-    /// 7. `[writable]` dex_event_queue - serum dex event queue for this market
-    /// 8. `[writable]` bids_acc - serum dex bids for this market
-    /// 9. `[writable]` asks_acc - serum dex asks for this market
-    /// 10. `[writable]` vault_acc - mango's vault for this currency (quote if buying, base if selling)
-    /// 11. `[]` signer_acc - mango signer key
-    /// 12. `[writable]` dex_base_acc - serum dex market's vault for base (coin) currency
-    /// 13. `[writable]` dex_quote_acc - serum dex market's vault for quote (pc) currency
-    /// 14. `[]` spl token program
-    /// 15. `[]` the rent sysvar
-    /// 16. `[writable]` srm_vault_acc - MangoGroup's srm_vault used for fee reduction
-    /// 17..17+NUM_MARKETS `[writable]` open_orders_accs - open orders for each of the spot market
-    /// 17+NUM_MARKETS..17+2*NUM_MARKETS `[]`
-    ///     oracle_accs - flux aggregator feed accounts
-    MangoOpenPosition {
-        side: u8, // 1 for sell, 0 for buy
-        price: u64, // remove later
-        trade_size: u64 // trade amount
+    /// ProgramId
+    /// fund_state_acc,
+    /// manager_acc,
+    /// mango_prog_ai,
+    /// mango_group_ai,     // read
+    /// mango_account_ai,   // write
+    /// fund_pda_acc,           // read, signer
+    /// mango_cache_ai,     // read
+    /// perp_market_ai,     // write
+    /// bids_ai,            // write
+    /// asks_ai,            // write
+    /// event_queue_ai,    // write
+    /// default_acc,
+    MangoPlacePerpOrder { //Only Market Orders
+        perp_market_id: u8,
+        side: Side,
+        quantity: i64
     },
     
     /// Settle all funds from serum dex open orders into MarginAccount positions
@@ -197,7 +185,9 @@ pub enum FundInstruction {
     /// 11. `[writable]` quote_vault_acc - MangoGroup quote vault acc
     /// 12. `[]` dex_signer_acc - dex Market signer account
     /// 13. `[]` spl token program
-    MangoSettlePosition,
+    MangoSettlePnL {
+        perp_market_id: u8,
+    },
 
     /// Withdraw funds that were deposited earlier.
     ///
@@ -223,26 +213,29 @@ pub enum FundInstruction {
         price: u64 // remove later
     },
 
-    /// Withdraw funds after MangoClosePosition
+    /// Withdraw funds from Mango
     ///
-    /// Accounts expected by this instruction: 21
+    /// Accounts expected by this instruction: 
     ///
-    /// 0.  [writable]  fund_state_acc - Fund State Account
-    /// 1.  [signer]    manager_acc - Manager Account to sign
-    /// 2.  []          fund_pda_acc - Fund PDA Account
-    /// 3.  []          mango_prog_acc - Mango Program Account
-    /// 4. `[writable]` mango_group_acc - MangoGroup that this margin account is for
-    /// 5. `[writable]` margin_account_acc - the margin account for this user
-    /// 6. `[writable]` token_account_acc - TokenAccount owned by user which will be receiving the funds
-    /// 7. `[writable]` vault_acc - TokenAccount owned by MangoGroup which will be sending
-    /// 8. `[]` signer_acc - acc pointed to by signer_key
-    /// 9. `[]` token_prog_acc - acc pointed to by SPL token program id
-    /// 10. `[]` clock_acc - Clock sysvar account
-    /// 11..11+NUM_MARKETS `[]` open_orders_accs - open orders for each of the spot market
-    /// 11+NUM_MARKETS..11+2*NUM_MARKETS `[]`
-    ///     oracle_accs - flux aggregator feed accounts
-    /// 19, 20  Investor State accounts list to update debt
-    MangoWithdrawToFund,
+    /// fund_state_ai,
+    // manager_ai,
+    // mango_prog_ai,
+
+    // mango_group_ai,     // read
+    // mango_account_ai,   // write
+    // fund_pda_ai,           // read
+    // mango_cache_ai,     // read
+    // root_bank_ai,       // read
+    // node_bank_ai,       // write
+    // vault_ai,           // write
+    // fund_token_ai,       // write
+    // signer_ai,          // read
+    // token_prog_ai,      // read
+    // default_ai
+    MangoWithdraw {
+        token_slot_index: u8,
+        quantity: u64
+    },
 
     /// Withdraw funds that were deposited earlier.
     ///
