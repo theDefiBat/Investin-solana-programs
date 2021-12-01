@@ -210,6 +210,10 @@ export const Swap = () => {
      (async () => {
 
       const platformDataAcc = await connection.getAccountInfo(platformStateAccount)
+      if(!platformDataAcc){
+        alert('platform state not initilaized');
+        return;
+      }
       const platformData = PLATFORM_DATA.decode(platformDataAcc.data)
       // console.log("platformData::",platformData);
       setPlatformData(platformData)
