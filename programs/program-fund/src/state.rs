@@ -8,6 +8,7 @@ use solana_program::clock::UnixTimestamp;
 use solana_program::msg;
 use bytemuck::{from_bytes, from_bytes_mut, Pod, Zeroable};
 use fixed::types::U64F64;
+use fixed::types::I80F48;
 use crate::error::FundError;
 
 pub const NUM_TOKENS:usize = 8;
@@ -207,20 +208,17 @@ impl_loadable!(InvestorData);
 #[derive(Clone, Copy)]
 pub struct MangoInfo {
     // margin account pubkey to check if the passed acc is correct
-    pub mango_account: Pubkey,
+    pub mango_account: Pubkey, 
+    pub perp_market_indices: [u8; 4],
+    pub deposit_index: u8, //USDC by default
+    pub markets_active: u8,
+    pub deposits_active: u8,
+    pub xpadding: u8,
 
-    // // 0: inactive, 1: deposited, 2: position_open, 3: settled_open, 4: position_closed, 5: settled_close
-    
-    pub perp_market_indices: [u8; 4];
-    pub deposit_index: u8; //USDC by default
-    pub markets_active: u8;
-    pub deposits_active: u8;
-    pub xpadding: u8;
-
-    pub investor_debts: [u64; 2]; // cumulative investor debts for each deposit token 
-    pub padding: [u8; 24];
+    pub investor_debts: [u64; 2], // cumulative investor debts for each deposit token 
+    pub padding: [u8; 24]
 }
-impl_loadable!(MarginInfo);
+impl_loadable!(MangoInfo);
 
 
 impl Sealed for InvestorData {}

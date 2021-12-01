@@ -9,6 +9,7 @@ edition = "2018"
 
 [features]
 no-entrypoint = []
+devnet = []
 
 [dependencies]
 borsh = "=0.9.1"
@@ -24,7 +25,7 @@ serde = "^1.0.118"
 fixed = { version = "=1.9.0", features=["serde"] }
 fixed-macro = "^1.1.1"
 serum_dex = { version = "=0.4.0", git = "https://github.com/blockworks-foundation/serum-dex.git", features=["no-entrypoint", "program"] }
-mango = {  version = "3.0.4", git = "https://github.com/blockworks-foundation/mango-v3.git", default-features=false, features = ["no-entrypoint"], branch="main" }
+mango = {  version = "3.0.4", git = "https://github.com/blockworks-foundation/mango-v3.git", default-features=false, features = ["no-entrypoint", "devnet"], branch="main" }
 flux-aggregator = { version = "^0.1", git = "https://github.com/blockworks-foundation/solana-flux-aggregator.git", features=["program", "no-entrypoint"] }
 spl-token = {version = "3.0.1", features = ["no-entrypoint"]}
 spl-associated-token-account = "1.0.2"

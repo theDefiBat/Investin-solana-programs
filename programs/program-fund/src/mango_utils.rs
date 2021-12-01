@@ -1,4 +1,5 @@
 use bytemuck::bytes_of;
+use fixed::types::I80F48;
 use fixed::types::U64F64;
 use solana_program::{
     account_info::AccountInfo,
@@ -15,10 +16,7 @@ use std::convert::TryInto;
 
 use fixed_macro::types::U64F64;
 pub const ONE_U64F64: U64F64 = U64F64!(1);
-use serum_dex::matching::{Side, OrderType};
-use serum_dex::state::MarketState;
 
-use serum_dex::instruction::{NewOrderInstructionV3, SelfTradeBehavior};
 use std::num::NonZeroU64;
 
 
@@ -27,15 +25,13 @@ use arrayref::{array_ref, array_refs};
 use crate::error::FundError;
 use crate::state::{MAX_INVESTORS_WITHDRAW, NUM_MARGIN, FundData, InvestorData};
 use crate::state::Loadable;
-use crate::processor::{ parse_token_account, get_margin_valuation};
+use crate::processor::{ parse_token_account };
 
-use mango::state::{MangoAccount, MangoGroup, MangoCache, MAX_PAIRS, NUM_MARKETS, QUOTE_INDEX};
-use mango::state::Loadable as OtherLoadable;
-use mango::instruction::{init_margin_account, deposit, withdraw, settle_funds, settle_borrow, MangoInstruction};
-use mango::processor::get_prices;
+use mango::state::{MangoAccount, MangoGroup, MangoCache, MAX_PAIRS, QUOTE_INDEX};
+// use mango::state::Loadable as OtherLoadable;
+use mango::instruction::{init_mango_account, deposit, withdraw, place_perp_order, settle_pnl, MangoInstruction};
+use mango::matching::{Side, OrderType};
 use spl_token::state::Account;
-
-pub const MANGO_NUM_TOKENS:usize = 5;
 
 macro_rules! check {
     ($cond:expr, $err:expr) => {
@@ -55,6 +51,9 @@ macro_rules! check_eq {
 
 pub mod mango_v3_id {
     use solana_program::declare_id;
+    #[cfg(feature = "devnet")]
+    declare_id!("4skJ85cdxQAFVKbcGgfun8iZPL7BadVYXG3kGEGkufqA");
+    #[cfg(not(feature = "devnet"))]
     declare_id!("mv3ekLzLbnVPNxjSKvqBpU3ZeZXPQdEC3bp5MDEBG68");
 }
 
@@ -74,19 +73,19 @@ pub fn mango_init_mango_account(
         mango_account_ai,
     ] = accounts;
 
-    let mut fund_data = FundData::load_mut_checked(fund_state_acc, program_id)?;
+    let mut fund_data = FundData::load_mut_checked(fund_state_ai, program_id)?;
     //Check for Mango v3 ID 
     check_eq!(*mango_prog_ai.key, mango_v3_id::ID);
     check!(manager_ai.is_signer, ProgramError::MissingRequiredSignature);
-    check_eq!(fund_data.manager_account, *manager_acc.key);
+    check_eq!(fund_data.manager_account, *manager_ai.key);
     check_eq!(fund_data.mango_positions.mango_account, Pubkey::default());
     invoke_signed(
-        &init_mango_account(mango_prog_ai.key, mango_group_ai.key, mango_account_ai.key, fund_pda_acc.key)?,
+        &init_mango_account(mango_prog_ai.key, mango_group_ai.key, mango_account_ai.key, fund_pda_ai.key)?,
         &[
             mango_prog_ai.clone(),
             mango_group_ai.clone(),
             mango_account_ai.clone(),
-            fund_pda_acc.clone()
+            fund_pda_ai.clone()
         ],
         &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
         )?;
@@ -129,22 +128,22 @@ pub fn mango_deposit(
     //TODO check token_index passed matches the corresponding accounts
     // check!(token_index == 0)
     check!(fund_data.is_initialized, ProgramError::InvalidAccountData);
-    check!(manager_acc.is_signer, ProgramError::MissingRequiredSignature);
+    check!(manager_ai.is_signer, ProgramError::MissingRequiredSignature);
     
     // check_eq!(fund_data.manager_account, *manager_acc.key);
-    check!((fund_data.manager_account == *manager_acc.key), FundError::ManagerMismatch);
+    check!((fund_data.manager_account == *manager_ai.key), FundError::ManagerMismatch);
 
     // // check fund vault
     // check_eq!(fund_data.vault_key, *owner_token_account_ai.key); 
     
     invoke_signed(
-        &deposit(mango_prog_ai.key, mango_group_ai.key, mango_account_ai.key, fund_pda_acc.key,
+        &deposit(mango_prog_ai.key, mango_group_ai.key, mango_account_ai.key, fund_pda_ai.key,
             mango_cache_ai.key, root_bank_ai.key, node_bank_ai.key, vault_ai.key, owner_token_account_ai.key, quantity)?,
         &[
             mango_prog_ai.clone(),
             mango_group_ai.clone(),
             mango_account_ai.clone(),
-            fund_pda_acc.clone(),
+            fund_pda_ai.clone(),
             mango_cache_ai.clone(),
             root_bank_ai.clone(),
             node_bank_ai.clone(),
@@ -209,7 +208,7 @@ pub fn mango_place_perp_order(
         &place_perp_order(mango_prog_ai.key,
             mango_group_ai.key, mango_account_ai.key, fund_pda_acc.key,
             mango_cache_ai.key,perp_market_ai.key, bids_ai.key, asks_ai.key, event_queue_ai.key, &open_orders_accs,
-            side, 0, quantity, 0, 3, true)?,
+            side, 0, quantity, 0, OrderType::Market, true)?,
         &[
             mango_prog_ai.clone(),
             mango_group_ai.clone(),
@@ -254,7 +253,7 @@ pub fn mango_settle_pnl(
     check!((fund_data.manager_account == *manager_ai.key), FundError::ManagerMismatch);
     invoke_signed(
         &settle_pnl(mango_prog_ai.key, mango_group_ai.key, mango_account_a_ai.key, mango_account_a_ai.key, 
-            mango_cache_ai.key, root_bank_ai.key, node_bank_ai.key, perp_market_id)?,
+            mango_cache_ai.key, root_bank_ai.key, node_bank_ai.key, perp_market_id as usize)?,
         &[
             mango_prog_ai.clone(),
             mango_group_ai.clone(),
@@ -335,53 +334,53 @@ pub fn mango_withdraw(
     check_eq!(dest_info.owner, fund_data.fund_pda);
     
 
-    fund_data.tokens[0].balance = parse_token_account(fund_vault_ai)?.amount;
+    fund_data.tokens[0].balance = parse_token_account(fund_token_ai)?.amount;
 
     Ok(())
 }
 
-pub fn convert_size_to_lots(
-    spot_market_acc: &AccountInfo,
-    dex_program_id: &Pubkey,
-    size: u64,
-    pc: bool
-) -> Result <u64, ProgramError> {
-    let market = MarketState::load(spot_market_acc, dex_program_id)?;
-    if pc {
-        Ok(size * market.pc_lot_size / market.coin_lot_size)
-    }
-    else {
-        Ok(size / market.coin_lot_size)
-    }
-}
+// pub fn convert_size_to_lots(
+//     spot_market_acc: &AccountInfo,
+//     dex_program_id: &Pubkey,
+//     size: u64,
+//     pc: bool
+// ) -> Result <u64, ProgramError> {
+//     let market = MarketState::load(spot_market_acc, dex_program_id)?;
+//     if pc {
+//         Ok(size * market.pc_lot_size / market.coin_lot_size)
+//     }
+//     else {
+//         Ok(size / market.coin_lot_size)
+//     }
+// }
 
-fn get_withdraw_lots(
-    spot_market_acc: &AccountInfo,
-    dex_program_id: &Pubkey,
-    size: u64,
-    side: u8,
-) -> Result <u64, ProgramError> {
-    let market = MarketState::load(spot_market_acc, dex_program_id)?;
-    Ok((size / market.coin_lot_size) + side as u64)
-}
+// fn get_withdraw_lots(
+//     spot_market_acc: &AccountInfo,
+//     dex_program_id: &Pubkey,
+//     size: u64,
+//     side: u8,
+// ) -> Result <u64, ProgramError> {
+//     let market = MarketState::load(spot_market_acc, dex_program_id)?;
+//     Ok((size / market.coin_lot_size) + side as u64)
+// }
 
-pub fn get_investor_withdraw_lots(
-    spot_market_acc: &AccountInfo,
-    dex_program_id: &Pubkey,
-    size: u64,
-    pos_size: u64,
-    side: u8
-) -> Result <u64, ProgramError> {
-    let market = MarketState::load(spot_market_acc, dex_program_id)?;
-    //if size + market.coin_lot_size > pos_size {
-    if (pos_size - size) / market.coin_lot_size == 0 {
-        Ok((size / market.coin_lot_size) + side as u64) // same as manager close case
-    }
-    else {
-        Ok((size / market.coin_lot_size) + 1)
-    }
-    // Ok((size / market.coin_lot_size) + side as u64)
-}
+// pub fn get_investor_withdraw_lots(
+//     spot_market_acc: &AccountInfo,
+//     dex_program_id: &Pubkey,
+//     size: u64,
+//     pos_size: u64,
+//     side: u8
+// ) -> Result <u64, ProgramError> {
+//     let market = MarketState::load(spot_market_acc, dex_program_id)?;
+//     //if size + market.coin_lot_size > pos_size {
+//     if (pos_size - size) / market.coin_lot_size == 0 {
+//         Ok((size / market.coin_lot_size) + side as u64) // same as manager close case
+//     }
+//     else {
+//         Ok((size / market.coin_lot_size) + 1)
+//     }
+//     // Ok((size / market.coin_lot_size) + side as u64)
+// }
 
 // pub fn update_investor_debts(
 //     fund_data: &FundData,

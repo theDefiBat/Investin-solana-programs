@@ -4,6 +4,7 @@
 /.cargo
 /dist
 .env
+.DS_Store
 src/client/util/store
 src/program-fund/target
 src/program-fund/Cargo.lock

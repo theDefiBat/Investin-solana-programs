@@ -25,8 +25,9 @@ use crate::instruction::{FundInstruction, Data};
 use crate::state::{NUM_TOKENS, MAX_INVESTORS, NUM_MARGIN, FundData, InvestorData, PlatformData};
 use crate::mango_utils::*;
 use crate::tokens::*;
-use mango::state::{MarginAccount, MangoGroup, NUM_MARKETS, MAX_TOKENS, load_open_orders, Loadable as MangoLoadable};
-
+use mango::state::{MangoAccount, MangoGroup, MangoCache, PerpMarket, MAX_TOKENS, MAX_PAIRS, QUOTE_INDEX};
+use mango::instruction::{ cancel_all_perp_orders, withdraw, place_perp_order, consume_events };
+use mango::matching::{Side, OrderType, Book};
 macro_rules! check {
     ($cond:expr, $err:expr) => {
         if !($cond) {
@@ -45,24 +46,33 @@ macro_rules! check_eq {
 pub mod investin_admin {
     use solana_program::declare_id;
     // set investin admin
+    #[cfg(feature = "devnet")]
+    declare_id!("");
+    #[cfg(not(feature = "devnet"))]
     declare_id!("owZmWQkqtY3Kqnxfua1KTHtR2S6DgBTP75JKbh15VWG");
 }
 
 pub mod usdc_mint {
     use solana_program::declare_id;
-    // set investin admin
+    #[cfg(feature = "devnet")]
+    declare_id!("");
+    #[cfg(not(feature = "devnet"))]
     declare_id!("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
 }
 
 pub mod raydium_id {
     use solana_program::declare_id;
-    // set investin admin
+    #[cfg(feature = "devnet")]
+    declare_id!("");
+    #[cfg(not(feature = "devnet"))]
     declare_id!("675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8");
 }
 
 pub mod orca_id {
     use solana_program::declare_id;
-    // set investin admin
+    #[cfg(feature = "devnet")]
+    declare_id!("");
+    #[cfg(not(feature = "devnet"))]
     declare_id!("9W959DqEETiGZocYWCQPaJ6sBmUzgfxXfqGeTEdp3aQP");
 }
 
@@ -269,7 +279,7 @@ impl Fund {
 
         const NUM_FIXED:usize = 13;
         
-        let(fixed_accs, investor_state_accs) = array_refs![accounts, 0, NUM_FIXED; ..;];
+        let(fixed_accs, investor_state_accs) = array_refs![accounts, NUM_FIXED; ..;];
 
         let [
             platform_ai,
@@ -535,7 +545,7 @@ impl Fund {
     ) -> Result<(), ProgramError> {
 
         const NUM_FIXED:usize = 8;
-        let accounts = array_ref![accounts, 0];
+        let accounts = array_ref![accounts, 0, 8];
 
         let [
             platform_ai,
@@ -546,7 +556,7 @@ impl Fund {
             mango_group_ai,
             mango_cache_ai,
             mango_prog_ai,
-        ] = fixed_accs;
+        ] = accounts;
 
         let platform_data = PlatformData::load_mut_checked(platform_ai, program_id)?;
         let mut fund_data = FundData::load_mut_checked(fund_state_ai, program_id)?;
@@ -675,28 +685,23 @@ impl Fund {
         program_id: &Pubkey,
         accounts: &[AccountInfo],
     ) -> Result<(), ProgramError> {
-        const NUM_FIXED:usize = 10;
-        let accounts = array_ref![accounts, 0, NUM_FIXED + 3*NUM_MARGIN];
-
-        let (
-            fixed_accs,
-            margin_accs,
-            open_orders_accs,
-            oracle_accs
-        ) = array_refs![accounts, NUM_FIXED, NUM_MARGIN, NUM_MARGIN, NUM_MARGIN];
+        const NUM_FIXED:usize = 12;
+        let accounts = array_ref![accounts, 0, NUM_FIXED];
 
         let [
             platform_ai,
             fund_state_ai,
+            mango_account_ai,
             mango_group_ai,
-            clock_sysvar_ai,
+            mango_cache_ai,
+            mango_prog_ai,
             manager_ai,
             fund_btoken_ai,
             manager_btoken_ai,
             investin_btoken_ai,
             pda_man_ai,
             token_prog_ai
-        ] = fixed_accs;
+        ] = accounts;
 
         let mut fund_data = FundData::load_mut_checked(fund_state_ai, program_id)?;
         let platform_data = PlatformData::load_checked(platform_ai, program_id)?;
@@ -996,9 +1001,9 @@ impl Fund {
             }
             FundInstruction::MangoPlacePerpOrder { perp_market_id, side, quantity } => {
                 msg!("FundInstruction::MangoPlacePerpOrder");
-                return mango_place_perp_order(program_id, accounts, perp_market_id ,side, quantity);
+                return mango_place_perp_order(program_id, accounts, perp_market_id , side, quantity);
             }
-            FundInstruction::MangoSettlePnL => {
+            FundInstruction::MangoSettlePnL {perp_market_id} => {
                 msg!("FundInstruction::MangoSettlePnL");
                 return mango_settle_pnl(program_id, accounts, perp_market_id);
             }
@@ -1006,7 +1011,7 @@ impl Fund {
             //     msg!("FundInstruction::MangoClosePosition");
             //     return mango_close_position(program_id, accounts, price);
             // }
-            FundInstruction::MangoWithdraw => {
+            FundInstruction::MangoWithdraw { token_slot_index, quantity } => {
                 msg!("FundInstruction::MangoWithdraw");
                 return mango_withdraw(program_id, accounts, token_slot_index, quantity);
             }
@@ -1062,7 +1067,7 @@ pub fn update_amount_and_performance(
 
     // let mut fund_val = I80F48::from_num(fund_data.vault_balance); // add balance in fund vault
     // add USDT balance (not decimal adjusted)
-    let mut fund_val = U64F64::from_num(fund_data.tokens[0].balance - fund_data.tokens[0].debt)
+    let mut fund_val = U64F64::from_num(fund_data.tokens[0].balance - fund_data.tokens[0].debt);
     let clock = Clock::get()?;
     // Calculate prices for all tokens with balances
     for i in 1..NUM_TOKENS {
@@ -1098,14 +1103,14 @@ pub fn update_amount_and_performance(
 
     // account for native USDC deposits
     let mut native_deposits  = mango_account.get_native_deposit(root_bank_cache, QUOTE_INDEX)?;
-    let di = fund_data.mango_positions.deposit_index;
+    let dti = fund_data.mango_positions.deposit_index as usize;
     //Check if deposit_index is valid
-    if(di < MAX_TOKENS){
-        root_bank_cache = &mango_cache.root_bank_cache[di];
-        native_deposits = native_deposits.checked_add(mango_account.get_native_deposit(root_bank_cache, di));
+    if(dti < MAX_TOKENS){
+        root_bank_cache = &mango_cache.root_bank_cache[dti];
+        native_deposits = native_deposits.checked_add(mango_account.get_native_deposit(root_bank_cache, dti)?).unwrap();
     }
     // Get for USDC and the deposit_index on funds
-    fund_val = fund_val.checked_add(native_deposits).unwrap();
+    fund_val = fund_val.checked_add(U64F64::from_fixed(native_deposits)).unwrap();
 
     let mut pnl: I80F48;
     for i in 0..4 {
@@ -1195,7 +1200,7 @@ pub fn swap_instruction_raydium(
         signer_ai,
         source_token_ai,
         dest_token_ai,
-        owner_token_acc
+        owner_token_ai
     ] = accounts;
 
     invoke_signed(

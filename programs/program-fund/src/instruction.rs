@@ -1,5 +1,7 @@
 use arrayref::{array_ref, array_refs};
 use borsh::BorshSerialize;
+use mango::matching::{Side};
+use num_enum::TryFromPrimitive;
 
 #[repr(C)]
 #[derive(Clone)]
@@ -209,9 +211,9 @@ pub enum FundInstruction {
     /// 8..8+NUM_MARKETS `[]` open_orders_accs - open orders for each of the spot market
     /// 8+NUM_MARKETS..8+2*NUM_MARKETS `[]`
     ///     oracle_accs - flux aggregator feed accounts
-    MangoClosePosition {
-        price: u64 // remove later
-    },
+    // MangoClosePosition {
+    //     price: u64 // remove later
+    // },
 
     /// Withdraw funds from Mango
     ///
@@ -258,7 +260,7 @@ pub enum FundInstruction {
     /// 
     /// 16..19 (NUM_MARKETS) `[]` open_orders_accs - open orders for each of the spot market
     /// 20..23 (NUM_MARKETS) `[]` oracle_accs - flux aggregator feed accounts
-    MangoWithdrawInvestor,
+    // MangoWithdrawInvestor,
 
     /// Place an order on the Serum Dex and settle funds from the open orders account
     ///
@@ -289,9 +291,9 @@ pub enum FundInstruction {
     /// 17..17+NUM_MARKETS `[writable]` open_orders_accs - open orders for each of the spot market
     /// 17+NUM_MARKETS..17+2*NUM_MARKETS `[]`
     ///     oracle_accs - flux aggregator feed accounts
-    MangoWithdrawInvestorPlaceOrder {
-        price: u64
-    },
+    // MangoWithdrawInvestorPlaceOrder {
+    //     price: u64
+    // },
 
     /// Settle all funds from serum dex open orders into MarginAccount positions
     ///
@@ -315,7 +317,7 @@ pub enum FundInstruction {
     /// 11. `[writable]` quote_vault_acc - MangoGroup quote vault acc
     /// 12. `[]` dex_signer_acc - dex Market signer account
     /// 13. `[]` spl token program
-    MangoWithdrawInvestorSettle,
+    // MangoWithdrawInvestorSettle,
 
     /// Accounts Expected
     /// 0. [WRITE] Platform Account
@@ -462,48 +464,62 @@ impl FundInstruction {
                 FundInstruction::MangoInitialize
             },
             9 => {
-                let quantity = array_ref![data, 0, 8];
+                let data = array_ref![data, 0, 1 + 1 + 8];
+
+                let (
+                    token_slot_index,
+                    mango_token_index,
+                    quantity
+                ) = array_refs![data, 1, 1, 8];
+
                 FundInstruction::MangoDeposit{
+                    token_slot_index: u8::from_le_bytes(*token_slot_index),
+                    mango_token_index: u8::from_le_bytes(*mango_token_index),
                     quantity: u64::from_le_bytes(*quantity)
                 }
             },
             10 => {
-                let data_arr = array_ref![data, 0, 17];
-                let (
-                    side,
-                    price,
-                    trade_size
-                ) = array_refs![data_arr, 1, 8, 8];
-                FundInstruction::MangoOpenPosition {
-                    side: u8::from_le_bytes(*side),
-                    price: u64::from_le_bytes(*price),
-                    trade_size: u64::from_le_bytes(*trade_size),
+                let data_arr = array_ref![data, 0, 1 + 1 + 8];
+                let (perp_market_id, side, quantity) =
+                array_refs![data_arr, 1, 1, 8];
+                FundInstruction::MangoPlacePerpOrder {
+                    perp_market_id: u8::from_le_bytes(*perp_market_id),
+                    side: Side::try_from_primitive(side[0]).ok()?,
+                    quantity: i64::from_le_bytes(*quantity)
                 }
             },
             11 => {
-                FundInstruction::MangoSettlePosition
-            },
-            12 => {
-                let price = array_ref![data, 0, 8];
-                FundInstruction::MangoClosePosition {
-                    price: u64::from_le_bytes(*price),
+                let perp_market_id = array_ref![data, 0, 1];
+                FundInstruction::MangoSettlePnL {
+                    perp_market_id: u8::from_le_bytes(*perp_market_id)
                 }
             },
+            // 12 => {
+            //     let price = array_ref![data, 0, 8];
+            //     FundInstruction::MangoClosePosition {
+            //         price: u64::from_le_bytes(*price),
+            //     }
+            // },
             13 => {
-                FundInstruction::MangoWithdrawToFund
-            },
-            14 => {
-                FundInstruction::MangoWithdrawInvestor
-            },
-            15 => {
-                let price = array_ref![data, 0, 8];
-                FundInstruction::MangoWithdrawInvestorPlaceOrder {
-                    price: u64::from_le_bytes(*price),
+                let data_arr = array_ref![data, 0, 1 + 8];
+                let (token_slot_index, quantity) = array_refs![data_arr, 1, 8];
+                FundInstruction::MangoWithdraw {
+                    token_slot_index: u8::from_le_bytes(*token_slot_index),
+                    quantity: u64::from_le_bytes(*quantity)
                 }
             },
-            16 => {
-                FundInstruction::MangoWithdrawInvestorSettle
-            },
+            // 14 => {
+            //     FundInstruction::MangoWithdrawInvestor
+            // },
+            // 15 => {
+            //     let price = array_ref![data, 0, 8];
+            //     FundInstruction::MangoWithdrawInvestorPlaceOrder {
+            //         price: u64::from_le_bytes(*price),
+            //     }
+            // },
+            // 16 => {
+            //     FundInstruction::MangoWithdrawInvestorSettle
+            // },
             17 => {
                 let data = array_ref![data, 0, 2];
                 let (
