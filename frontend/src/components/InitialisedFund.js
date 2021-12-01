@@ -9,8 +9,16 @@ import { FUND_DATA, PLATFORM_DATA, u64, U64F64 } from '../utils/programLayouts';
 import { Badge } from 'reactstrap';
 import BN from 'bn.js';
 import { TOKENS } from '../utils/tokens';
+import { IDS } from '@blockworks-foundation/mango-client';
 
 export const InitialisedFund = () => {
+
+  let ids;
+  if(process.env.REACT_APP_NETWORK==='devnet'){
+     ids = IDS['groups'][2]
+  } else {
+     ids = IDS['groups'][0]
+  }
 
   const walletProvider = GlobalState.useState(s => s.walletProvider);
 
@@ -48,7 +56,7 @@ export const InitialisedFund = () => {
       dataLayout.encode(
         {
           instruction: 0,
-          min_amount: min_amount * (10 ** TOKENS['USDC'].decimals),
+          min_amount: min_amount * (10 ** ids.tokens[0].decimals),
           min_return: min_return * 100,
           performance_fee_percentage: platform_fee_percentage * 100,
           count: 2
@@ -56,8 +64,8 @@ export const InitialisedFund = () => {
         data
       )
 
-      const associatedTokenAddress1 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TOKENS['USDC'].mintAddress), fundPDA[0], transaction);
-      const associatedTokenAddress2 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TOKENS['SRM'].mintAddress), fundPDA[0], transaction);
+      const associatedTokenAddress1 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(ids.tokens[0].mintAddress), fundPDA[0], transaction);
+      const associatedTokenAddress2 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(ids.tokens[4].mintAddress), fundPDA[0], transaction);
 
       const instruction = new TransactionInstruction({
         keys: [
@@ -66,8 +74,8 @@ export const InitialisedFund = () => {
           { pubkey: walletProvider?.publicKey, isSigner: true, isWritable: true },
           { pubkey: associatedTokenAddress1, isSigner: false, isWritable: true },
 
-          { pubkey: new PublicKey(TOKENS['USDC'].mintAddress), isSigner: false, isWritable: true },
-          { pubkey: new PublicKey(TOKENS['SRM'].mintAddress), isSigner: false, isWritable: true },
+          { pubkey: new PublicKey(ids.tokens[0].mintAddress), isSigner: false, isWritable: true },
+          { pubkey: new PublicKey(ids.tokens[4].mintAddress), isSigner: false, isWritable: true }, //WSOL
         ],
         programId,
         data

@@ -1,7 +1,7 @@
 import { PublicKey, SYSVAR_CLOCK_PUBKEY, Transaction, TransactionInstruction } from '@solana/web3.js';
 import React, { useState } from 'react'
 import { GlobalState } from '../store/globalState';
-import { adminAccount, SOL_USDC_MARKET, connection,  platformStateAccount, priceStateAccount, FUND_ACCOUNT_KEY, programId, TOKEN_PROGRAM_ID , CLOCK_PROGRAM_ID, MANGO_PROGRAM_ID_V2, MANGO_GROUP_ACCOUNT, MANGO_VAULT_ACCOUNT_USDC, MARGIN_ACCOUNT_KEY, ORACLE_BTC_DEVNET, ORACLE_ETH_DEVNET, ORACLE_SOL_DEVNET, ORACLE_SRM_DEVNET} from '../utils/constants';
+import { adminAccount, SOL_USDC_MARKET, connection,  platformStateAccount, priceStateAccount, FUND_ACCOUNT_KEY, programId, TOKEN_PROGRAM_ID , CLOCK_PROGRAM_ID, MANGO_PROGRAM_ID_V2, MANGO_GROUP_ACCOUNT, MARGIN_ACCOUNT_KEY, ORACLE_BTC_DEVNET, ORACLE_ETH_DEVNET, ORACLE_SOL_DEVNET, ORACLE_SRM_DEVNET} from '../utils/constants';
 
 import { nu64, struct, u8 } from 'buffer-layout';
 import { createKeyIfNotExists, findAssociatedTokenAddress, setWalletTransaction, signAndSendTransaction, createAssociatedTokenAccount, createAssociatedTokenAccountIfNotExist } from '../utils/web3';
@@ -14,6 +14,7 @@ import { MarginAccountLayout, NUM_MARKETS, MangoGroupLayout } from '../utils/Man
 
 import { mangoWithdrawInvestor, placeOrder, placeOrder2 } from '../utils/mango';
 import { TOKENS } from '../utils/tokens';
+import { IDS } from '@blockworks-foundation/mango-client';
 
 
 const getPoolAccounts = () => {
@@ -26,6 +27,13 @@ const getPoolAccounts = () => {
 }
 
 export const Withdraw = () => {
+  let ids;
+  if(process.env.REACT_APP_NETWORK==='devnet'){
+      ids = IDS['groups'][2]
+  } else {
+      ids = IDS['groups'][0]
+  }
+
 
   const [amount, setAmount] = useState(0);
 
@@ -162,15 +170,15 @@ export const Withdraw = () => {
 
     // updatePoolPrices(transaction, devnet_pools)
 
-    const routerAssociatedTokenAddress = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TOKENS['USDC'].mintAddress), RPDA[0], transaction);
+    const routerAssociatedTokenAddress = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(ids.tokens[0].mintAddress), RPDA[0], transaction);
 
-    const investorBaseTokenAccount = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TOKENS['USDC'].mintAddress), key, transaction);
-    const investorTokenAccount2 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TOKENS['SRM'].mintAddress), key, transaction);
-    // const investorTokenAccount3 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['ALPHA'].mintAddress), key, transaction);
+    const investorBaseTokenAccount = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(ids.tokens[0].mintAddress), key, transaction);
+    const investorTokenAccount2 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(ids.tokens[4].mintAddress), key, transaction);
+    // const investorTokenAccount3 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(ids.tokens[6].mintAddress), key, transaction);
 
-    const fundAssociatedTokenAddress1 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TOKENS['USDC'].mintAddress), new PublicKey(fundPDA), transaction);
-    const fundAssociatedTokenAddress2 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TOKENS['SRM'].mintAddress), new PublicKey(fundPDA), transaction);
-    // const fundAssociatedTokenAddress3 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TOKENS['ALPHA'].mintAddress), MPDA, transaction);
+    const fundAssociatedTokenAddress1 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(ids.tokens[0].mintAddress), new PublicKey(fundPDA), transaction);
+    const fundAssociatedTokenAddress2 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(ids.tokens[4].mintAddress), new PublicKey(fundPDA), transaction);
+    // const fundAssociatedTokenAddress3 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(ids.tokens[6].mintAddress), MPDA, transaction);
 
     console.log("USDC vault:: ", fundAssociatedTokenAddress1)
     console.log("SRM vault:: ", fundAssociatedTokenAddress2)

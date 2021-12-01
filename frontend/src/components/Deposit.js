@@ -8,8 +8,16 @@ import { FUND_DATA, INVESTOR_DATA, PLATFORM_DATA } from '../utils/programLayouts
 import { TOKENS } from '../utils/tokens'
 import { devnet_pools } from '../utils/pools'
 import { updatePoolPrices } from './updatePrices';
+import { IDS } from '@blockworks-foundation/mango-client';
 
 export const Deposit = () => {
+
+  let ids;
+  if(process.env.REACT_APP_NETWORK==='devnet'){
+     ids = IDS['groups'][2]
+  } else {
+     ids = IDS['groups'][0]
+  }
 
   const [amount, setAmount] = useState(0);
   const [fundPDA, setFundPDA] = useState('');
@@ -29,14 +37,14 @@ export const Deposit = () => {
       return;
     };
   
-    const baseTokenAccount = await findAssociatedTokenAddress(key, new PublicKey(TOKENS['USDC'].mintAddress));
+    const baseTokenAccount = await findAssociatedTokenAddress(key, new PublicKey(ids.tokens[0].mintAddress));
 
     const transaction = new Transaction()
 
     const RPDA = await PublicKey.findProgramAddress([Buffer.from("router")], programId);
     const FPDA = new PublicKey(fundPDA);
 
-    const associatedTokenAddress1 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TOKENS['USDC'].mintAddress), RPDA[0], transaction);    
+    const associatedTokenAddress1 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(ids.tokens[0].mintAddress), RPDA[0], transaction);    
 
     const investerStateAccount = await createKeyIfNotExists(walletProvider, null, programId, FPDA.toBase58().substr(0, 31), INVESTOR_DATA.span, transaction)
     
@@ -57,7 +65,7 @@ export const Deposit = () => {
     dataLayout.encode(
       {
         instruction: 1,
-        amount: amount * ( 10 ** TOKENS['USDC'].decimals)
+        amount: amount * ( 10 ** ids.tokens[0].decimals)
       },
       data
     )

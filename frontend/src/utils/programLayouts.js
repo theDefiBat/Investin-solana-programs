@@ -119,18 +119,15 @@ export const FUND_DATA = struct([
   U64F64('performance_fee'),
   publicKeyLayout('manager_account'),
   publicKeyLayout('fund_pda'),
-
   seq(
     struct([
-      u8('is_initialized'),
-      // u8('index'),
+      u8('is_active'),
       seq(u8(),3,'index'),
       u8('mux'),
-      seq(u8(), 3, 'padding'),
-
+      u8('is_on_mango'),
+      seq(u8(), 2, 'padding'),
       u64('balance'),
       u64('debt'),
-
       publicKeyLayout('vault')
     ]),
     NUM_TOKENS, 'tokens'
@@ -139,19 +136,16 @@ export const FUND_DATA = struct([
   seq(
     struct([
       publicKeyLayout('margin_account'),
-      u8('state'),
-      u8('margin_index'),
-      u8('position_side'),
-      u8('debtors'),
-      seq(u8('padding'), 2),
-      u16('position_id'),
-
-      u64('trade_amount'),
-      U64F64('fund_share'),
-      U64F64('share_ratio')
+      seq(u8('perp_market_index'), 4),
+      u8('markets_active'),
+      u8('deposits_active'),
+      u8('xpadding'),
+      seq(u64('investor_debts'), 2),
+      seq(u8('padding'), 24),
     ]),
-    NUM_MARGIN, 'mango_positions'
+    1, 'mango_positions'
   ),
+  seq(u8(), 80, 'margin_update_padding'),
   seq(u8(), 32, 'padding'),
 
 ])

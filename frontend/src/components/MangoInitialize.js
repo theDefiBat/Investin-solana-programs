@@ -1,15 +1,22 @@
 import { PublicKey, Transaction, TransactionInstruction } from '@solana/web3.js';
 import React, { useState } from 'react'
 import { GlobalState } from '../store/globalState';
-import { adminAccount, connection, FUND_ACCOUNT_KEY, MANGO_PROGRAM_ID, RENT_PROGRAM_ID, programId, MANGO_PROGRAM_ID_V2, MANGO_GROUP_ACCOUNT, SERUM_PROGRAM_ID_V3, MARGIN_ACCOUNT_KEY_1, MARGIN_ACCOUNT_KEY_2 } from '../utils/constants';
+import { adminAccount, connection, FUND_ACCOUNT_KEY, MANGO_PROGRAM_ID, RENT_PROGRAM_ID, programId, MANGO_GROUP_ACCOUNT, SERUM_PROGRAM_ID_V3, MARGIN_ACCOUNT_KEY_1, MARGIN_ACCOUNT_KEY_2 } from '../utils/constants';
 import { nu64, struct, u8 } from 'buffer-layout';
 import {  createKeyIfNotExists, signAndSendTransaction } from '../utils/web3';
 import { FUND_DATA } from '../utils/programLayouts';
 import { MarginAccountLayout } from '../utils/MangoLayout';
-import { MangoClient } from '@blockworks-foundation/mango-client';
 import { OpenOrders } from '@project-serum/serum';
+import { IDS } from '@blockworks-foundation/mango-client';
 
 export const MangoInitialize = () => {
+
+  let ids;
+  if(process.env.REACT_APP_NETWORK==='devnet'){
+     ids = IDS['groups'][2]
+  } else {
+     ids = IDS['groups'][0]
+  }
 
     const [fundPDA, setFundPDA] = useState('')
     const [fundStateAccount, setFundStateAccount] = useState('')
@@ -26,10 +33,10 @@ export const MangoInitialize = () => {
       };
       const transaction = new Transaction()
 
-    //   const fundBaseTokenAccount = await findAssociatedTokenAddress(new PublicKey(fundPDA), new PublicKey(TEST_TOKENS['USDR'].mintAddress));
+    //   const fundBaseTokenAccount = await findAssociatedTokenAddress(new PublicKey(fundPDA), new PublicKey(ids.tokens[0].mintAddress));
       // TODO copy program layout from mango and get span 
-      const margin_account_acc = await createKeyIfNotExists(walletProvider, "", MANGO_PROGRAM_ID_V2, MARGIN_ACCOUNT_KEY_1, MarginAccountLayout.span, transaction)
-      const margin_account_acc2 = await createKeyIfNotExists(walletProvider, "", MANGO_PROGRAM_ID_V2, MARGIN_ACCOUNT_KEY_2, MarginAccountLayout.span, transaction)
+      const margin_account_acc = await createKeyIfNotExists(walletProvider, "", MANGO_PROGRAM_ID, MARGIN_ACCOUNT_KEY_1, MarginAccountLayout.span, transaction)
+      const margin_account_acc2 = await createKeyIfNotExists(walletProvider, "", MANGO_PROGRAM_ID, MARGIN_ACCOUNT_KEY_2, MarginAccountLayout.span, transaction)
 
       // const margin_info = await connection.getAccountInfo(margin_account_acc)
       // const margin_data = MarginAccountLayout.decode(margin_info)
@@ -50,7 +57,7 @@ export const MangoInitialize = () => {
             {pubkey: key, isSigner: true, isWritable: true },
             {pubkey: fundPDA, isSigner: false, isWritable: true },
             
-            {pubkey: MANGO_PROGRAM_ID_V2, isSigner: false, isWritable:true},
+            {pubkey: MANGO_PROGRAM_ID, isSigner: false, isWritable:true},
             {pubkey: MANGO_GROUP_ACCOUNT, isSigner: false, isWritable:true},
             {pubkey: RENT_PROGRAM_ID, isSigner: false, isWritable:true},
             {pubkey: margin_account_acc, isSigner: false, isWritable:true},
@@ -103,7 +110,7 @@ export const MangoInitialize = () => {
         }
         console.log(fundState)
 
-      //   const margin_account_acc = await createKeyIfNotExists(walletProvider, "", MANGO_PROGRAM_ID_V2, MARGIN_ACCOUNT_KEY, MarginAccountLayout.span, null)
+      //   const margin_account_acc = await createKeyIfNotExists(walletProvider, "", MANGO_PROGRAM_ID, MARGIN_ACCOUNT_KEY, MarginAccountLayout.span, null)
       // const margin_info = await connection.getAccountInfo(margin_account_acc)
       // console.log('margin_key :: ', margin_info)
 

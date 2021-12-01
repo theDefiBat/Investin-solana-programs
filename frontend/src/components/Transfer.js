@@ -1,7 +1,7 @@
 import { PublicKey, SYSVAR_CLOCK_PUBKEY, Transaction, TransactionInstruction } from '@solana/web3.js';
 import React, { useState } from 'react'
 import { GlobalState } from '../store/globalState';
-import { adminAccount, connection, FUND_ACCOUNT_KEY, MANGO_GROUP_ACCOUNT, platformStateAccount, priceStateAccount, programId, TOKEN_PROGRAM_ID } from '../utils/constants';
+import { adminAccount, connection, FUND_ACCOUNT_KEY, MANGO_GROUP_ACCOUNT, MANGO_PROGRAM_ID, platformStateAccount, priceStateAccount, programId, TOKEN_PROGRAM_ID } from '../utils/constants';
 import { nu64, struct, u8 } from 'buffer-layout';
 import { createKeyIfNotExists, findAssociatedTokenAddress, setWalletTransaction, signAndSendTransaction, createAssociatedTokenAccountIfNotExist } from '../utils/web3';
 import { FUND_DATA, INVESTOR_DATA, PLATFORM_DATA, PRICE_DATA } from '../utils/programLayouts';
@@ -9,11 +9,18 @@ import { devnet_pools, pools } from '../utils/pools'
 
 import { updatePoolPrices } from './updatePrices';
 import {
+  IDS,
   MangoClient, MangoGroupLayout, MarginAccountLayout
 } from '@blockworks-foundation/mango-client'
-import { TOKENS } from '../utils/tokens';
 
 export const Transfer = () => {
+
+  let ids;
+  if(process.env.REACT_APP_NETWORK==='devnet'){
+     ids = IDS['groups'][2]
+  } else {
+     ids = IDS['groups'][0]
+  }
 
   const [fundPDA, setFundPDA] = useState('')
   const [fundStateAccount, setFundStateAccount] = useState('')
@@ -37,63 +44,33 @@ export const Transfer = () => {
     const transaction = new Transaction()
 
     const routerPDA = await PublicKey.findProgramAddress([Buffer.from("router")], programId);
-    const fundBaseTokenAccount = await findAssociatedTokenAddress(new PublicKey(fundPDA), new PublicKey(TOKENS['USDC'].mintAddress));
-    const routerBaseTokenAccount = await findAssociatedTokenAddress(routerPDA[0], new PublicKey(TOKENS['USDC'].mintAddress));
+    const fundBaseTokenAccount = await findAssociatedTokenAddress(new PublicKey(fundPDA), new PublicKey(ids.tokens[0].mintAddress));
+    const routerBaseTokenAccount = await findAssociatedTokenAddress(routerPDA[0], new PublicKey(ids.tokens[0].mintAddress));
 
-    const managerBaseTokenAccount = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TOKENS['USDC'].mintAddress), key, transaction);
-    const investinBaseTokenAccount = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TOKENS['USDC'].mintAddress), adminAccount, transaction);
+    const managerBaseTokenAccount = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(ids.tokens[0].mintAddress), key, transaction);
+    const investinBaseTokenAccount = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(ids.tokens[0].mintAddress), adminAccount, transaction);
 
     if (fundStateAccount == '') {
       alert("get info first!")
       return
     }
-    const client = new MangoClient()
-
 
     const accountInfo = await connection.getAccountInfo(new PublicKey(fundStateAccount));
     const fund_data = FUND_DATA.decode(accountInfo.data);
 
-    let margin_account_1 = fund_data.mango_positions[0].margin_account;
-    let margin_account_2 = fund_data.mango_positions[1].margin_account;
-
-    let open_orders_1 = PublicKey.default
-    let oracle_acc_1 = PublicKey.default
-    let is_active = false
-    if (margin_account_1 != PublicKey.default && fund_data.mango_positions[0].state != 0) {
-      let margin_info = await connection.getAccountInfo(margin_account_1)
-      let margin_data = MarginAccountLayout.decode(margin_info.data)
-      let mango_info = await connection.getAccountInfo(MANGO_GROUP_ACCOUNT)
-      let mango_data = MangoGroupLayout.decode(mango_info.data)
-
-      let index = fund_data.mango_positions[0].margin_index
-      open_orders_1 = margin_data.openOrders[index]
-      oracle_acc_1 = mango_data.oracles[index]
-    }
-    let open_orders_2 = PublicKey.default
-    let oracle_acc_2 = PublicKey.default
-    if (margin_account_2 != PublicKey.default && fund_data.mango_positions[1].state != 0) {
-      let margin_info = await connection.getAccountInfo(margin_account_2)
-      let margin_data = MarginAccountLayout.decode(margin_info.data)
-      let mango_info = await connection.getAccountInfo(MANGO_GROUP_ACCOUNT)
-      let mango_data = MangoGroupLayout.decode(mango_info.data)
-
-      let index = fund_data.mango_positions[1].margin_index
-      open_orders_2 = margin_data.openOrders[index]
-      oracle_acc_2 = mango_data.oracles[index]
-    }
+    let fund_mango_account = fund_data.mango_positions.margin_account;
 
     let platData = await connection.getAccountInfo(platformStateAccount)
     let plat_info = PLATFORM_DATA.decode(platData.data)
     console.log("plat info:: ", plat_info)
 
-    updatePoolPrices(transaction, devnet_pools)
-    // transaction1.feePayer = walletProvider?.publicKey;
-    // let hash1 = await connection.getRecentBlockhash();
-    // console.log("blockhash", hash1);
-    // transaction1.recentBlockhash = hash1.blockhash;
+    const client = new MangoClient(connection, new PublicKey(ids.mangoProgramId))
+    let mangoGroup = await client.getMangoGroup(connection, ids.publicKey)
+    let mangoCache = await mangoGroup.loadCache(connection)
+    console.log("mangoCache:",mangoCache)
 
-    // const sign1 = await signAndSendTransaction(walletProvider, transaction1);
-    // console.log("signature tx:: ", sign1)
+    updatePoolPrices(transaction, devnet_pools)
+
 
     const dataLayout = struct([u8('instruction')])
 
@@ -109,8 +86,11 @@ export const Transfer = () => {
         { pubkey: platformStateAccount, isSigner: false, isWritable: true },
         { pubkey: new PublicKey(fundStateAccount), isSigner: false, isWritable: true },
 
+        { pubkey: fund_mango_account, isSigner: false, isWritable: true },
         { pubkey: MANGO_GROUP_ACCOUNT, isSigner: false, isWritable: true },
-        { pubkey: SYSVAR_CLOCK_PUBKEY, isSigner: false, isWritable: true },
+        { pubkey: new PublicKey(mangoCache), isSigner: false, isWritable: true },
+        { pubkey: MANGO_PROGRAM_ID, isSigner: false, isWritable: true },
+
         { pubkey: key, isSigner: true, isWritable: true },
 
         { pubkey: routerBaseTokenAccount, isSigner: false, isWritable: true },
@@ -121,13 +101,6 @@ export const Transfer = () => {
         { pubkey: routerPDA[0], isSigner: false, isWritable: true },
 
         { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: true },
-
-        { pubkey: margin_account_1, isSigner: false, isWritable: true },
-        { pubkey: margin_account_2, isSigner: false, isWritable: true },
-        { pubkey: open_orders_1, isSigner: false, isWritable: true },
-        { pubkey: open_orders_2, isSigner: false, isWritable: true },
-        { pubkey: oracle_acc_1, isSigner: false, isWritable: true },
-        { pubkey: oracle_acc_2, isSigner: false, isWritable: true },
 
 
         //investor state accounts

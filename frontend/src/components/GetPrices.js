@@ -7,13 +7,21 @@ import { struct, u8 } from 'buffer-layout';
 import { TOKENS } from '../utils/tokens'
 import { PLATFORM_DATA, PRICE_DATA } from '../utils/programLayouts';
 import { devnet_pools, pools } from '../utils/pools';
+import { IDS } from '@blockworks-foundation/mango-client';
 
 const priceProgramId = new PublicKey('CB6oEYpfSsrF3oWG41KQxwfg4onZ38JMj1hk17UNe1Fn')
 
 
 export const GetPrices = () => {
+  let ids;
+  if(process.env.REACT_APP_NETWORK==='devnet'){
+     ids = IDS['groups'][2]
+  } else {
+     ids = IDS['groups'][0]
+  }
+
   const walletProvider = GlobalState.useState(s => s.walletProvider);
-  const [tokenList, setTokenList] = useState([TOKENS['SRM']])
+  const [tokenList, setTokenList] = useState([ids.tokens[5]]) // SOL-4 SRM-5
     const [priceAccount, setPriceAccount] = useState('');
     const [poolName, setPoolName] = useState('');
     const [platformData, setPlatformData] = useState(0)
@@ -34,7 +42,7 @@ export const GetPrices = () => {
           if(platformTokens?.length){
             t = platformTokens.map( (i) => {
               return {
-                symbol: (Object.keys(TOKENS).find( k => TOKENS[k].mintAddress ===i.mint.toBase58()) ),
+                symbol: ids.tokens.find( k => k.mintAddress ===i.mint.toBase58()),
                 mintAddress: i.mint.toBase58(),
                 decimals: i.decimals?.toString()
               }

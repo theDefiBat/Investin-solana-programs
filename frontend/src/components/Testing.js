@@ -10,8 +10,16 @@ import { devnet_pools } from '../utils/pools'
 import { updatePoolPrices } from './updatePrices';
 import { u64 } from '@project-serum/borsh';
 import { TOKENS } from '../utils/tokens';
+import { IDS } from '@blockworks-foundation/mango-client';
 
 export const Testing = () => {
+
+    let ids;
+    if(process.env.REACT_APP_NETWORK==='devnet'){
+        ids = IDS['groups'][2]
+    } else {
+        ids = IDS['groups'][0]
+    }
 
     const [amount, setAmount] = useState(0);
 
@@ -38,8 +46,8 @@ export const Testing = () => {
             programId,
         );
 
-        const fundBaseTokenAccount = await findAssociatedTokenAddress(fundPDA[0], new PublicKey(TOKENS['USDC'].mintAddress));
-        const managerBaseTokenAccount = await findAssociatedTokenAddress(key, new PublicKey( TOKENS['USDC'].mintAddress));
+        const fundBaseTokenAccount = await findAssociatedTokenAddress(fundPDA[0], new PublicKey(ids.tokens[0].mintAddress));
+        const managerBaseTokenAccount = await findAssociatedTokenAddress(key, new PublicKey( ids.tokens[0].mintAddress));
         console.log("amount deposit: ", amount)
 
         const dataLayout = struct([u8('instruction'), nu64('amount')])
@@ -48,7 +56,7 @@ export const Testing = () => {
         dataLayout.encode(
             {
             instruction: 16,
-            amount: amount * (10 ** TOKENS['USDC'].decimals),
+            amount: amount * (10 ** ids.tokens[0].decimals),
             },
             data
         )
@@ -107,8 +115,8 @@ export const Testing = () => {
             programId,
         );
 
-        const fundBaseTokenAccount = await findAssociatedTokenAddress(fundPDA[0], new PublicKey( TOKENS['USDC'].mintAddress));
-        const managerBaseTokenAccount = await findAssociatedTokenAddress(key, new PublicKey( TOKENS['USDC'].mintAddress));
+        const fundBaseTokenAccount = await findAssociatedTokenAddress(fundPDA[0], new PublicKey( ids.tokens[0].mintAddress));
+        const managerBaseTokenAccount = await findAssociatedTokenAddress(key, new PublicKey( ids.tokens[0].mintAddress));
         
         console.log("amount withdraww: ", amount)
         const dataLayout = struct([u8('instruction'), nu64('amount')])
@@ -117,7 +125,7 @@ export const Testing = () => {
         dataLayout.encode(
             {
             instruction: 17,
-            amount: amount * (10 ** TOKENS['USDC'].decimals),
+            amount: amount * (10 ** ids.tokens[0].decimals),
             },
             data
         )

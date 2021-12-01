@@ -81,12 +81,12 @@ export const AllFundsInvestors = () => {
                 fundManager: decodedData.manager_account.toBase58(),
                 fundStateAccount: data.pubkey.toBase58(),
                 // fundName: decodedData.fund_pda.toBase58(),
-                // totalAmount: (new TokenAmount(decodedData.total_amount, TOKENS.USDC.decimals)).toEther().toNumber(),
+                // totalAmount: (new TokenAmount(decodedData.total_amount, ids.tokens[0].decimals)).toEther().toNumber(),
                 // currentPerformance: decodedData.number_of_active_investments == 0 ?
                 //     (decodedData.prev_performance - 1) * 100
                 //     : updatedPerformance,
                 // currentAum,
-                // minAmount: (new TokenAmount(decodedData.min_amount.toNumber(), TOKENS.USDC.decimals)).toEther().toNumber()
+                // minAmount: (new TokenAmount(decodedData.min_amount.toNumber(), ids.tokens[0].decimals)).toEther().toNumber()
             });
         // }
     }

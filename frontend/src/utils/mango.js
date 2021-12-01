@@ -4,22 +4,21 @@ import {
     Market,
     OpenOrders,
   } from '@project-serum/serum'
-import { programId, TOKEN_PROGRAM_ID , MANGO_PROGRAM_ID_V2, SERUM_PROGRAM_ID_V3, MANGO_GROUP_ACCOUNT, priceStateAccount, CLOCK_PROGRAM_ID, MANGO_VAULT_ACCOUNT_USDC} from '../utils/constants';
+import { programId, TOKEN_PROGRAM_ID , MANGO_PROGRAM_ID, SERUM_PROGRAM_ID_V3, MANGO_GROUP_ACCOUNT, priceStateAccount, CLOCK_PROGRAM_ID} from '../utils/constants';
 import { nu64, struct, u8, u32, u16 } from 'buffer-layout';
 import BN from 'bn.js';
-import {
-  NUM_MARKETS,
-  NUM_TOKENS,
-} from '@blockworks-foundation/mango-client/lib/layout'
+
 import {
   IDS,
-  MangoClient
-} from '@blockworks-foundation/mango-client'
-import {
+  MangoClient,
   nativeToUi,
   uiToNative,
   zeroKey,
-} from '@blockworks-foundation/mango-client/lib/utils'
+  NUM_MARKETS,
+  NUM_TOKENS,
+  NodeBankLayout,
+} from '@blockworks-foundation/mango-client'
+
 
 import {
     PublicKey,
@@ -32,7 +31,12 @@ import { createKeyIfNotExists, findAssociatedTokenAddress } from './web3';
 import { INVESTOR_DATA } from '../utils/programLayouts';
 import { TOKENS } from './tokens';
 
-
+let ids;
+  if(process.env.REACT_APP_NETWORK==='devnet'){
+     ids = IDS['groups'][2]
+  } else {
+     ids = IDS['groups'][0]
+  }
 
 
 export const calculateMarketPrice = (
@@ -74,13 +78,20 @@ export async function mangoOpenPosition(
   investor,
   seed
 ) {
-  const client = new MangoClient()
-
+  
   let serumMarket = new PublicKey(IDS.devnet.mango_groups.BTC_ETH_SOL_SRM_USDC.spot_market_pks[mIndex])
   console.log("serum market pk:: ", serumMarket)
   let marginAccount = await client.getMarginAccount(connection, marginAcc, SERUM_PROGRAM_ID_V3)
-  let mangoGroup = await client.getMangoGroup(connection, MANGO_GROUP_ACCOUNT)
+  
+  const client = new MangoClient(connection, new PublicKey(ids.mangoProgramId))
+  let mangoGroup = await client.getMangoGroup(connection, ids.publicKey)
   console.log("mango group::", mangoGroup)
+  
+  let nodeBankInfo = await connection.getAccountInfo(new PublicKey(ids.tokens[0].nodeKeys[0]))
+  let nodeBank = NodeBankLayout.decode(nodeBankInfo.data)
+  console.log("USDC nodebank:: ", nodeBank)
+
+  const MANGO_VAULT_ACCOUNT_USDC = nodeBank.vault.toBase58();
 
   console.log("margin acc::", marginAccount)
   // let mango_prices = await mangoGroup.getPrices(connection)
@@ -218,7 +229,7 @@ export async function mangoOpenPosition(
           { isSigner: false, isWritable: true, pubkey: fundStateAccount },
           { isSigner: true, isWritable: true, pubkey: wallet?.publicKey },
           { isSigner: false, isWritable: true, pubkey: fundPDA },
-          { isSigner: false, isWritable: true, pubkey: MANGO_PROGRAM_ID_V2 },
+          { isSigner: false, isWritable: true, pubkey: MANGO_PROGRAM_ID },
           { isSigner: false, isWritable: true, pubkey: mangoGroup.publicKey },
           { isSigner: false, isWritable: true, pubkey: marginAccount.publicKey },
 
@@ -237,7 +248,7 @@ export async function mangoOpenPosition(
       { isSigner: false, isWritable: true, pubkey: fundStateAccount },
       { isSigner: true, isWritable: true, pubkey: wallet?.publicKey },
       { isSigner: false, isWritable: true, pubkey: fundPDA },
-      { isSigner: false, isWritable: true, pubkey: MANGO_PROGRAM_ID_V2 },
+      { isSigner: false, isWritable: true, pubkey: MANGO_PROGRAM_ID },
 
       { isSigner: false, isWritable: true, pubkey: mangoGroup.publicKey },
       //   { isSigner: true, isWritable: false, pubkey: wallet.publicKey },
@@ -323,7 +334,7 @@ export async function mangoOpenPosition(
     { isSigner: false, isWritable: true, pubkey: fundStateAccount },
     { isSigner: true, isWritable: true, pubkey: wallet?.publicKey },
     { isSigner: false, isWritable: true, pubkey: fundPDA },
-    { isSigner: false, isWritable: true, pubkey: MANGO_PROGRAM_ID_V2 },
+    { isSigner: false, isWritable: true, pubkey: MANGO_PROGRAM_ID },
 
     { isSigner: false, isWritable: true, pubkey: mangoGroup.publicKey },
     { isSigner: false, isWritable: true, pubkey: marginAccount.publicKey },
@@ -454,8 +465,8 @@ export async function mangoClosePosition(
     (1 + rates.taker)
   )
   const depositQuantity = spotMarket.quoteSizeLotsToNumber(maxQuoteQuantity)
-  const depositAmount = depositQuantity * 10**TOKENS['USDC'].decimals
-  const placeAmount = size * 10**TOKENS['BTC'].decimals
+  const depositAmount = depositQuantity * 10**ids.tokens[0].decimals
+  const placeAmount = size * 10**ids.tokens[2].decimals
 
   console.log('deposit qty::', depositQuantity.toString())
 
@@ -536,12 +547,12 @@ export async function mangoClosePosition(
       openOrdersKeys.push(marginAccount.openOrders[i])
     }
   }
-  const fundBaseTokenAccount = await findAssociatedTokenAddress(fundPDA, new PublicKey(TOKENS['USDC'].mintAddress));
+  const fundBaseTokenAccount = await findAssociatedTokenAddress(fundPDA, new PublicKey(ids.tokens[0].mintAddress));
   let keys1 = [
     { isSigner: false, isWritable: true, pubkey: fundStateAccount },
     { isSigner: true, isWritable: true, pubkey: wallet?.publicKey },
     { isSigner: false, isWritable: true, pubkey: fundPDA },
-    { isSigner: false, isWritable: true, pubkey: MANGO_PROGRAM_ID_V2 },
+    { isSigner: false, isWritable: true, pubkey: MANGO_PROGRAM_ID },
 
     { isSigner: false, isWritable: true, pubkey: mangoGroup.publicKey },
     //   { isSigner: true, isWritable: false, pubkey: wallet.publicKey },
@@ -616,7 +627,7 @@ transaction.add(placeAndSettleInstruction)
     { isSigner: false, isWritable: true, pubkey: fundStateAccount },
     { isSigner: true, isWritable: true, pubkey: wallet?.publicKey },
     { isSigner: false, isWritable: true, pubkey: fundPDA },
-    { isSigner: false, isWritable: true, pubkey: MANGO_PROGRAM_ID_V2 },
+    { isSigner: false, isWritable: true, pubkey: MANGO_PROGRAM_ID },
 
     { isSigner: false, isWritable: true, pubkey: mangoGroup.publicKey },
     { isSigner: false, isWritable: true, pubkey: marginAccount.publicKey },
@@ -682,7 +693,7 @@ transaction.add(placeAndSettleInstruction)
 
     { isSigner: true, isWritable: true, pubkey: wallet?.publicKey },
     { isSigner: false, isWritable: true, pubkey: fundPDA },
-    { isSigner: false, isWritable: true, pubkey: MANGO_PROGRAM_ID_V2 },
+    { isSigner: false, isWritable: true, pubkey: MANGO_PROGRAM_ID },
 
   { isSigner: false, isWritable: true, pubkey: mangoGroup.publicKey },
 //   { isSigner: true, isWritable: false, pubkey: wallet.publicKey },
@@ -793,8 +804,8 @@ export async function mangoWithdrawInvestor(
     (1 + rates.taker)
   )
   const depositQuantity = spotMarket.quoteSizeLotsToNumber(maxQuoteQuantity)
-  const depositAmount = depositQuantity * 10**TOKENS['USDC'].decimals
-  const placeAmount = size * 10**TOKENS['BTC'].decimals
+  const depositAmount = depositQuantity * 10**ids.tokens[0].decimals
+  const placeAmount = size * 10**ids.tokens[2].decimals
 
   console.log('deposit qty::', depositQuantity.toString())
 
@@ -866,7 +877,7 @@ export async function mangoWithdrawInvestor(
     { isSigner: false, isWritable: true, pubkey: invStateAccount },
     { isSigner: true, isWritable: true, pubkey: wallet?.publicKey },
     { isSigner: false, isWritable: true, pubkey: fundPDA },
-    { isSigner: false, isWritable: true, pubkey: MANGO_PROGRAM_ID_V2 },
+    { isSigner: false, isWritable: true, pubkey: MANGO_PROGRAM_ID },
 
     { isSigner: false, isWritable: true, pubkey: mangoGroup.publicKey },
     //   { isSigner: true, isWritable: false, pubkey: wallet.publicKey },
@@ -943,7 +954,7 @@ transaction.add(placeAndSettleInstruction)
 
     { isSigner: true, isWritable: true, pubkey: wallet?.publicKey },
     { isSigner: false, isWritable: true, pubkey: fundPDA },
-    { isSigner: false, isWritable: true, pubkey: MANGO_PROGRAM_ID_V2 },
+    { isSigner: false, isWritable: true, pubkey: MANGO_PROGRAM_ID },
 
     { isSigner: false, isWritable: true, pubkey: mangoGroup.publicKey },
     { isSigner: false, isWritable: true, pubkey: marginAccount.publicKey },
@@ -1003,7 +1014,7 @@ transaction.add(placeAndSettleInstruction)
 
     { isSigner: true, isWritable: true, pubkey: wallet?.publicKey },
     { isSigner: false, isWritable: true, pubkey: fundPDA },
-    { isSigner: false, isWritable: true, pubkey: MANGO_PROGRAM_ID_V2 },
+    { isSigner: false, isWritable: true, pubkey: MANGO_PROGRAM_ID },
 
   { isSigner: false, isWritable: true, pubkey: mangoGroup.publicKey },
 //   { isSigner: true, isWritable: false, pubkey: wallet.publicKey },

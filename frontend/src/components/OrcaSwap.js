@@ -1,3 +1,4 @@
+import { IDS } from '@blockworks-foundation/mango-client'
 import { PublicKey, Transaction, TransactionInstruction } from '@solana/web3.js'
 import { nu64, struct, u8 } from 'buffer-layout'
 import React, { useState , useEffect} from 'react'
@@ -10,6 +11,13 @@ import { NATIVE_SOL, TEST_TOKENS, TOKENS } from '../utils/tokens'
 import { createAssociatedTokenAccountIfNotExist, createTokenAccountIfNotExist, findAssociatedTokenAddress, sendNewTransaction, signAndSendTransaction } from '../utils/web3'
 
 export const OrcaSwap = () => {
+
+  let ids;
+  if(process.env.REACT_APP_NETWORK==='devnet'){
+      ids = IDS['groups'][2]
+  } else {
+      ids = IDS['groups'][0]
+  }
 
   const swapInstruction = async (
     poolProgramId,
@@ -138,10 +146,10 @@ export const OrcaSwap = () => {
     let toMint = toCoinMint
 
     if (fromMint === NATIVE_SOL.mintAddress) {
-      fromMint = TOKENS.WSOL.mintAddress
+      fromMint = ids.tokens[4].mintAddress
     }
     if (toMint === NATIVE_SOL.mintAddress) {
-      toMint = TOKENS.WSOL.mintAddress
+      toMint = ids.tokens[4].mintAddress
     }
 
     const newFromTokenAccount = fromTokenAccount
@@ -212,7 +220,7 @@ export const OrcaSwap = () => {
       if(platformTokens?.length) {
         pt = platformTokens.map( (i) => {
           return {
-            symbol: (Object.keys(TOKENS).find( k => TOKENS[k].mintAddress ===i.mint.toBase58()) ),
+            symbol: ids.tokens.find( k => k.mintAddress ===i.mint.toBase58()),
             mintAddress: i.mint.toBase58(),
             decimals: i.decimals?.toString()
           }

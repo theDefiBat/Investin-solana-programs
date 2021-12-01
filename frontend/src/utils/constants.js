@@ -1,4 +1,12 @@
+import { IDS } from "@blockworks-foundation/mango-client";
 import { Connection, PublicKey } from "@solana/web3.js";
+
+let ids;
+if(process.env.REACT_APP_NETWORK==='devnet'){
+   ids = IDS['groups'][2]
+} else {
+   ids = IDS['groups'][0]
+}
 
 export const PLATFORM_ACCOUNT_KEY = "pacck"; //"platAccKey_11";
 export const FUND_ACCOUNT_KEY = "facck"; //"fundAccKey_11";
@@ -20,9 +28,11 @@ export const LIQUIDITY_POOL_PROGRAM_ID_V4 = new PublicKey(process.env.REACT_APP_
 export const SERUM_PROGRAM_ID_V3 = new PublicKey(process.env.REACT_APP_SERUM_PROGRAM_ID_V3)
 export const ORCA_SWAP_PROGRAM_ID = new PublicKey('9W959DqEETiGZocYWCQPaJ6sBmUzgfxXfqGeTEdp3aQP')
 
-export const MANGO_PROGRAM_ID_V2 = new PublicKey(process.env.REACT_APP_MANGO_PROGRAM_ID_V2)
-export const MANGO_GROUP_ACCOUNT = new PublicKey(process.env.REACT_APP_MANGO_GROUP_ACCOUNT)
-export const MANGO_VAULT_ACCOUNT_USDC = new PublicKey(process.env.REACT_APP_MANGO_VAULT_ACCOUNT_USDC)
+export const MANGO_GROUP_ACCOUNT = new PublicKey(ids.publicKey)
+export const MANGO_PROGRAM_ID = new PublicKey(ids.mangoProgramId)
+
+// USDC nodebank vault
+export const MANGO_VAULT_ACCOUNT_USDC = new PublicKey(ids.tokens[0].nodeKeys[0])
 
 export const ORACLE_BTC_DEVNET = new PublicKey(process.env.REACT_APP_ORACLE_BTC_DEVNET)
 export const ORACLE_ETH_DEVNET = new PublicKey(process.env.REACT_APP_ORACLE_ETH_DEVNET)

@@ -10,8 +10,16 @@ import { Badge } from 'reactstrap';
 import {  TOKENS } from "../utils/tokens";
 import BN from 'bn.js';
 import { Card, Col, Row } from 'reactstrap';
+import { IDS } from '@blockworks-foundation/mango-client';
 
 export const AdminControl = () => {
+
+  let ids;
+  if(process.env.REACT_APP_NETWORK==='devnet'){
+     ids = IDS['groups'][2]
+  } else {
+     ids = IDS['groups'][0]
+  }
 
   const walletProvider = GlobalState.useState(s => s.walletProvider);
 
@@ -50,20 +58,20 @@ export const AdminControl = () => {
           change_vault: v3,
           freeze_fund: v4,
           unfreeze_fund: v5,
-          min_amount: min_amount * (10 ** TOKENS['USDC'].decimals),
+          min_amount: min_amount * (10 ** ids.tokens[0].decimals),
           min_return: new BN(min_return),
           performance_fee_percentage: new BN(platform_fee_percentage),
         },
         data
       )
-      const associatedTokenAddress1 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TOKENS['USDC'].mintAddress), walletProvider?.publicKey, transaction);
+      const associatedTokenAddress1 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(ids.tokens[0].mintAddress), walletProvider?.publicKey, transaction);
 
       const instruction = new TransactionInstruction({
         keys: [
           { pubkey: platformAccount, isSigner: false, isWritable: true },
           { pubkey: walletProvider?.publicKey, isSigner: true, isWritable: true },
           { pubkey: associatedTokenAddress1, isSigner: false, isWritable: true },
-          { pubkey: new PublicKey(TOKENS.USDC.mintAddress), isSigner: false, isWritable: true },
+          { pubkey: new PublicKey(ids.tokens[0].mintAddress), isSigner: false, isWritable: true },
 
           // { pubkey: fundAccount, isSigner: false, isWritable: true },
         ],
