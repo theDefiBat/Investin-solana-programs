@@ -35,3 +35,8 @@ solana airdrop 2
 
 # deploy 
 solana program deploy /Users/aw/Desktop/Solana-Apps/Solana-IVN-Code/dist/program-fund/fund.so
+
+
+Devnet deployer : E3Zhv46FWGLDKFM24Ft2tgoqX5NCU49CT8NwH3rDHbsA
+Program Id: EYCioTzTEMFwcYKbYn8HMNdY32KkpEnRnKuirv7GZPmL
+
