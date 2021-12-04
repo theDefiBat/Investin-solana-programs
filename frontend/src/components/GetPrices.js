@@ -44,7 +44,10 @@ export const GetPrices = () => {
               return {
                 symbol: ids.tokens.find( k => k.mintAddress ===i.mint.toBase58()),
                 mintAddress: i.mint.toBase58(),
-                decimals: i.decimals?.toString()
+                decimals: i.decimals?.toString(),
+                pool_coin_account: i.pool_coin_account.toBase58(),
+                pool_pc_account: i.pool_pc_account.toBase58(),
+                pool_price : i.pool_price?.toString(),
               }
             })
           } 

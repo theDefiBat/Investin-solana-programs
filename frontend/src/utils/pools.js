@@ -3,68 +3,70 @@ import { TEST_TOKENS, TEST_LP_TOKENS } from "./tokens";
 
 import { LIQUIDITY_POOL_PROGRAM_ID_V4, ORCA_SWAP_PROGRAM_ID, SERUM_PROGRAM_ID_V3 } from "./constants";
 
+export const  DEV_TOKENS = {
+ USDC:  {
+    "symbol": "USDC",
+    "mintKey": "8FRFC6MoGGkMFQwngccyu69VnYbzykGeez7ignHVAFSN",
+    "decimals": 6,
+    "rootKey": "HUBX4iwWEUK5VrXXXcB7uhuKrfT4fpu2T9iZbg712JrN",
+    "nodeKeys": ["J2Lmnc1e4frMnBEJARPoHtfpcohLfN67HdK1inXjTFSM"]
+},
+MNGO: {
+    "symbol": "MNGO",
+    "mintKey": "Bb9bsTQa1bGEtQ5KagGkvSHyuLqDWumFUcRqFusFNJWC",
+    "decimals": 6,
+    "rootKey": "CY4nMV9huW5KCYFxWChrmoLwGCsZiXoiREeo2PMrBm5o",
+    "nodeKeys": ["6rkPNJTXF37X6Pf5ct5Y6E91PozpZpZNNU1AGATomKjD"]
+},
+BTC: {
+    "symbol": "BTC",
+    "mintKey": "3UNBZ6o52WTWwjac2kPUb4FyodhU1vFkRJheu1Sh2TvU",
+    "decimals": 6,
+    "rootKey": "BeEoyDq1v2DYJCoXDQAJKfmrsoRRvfmV856f2ijkXbtp",
+    "nodeKeys": ["4X3nP921qyh6BKJSAohKGNCykSXahFFwg1LxtC993Fai"]
+},
+ETH : {
+    "symbol": "ETH",
+    "mintKey": "Cu84KB3tDL6SbFgToHMLYVDJJXdJjenNzSKikeAvzmkA",
+    "decimals": 6,
+    "rootKey": "AxwY5sgwSq5Uh8GD6A6ZtSzGd5fqvW2hwgGLLgZ4v2eW",
+    "nodeKeys": ["3FPjawEtvrwvwtAetaURTbkkucu9BJofxWZUNPGHJtHg"]
+},
+SOL : {
+    "symbol": "SOL",
+    "mintKey": "So11111111111111111111111111111111111111112",
+    "decimals": 9,
+    "rootKey": "8GC81raaLjhTx3yedctxCJW46qdmmSRybH2s1eFYFFxT",
+    "nodeKeys": ["7mYqCavd1K24fnL3oKTpX3YM66W5gfikmVHJWM3nrWKe"]
+},
+SRM : {
+    "symbol": "SRM",
+    "mintKey": "AvtB6w9xboLwA145E221vhof5TddhqsChYcx7Fy3xVMH",
+    "decimals": 6,
+    "rootKey": "73W29LAZog2zSyE1uNYivBW8SMZQX3WBX4qfTMrMJxW2",
+    "nodeKeys": ["9wkpWmkSUSn9fitLhVh12cLbiDa5Bbhf6ZBGmPtcdMqN"]
+},
+RAY: {
+    "symbol": "RAY",
+    "mintKey": "3YFQ7UYJ7sNGpXTKBxM3bYLVxKpzVudXAe4gLExh5b3n",
+    "decimals": 6,
+    "rootKey": "49S76N83tSBBozugLtNYrMojFqDb3VvYq4wBB6bcAhfV",
+    "nodeKeys": ["JBHBTED3ttzk5u3U24txdjBFadm4Dnohb7g2pwcxU4rx"]
+}
+}
+
 export const devnet_pools = [
   {
-    name: 'SRM-USDC',
-    coin: {...TOKENS.SRM},
+    name: 'BTC-USDC',
+    coin: {...DEV_TOKENS.BTC},
     pc: {...TOKENS.USDC},
-    lp: { ...TEST_LP_TOKENS['SRM-USDC'] },
-
-    version: 4,
+    // lp: { ...TEST_LP_TOKENS['SRM-USDC'] },
     programId: LIQUIDITY_POOL_PROGRAM_ID_V4,
-
-    ammId: '6Xec3XR8NqNWbn6CFtGr9DbdKqSunzbXFFRiRpmxPxF2',
-    ammAuthority: 'DhVpojXMTbZMuTaCgiiaFU7U8GvEEhnYo4G9BUdiEYGh',
-    ammOpenOrders: '9WmmCdKzCS9Db2fGcky5gfYddmSq8JBp8MWSYqvYbCA9',
-    ammTargetOrders: 'BXsHqjyj7oNdALFf42fStCA2h1U5gYSNFPiPBjCq3fkH',
-    // no need
-    ammQuantities: NATIVE_SOL.mintAddress,
-
-    // dont care
-    poolCoinTokenAccount: '6LhPXhjdU76QxyxGdWMewFBGiEvDJ7F2AELS4GT3dXV1',
-    poolPcTokenAccount: 'GxhY4tdNzr8CK52K5ecMPjxbro29nCqGjBLamWwDkAHW',
-    poolWithdrawQueue: 'BwnphxXqiArEhaBmU2b15QxEbaG9AepPSWdqj9Gzshd2',
-    poolTempLpTokenAccount: 'HbJe3pboTK5Hw1JzRs6t5jdZSvXHeKh4ZnXMVXksx7of',
-    serumProgramId: SERUM_PROGRAM_ID_V3,
-    serumMarket: '4SZ7MvMfW2fbEu5SgLMfRaeTR2bXhP6GGLMr1L6N9PeW',
-    serumBids: 'ANH8oSyZpYrgtqkXCn6LHf4vwRchXZ4Qpj5pvZScuhoJ',
-    serumAsks: 'HARNnSrmnhChkSVDq6vUdxJRU7QuuyPAovsdLwRrfKMK',
-    serumEventQueue: '3sr7NEu8xHqVf8Ak7fcx7EqH2CDtZdvQY8o3E3w9jKYg',
-    serumCoinVaultAccount: 'H1zQKGtwhT3mRMyeKmNpju4Vgzc8pqxfkceM1NBJNKm6',
-    serumPcVaultAccount: 'H1zQKGtwhT3mRMyeKmNpju4Vgzc8pqxfkceM1NBJNKm6',
-    serumVaultSigner: 'EqrboHB3p3Gx6YX1oANkSGDwb66xCd4GtGRLbdUGTFra',
+    poolCoinTokenAccount: 'Fq8nURZFto3bTPaKqmDqbBAFfArwYvfVuFKVoFyZZVD6',
+    poolPcTokenAccount: 'BvuamxaDy5VKnoCshtFmbFNviWbu2VzW2Gecuf12meUA',
+  
   },
-  // {
-  //   name: 'ALPHA-USDC',
-  //   coin: { ...TEST_TOKENS.ALPHA },
-  //   pc: { ...TEST_TOKENS.USDP },
-  //   lp: { ...LP_TOKENS['RAY-USDP-V4'] },
-
-  //   version: 4,
-  //   programId: LIQUIDITY_POOL_PROGRAM_ID_V4,
-
-  //   ammId: 'DVa7Qmb5ct9RCpaU7UTpSaf3GVMYz17vNVU67XpdCRut',
-  //   ammAuthority: '5Q544fKrFoe6tsEbD7S8EmxGTJYAKtTVhAW5Q5pge4j1',
-  //   ammOpenOrders: 'HboQAt9BXyejnh6SzdDNTx4WELMtRRPCr7pRSLpAW7Eq',
-  //   ammTargetOrders: '3K2uLkKwVVPvZuMhcQAPLF8hw95somMeNwJS7vgWYrsJ',
-  //   // no need
-  //   ammQuantities: NATIVE_SOL.mintAddress,
-
-  //   poolCoinTokenAccount: 'DUn4i71SXksHN7KtveP4uauWqsnfdSHa4PoEkzN8qqN6',
-  //   poolPcTokenAccount: 'BUdDS4AUMSsvQ1QyHe4LLagvkFfUU4TW17udvxaDJaxR',
-
-  //   // dont care
-  //   poolWithdrawQueue: '8VuvrSWfQP8vdbuMAP9AkfgLxU9hbRR6BmTJ8Gfas9aK',
-  //   poolTempLpTokenAccount: 'FBzqDD1cBgkZ1h6tiZNFpkh4sZyg6AG8K5P9DSuJoS5F',
-  //   serumProgramId: SERUM_PROGRAM_ID_V3,
-  //   serumMarket: 'teE55QrL4a4QSfydR9dnHF97jgCfptpuigbb53Lo95g',
-  //   serumBids: 'AvKStCiY8LTp3oDFrMkiHHxxhxk4sQUWnGVcetm4kRpy',
-  //   serumAsks: 'Hj9kckvMX96mQokfMBzNCYEYMLEBYKQ9WwSc1GxasW11',
-  //   serumEventQueue: '58KcficuUqPDcMittSddhT8LzsPJoH46YP4uURoMo5EB',
-  //   serumCoinVaultAccount: '2kVNVEgHicvfwiyhT2T51YiQGMPFWLMSp8qXc1hHzkpU',
-  //   serumPcVaultAccount: '5AXZV7XfR7Ctr6yjQ9m9dbgycKeUXWnWqHwBTZT6mqC7',
-  //   serumVaultSigner: 'HzWpBN6ucpsA9wcfmhLAFYqEUmHjE9n2cGHwunG5avpL'
-  // },
+  
 ]
 export const devnet2_pools = [
   {

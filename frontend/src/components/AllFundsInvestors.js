@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { createAssociatedTokenAccount, createAssociatedTokenAccountIfNotExist, createKeyIfNotExists, createTokenAccountIfNotExist, findAssociatedTokenAddress, setWalletTransaction, signAndSendTransaction } from '../utils/web3'
-import { connection, FUND_ACCOUNT_KEY, platformStateAccount, PLATFORM_ACCOUNT_KEY, programId } from '../utils/constants'
+import { connection, FUND_ACCOUNT_KEY, idsIndex, platformStateAccount, PLATFORM_ACCOUNT_KEY, programId } from '../utils/constants'
 import { GlobalState } from '../store/globalState';
 import { PublicKey, Transaction, TransactionInstruction } from '@solana/web3.js';
 import { TOKEN_PROGRAM_ID } from '@project-serum/serum/lib/token-instructions';
@@ -9,11 +9,53 @@ import { Badge } from 'reactstrap';
 import BN from 'bn.js';
 import { Card, Col, Row ,Table} from 'reactstrap';
 import { Blob, seq, struct, u32, u8, u16, ns64 ,nu64} from 'buffer-layout';
+import { IDS } from '@blockworks-foundation/mango-client';
+const ids= IDS['groups'][idsIndex];
 
 export const AllFundsInvestors = () => {
+  
 
   const [investments, setInvestments] = useState([])
   const [funds, setFunds] = useState([])
+  const [tokenList, setTokenList] = useState([]) 
+
+  const walletProvider = GlobalState.useState(s => s.walletProvider);
+
+
+  useEffect(  ()=> {
+    (async () => {
+      const platformDataAcc = await connection.getAccountInfo(platformStateAccount)
+      if(!platformDataAcc){
+        alert('platform state not initilaized');
+        return;
+      }
+        const platformData = PLATFORM_DATA.decode(platformDataAcc.data)
+        // console.log("platformData::",platformData);
+        // setPlatformData(platformData)
+        const platformTokens = platformData?.token_list;
+        console.log("platformTokens::",platformTokens);
+        console.log("ids.tokens::",ids.tokens);
+
+        //  Object.keys(TOKENS).find(mt => TOKENS[mt]?.mintAddress === t.mint.toBase58())
+
+        let t = []; 
+        if(platformTokens?.length){
+          t = platformTokens.map( (i) => {
+            return {
+               symbol: ((ids.tokens).find( k => k.mintKey ===i.mint.toBase58()))?.symbol ?? 'NONE',
+                mintAddress: i.mint.toBase58(),
+                decimals: i.decimals?.toString(),
+               pool_coin_account: i.pool_coin_account.toBase58(),
+                pool_pc_account: i.pool_pc_account.toBase58(),
+                pool_price : i.pool_price?.toString(),
+            }
+          })
+        } 
+
+        setTokenList(t)
+    })()
+    
+  },[walletProvider])
 
   const handleGetAllInvestments = async () => {
 
@@ -199,6 +241,46 @@ export const AllFundsInvestors = () => {
                  <td >{i?.fundStateAccount}</td>
                  {/* <td>{i?.amount?.toString()/10**6}</td>
                  <td>{i?.amount_in_router?.toString()/10**6}</td> */}
+               
+               </tr>
+            })
+          }
+            </tbody>
+          </Table>
+
+      <Table 
+        className="tablesorter"
+        responsive
+        // width="100%"
+        style={{ overflow: 'hidden !important', textAlign: 'center' }}
+        >
+            <thead className="text-primary">
+                            <tr>
+                              <th style={{ width: "15%" }}>index</th>
+                              <th style={{ width: "15%" }}>symbol</th>
+                              <th style={{ width: "15%" }}>mintAddress</th>
+                              <th style={{ width: "15%" }}>decimals</th>
+                              <th style={{ width: "15%" }}>pool_coin_account</th>
+                              <th style={{ width: "15%" }}>pool_pc_account</th>
+                              <th style={{ width: "15%" }}>pool_price</th>
+
+                            </tr>
+                          </thead>
+
+
+        <tbody>
+          {
+            tokenList && 
+
+            tokenList.map((i,x)=>{
+               return <tr key={x}>
+                 <td >{x}</td>
+                 <td >{i?.symbol}</td>
+                 <td >{i?.mintAddress}</td>
+                 <td >{i?.decimals}</td>
+                 <td>{i?.pool_coin_account}</td>
+                 <td>{i?.pool_pc_account}</td>
+                 <td>{i?.pool_price}</td>
                
                </tr>
             })
