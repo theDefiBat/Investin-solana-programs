@@ -236,6 +236,7 @@ pub enum FundInstruction {
     // default_ai
     MangoWithdraw {
         token_slot_index: u8,
+        mango_token_index: u8,
         quantity: u64
     },
 
@@ -501,10 +502,11 @@ impl FundInstruction {
             //     }
             // },
             13 => {
-                let data_arr = array_ref![data, 0, 1 + 8];
-                let (token_slot_index, quantity) = array_refs![data_arr, 1, 8];
+                let data_arr = array_ref![data, 0, 1 + 1 + 8];
+                let (token_slot_index, mango_token_index, quantity) = array_refs![data_arr, 1, 1, 8];
                 FundInstruction::MangoWithdraw {
                     token_slot_index: u8::from_le_bytes(*token_slot_index),
+                    mango_token_index: u8::from_le_bytes(*mango_token_index),
                     quantity: u64::from_le_bytes(*quantity)
                 }
             },

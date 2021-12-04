@@ -47,7 +47,7 @@ pub mod investin_admin {
     use solana_program::declare_id;
     // set investin admin
     #[cfg(feature = "devnet")]
-    declare_id!("");
+    declare_id!("E3Zhv46FWGLDKFM24Ft2tgoqX5NCU49CT8NwH3rDHbsA");
     #[cfg(not(feature = "devnet"))]
     declare_id!("owZmWQkqtY3Kqnxfua1KTHtR2S6DgBTP75JKbh15VWG");
 }
@@ -55,7 +55,7 @@ pub mod investin_admin {
 pub mod usdc_mint {
     use solana_program::declare_id;
     #[cfg(feature = "devnet")]
-    declare_id!("");
+    declare_id!("8FRFC6MoGGkMFQwngccyu69VnYbzykGeez7ignHVAFSN");
     #[cfg(not(feature = "devnet"))]
     declare_id!("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
 }
@@ -63,7 +63,7 @@ pub mod usdc_mint {
 pub mod raydium_id {
     use solana_program::declare_id;
     #[cfg(feature = "devnet")]
-    declare_id!("");
+    declare_id!("9rpQHSyFVM1dkkHFQ2TtTzPEW7DVmEyPmN8wVniqJtuC");
     #[cfg(not(feature = "devnet"))]
     declare_id!("675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8");
 }
@@ -71,7 +71,7 @@ pub mod raydium_id {
 pub mod orca_id {
     use solana_program::declare_id;
     #[cfg(feature = "devnet")]
-    declare_id!("");
+    declare_id!("9rpQHSyFVM1dkkHFQ2TtTzPEW7DVmEyPmN8wVniqJtuC"); //Same as Devnet Raydium for now
     #[cfg(not(feature = "devnet"))]
     declare_id!("9W959DqEETiGZocYWCQPaJ6sBmUzgfxXfqGeTEdp3aQP");
 }
@@ -1014,9 +1014,9 @@ impl Fund {
             //     msg!("FundInstruction::MangoClosePosition");
             //     return mango_close_position(program_id, accounts, price);
             // }
-            FundInstruction::MangoWithdraw { token_slot_index, quantity } => {
+            FundInstruction::MangoWithdraw { token_slot_index, mango_token_index, quantity } => {
                 msg!("FundInstruction::MangoWithdraw");
-                return mango_withdraw(program_id, accounts, token_slot_index, quantity);
+                return mango_withdraw(program_id, accounts, token_slot_index, mango_token_index, quantity);
             }
             // FundInstruction::MangoWithdrawInvestor => {
             //     msg!("FundInstruction::MangoWithdrawInvestor");

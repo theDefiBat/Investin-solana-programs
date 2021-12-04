@@ -123,12 +123,12 @@ pub fn mango_deposit(
     let mango_account = MangoAccount::load_checked(mango_account_ai, mango_prog_ai.key, mango_group_ai.key)?;
     let mango_cache = MangoCache::load_checked(mango_cache_ai, mango_prog_ai.key, &mango_group)?;
 
-    check_eq!(fund_data.tokens[token_slot_index].vault, *owner_token_account_ai.key); 
+    check_eq!(fund_data.tokens[token_slot_index as usize].vault, *owner_token_account_ai.key); 
     check_eq!(*mango_prog_ai.key, mango_v3_id::ID);
-    check_eq!(mango_group.tokens[mango_token_index].root_bank, )
-    if(mango_token_index != QUOTE_INDEX){
+    // check_eq!(mango_group.tokens[mango_token_index].root_bank, )
+    if(mango_token_index as usize != QUOTE_INDEX){
         check!(fund_data.mango_positions.deposit_index == mango_token_index || 
-            fund_data.mango_positions.deposit_index == QUOTE_INDEX);
+            fund_data.mango_positions.deposit_index == QUOTE_INDEX as u8, FundError::InvalidMangoState);
         fund_data.mango_positions.deposit_index = mango_token_index;
     }
     check!(fund_data.is_initialized, ProgramError::InvalidAccountData);
@@ -163,7 +163,7 @@ pub fn mango_deposit(
     let token_info = parse_token_account(owner_token_account_ai)?;
 
     fund_data.tokens[token_slot_index as usize].balance = token_info.amount;
-    check!(fund_data.tokens[token_slot_index].balance >= fund_data.tokens[token_slot_index].debt, ProgramError::InsufficientFunds);
+    check!(fund_data.tokens[token_slot_index as usize].balance >= fund_data.tokens[token_slot_index as usize].debt, ProgramError::InsufficientFunds);
 
     Ok(())
 }
@@ -311,7 +311,7 @@ pub fn mango_withdraw(
 
     let mango_group = MangoGroup::load_checked(mango_group_ai, mango_prog_ai.key)?;
 
-    check_eq!(mango_group.tokens[mango_token_index].root_bank, )
+    // check_eq!(mango_group.tokens[mango_token_index].root_bank, )
     check!((fund_data.manager_account == *manager_ai.key), FundError::ManagerMismatch);
     
     // withdraw USDC from mango account
@@ -341,12 +341,16 @@ pub fn mango_withdraw(
 
     let dest_info = parse_token_account(fund_token_ai)?;
     check_eq!(dest_info.owner, fund_data.fund_pda);
-    
-    if(mango_account.get_native_deposit(root_bank_cache, QUOTE_INDEX)?)
-    fund_data.tokens[0].balance = parse_token_account(fund_token_ai)?.amount;
+    let mango_account = MangoAccount::load_checked(mango_account_ai, mango_prog_ai.key, mango_group_ai.key)?;
+    if(mango_account.deposits[mango_token_index as usize] == 0){
+        fund_data.mango_positions.deposit_index = QUOTE_INDEX as u8;
+    }
+    // fund_data.tokens[0].balance = parse_token_account(fund_token_ai)?.amount;
 
     Ok(())
 }
+
+
 
 // pub fn convert_size_to_lots(
 //     spot_market_acc: &AccountInfo,
