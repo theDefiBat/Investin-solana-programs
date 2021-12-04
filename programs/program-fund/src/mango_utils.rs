@@ -120,17 +120,21 @@ pub fn mango_deposit(
 
     let mut fund_data = FundData::load_mut_checked(fund_state_ai, program_id)?;
     let mango_group = MangoGroup::load_checked(mango_group_ai, mango_prog_ai.key)?;
-    let mut token_slot = 0;
-    // if(token_index != QUOTE_INDEX){
+    let mango_account = MangoAccount::load_checked(mango_account_ai, mango_prog_ai.key, mango_group_ai.key)?;
+    let mango_cache = MangoCache::load_checked(mango_cache_ai, mango_prog_ai.key, &mango_group)?;
 
-    // }
-    //TODO Check for USDC or Active deposit token index OR ELSE check for availabel deposit slot
-    //TODO check token_index passed matches the corresponding accounts
-    // check!(token_index == 0)
+    check_eq!(fund_data.tokens[token_slot_index].vault, *owner_token_account_ai.key); 
+    check_eq!(*mango_prog_ai.key, mango_v3_id::ID);
+    check_eq!(mango_group.tokens[mango_token_index].root_bank, )
+    if(mango_token_index != QUOTE_INDEX){
+        check!(fund_data.mango_positions.deposit_index == mango_token_index || 
+            fund_data.mango_positions.deposit_index == QUOTE_INDEX);
+        fund_data.mango_positions.deposit_index = mango_token_index;
+    }
     check!(fund_data.is_initialized, ProgramError::InvalidAccountData);
     check!(manager_ai.is_signer, ProgramError::MissingRequiredSignature);
     
-    // check_eq!(fund_data.manager_account, *manager_acc.key);
+    // check_eq!(fund_data.manager_account, *manager_ai.key);
     check!((fund_data.manager_account == *manager_ai.key), FundError::ManagerMismatch);
 
     // // check fund vault
@@ -159,8 +163,8 @@ pub fn mango_deposit(
     let token_info = parse_token_account(owner_token_account_ai)?;
 
     fund_data.tokens[token_slot_index as usize].balance = token_info.amount;
-    //TODO get mint from token_index and get token slot from mint and update tokenSolot for BALANCE and is_on_mango acccordingly is_on_mango *if not USDC
-    //check if balance is > debt on token_slot >>Similar to Swap
+    check!(fund_data.tokens[token_slot_index].balance >= fund_data.tokens[token_slot_index].debt, ProgramError::InsufficientFunds);
+
     Ok(())
 }
 
@@ -175,21 +179,21 @@ pub fn mango_place_perp_order(
     let accounts = array_ref![accounts, 0, NUM_FIXED];
 
     let [
-        fund_state_acc,
-        manager_acc,
+        fund_state_ai,
+        manager_ai,
         mango_prog_ai,
         mango_group_ai,     // read
         mango_account_ai,   // write
-        fund_pda_acc,           // read, signer
+        fund_pda_ai,           // read, signer
         mango_cache_ai,     // read
         perp_market_ai,     // write
         bids_ai,            // write
         asks_ai,            // write
         event_queue_ai,    // write
-        default_acc,
+        default_ai,
     ] = accounts;
 
-    let fund_data = FundData::load_mut_checked(fund_state_acc, program_id)?;
+    let fund_data = FundData::load_mut_checked(fund_state_ai, program_id)?;
     //Check for perp_market_id matches derived from ai 
     //Check for perp_market_id already active on fund/add perp_market if markets_active < 4
     //Check if its close on full amount, if yes remove from active perp_markets on funds --> END
@@ -198,27 +202,27 @@ pub fn mango_place_perp_order(
 
     //Check for Mango v3 ID 
     check_eq!(*mango_prog_ai.key, mango_v3_id::ID);
-    check!(manager_acc.is_signer, ProgramError::MissingRequiredSignature);
+    check!(manager_ai.is_signer, ProgramError::MissingRequiredSignature);
 
-    // check_eq!(fund_data.manager_account, *manager_acc.key);
-    check!((fund_data.manager_account == *manager_acc.key), FundError::ManagerMismatch);
+    // check_eq!(fund_data.manager_account, *manager_ai.key);
+    check!((fund_data.manager_account == *manager_ai.key), FundError::ManagerMismatch);
     
     let open_orders_accs = [Pubkey::default(); MAX_PAIRS];
     invoke_signed(
         &place_perp_order(mango_prog_ai.key,
-            mango_group_ai.key, mango_account_ai.key, fund_pda_acc.key,
+            mango_group_ai.key, mango_account_ai.key, fund_pda_ai.key,
             mango_cache_ai.key,perp_market_ai.key, bids_ai.key, asks_ai.key, event_queue_ai.key, &open_orders_accs,
             side, 0, quantity, 0, OrderType::Market, true)?,
         &[
             mango_prog_ai.clone(),
             mango_group_ai.clone(),
             mango_account_ai.clone(),
-            fund_pda_acc.clone(),
+            fund_pda_ai.clone(),
             perp_market_ai.clone(),
             mango_cache_ai.clone(),
             bids_ai.clone(),
             asks_ai.clone(),
-            default_acc.clone(),
+            default_ai.clone(),
             event_queue_ai.clone()
         ],
         &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
@@ -249,8 +253,8 @@ pub fn mango_settle_pnl(
         node_bank_ai,
     ] = accounts;
     let mut fund_data = FundData::load_mut_checked(fund_state_ai, program_id)?;
-    check!(manager_ai.is_signer, ProgramError::MissingRequiredSignature);
-    check!((fund_data.manager_account == *manager_ai.key), FundError::ManagerMismatch);
+    // check!(manager_ai.is_signer, ProgramError::MissingRequiredSignature);
+    // check!((fund_data.manager_account == *manager_ai.key), FundError::ManagerMismatch);
     invoke_signed(
         &settle_pnl(mango_prog_ai.key, mango_group_ai.key, mango_account_a_ai.key, mango_account_a_ai.key, 
             mango_cache_ai.key, root_bank_ai.key, node_bank_ai.key, perp_market_id as usize)?,
@@ -273,6 +277,7 @@ pub fn mango_withdraw(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
     token_slot_index: u8,
+    mango_token_index: u8,
     quantity: u64
 ) -> Result<(), ProgramError>
 {
@@ -300,9 +305,13 @@ pub fn mango_withdraw(
 
     check!(fund_data.is_initialized, ProgramError::InvalidAccountData);
     check!(manager_ai.is_signer, ProgramError::MissingRequiredSignature);
+    
     //Check for Mango v3 ID 
     check_eq!(*mango_prog_ai.key, mango_v3_id::ID);
-    // check_eq!(fund_data.manager_account, *manager_ai.key);
+
+    let mango_group = MangoGroup::load_checked(mango_group_ai, mango_prog_ai.key)?;
+
+    check_eq!(mango_group.tokens[mango_token_index].root_bank, )
     check!((fund_data.manager_account == *manager_ai.key), FundError::ManagerMismatch);
     
     // withdraw USDC from mango account
@@ -333,7 +342,7 @@ pub fn mango_withdraw(
     let dest_info = parse_token_account(fund_token_ai)?;
     check_eq!(dest_info.owner, fund_data.fund_pda);
     
-
+    if(mango_account.get_native_deposit(root_bank_cache, QUOTE_INDEX)?)
     fund_data.tokens[0].balance = parse_token_account(fund_token_ai)?.amount;
 
     Ok(())
@@ -345,7 +354,7 @@ pub fn mango_withdraw(
 //     size: u64,
 //     pc: bool
 // ) -> Result <u64, ProgramError> {
-//     let market = MarketState::load(spot_market_acc, dex_program_id)?;
+//     let market = MarketState::load(spot_market_ai, dex_program_id)?;
 //     if pc {
 //         Ok(size * market.pc_lot_size / market.coin_lot_size)
 //     }
@@ -360,7 +369,7 @@ pub fn mango_withdraw(
 //     size: u64,
 //     side: u8,
 // ) -> Result <u64, ProgramError> {
-//     let market = MarketState::load(spot_market_acc, dex_program_id)?;
+//     let market = MarketState::load(spot_market_ai, dex_program_id)?;
 //     Ok((size / market.coin_lot_size) + side as u64)
 // }
 
@@ -371,7 +380,7 @@ pub fn mango_withdraw(
 //     pos_size: u64,
 //     side: u8
 // ) -> Result <u64, ProgramError> {
-//     let market = MarketState::load(spot_market_acc, dex_program_id)?;
+//     let market = MarketState::load(spot_market_ai, dex_program_id)?;
 //     //if size + market.coin_lot_size > pos_size {
 //     if (pos_size - size) / market.coin_lot_size == 0 {
 //         Ok((size / market.coin_lot_size) + side as u64) // same as manager close case

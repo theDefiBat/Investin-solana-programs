@@ -181,8 +181,11 @@ impl Fund {
         fund_data.number_of_active_investments = 0;
         fund_data.no_of_investments = 0;
         fund_data.mango_positions.mango_account = Pubkey::default();
-        fund_data.mango_positions.perp_market_indices = [u8::MAX; 4];
-
+        fund_data.mango_positions.perp_markets = [u8::MAX; 4];
+        fund_data.mango_positions.deposit_index = u8::MAX;
+        fund_data.mango_positions.markets_active = 0;
+        fund_data.mango_positions.deposits_active = 0;
+        fund_data.mango_positions.investor_debts = [0; 2];
         fund_data.is_initialized = true;
         fund_data.version = 1; // v1 funds
 
@@ -1119,7 +1122,7 @@ pub fn update_amount_and_performance(
 
     let dti = fund_data.mango_positions.deposit_index as usize;
     //Check if deposit_index is valid
-    if(dti < MAX_TOKENS){
+    if(dti < QUOTE_INDEX){
         root_bank_cache = &mango_cache.root_bank_cache[dti];
         native_deposits = native_deposits.checked_add(mango_account.get_native_deposit(root_bank_cache, dti)?).unwrap();
     }
@@ -1129,7 +1132,7 @@ pub fn update_amount_and_performance(
 
     let mut pnl: I80F48;
     for i in 0..4 {
-        let market_index = fund_data.mango_positions.perp_market_indices[i] as usize;
+        let market_index = fund_data.mango_positions.perp_markets[i] as usize;
         if(market_index == u8::MAX as usize){
             continue;
         }
