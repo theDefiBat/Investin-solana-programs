@@ -2,7 +2,7 @@ import { PublicKey, SYSVAR_CLOCK_PUBKEY, Transaction, TransactionInstruction } f
 import React, { useState , useEffect} from 'react'
 import { GlobalState } from '../store/globalState';
 import { signAndSendTransaction } from '../utils/web3'
-import { connection, programId, priceStateAccount, platformStateAccount } from '../utils/constants';
+import { connection, programId, priceStateAccount, platformStateAccount, idsIndex } from '../utils/constants';
 import { struct, u8 } from 'buffer-layout';
 import { TOKENS } from '../utils/tokens'
 import { PLATFORM_DATA, PRICE_DATA } from '../utils/programLayouts';
@@ -13,15 +13,11 @@ const priceProgramId = new PublicKey('CB6oEYpfSsrF3oWG41KQxwfg4onZ38JMj1hk17UNe1
 
 
 export const GetPrices = () => {
-  let ids;
-  if(process.env.REACT_APP_NETWORK==='devnet'){
-     ids = IDS['groups'][2]
-  } else {
-     ids = IDS['groups'][0]
-  }
+  
+  const ids= IDS['groups'][idsIndex];
 
   const walletProvider = GlobalState.useState(s => s.walletProvider);
-  const [tokenList, setTokenList] = useState([ids.tokens[5]]) // SOL-4 SRM-5
+  const [tokenList, setTokenList] = useState([ids.tokens[0]]) // SOL-4 SRM-5
     const [priceAccount, setPriceAccount] = useState('');
     const [poolName, setPoolName] = useState('');
     const [platformData, setPlatformData] = useState(0)
@@ -40,7 +36,7 @@ export const GetPrices = () => {
           // console.log("platformData::",platformData);
           setPlatformData(platformData)
           const platformTokens = platformData?.token_list;
-          // console.log("platformTokens::",platformTokens);
+          console.log("platformTokens::",platformTokens);
 
           let t = []; 
           if(platformTokens?.length){

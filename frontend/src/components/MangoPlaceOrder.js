@@ -1,7 +1,7 @@
 import { PublicKey, Transaction, TransactionInstruction } from '@solana/web3.js';
 import React, { useState } from 'react'
 import { GlobalState } from '../store/globalState';
-import { adminAccount, connection, FUND_ACCOUNT_KEY, programId, TOKEN_PROGRAM_ID , MANGO_GROUP_ACCOUNT, SOL_USDC_MARKET, SYSTEM_PROGRAM_ID} from '../utils/constants';
+import { adminAccount, connection, FUND_ACCOUNT_KEY, programId, TOKEN_PROGRAM_ID , MANGO_GROUP_ACCOUNT, SOL_USDC_MARKET, SYSTEM_PROGRAM_ID, idsIndex} from '../utils/constants';
 import { nu64, struct, u8 ,u32, ns64} from 'buffer-layout';
 import { createKeyIfNotExists, findAssociatedTokenAddress, setWalletTransaction, signAndSendTransaction, createAssociatedTokenAccountIfNotExist } from '../utils/web3';
 import { FUND_DATA, INVESTOR_DATA } from '../utils/programLayouts';
@@ -18,12 +18,8 @@ export const MangoPlaceOrder = () => {
 
   const walletProvider = GlobalState.useState(s => s.walletProvider);
 
-  let ids;
-  if(process.env.REACT_APP_NETWORK==='devnet'){
-     ids = IDS['groups'][2]
-  } else {
-     ids = IDS['groups'][0]
-  }
+  const ids= IDS['groups'][idsIndex];
+
     const [size, setSize] = useState(0);
     const [lendAmount, setLendAmount] = useState(0)
     const [orderPerpIndex, setOrderPerpIndex] = useState(0);

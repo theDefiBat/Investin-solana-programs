@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { createAssociatedTokenAccount, createAssociatedTokenAccountIfNotExist, createKeyIfNotExists, createTokenAccountIfNotExist, findAssociatedTokenAddress, setWalletTransaction, signAndSendTransaction } from '../utils/web3'
-import { connection, FUND_ACCOUNT_KEY, platformStateAccount, PLATFORM_ACCOUNT_KEY, programId } from '../utils/constants'
+import { connection, FUND_ACCOUNT_KEY, idsIndex, platformStateAccount, PLATFORM_ACCOUNT_KEY, programId } from '../utils/constants'
 import { GlobalState } from '../store/globalState';
 import { nu64, struct, u8 } from 'buffer-layout';
 import { PublicKey, Transaction, TransactionInstruction } from '@solana/web3.js';
@@ -13,12 +13,7 @@ import { IDS } from '@blockworks-foundation/mango-client';
 
 export const InitialisedFund = () => {
 
-  let ids;
-  if(process.env.REACT_APP_NETWORK==='devnet'){
-     ids = IDS['groups'][2]
-  } else {
-     ids = IDS['groups'][0]
-  }
+  const ids= IDS['groups'][idsIndex];
 
   const walletProvider = GlobalState.useState(s => s.walletProvider);
 

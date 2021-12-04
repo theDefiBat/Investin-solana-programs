@@ -4,7 +4,7 @@ import {
     Market,
     OpenOrders,
   } from '@project-serum/serum'
-import { programId, TOKEN_PROGRAM_ID , MANGO_PROGRAM_ID, SERUM_PROGRAM_ID_V3, MANGO_GROUP_ACCOUNT, priceStateAccount, CLOCK_PROGRAM_ID} from '../utils/constants';
+import { programId, TOKEN_PROGRAM_ID , MANGO_PROGRAM_ID, SERUM_PROGRAM_ID_V3, MANGO_GROUP_ACCOUNT, priceStateAccount, CLOCK_PROGRAM_ID, idsIndex} from '../utils/constants';
 import { nu64, struct, u8, u32, u16 } from 'buffer-layout';
 import BN from 'bn.js';
 
@@ -31,13 +31,7 @@ import { createKeyIfNotExists, findAssociatedTokenAddress } from './web3';
 import { INVESTOR_DATA } from '../utils/programLayouts';
 import { TOKENS } from './tokens';
 
-let ids;
-  if(process.env.REACT_APP_NETWORK==='devnet'){
-     ids = IDS['groups'][2]
-  } else {
-     ids = IDS['groups'][0]
-  }
-
+const ids= IDS['groups'][idsIndex];
 
 export const calculateMarketPrice = (
   orderBook,

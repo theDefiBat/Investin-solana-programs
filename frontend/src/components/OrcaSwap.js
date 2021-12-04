@@ -3,7 +3,7 @@ import { PublicKey, Transaction, TransactionInstruction } from '@solana/web3.js'
 import { nu64, struct, u8 } from 'buffer-layout'
 import React, { useState , useEffect} from 'react'
 import { GlobalState } from '../store/globalState'
-import { connection, programId, TOKEN_PROGRAM_ID, FUND_ACCOUNT_KEY, LIQUIDITY_POOL_PROGRAM_ID_V4, platformStateAccount } from '../utils/constants'
+import { connection, programId, TOKEN_PROGRAM_ID, FUND_ACCOUNT_KEY, LIQUIDITY_POOL_PROGRAM_ID_V4, platformStateAccount, idsIndex } from '../utils/constants'
 import { devnet_pools } from '../utils/pools'
 import { AMM_INFO_LAYOUT_V4, FUND_DATA, PLATFORM_DATA } from '../utils/programLayouts'
 import { TokenAmount } from '../utils/safe-math'
@@ -12,12 +12,7 @@ import { createAssociatedTokenAccountIfNotExist, createTokenAccountIfNotExist, f
 
 export const OrcaSwap = () => {
 
-  let ids;
-  if(process.env.REACT_APP_NETWORK==='devnet'){
-      ids = IDS['groups'][2]
-  } else {
-      ids = IDS['groups'][0]
-  }
+  const ids= IDS['groups'][idsIndex];
 
   const swapInstruction = async (
     poolProgramId,

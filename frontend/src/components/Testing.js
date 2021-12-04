@@ -1,7 +1,7 @@
 import { PublicKey, SYSVAR_CLOCK_PUBKEY, Transaction, TransactionInstruction } from '@solana/web3.js';
 import React, { useState } from 'react'
 import { GlobalState } from '../store/globalState';
-import { adminAccount, connection, FUND_ACCOUNT_KEY, priceStateAccount, programId, TOKEN_PROGRAM_ID } from '../utils/constants';
+import { adminAccount, connection, FUND_ACCOUNT_KEY, idsIndex, priceStateAccount, programId, TOKEN_PROGRAM_ID } from '../utils/constants';
 import { nu64, struct, u8 } from 'buffer-layout';
 import { createKeyIfNotExists, findAssociatedTokenAddress, setWalletTransaction, signAndSendTransaction, createAssociatedTokenAccountIfNotExist } from '../utils/web3';
 import { FUND_DATA } from '../utils/programLayouts';
@@ -14,12 +14,7 @@ import { IDS } from '@blockworks-foundation/mango-client';
 
 export const Testing = () => {
 
-    let ids;
-    if(process.env.REACT_APP_NETWORK==='devnet'){
-        ids = IDS['groups'][2]
-    } else {
-        ids = IDS['groups'][0]
-    }
+    const ids= IDS['groups'][idsIndex];
 
     const [amount, setAmount] = useState(0);
 

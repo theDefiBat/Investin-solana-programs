@@ -1,7 +1,7 @@
 import { PublicKey, Transaction, TransactionInstruction } from '@solana/web3.js';
 import React, { useState } from 'react'
 import { GlobalState } from '../store/globalState';
-import { adminAccount, connection, FUND_ACCOUNT_KEY, MANGO_PROGRAM_ID, RENT_PROGRAM_ID, programId, MANGO_GROUP_ACCOUNT, SERUM_PROGRAM_ID_V3, MARGIN_ACCOUNT_KEY_1, MARGIN_ACCOUNT_KEY_2 } from '../utils/constants';
+import { adminAccount, connection, FUND_ACCOUNT_KEY, MANGO_PROGRAM_ID, RENT_PROGRAM_ID, programId, MANGO_GROUP_ACCOUNT, SERUM_PROGRAM_ID_V3, MARGIN_ACCOUNT_KEY_1, MARGIN_ACCOUNT_KEY_2, idsIndex } from '../utils/constants';
 import { nu64, struct, u8 } from 'buffer-layout';
 import {  createKeyIfNotExists, signAndSendTransaction } from '../utils/web3';
 import { FUND_DATA } from '../utils/programLayouts';
@@ -11,12 +11,7 @@ import { IDS } from '@blockworks-foundation/mango-client';
 
 export const MangoInitialize = () => {
 
-  let ids;
-  if(process.env.REACT_APP_NETWORK==='devnet'){
-     ids = IDS['groups'][2]
-  } else {
-     ids = IDS['groups'][0]
-  }
+  const ids= IDS['groups'][idsIndex];
 
     const [fundPDA, setFundPDA] = useState('')
     const [fundStateAccount, setFundStateAccount] = useState('')

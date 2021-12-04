@@ -2,7 +2,7 @@ import { PublicKey, TransactionInstruction } from '@solana/web3.js';
 import React, { useEffect, useState } from 'react'
 import { GlobalState } from '../store/globalState';
 
-import { adminAccount, connection, FUND_ACCOUNT_KEY, platformStateAccount, priceStateAccount, programId } from '../utils/constants';
+import { adminAccount, connection, FUND_ACCOUNT_KEY, idsIndex, platformStateAccount, priceStateAccount, programId } from '../utils/constants';
 import { blob, nu64, struct, u32, u8 } from 'buffer-layout';
 import { AMM_INFO_LAYOUT_V4, FUND_DATA, SPL_TOKEN_MINT_DATA } from '../utils/programLayouts';
 import { IDS, MangoClient, I80F48, NodeBankLayout, PerpAccountLayout, PerpMarketLayout ,RootBankCacheLayout, RootBankLayout} from '@blockworks-foundation/mango-client';
@@ -10,12 +10,7 @@ import { Card, Col, Row ,Table} from 'reactstrap';
 
 
 export const DisplayInfo = (props) => {
-  let ids;
-  if(process.env.REACT_APP_NETWORK==='devnet'){
-     ids = IDS['groups'][2]
-  } else {
-     ids = IDS['groups'][0]
-  }
+  const ids= IDS['groups'][idsIndex];
 
   const [fundData, setFundData] = useState("");
   const [fundTokens, setFundTokens] = useState([]);

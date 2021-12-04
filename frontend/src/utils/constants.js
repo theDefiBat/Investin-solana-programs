@@ -1,12 +1,10 @@
 import { IDS } from "@blockworks-foundation/mango-client";
 import { Connection, PublicKey } from "@solana/web3.js";
 
-let ids;
-if(process.env.REACT_APP_NETWORK==='devnet'){
-   ids = IDS['groups'][2]
-} else {
-   ids = IDS['groups'][0]
-}
+// if devnet =2 mainnet=0
+export const idsIndex = 2;
+const ids = IDS['groups'][idsIndex]
+
 
 export const PLATFORM_ACCOUNT_KEY = "pacck"; //"platAccKey_11";
 export const FUND_ACCOUNT_KEY = "facck"; //"fundAccKey_11";

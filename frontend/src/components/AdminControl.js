@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { createAssociatedTokenAccount, createAssociatedTokenAccountIfNotExist, createKeyIfNotExists, createTokenAccountIfNotExist, findAssociatedTokenAddress, setWalletTransaction, signAndSendTransaction } from '../utils/web3'
-import { connection, FUND_ACCOUNT_KEY, platformStateAccount, PLATFORM_ACCOUNT_KEY, programId } from '../utils/constants'
+import { connection, FUND_ACCOUNT_KEY, idsIndex, platformStateAccount, PLATFORM_ACCOUNT_KEY, programId } from '../utils/constants'
 import { GlobalState } from '../store/globalState';
 import { nu64, struct, u8 } from 'buffer-layout';
 import { PublicKey, Transaction, TransactionInstruction } from '@solana/web3.js';
@@ -14,13 +14,7 @@ import { IDS } from '@blockworks-foundation/mango-client';
 
 export const AdminControl = () => {
 
-  let ids;
-  if(process.env.REACT_APP_NETWORK==='devnet'){
-    console.log("devnet---")
-     ids = IDS['groups'][2]
-  } else {
-     ids = IDS['groups'][0]
-  }
+  const ids= IDS['groups'][idsIndex];
 
   const walletProvider = GlobalState.useState(s => s.walletProvider);
 
@@ -65,16 +59,14 @@ export const AdminControl = () => {
         },
         data
       )
-      const associatedTokenAddress1 = new PublicKey('E3Zhv46FWGLDKFM24Ft2tgoqX5NCU49CT8NwH3rDHbsA')
-      // await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey("8FRFC6MoGGkMFQwngccyu69VnYbzykGeez7ignHVAFSN"), walletProvider?.publicKey, transaction);
-
+      const associatedTokenAddress1 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(ids.tokens[0].mintAddress), walletProvider?.publicKey, transaction);
 
       const instruction = new TransactionInstruction({
         keys: [
           { pubkey: platformAccount, isSigner: false, isWritable: true },
           { pubkey: walletProvider?.publicKey, isSigner: true, isWritable: true },
           { pubkey: associatedTokenAddress1, isSigner: false, isWritable: true },
-          { pubkey: new PublicKey("8FRFC6MoGGkMFQwngccyu69VnYbzykGeez7ignHVAFSN"), isSigner: false, isWritable: true },
+          { pubkey: new PublicKey(ids.tokens[0].mintAddress), isSigner: false, isWritable: true },
 
           // { pubkey: fundAccount, isSigner: false, isWritable: true },
         ],
@@ -84,7 +76,7 @@ export const AdminControl = () => {
 
       console.log("platformAccount:",platformAccount.toBase58())
       console.log("associatedTokenAddress1:",associatedTokenAddress1.toBase58())
-      console.log("vault usdc :","8FRFC6MoGGkMFQwngccyu69VnYbzykGeez7ignHVAFSN")
+      console.log("vault usdc :",ids.tokens[0].mintAddress)
     
 
       transaction.add(instruction)
