@@ -141,6 +141,7 @@ impl Fund {
 
             let asset_vault = parse_token_account(vault_ai)?;
             check_eq!(asset_vault.owner, fund_data.fund_pda);
+            check_eq!(asset_vault.mint, *mint_ai.key); // check for  mint
 
             let token_index_1 = platform_data.get_token_index(mint_ai.key, 0);
             let token_index_2 = platform_data.get_token_index(mint_ai.key, 1);
@@ -240,6 +241,7 @@ impl Fund {
         fund_data.no_of_investments += 1;
 
         // check router vault account is owned by router
+        // this way of getting router_pds is better or passing platformState Acc and reading from it ??
         let (router_pda, _nonce) = Pubkey::find_program_address(&["router".as_ref()], program_id);
         let router_owner = parse_token_account(router_btoken_ai)?.owner;
         check_eq!(router_owner, router_pda);
@@ -625,6 +627,12 @@ impl Fund {
         let fund_state_ai = next_account_info(accounts_iter)?;
         let platform_data = PlatformData::load_checked(platform_state_ai, program_id)?;
         let mut fund_data = FundData::load_mut_checked(fund_state_ai, program_id)?;
+
+        // if invalid fund_state_acc
+        // although other signers cannot chnage some others fundState so error will be thrown
+        // still be better if we add checks (will need to pass manager acc)
+        // check!(manager_ai.is_signer, ProgramError::MissingRequiredSignature);
+        // check_eq!(fund_data.manager_account, *manager_ai.key);
 
         check!(platform_data.is_initialized(), ProgramError::InvalidAccountData);
         check!(fund_data.is_initialized(), ProgramError::InvalidAccountData);
@@ -1068,6 +1076,8 @@ pub fn update_amount_and_performance(
     // let mut fund_val = I80F48::from_num(fund_data.vault_balance); // add balance in fund vault
     // add USDT balance (not decimal adjusted)
     let mut fund_val = U64F64::from_num(fund_data.tokens[0].balance - fund_data.tokens[0].debt);
+    msg!("1) fund_val USDC only:: {:?}", fund_val);
+
     let clock = Clock::get()?;
     // Calculate prices for all tokens with balances
     for i in 1..NUM_TOKENS {
@@ -1094,6 +1104,8 @@ pub fn update_amount_and_performance(
 
         fund_val = fund_val.checked_add(val).unwrap();
     }
+    msg!("2) fund_val all tokens:: {:?}", fund_val);
+
 
     let mango_group = MangoGroup::load_checked(mango_group_ai, mango_prog_ai.key)?;
     let mango_account = MangoAccount::load_checked(mango_account_ai, mango_prog_ai.key, mango_group_ai.key)?;
@@ -1103,6 +1115,8 @@ pub fn update_amount_and_performance(
 
     // account for native USDC deposits
     let mut native_deposits  = mango_account.get_native_deposit(root_bank_cache, QUOTE_INDEX)?;
+    msg!("3.1)  USDC native_deposits:: {:?}", native_deposits);
+
     let dti = fund_data.mango_positions.deposit_index as usize;
     //Check if deposit_index is valid
     if(dti < MAX_TOKENS){
@@ -1111,6 +1125,7 @@ pub fn update_amount_and_performance(
     }
     // Get for USDC and the deposit_index on funds
     fund_val = fund_val.checked_add(U64F64::from_fixed(native_deposits)).unwrap();
+    msg!("3.2) fund_val with mango-native deposits:: {:?}", fund_val);
 
     let mut pnl: I80F48;
     for i in 0..4 {

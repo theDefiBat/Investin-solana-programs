@@ -52,6 +52,10 @@ pub fn add_token_to_whitelist (
 
     // token id check
     check!(token_id < 2, ProgramError::InvalidArgument);
+    //check that only USDC and WSOL are base pairs for now 
+    //later can keep if else condition 
+    // check!(pc_index < 2, ProgramError::InvalidArgument);
+
 
     let mint_account = next_account_info(accounts_iter)?;
     let pool_coin_account = next_account_info(accounts_iter)?;
@@ -130,6 +134,12 @@ pub fn add_token_to_fund (
     let platform_data = PlatformData::load_checked(platform_acc, program_id)?;
     let mut fund_data = FundData::load_mut_checked(fund_state_acc, program_id)?;
 
+    // if invalid fund_state_acc
+    // although other signers cannot chnage some others fundState so error will be thrown
+    // still be better if we add checks (will need to pass manager acc)
+    // check!(manager_ai.is_signer, ProgramError::MissingRequiredSignature);
+    // check_eq!(fund_data.manager_account, *manager_ai.key);
+
     let vault_info = parse_token_account(vault_acc)?;
     check_eq!(vault_info.owner, fund_data.fund_pda);
     check_eq!(fund_data.tokens[index as usize].is_active, false);
@@ -140,6 +150,7 @@ pub fn add_token_to_fund (
     // both indexes cant be None
     check!(((token_index_1 != None) || (token_index_2 != None)), ProgramError::InvalidAccountData);
 
+    //what happens when it is both on ray and Orca MUX=??
     if token_index_1 != None {
         fund_data.tokens[index as usize].mux = 0;
         fund_data.tokens[index as usize].index[0] = token_index_1.unwrap() as u8;
@@ -178,6 +189,12 @@ pub fn remove_token_from_fund (
 
     let platform_data = PlatformData::load_checked(platform_acc, program_id)?;
     let mut fund_data = FundData::load_mut_checked(fund_state_acc, program_id)?;
+
+    // if invalid fund_state_acc
+    // although other signers cannot chnage some others fundState so error will be thrown
+    // still be better if we add checks (will need to pass manager acc)
+    // check!(manager_ai.is_signer, ProgramError::MissingRequiredSignature);
+    // check_eq!(fund_data.manager_account, *manager_ai.key);
 
     let token_slot = index as usize;
     let mux = fund_data.tokens[token_slot].mux as usize;
