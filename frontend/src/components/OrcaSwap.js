@@ -210,8 +210,12 @@ export const OrcaSwap = () => {
      (async () => {
 
       const platformDataAcc = await connection.getAccountInfo(platformStateAccount)
+      if(!platformDataAcc){
+        alert('platform not initialized')
+        return;
+      }
       const platformData = PLATFORM_DATA.decode(platformDataAcc.data)
-      // console.log("platformData::",platformData);
+      console.log("platformData::",platformData);
       setPlatformData(platformData)
       const platformTokens = platformData?.token_list;
       // console.log("platformTokens::",platformTokens);

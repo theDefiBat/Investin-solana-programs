@@ -16,6 +16,7 @@ export const AdminControl = () => {
 
   let ids;
   if(process.env.REACT_APP_NETWORK==='devnet'){
+    console.log("devnet---")
      ids = IDS['groups'][2]
   } else {
      ids = IDS['groups'][0]
@@ -64,20 +65,28 @@ export const AdminControl = () => {
         },
         data
       )
-      const associatedTokenAddress1 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(ids.tokens[0].mintAddress), walletProvider?.publicKey, transaction);
+      const associatedTokenAddress1 = new PublicKey('E3Zhv46FWGLDKFM24Ft2tgoqX5NCU49CT8NwH3rDHbsA')
+      // await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey("8FRFC6MoGGkMFQwngccyu69VnYbzykGeez7ignHVAFSN"), walletProvider?.publicKey, transaction);
+
 
       const instruction = new TransactionInstruction({
         keys: [
           { pubkey: platformAccount, isSigner: false, isWritable: true },
           { pubkey: walletProvider?.publicKey, isSigner: true, isWritable: true },
           { pubkey: associatedTokenAddress1, isSigner: false, isWritable: true },
-          { pubkey: new PublicKey(ids.tokens[0].mintAddress), isSigner: false, isWritable: true },
+          { pubkey: new PublicKey("8FRFC6MoGGkMFQwngccyu69VnYbzykGeez7ignHVAFSN"), isSigner: false, isWritable: true },
 
           // { pubkey: fundAccount, isSigner: false, isWritable: true },
         ],
         programId,
         data
       });
+
+      console.log("platformAccount:",platformAccount.toBase58())
+      console.log("associatedTokenAddress1:",associatedTokenAddress1.toBase58())
+      console.log("vault usdc :","8FRFC6MoGGkMFQwngccyu69VnYbzykGeez7ignHVAFSN")
+    
+
       transaction.add(instruction)
       transaction.feePayer = walletProvider?.publicKey;
       let hash = await connection.getRecentBlockhash();
@@ -105,7 +114,18 @@ export const AdminControl = () => {
 
   useEffect(  ()=> {
     (async () => {
-      const platformDataAcc = await connection.getAccountInfo(platformStateAccount)
+      // to find initially 
+      // const platformAccount = await PublicKey.createWithSeed(
+      //   walletProvider.publicKey,
+      //   PLATFORM_ACCOUNT_KEY,
+      //   programId,
+      // );
+        // console.log("platformAccount acc to user::",platformAccount.toBase58())
+       const platformDataAcc = await connection.getAccountInfo(platformStateAccount)
+       if(!platformDataAcc){
+         alert('platform state not initilaized');
+         return;
+       } 
         const platformData = PLATFORM_DATA.decode(platformDataAcc.data)
         console.log("platformData::",platformData);
         setPlatformData(platformData)

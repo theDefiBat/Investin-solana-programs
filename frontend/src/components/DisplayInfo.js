@@ -4,7 +4,7 @@ import { GlobalState } from '../store/globalState';
 
 import { adminAccount, connection, FUND_ACCOUNT_KEY, platformStateAccount, priceStateAccount, programId } from '../utils/constants';
 import { blob, nu64, struct, u32, u8 } from 'buffer-layout';
-import { FUND_DATA, SPL_TOKEN_MINT_DATA } from '../utils/programLayouts';
+import { AMM_INFO_LAYOUT_V4, FUND_DATA, SPL_TOKEN_MINT_DATA } from '../utils/programLayouts';
 import { IDS, MangoClient, I80F48, NodeBankLayout, PerpAccountLayout, PerpMarketLayout ,RootBankCacheLayout, RootBankLayout} from '@blockworks-foundation/mango-client';
 import { Card, Col, Row ,Table} from 'reactstrap';
 
@@ -32,6 +32,12 @@ const platformStateAccountX = platformStateAccount.toBase58();
 const priceStateAccountX = priceStateAccount.toBase58();
 
 const handleGetFundData = async () => {
+
+  
+  // let ammInfo = await connection.getAccountInfo(new PublicKey('88CJ7Zqe6RdBSHetEkruSNRpSGibexoGWKo2Jf8pPPf6'))
+  // let amm = AMM_INFO_LAYOUT_V4.decode(ammInfo.data)
+  // console.log("amm.poolCoinTokenAccount :: ", amm.poolCoinTokenAccount.toBase58())
+  // console.log("amm.poolPcTokenAccount :: ", amm.poolPcTokenAccount.toBase58())
 
   if(!walletProvider) {
     alert("connect wallet ")
