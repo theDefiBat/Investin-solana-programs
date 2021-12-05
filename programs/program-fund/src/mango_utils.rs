@@ -51,10 +51,10 @@ macro_rules! check_eq {
 
 pub mod mango_v3_id {
     use solana_program::declare_id;
-    #[cfg(feature = "devnet")]
+    // #[cfg(feature = "devnet")]
     declare_id!("4skJ85cdxQAFVKbcGgfun8iZPL7BadVYXG3kGEGkufqA");
-    #[cfg(not(feature = "devnet"))]
-    declare_id!("mv3ekLzLbnVPNxjSKvqBpU3ZeZXPQdEC3bp5MDEBG68");
+    // #[cfg(not(feature = "devnet"))]
+    // declare_id!("mv3ekLzLbnVPNxjSKvqBpU3ZeZXPQdEC3bp5MDEBG68");
 }
 
 pub fn mango_init_mango_account(

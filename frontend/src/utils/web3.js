@@ -24,7 +24,7 @@ export async function signAndSendTransaction(
   // console.log(`wallet :::`, wallet)
   let signedTrans = await wallet.signTransaction(transaction);
   console.log("sign transaction");
-  let signature = await connection.sendRawTransaction(signedTrans.serialize(), { skipPreflight: true });
+  let signature = await connection.sendRawTransaction(signedTrans.serialize(), { skipPreflight: true }); //skipPreflight -**Main
   console.log("send raw transaction");
   return signature;
 }

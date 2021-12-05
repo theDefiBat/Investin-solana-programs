@@ -7,6 +7,7 @@ import { blob, nu64, struct, u32, u8 } from 'buffer-layout';
 import { AMM_INFO_LAYOUT_V4, FUND_DATA, SPL_TOKEN_MINT_DATA } from '../utils/programLayouts';
 import { IDS, MangoClient, I80F48, NodeBankLayout, PerpAccountLayout, PerpMarketLayout ,RootBankCacheLayout, RootBankLayout} from '@blockworks-foundation/mango-client';
 import { Card, Col, Row ,Table} from 'reactstrap';
+import { DEV_TOKENS } from '../utils/pools';
 
 
 export const DisplayInfo = (props) => {
@@ -361,7 +362,7 @@ const getMangoAccountData = async () => {
                       return <tr key={x}>
                         <td >{x}</td>
                         <td >{i?.vault}</td>
-                        <td >{i?.mint_authority}</td>
+                        <td >{i?.mint_authority} || { ((ids.tokens).find(j => j.mintKey === i?.mint_authority))?.symbol}</td>
                         <td >{i?.is_on_mango}</td>
                         <td >{i?.balance}</td>
                         <td >{i?.debt}</td>

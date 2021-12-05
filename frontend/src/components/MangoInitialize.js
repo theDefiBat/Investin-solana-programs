@@ -54,7 +54,7 @@ export const MangoInitialize = () => {
             {pubkey: key, isSigner: true, isWritable: true },
             {pubkey: fundPDA[0], isSigner: false, isWritable: true },
             
-            {pubkey: MANGO_PROGRAM_ID, isSigner: false, isWritable:true},
+            {pubkey: MANGO_PROGRAM_ID, isSigner: false, isWritable:false},
             {pubkey: MANGO_GROUP_ACCOUNT, isSigner: false, isWritable:true},
             {pubkey: mangoAccount, isSigner: false, isWritable:true},
         ],
