@@ -113,23 +113,7 @@ export const Deposit = () => {
     console.log("signature tx:: ", sign)
     console.log("signature tx url:: ", `https://solscan.io/tx/${sign}`) 
 
-    // const transaction2 = await setWalletTransaction(instruction, walletProvider?.publicKey);
-    // const signature = await signAndSendTransaction(walletProvider, transaction2);
-    // let result = await connection.confirmTransaction(signature, "confirmed");
-    // console.log("tx:: ", signature)
-    
-    // transaction.add(deposit_instruction);
-    // transaction.feePayer = key;
-    // let hash = await connection.getRecentBlockhash();
-    // console.log("blockhash", hash);
-    // transaction.recentBlockhash = hash.blockhash;
-
-    // const sign = await signAndSendTransaction(walletProvider, transaction);
-    // console.log("signature tx:: ", sign)
-
-
-  // const investorDataAcc = await connection.getAccountInfo(investerStateAccount);
-  // const investorData = INVESTOR_DATA.decode(investorDataAcc.data);
+   
   }
     
   const handleFunds = async () => {
