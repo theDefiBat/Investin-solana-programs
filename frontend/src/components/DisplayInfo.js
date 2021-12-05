@@ -454,7 +454,7 @@ const getMangoAccountData = async () => {
       <h4>MANGO GRP </h4>
       <button onClick={getAllDecodeMangoData}>GET ALL MANGO DATA </button>
       {
-        mangoGroup &&
+        mangoGroup && mangoGroup?.admin && 
           <>
             <p> admin : {mangoGroup.admin}</p>
             <p> dexProgramId : {mangoGroup.dexProgramId}</p>
@@ -575,7 +575,7 @@ const getMangoAccountData = async () => {
       }
       <h5>USDC NODE BANK {ids.tokens[0].nodeKeys[0]}</h5>
       {
-      nodeBank && 
+      nodeBank && nodeBank?.borrows &&
         <>
             <p> borrows : {nodeBank.borrows}</p>
             <p> deposits : {nodeBank.deposits}</p>
@@ -584,7 +584,7 @@ const getMangoAccountData = async () => {
       }
       <h5>USDC ROOT BANK {ids.tokens[0].rootKey}</h5>
       {
-       rootBank && 
+       rootBank && rootBank?.depositIndex &&
         <>
             <p> depositIndex : {rootBank.depositIndex}</p>
             <p> borrowIndex : {rootBank.borrowIndex}</p>

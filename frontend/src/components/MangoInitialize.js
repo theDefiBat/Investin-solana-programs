@@ -7,14 +7,12 @@ import {  createKeyIfNotExists, signAndSendTransaction } from '../utils/web3';
 import { FUND_DATA } from '../utils/programLayouts';
 import { MarginAccountLayout } from '../utils/MangoLayout';
 import { OpenOrders } from '@project-serum/serum';
-import { IDS } from '@blockworks-foundation/mango-client';
+import { IDS, MangoAccountLayout } from '@blockworks-foundation/mango-client';
 
 export const MangoInitialize = () => {
 
   const ids= IDS['groups'][idsIndex];
 
-    const [fundPDA, setFundPDA] = useState('')
-    const [fundStateAccount, setFundStateAccount] = useState('')
 
     const walletProvider = GlobalState.useState(s => s.walletProvider);
 
@@ -28,14 +26,18 @@ export const MangoInitialize = () => {
       };
       const transaction = new Transaction()
 
-    //   const fundBaseTokenAccount = await findAssociatedTokenAddress(new PublicKey(fundPDA), new PublicKey(ids.tokens[0].mintAddress));
-      // TODO copy program layout from mango and get span 
-      const margin_account_acc = await createKeyIfNotExists(walletProvider, "", MANGO_PROGRAM_ID, MARGIN_ACCOUNT_KEY_1, MarginAccountLayout.span, transaction)
-      const margin_account_acc2 = await createKeyIfNotExists(walletProvider, "", MANGO_PROGRAM_ID, MARGIN_ACCOUNT_KEY_2, MarginAccountLayout.span, transaction)
+      const fundStateAccount = await PublicKey.createWithSeed(
+        key,
+        FUND_ACCOUNT_KEY,
+        programId,
+      );
+      console.log("fundStateAccount:: ", fundStateAccount.toBase58())
+      const fundPDA = await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId);
+   
+      const mangoAccount = await createKeyIfNotExists(walletProvider, "", MANGO_PROGRAM_ID, MARGIN_ACCOUNT_KEY_1, MangoAccountLayout.span, transaction)
+      console.log("mangoAccount created::",mangoAccount.toBase58())
 
-      // const margin_info = await connection.getAccountInfo(margin_account_acc)
-      // const margin_data = MarginAccountLayout.decode(margin_info)
-      // console.log('margin_acc :: ', margin_data)
+     
 
       const dataLayout = struct([u8('instruction')])
 
@@ -48,15 +50,13 @@ export const MangoInitialize = () => {
       )
         const instruction = new TransactionInstruction({
         keys: [
-            {pubkey: new PublicKey(fundStateAccount), isSigner: false, isWritable: true},
+            {pubkey: fundStateAccount, isSigner: false, isWritable: true},
             {pubkey: key, isSigner: true, isWritable: true },
-            {pubkey: fundPDA, isSigner: false, isWritable: true },
+            {pubkey: fundPDA[0], isSigner: false, isWritable: true },
             
             {pubkey: MANGO_PROGRAM_ID, isSigner: false, isWritable:true},
             {pubkey: MANGO_GROUP_ACCOUNT, isSigner: false, isWritable:true},
-            {pubkey: RENT_PROGRAM_ID, isSigner: false, isWritable:true},
-            {pubkey: margin_account_acc, isSigner: false, isWritable:true},
-            {pubkey: margin_account_acc2, isSigner: false, isWritable:true},
+            {pubkey: mangoAccount, isSigner: false, isWritable:true},
         ],
         programId,
         data
@@ -70,48 +70,12 @@ export const MangoInitialize = () => {
 
         const sign = await signAndSendTransaction(walletProvider, transaction);
         console.log("signature tx:: ", sign)
+        console.log("signature tx url:: ", `https://solscan.io/tx/${sign}`) 
+
+        
     }
 
-    const handleGetFunds = async () => {
-
-        const key = walletProvider?.publicKey;  
-        if (!key ) {
-          alert("connect wallet")
-          return;
-        }
-        const fundPDA = await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId);
-        setFundPDA(fundPDA[0].toBase58())
     
-        const fundStateAccount = await PublicKey.createWithSeed(
-          key,
-          FUND_ACCOUNT_KEY,
-          programId,
-        );
-    
-        console.log("FUND STTE:: ", fundStateAccount.toBase58())
-        setFundStateAccount(fundStateAccount.toBase58())
-    
-        let x = await connection.getAccountInfo(fundStateAccount)
-        if (x == null)
-        {
-          alert("fund account not found")
-          return
-        }
-        console.log(x)
-        let fundState = FUND_DATA.decode(x.data)
-        if (!fundState.is_initialized) {
-          alert("fund not initialized!")
-          return
-        }
-        console.log(fundState)
-
-      //   const margin_account_acc = await createKeyIfNotExists(walletProvider, "", MANGO_PROGRAM_ID, MARGIN_ACCOUNT_KEY, MarginAccountLayout.span, null)
-      // const margin_info = await connection.getAccountInfo(margin_account_acc)
-      // console.log('margin_key :: ', margin_info)
-
-      // const margin_data = MarginAccountLayout.decode(margin_info)
-      // console.log('margin_acc :: ', margin_data)
-    }
 
     return (
         <div className="form-div">
@@ -119,8 +83,7 @@ export const MangoInitialize = () => {
           
           <button onClick={handleMangoInitialize}>Mango Margin Account Initialize</button>
           <br />
-          <button onClick={handleGetFunds}>GetFundInfo</button>
-          <br />
+          
         </div>
     )
 }
