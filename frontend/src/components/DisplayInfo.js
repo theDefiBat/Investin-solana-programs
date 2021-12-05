@@ -349,7 +349,7 @@ const getMangoAccountData = async () => {
                                   <th style={{ width: "15%" }}>is_on_mango</th>
                                   <th style={{ width: "15%" }}>balance</th>
                                   <th style={{ width: "15%" }}>debt</th>
-                                  <th style={{ width: "15%" }}>index</th>
+                                  <th style={{ width: "25%" }}>index</th>
                                   <th style={{ width: "15%" }}>mux</th>
                                 </tr>
                 </thead>
@@ -365,7 +365,7 @@ const getMangoAccountData = async () => {
                         <td >{i?.is_on_mango}</td>
                         <td >{i?.balance}</td>
                         <td >{i?.debt}</td>
-                        <td >{i?.index}</td>
+                        <td >{i?.index[0]} ||  {i?.index[1]} || {i?.index[2]}</td>
                         <td >{i?.mux}</td>
                       </tr>
                     })

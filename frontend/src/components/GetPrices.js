@@ -1,12 +1,12 @@
 import { PublicKey, SYSVAR_CLOCK_PUBKEY, Transaction, TransactionInstruction } from '@solana/web3.js';
 import React, { useState , useEffect} from 'react'
 import { GlobalState } from '../store/globalState';
-import { signAndSendTransaction } from '../utils/web3'
-import { connection, programId, priceStateAccount, platformStateAccount, idsIndex } from '../utils/constants';
+import { createAssociatedTokenAccountIfNotExist, signAndSendTransaction } from '../utils/web3'
+import { connection, programId, priceStateAccount, platformStateAccount, idsIndex, FUND_ACCOUNT_KEY } from '../utils/constants';
 import { struct, u8 } from 'buffer-layout';
 import { TOKENS } from '../utils/tokens'
-import { PLATFORM_DATA, PRICE_DATA } from '../utils/programLayouts';
-import { devnet_pools, pools } from '../utils/pools';
+import { FUND_DATA, PLATFORM_DATA, PRICE_DATA } from '../utils/programLayouts';
+import { devnet_pools, DEV_TOKENS, pools } from '../utils/pools';
 import { IDS } from '@blockworks-foundation/mango-client';
 
 const priceProgramId = new PublicKey('CB6oEYpfSsrF3oWG41KQxwfg4onZ38JMj1hk17UNe1Fn')
@@ -65,36 +65,63 @@ export const GetPrices = () => {
 
     const handleAddToken = async () => {
        
-        let transaction = new Transaction()
-        if (!poolName)
-        {
-            alert("no token pool found")
-            return
-        }
-        const poolInfo = devnet_pools.find(p => p.name === poolName);
-        console.log(poolInfo)
-        const dataLayout = struct([u8('instruction')])
+      console.log("**handleAddToken  selectedTokenSymbol::",selectedTokenSymbol)
+      const tokenMintAddr = DEV_TOKENS[selectedTokenSymbol.toUpperCase()]?.mintKey
+      console.log(" tokenMintAddr::",tokenMintAddr);
 
-        const data = Buffer.alloc(dataLayout.span)
-        dataLayout.encode(
-            {
-                instruction: 17,
-            },
-            data
-        )
-        const instruction = new TransactionInstruction({
-            keys: [
+      const transaction = new Transaction()
+  
+      // const toCoinMint = poolInfo.pc.mintAddress;
+      // const fromCoinMint = poolInfo.coin.mintAddress;
+      const fundPDA = await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId);
+      const associatedTokenAddress = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(tokenMintAddr), fundPDA[0], transaction);
+  
+      const fundStateAcc = await PublicKey.createWithSeed(
+        walletProvider?.publicKey,
+          FUND_ACCOUNT_KEY,
+          programId,
+      );
+  
+      let fund_info = await connection.getAccountInfo(fundStateAcc);
+      const fund_data = FUND_DATA.decode(fund_info.data); 
+      console.log("fund_data:",fund_data)
+  
+      let unUsedTokenIndex = 0 ;
+      for (let i = 0; i < fund_data.tokens.length; i++) {
+          if(fund_data.tokens[i].is_active === 0) {
+              unUsedTokenIndex = i;
+              break;
+          }
+          
+      } 
+      console.log("unUsedTokenIndex:",unUsedTokenIndex)
+  
+      if(unUsedTokenIndex === -1) {
+          throw("Cannot add tokens, limit of 8 reached");
+      }
+  
+      const dataLayout = struct([u8('instruction'), u8('index')])
+  
+      const data = Buffer.alloc(dataLayout.span)
+      dataLayout.encode(
+          {
+              instruction: 20,
+              index: unUsedTokenIndex
+          },
+          data
+      )
+      const transfer_instruction = new TransactionInstruction({
+          keys: [
               { pubkey: platformStateAccount, isSigner: false, isWritable: true },
-              { pubkey: SYSVAR_CLOCK_PUBKEY, isSigner: false, isWritable: true },
-              { pubkey: walletProvider?.publicKey, isSigner: true, isWritable: true },
-              { pubkey: new PublicKey(poolInfo.coin.mintAddress), isSigner: false, isWritable: true },
-              { pubkey: new PublicKey(poolInfo.poolCoinTokenAccount), isSigner: false, isWritable: true },
-              { pubkey: new PublicKey(poolInfo.poolPcTokenAccount), isSigner: false, isWritable: true },
-            ],
-            programId: programId,
-            data
-        });
-        transaction.add(instruction)
+              { pubkey: fundStateAcc, isSigner: false, isWritable: true },
+              { pubkey: new PublicKey(tokenMintAddr), isSigner: false, isWritable: true },
+              { pubkey: associatedTokenAddress, isSigner: false, isWritable: true },
+          ],
+          programId,
+          data
+      });
+  
+       transaction.add(transfer_instruction);
         transaction.feePayer = walletProvider?.publicKey;
         console.log("trnsaction:: ", transaction)
         let hash = await connection.getRecentBlockhash();
@@ -103,7 +130,7 @@ export const GetPrices = () => {
 
         const sign = await signAndSendTransaction(walletProvider, transaction);
         console.log("signature tx:: ", sign)
-      console.log("signature tx url:: ", `https://solscan.io/tx/{sign}`) 
+      console.log("signature tx url:: ", `https://solscan.io/tx/${sign}`) 
 
     }
 
@@ -146,7 +173,7 @@ export const GetPrices = () => {
 
         const sign = await signAndSendTransaction(walletProvider, transaction);
         console.log("signature tx:: ", sign)
-      console.log("signature tx url:: ", `https://solscan.io/tx/{sign}`) 
+      console.log("signature tx url:: ", `https://solscan.io/tx/${sign}`) 
         
     }
 

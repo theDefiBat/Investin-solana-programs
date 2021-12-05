@@ -92,7 +92,7 @@ export const Claim = () => {
 
     const sign = await signAndSendTransaction(walletProvider, transaction);
     console.log("tx perf: ", sign)
-    console.log("signature tx url:: ", `https://solscan.io/tx/{sign}`) 
+    console.log("signature tx url:: ", `https://solscan.io/tx/${sign}`) 
 
   }
     

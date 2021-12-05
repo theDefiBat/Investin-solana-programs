@@ -88,7 +88,7 @@ export const Deposit = () => {
 
     const sign = await signAndSendTransaction(walletProvider, transaction);
     console.log("signature tx:: ", sign)
-    console.log("signature tx url:: ", `https://solscan.io/tx/{sign}`) 
+    console.log("signature tx url:: ", `https://solscan.io/tx/${sign}`) 
 
     // const transaction2 = await setWalletTransaction(instruction, walletProvider?.publicKey);
     // const signature = await signAndSendTransaction(walletProvider, transaction2);
