@@ -39,11 +39,11 @@ export const Transfer = () => {
     const transaction = new Transaction()
 
     const routerPDA = await PublicKey.findProgramAddress([Buffer.from("router")], programId);
-    const fundBaseTokenAccount = await findAssociatedTokenAddress(new PublicKey(fundPDA), new PublicKey(ids.tokens[0].mintAddress));
-    const routerBaseTokenAccount = await findAssociatedTokenAddress(routerPDA[0], new PublicKey(ids.tokens[0].mintAddress));
+    const fundBaseTokenAccount = await findAssociatedTokenAddress(new PublicKey(fundPDA), new PublicKey(ids.tokens[0].mintKey));
+    const routerBaseTokenAccount = await findAssociatedTokenAddress(routerPDA[0], new PublicKey(ids.tokens[0].mintKey));
 
-    const managerBaseTokenAccount = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(ids.tokens[0].mintAddress), key, transaction);
-    const investinBaseTokenAccount = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(ids.tokens[0].mintAddress), adminAccount, transaction);
+    const managerBaseTokenAccount = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(ids.tokens[0].mintKey), key, transaction);
+    const investinBaseTokenAccount = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(ids.tokens[0].mintKey), adminAccount, transaction);
 
     if (fundStateAccount == '') {
       alert("get info first!")

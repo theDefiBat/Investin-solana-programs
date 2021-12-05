@@ -21,10 +21,10 @@ export async function signAndSendTransaction(
   wallet,
   transaction
 ) {
-  console.log(`wallet :::`, wallet)
+  // console.log(`wallet :::`, wallet)
   let signedTrans = await wallet.signTransaction(transaction);
   console.log("sign transaction");
-  let signature = await connection.sendRawTransaction(signedTrans.serialize());
+  let signature = await connection.sendRawTransaction(signedTrans.serialize(), { skipPreflight: true });
   console.log("send raw transaction");
   return signature;
 }
@@ -36,26 +36,18 @@ export const createKeyIfNotExists = async (wallet, payerAccount, programId, seed
     programId,
   );
 
-  console.log(`greetedPubkey :: `, greetedPubkey)
+  console.log(`createWithSeed :: `, greetedPubkey)
 
   // Check if the greeting account has already been created
   const greetedAccount = await connection.getAccountInfo(greetedPubkey);
-
-  console.log(`greetedAccount ::: `, greetedAccount)
+  console.log(`createWithSeed check if Accinfo NULL ::: `, greetedAccount);
+  
   if (greetedAccount === null) {
-    console.log(
-      'Creating account',
-      greetedPubkey.toBase58(),
-      'to say hello to',
-    );
-    const lamports = await connection.getMinimumBalanceForRentExemption(
-      size,
-    );
 
-    // const transaction = new Transaction().add(
-
-    // );
+    console.log('Creating account',greetedPubkey.toBase58(),'to say hello to',);
+    const lamports = await connection.getMinimumBalanceForRentExemption(size);
     console.log(`lamports :::: `, lamports)
+
     transaction.add(
       SystemProgram.createAccountWithSeed({
         fromPubkey: wallet.publicKey,
@@ -67,9 +59,7 @@ export const createKeyIfNotExists = async (wallet, payerAccount, programId, seed
         programId,
       }))
 
-    // await sendAndConfirmTransaction(connection, transaction, [payerAccount]);
-
-    //await signAndSendTransaction(wallet, transaction)
+    
   }
   return greetedPubkey;
 }

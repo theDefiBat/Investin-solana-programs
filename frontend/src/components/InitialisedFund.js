@@ -21,31 +21,29 @@ export const InitialisedFund = () => {
 
     const transaction = new Transaction()
 
-    const fundPDA = await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId);
-    const routerPDA = await PublicKey.findProgramAddress([Buffer.from("router")], programId);
 
     // ***what should be in the place of wallet provider in platformAccount
     const platformAccount = platformStateAccount;
     // const platformAccount = await createKeyIfNotExists(walletProvider, "", programId, PLATFORM_ACCOUNT_KEY, PLATFORM_DATA.span, transaction)
-    const fundAccount = await createKeyIfNotExists(walletProvider, "", programId, FUND_ACCOUNT_KEY, FUND_DATA.span, transaction)
 
     console.log(`PLATFORM_DATA.span :::: `, PLATFORM_DATA.span)
     console.log(`FUND_DATA.span :::: `, FUND_DATA.span) 
 
+    const fundPDA = await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId);
+    // const routerPDA = await PublicKey.findProgramAddress([Buffer.from('router')], programId);
+    console.log(`fundPDA :::: `, fundPDA, fundPDA[0].toBase58()) 
 
-    console.log(`fundPDA::: `, fundPDA[0].toBase58())
-    console.log('routerPDA:: ', routerPDA[0].toBase58())
-    console.log(`platformData ::: `, platformAccount.toBase58())
-    console.log(`fundAccount ::: `, fundAccount.toBase58())
-
-    const fundData = await connection.getAccountInfo(fundAccount, "max");
-    const platformData = await connection.getAccountInfo(platformAccount, "max");
-
-    const x = PLATFORM_DATA.decode(platformData.data)
-    console.log("plat data:: ", x)
+    const fundAccount = await createKeyIfNotExists(
+      walletProvider,
+      "",
+      programId,
+      FUND_ACCOUNT_KEY,
+      FUND_DATA.span,
+      transaction,
+    );
 
     if (1) {
-      const dataLayout = struct([u8('instruction'), nu64('min_amount'), nu64('min_return'), nu64('performance_fee_percentage'), u8('count')])
+      const dataLayout = struct([u8('instruction'), nu64('min_amount'), nu64('min_return'), nu64('performance_fee_percentage'), u8('no_of_tokens')])
 
       const data = Buffer.alloc(dataLayout.span)
       dataLayout.encode(
@@ -54,23 +52,40 @@ export const InitialisedFund = () => {
           min_amount: min_amount * (10 ** ids.tokens[0].decimals),
           min_return: min_return * 100,
           performance_fee_percentage: platform_fee_percentage * 100,
-          count: 2
+          no_of_tokens: 1
         },
         data
       )
 
-      const associatedTokenAddress1 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(ids.tokens[0].mintAddress), fundPDA[0], transaction);
-      const associatedTokenAddress2 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(ids.tokens[4].mintAddress), fundPDA[0], transaction);
+      console.log("params data passed :",
+           min_amount * (10 ** ids.tokens[0].decimals),
+          min_return * 100,
+           platform_fee_percentage * 100,
+      )
+
+      const associatedTokenAddress1 = await createAssociatedTokenAccountIfNotExist(
+        walletProvider,
+        new PublicKey(ids.tokens[0].mintKey),
+        fundPDA[0],
+        transaction,
+      );
+      // const associatedTokenAddress2 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(ids.tokens[1].mintKey), fundPDA[0], transaction);
+
+      console.log("associatedTokenAddress1:",associatedTokenAddress1.toBase58())
+      console.log("ids.tokens[0].mintKey:",ids.tokens[0].mintKey)
 
       const instruction = new TransactionInstruction({
         keys: [
           { pubkey: platformAccount, isSigner: false, isWritable: true },
           { pubkey: fundAccount, isSigner: false, isWritable: true },
           { pubkey: walletProvider?.publicKey, isSigner: true, isWritable: true },
+
+          { pubkey: new PublicKey(ids.tokens[0].mintKey), isSigner: false, isWritable: true },
           { pubkey: associatedTokenAddress1, isSigner: false, isWritable: true },
 
-          { pubkey: new PublicKey(ids.tokens[0].mintAddress), isSigner: false, isWritable: true },
-          { pubkey: new PublicKey(ids.tokens[4].mintAddress), isSigner: false, isWritable: true }, //WSOL
+          // { pubkey: new PublicKey(ids.tokens[1].mintKey), isSigner: false, isWritable: true }, 
+          // { pubkey: associatedTokenAddress2, isSigner: false, isWritable: true },
+
         ],
         programId,
         data
@@ -83,7 +98,7 @@ export const InitialisedFund = () => {
 
       const sign = await signAndSendTransaction(walletProvider, transaction);
       console.log("signature tx:: ", sign)
-      console.log("signature tx url:: ", `https://solscan.io/tx/{sign}`) 
+      console.log("signature tx url:: ", `https://solscan.io/tx/${sign}`) 
 
     }
 

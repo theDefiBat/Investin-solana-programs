@@ -32,14 +32,14 @@ export const Deposit = () => {
       return;
     };
   
-    const baseTokenAccount = await findAssociatedTokenAddress(key, new PublicKey(ids.tokens[0].mintAddress));
+    const baseTokenAccount = await findAssociatedTokenAddress(key, new PublicKey(ids.tokens[0].mintKey));
 
     const transaction = new Transaction()
 
     const RPDA = await PublicKey.findProgramAddress([Buffer.from("router")], programId);
     const FPDA = new PublicKey(fundPDA);
 
-    const associatedTokenAddress1 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(ids.tokens[0].mintAddress), RPDA[0], transaction);    
+    const associatedTokenAddress1 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(ids.tokens[0].mintKey), RPDA[0], transaction);    
 
     const investerStateAccount = await createKeyIfNotExists(walletProvider, null, programId, FPDA.toBase58().substr(0, 31), INVESTOR_DATA.span, transaction)
     

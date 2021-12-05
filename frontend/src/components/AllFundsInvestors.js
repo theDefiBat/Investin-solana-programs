@@ -36,7 +36,7 @@ export const AllFundsInvestors = () => {
         console.log("platformTokens::",platformTokens);
         console.log("ids.tokens::",ids.tokens);
 
-        //  Object.keys(TOKENS).find(mt => TOKENS[mt]?.mintAddress === t.mint.toBase58())
+        //  Object.keys(TOKENS).find(mt => TOKENS[mt]?.mintKey === t.mint.toBase58())
 
         let t = []; 
         if(platformTokens?.length){

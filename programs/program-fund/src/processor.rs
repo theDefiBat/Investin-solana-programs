@@ -94,18 +94,32 @@ impl Fund {
         let platform_ai = next_account_info(accounts_iter)?;
         let fund_state_ai = next_account_info(accounts_iter)?;
         let manager_ai = next_account_info(accounts_iter)?;
+        msg!("accc..");
 
         let mut platform_data = PlatformData::load_mut_checked(platform_ai, program_id)?;
+        msg!("platform_data..");
+
         let mut fund_data = FundData::load_mut_checked(fund_state_ai, program_id)?;
+        msg!("fund_data..");
 
         //  check if already init
         check!(!fund_data.is_initialized(), FundError::FundAccountAlreadyInit);
         //check_eq!(fund_data.version, 0);
         check!(platform_data.is_initialized(), ProgramError::InvalidAccountData);
+
+        msg!("is_initialized checks done..");
+
         check!(min_return >= 500, ProgramError::InvalidArgument);
+        msg!("min_return checks done..");
+
         check!(min_amount >= 10000000, ProgramError::InvalidArgument);
+        msg!("min_amount checks done..");
+
         check!(no_of_tokens as usize <= NUM_TOKENS, ProgramError::InvalidArgument); // max 8 tokens
+        msg!("no_of_tokens checks done..");
+
         check!(performance_fee_percentage >= 100 && performance_fee_percentage <= 4000, ProgramError::InvalidArgument);
+        msg!("performance_fee_percentage checks done..");
 
         // save manager's wallet address
         fund_data.manager_account = *manager_ai.key;
@@ -133,9 +147,13 @@ impl Fund {
         fund_data.tokens[0].is_active = true;
         fund_data.tokens[0].vault = *fund_btoken_ai.key;
         fund_data.no_of_assets = 1;
+        msg!("USDC checks done..");
 
         // whitelisted tokens
         for index in 1..no_of_tokens {
+
+        msg!("inside loop...");
+
             let mint_ai = next_account_info(accounts_iter)?;
             let vault_ai = next_account_info(accounts_iter)?;
 

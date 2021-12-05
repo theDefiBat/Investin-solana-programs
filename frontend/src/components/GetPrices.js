@@ -42,7 +42,7 @@ export const GetPrices = () => {
           if(platformTokens?.length){
             t = platformTokens.map( (i) => {
               return {
-                symbol: ids.tokens.find( k => k.mintAddress ===i.mint.toBase58()),
+                symbol: ids.tokens.find( k => k.mintKey ===i.mint.toBase58())?.symbol ?? 'NONE',
                 mintAddress: i.mint.toBase58(),
                 decimals: i.decimals?.toString(),
                 pool_coin_account: i.pool_coin_account.toBase58(),
@@ -51,6 +51,7 @@ export const GetPrices = () => {
               }
             })
           } 
+          console.log("t:",t)
 
           setTokenList(t)
       })()

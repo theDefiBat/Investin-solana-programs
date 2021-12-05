@@ -96,14 +96,14 @@ export const AdminControl = () => {
         },
         data
       )
-      const associatedTokenAddress1 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(ids.tokens[0].mintAddress), walletProvider?.publicKey, transaction);
+      const associatedTokenAddress1 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(ids.tokens[0].mintKey), walletProvider?.publicKey, transaction);
 
       const instruction = new TransactionInstruction({
         keys: [
           { pubkey: platformAccount, isSigner: false, isWritable: true },
           { pubkey: walletProvider?.publicKey, isSigner: true, isWritable: true },
           { pubkey: associatedTokenAddress1, isSigner: false, isWritable: true },
-          { pubkey: new PublicKey(ids.tokens[0].mintAddress), isSigner: false, isWritable: true },
+          { pubkey: new PublicKey(ids.tokens[0].mintKey), isSigner: false, isWritable: true },
 
           // { pubkey: fundAccount, isSigner: false, isWritable: true },
         ],
@@ -113,7 +113,7 @@ export const AdminControl = () => {
 
       console.log("platformAccount:",platformAccount.toBase58())
       console.log("associatedTokenAddress1:",associatedTokenAddress1.toBase58())
-      console.log("vault usdc :",ids.tokens[0].mintAddress)
+      console.log("vault usdc :",ids.tokens[0].mintKey)
     
 
       transaction.add(instruction)
@@ -211,9 +211,9 @@ export const AdminControl = () => {
       <br /><br /><hr/>
       token_id ::: <input type="number" value={tokenId} onChange={(event) => setTokenId(event.target.value)} /><br />
       pc_index ::: <input type="number" value={pcIndex} onChange={(event) => setPcIndex(event.target.value)} /><br />
-      token mint ::: <input type="text" style={{width :"300px"}} value={mintAddress} onChange={(event) => setMintAddress(event.target.value)} /><br />
-      poolCoinAddress  ::: <input type="text" style={{width :"300px"}} value={poolCoinAddress} onChange={(event) => setPoolCoinAddress(event.target.value)} /><br />
-      poolPCAddress  ::: <input type="text" style={{width :"300px"}} value={poolPcAddress} onChange={(event) => setPoolPcAddress(event.target.value)} /><br />
+      token mint ::: <input type="text" style={{width :"500px"}} value={mintAddress} onChange={(event) => setMintAddress(event.target.value)} /><br />
+      poolCoinAddress  ::: <input type="text" style={{width :"500px"}} value={poolCoinAddress} onChange={(event) => setPoolCoinAddress(event.target.value)} /><br />
+      poolPCAddress  ::: <input type="text" style={{width :"500px"}} value={poolPcAddress} onChange={(event) => setPoolPcAddress(event.target.value)} /><br />
       <button onClick={handleTokenWhitelist}>whitelist</button>
       </Col>
 

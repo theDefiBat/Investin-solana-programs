@@ -165,15 +165,15 @@ export const Withdraw = () => {
 
     // updatePoolPrices(transaction, devnet_pools)
 
-    const routerAssociatedTokenAddress = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(ids.tokens[0].mintAddress), RPDA[0], transaction);
+    const routerAssociatedTokenAddress = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(ids.tokens[0].mintKey), RPDA[0], transaction);
 
-    const investorBaseTokenAccount = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(ids.tokens[0].mintAddress), key, transaction);
-    const investorTokenAccount2 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(ids.tokens[4].mintAddress), key, transaction);
-    // const investorTokenAccount3 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(ids.tokens[6].mintAddress), key, transaction);
+    const investorBaseTokenAccount = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(ids.tokens[0].mintKey), key, transaction);
+    const investorTokenAccount2 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(ids.tokens[4].mintKey), key, transaction);
+    // const investorTokenAccount3 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(ids.tokens[6].mintKey), key, transaction);
 
-    const fundAssociatedTokenAddress1 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(ids.tokens[0].mintAddress), new PublicKey(fundPDA), transaction);
-    const fundAssociatedTokenAddress2 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(ids.tokens[4].mintAddress), new PublicKey(fundPDA), transaction);
-    // const fundAssociatedTokenAddress3 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(ids.tokens[6].mintAddress), MPDA, transaction);
+    const fundAssociatedTokenAddress1 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(ids.tokens[0].mintKey), new PublicKey(fundPDA), transaction);
+    const fundAssociatedTokenAddress2 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(ids.tokens[4].mintKey), new PublicKey(fundPDA), transaction);
+    // const fundAssociatedTokenAddress3 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(ids.tokens[6].mintKey), MPDA, transaction);
 
     console.log("USDC vault:: ", fundAssociatedTokenAddress1)
     console.log("SRM vault:: ", fundAssociatedTokenAddress2)

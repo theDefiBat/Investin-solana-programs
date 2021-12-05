@@ -62,7 +62,27 @@ PLATFORM_STATE_ACCOUNT : Cpf6kq7w4iR2hWdWTkWeoxvyRrrduke5XhA7QM5SkGNo
 # tokens 
 USDC  mint 8FRFC6MoGGkMFQwngccyu69VnYbzykGeez7ignHVAFSN
 pools 
-BTC mint 
+----BTC mint 3UNBZ6o52WTWwjac2kPUb4FyodhU1vFkRJheu1Sh2TvU
 pool created: 88CJ7Zqe6RdBSHetEkruSNRpSGibexoGWKo2Jf8pPPf6
 amm.poolCoinTokenAccount : Fq8nURZFto3bTPaKqmDqbBAFfArwYvfVuFKVoFyZZVD6
 amm.poolPcTokenAccount : BvuamxaDy5VKnoCshtFmbFNviWbu2VzW2Gecuf12meUA
+
+----MANGO mint  Bb9bsTQa1bGEtQ5KagGkvSHyuLqDWumFUcRqFusFNJWC
+pool created: 7C9ehd2nj6PZcjix4DLhsKQYVDjYRmjLrn3nFgpQTSqZ
+amm.poolCoinTokenAccount : 3Rg73PnXckaMr715Jvc3dWEt2tEBX1cjQ88SYmpqqnpw
+amm.poolPcTokenAccount : H2DfYoN52NTs1hMkyZiK8XGJKUqyRgCWhxwC5MC48KPk
+
+----ETH mint Cu84KB3tDL6SbFgToHMLYVDJJXdJjenNzSKikeAvzmkA
+pool created: 7DpTVfnPK8X4oQt215doZ23evnxUXRXBDX1g5sHBXyDr
+amm.poolCoinTokenAccount : 2RF2cAAACsvft5g6SZU6yPidBQ8RptExAt3DXAhnyUvq
+amm.poolPcTokenAccount : 7D35qDSvfgcmVaMgZt4HH8R1ruDog5d2ZTS79Jgpa7yQ
+
+----WSOL mint So11111111111111111111111111111111111111112
+pool created: 384zMi9MbUKVUfkUdrnuMfWBwJR9gadSxYimuXeJ9DaJ
+amm.poolCoinTokenAccount : v77vV7yh5LuEKabKdNWhM8X5wpDhuPidjp7eucbHGfy
+amm.poolPcTokenAccount : CYv6PtaGV2D2gj6pD9io1PjJbUrcE7gyBmDethawZmMm
+
+
+
+# Error processing Instruction 1: custom program error: 0x1
+If you receive the error 'failed to send transaction: Transaction simulation failed: Error processing Instruction 1: custom program error: 0x1' that means you do not have enough Solana (SOL) in your wallet to cover the transaction fee.

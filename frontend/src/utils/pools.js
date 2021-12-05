@@ -60,12 +60,35 @@ export const devnet_pools = [
     name: 'BTC-USDC',
     coin: {...DEV_TOKENS.BTC},
     pc: {...TOKENS.USDC},
-    // lp: { ...TEST_LP_TOKENS['SRM-USDC'] },
     programId: LIQUIDITY_POOL_PROGRAM_ID_V4,
     poolCoinTokenAccount: 'Fq8nURZFto3bTPaKqmDqbBAFfArwYvfVuFKVoFyZZVD6',
     poolPcTokenAccount: 'BvuamxaDy5VKnoCshtFmbFNviWbu2VzW2Gecuf12meUA',
-  
   },
+  {
+    name: 'MNGO-USDC',
+    coin: {...DEV_TOKENS.MNGO},
+    pc: {...TOKENS.USDC},
+    programId: LIQUIDITY_POOL_PROGRAM_ID_V4,
+    poolCoinTokenAccount: '3Rg73PnXckaMr715Jvc3dWEt2tEBX1cjQ88SYmpqqnpw',
+    poolPcTokenAccount: 'H2DfYoN52NTs1hMkyZiK8XGJKUqyRgCWhxwC5MC48KPk',
+  },
+  {
+    name: 'ETH-USDC',
+    coin: {...DEV_TOKENS.ETH},
+    pc: {...TOKENS.USDC},
+    programId: LIQUIDITY_POOL_PROGRAM_ID_V4,
+    poolCoinTokenAccount: '2RF2cAAACsvft5g6SZU6yPidBQ8RptExAt3DXAhnyUvq',
+    poolPcTokenAccount: '7D35qDSvfgcmVaMgZt4HH8R1ruDog5d2ZTS79Jgpa7yQ',
+  },
+  {
+    name: 'SOL-USDC',
+    coin: {...DEV_TOKENS.SOL},
+    pc: {...TOKENS.USDC},
+    programId: LIQUIDITY_POOL_PROGRAM_ID_V4,
+    poolCoinTokenAccount: 'v77vV7yh5LuEKabKdNWhM8X5wpDhuPidjp7eucbHGfy',
+    poolPcTokenAccount: 'CYv6PtaGV2D2gj6pD9io1PjJbUrcE7gyBmDethawZmMm',
+  },
+ 
   
 ]
 export const devnet2_pools = [

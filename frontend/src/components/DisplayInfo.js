@@ -29,10 +29,10 @@ const priceStateAccountX = priceStateAccount.toBase58();
 const handleGetFundData = async () => {
 
   
-  // let ammInfo = await connection.getAccountInfo(new PublicKey('88CJ7Zqe6RdBSHetEkruSNRpSGibexoGWKo2Jf8pPPf6'))
-  // let amm = AMM_INFO_LAYOUT_V4.decode(ammInfo.data)
-  // console.log("amm.poolCoinTokenAccount :: ", amm.poolCoinTokenAccount.toBase58())
-  // console.log("amm.poolPcTokenAccount :: ", amm.poolPcTokenAccount.toBase58())
+  let ammInfo = await connection.getAccountInfo(new PublicKey('384zMi9MbUKVUfkUdrnuMfWBwJR9gadSxYimuXeJ9DaJ'))
+  let amm = AMM_INFO_LAYOUT_V4.decode(ammInfo.data)
+  console.log("amm.poolCoinTokenAccount :: ", amm.poolCoinTokenAccount.toBase58())
+  console.log("amm.poolPcTokenAccount :: ", amm.poolPcTokenAccount.toBase58())
 
   if(!walletProvider) {
     alert("connect wallet ")
@@ -359,7 +359,7 @@ const getMangoAccountData = async () => {
 
 <hr/>
         Mango account  ::: {' '}
-        <input type="text" value={mangoAccount} onChange={(event) => setMangoAccount(event.target.value)} />
+        <input type="text" value={mangoAccount} style={{width :"500px"}} onChange={(event) => setMangoAccount(event.target.value)} />
         <button onClick={getMangoAccountData}>GET  MANGO ACC DATA </button>
         <br />
       {
