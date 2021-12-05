@@ -164,7 +164,7 @@ export const Transfer = () => {
     }
     console.log(fundState)
 
-    setAmountInRouter(parseInt(fundState.amount_in_router) / (10 ** 9));
+    setAmountInRouter(parseInt(fundState.amount_in_router) / (10 ** ids.tokens[0].decimals));
     setFundPerf(fundState.prev_performance)
     setFundAUM(parseInt(fundState.total_amount) / (10 ** 9))
 

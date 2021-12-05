@@ -24,9 +24,33 @@ export async function signAndSendTransaction(
   // console.log(`wallet :::`, wallet)
   let signedTrans = await wallet.signTransaction(transaction);
   console.log("sign transaction");
-  let signature = await connection.sendRawTransaction(signedTrans.serialize(), { skipPreflight: true }); //skipPreflight -**Main
+  let signature = await connection.sendRawTransaction(signedTrans.serialize(), { skipPreflight: false }); //skipPreflight -**Main
   console.log("send raw transaction");
   return signature;
+}
+
+export async function createAccountInstruction(
+  connection,
+  payer,
+  space,
+  programId,
+  lamports,
+  transaction,
+  signers
+) {
+  const account = new Account();
+  const instruction = SystemProgram.createAccount({
+    fromPubkey: payer,
+    newAccountPubkey: account.publicKey,
+    lamports: lamports ? lamports : await connection.getMinimumBalanceForRentExemption(space),
+    space,
+    programId
+  })
+
+  transaction.add(instruction);
+  signers.push(account);
+
+  return account.publicKey;
 }
 
 export const createKeyIfNotExists = async (wallet, payerAccount, programId, seed, size, transaction) => {
@@ -155,6 +179,7 @@ export async function findAssociatedTokenAddress(walletAddress, tokenMintAddress
 
 
 
+
 export async function createAssociatedTokenAccountIfNotExist(
   wallet,
   tokenMintAddress,
@@ -246,7 +271,7 @@ export async function sendSignedTransaction(connection, signedTransaction) {
   const rawTransaction = signedTransaction.serialize()
 
   const txid = await connection.sendRawTransaction(rawTransaction, {
-    skipPreflight: true,
+    skipPreflight: false,
     preflightCommitment: commitment
   })
 

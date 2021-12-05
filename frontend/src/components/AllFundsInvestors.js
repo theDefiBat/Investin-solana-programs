@@ -63,7 +63,7 @@ export const AllFundsInvestors = () => {
     let investments = await connection.getProgramAccounts(programId, { filters: [
       { dataSize: INVESTOR_DATA.span },
       {
-        memcmp: { offset: INVESTOR_DATA.offsetOf('owner'), bytes: userkey.toBase58() }
+        // memcmp: { offset: INVESTOR_DATA.offsetOf('owner'), bytes: userkey.toBase58() }
       }
     ] });
     // console.log("investments::",investments)
