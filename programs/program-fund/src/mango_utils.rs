@@ -9,10 +9,12 @@ use solana_program::{
     program_pack::Pack,
     pubkey::Pubkey,
     program::invoke_signed,
+    rent::Rent,
 };
 use num_enum::TryFromPrimitive;
 use std::convert::TryFrom;
 use std::convert::TryInto;
+use std::cell::RefMut;
 
 use fixed_macro::types::U64F64;
 pub const ONE_U64F64: U64F64 = U64F64!(1);
@@ -29,7 +31,7 @@ use crate::processor::{ parse_token_account };
 
 use mango::state::{MangoAccount, MangoGroup, MangoCache, MAX_PAIRS, QUOTE_INDEX};
 // use mango::state::Loadable as OtherLoadable;
-use mango::instruction::{init_mango_account, deposit, withdraw, place_perp_order, settle_pnl, MangoInstruction};
+use mango::instruction::{deposit, withdraw, place_perp_order, settle_pnl, MangoInstruction};
 use mango::matching::{Side, OrderType};
 use spl_token::state::Account;
 
@@ -47,6 +49,23 @@ macro_rules! check_eq {
             return Err(FundError::Default.into())
         }
     }
+}
+
+pub fn init_mango_account(
+    program_id: &Pubkey,
+    mango_group_pk: &Pubkey,
+    mango_account_pk: &Pubkey,
+    owner_pk: &Pubkey,
+) -> Result<Instruction, ProgramError> {
+    let accounts = vec![
+        AccountMeta::new_readonly(*mango_group_pk, false),
+        AccountMeta::new(*mango_account_pk, false),
+        AccountMeta::new_readonly(*owner_pk, true),
+    ];
+
+    let instr = MangoInstruction::InitMangoAccount;
+    let data = instr.pack();
+    Ok(Instruction { program_id: *program_id, accounts, data })
 }
 
 pub mod mango_v3_id {

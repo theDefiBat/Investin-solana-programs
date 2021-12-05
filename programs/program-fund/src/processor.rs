@@ -897,10 +897,12 @@ impl Fund {
 
         let mut platform_data = PlatformData::load_mut_checked(platform_state_ai, program_id)?;
         check!(investin_admin_ai.is_signer, FundError::IncorrectSignature);
-
-        //check_eq!(investin_admin::ID, *investin_admin_ai.key);
+        
+        //check_eq!(investin_admin::ID, *investin_admin_ai.key); REVERT-MAINNET
 
         if intialize_platform == 1 {
+
+            // check_eq!(platform_data.is_initialized(), false);  REVERT-MAINNET
             platform_data.is_initialized = true;
             platform_data.version = 1;
             platform_data.no_of_active_funds = 0;
@@ -1127,43 +1129,48 @@ pub fn update_amount_and_performance(
     }
     msg!("2) fund_val all tokens:: {:?}", fund_val);
 
-
-    let mango_group = MangoGroup::load_checked(mango_group_ai, mango_prog_ai.key)?;
-    let mango_account = MangoAccount::load_checked(mango_account_ai, mango_prog_ai.key, mango_group_ai.key)?;
-    let mango_cache = MangoCache::load_checked(mango_cache_ai, mango_prog_ai.key, &mango_group)?;
-    
-    let mut root_bank_cache = &mango_cache.root_bank_cache[QUOTE_INDEX];
-
-    // account for native USDC deposits
-    let mut native_deposits  = mango_account.get_native_deposit(root_bank_cache, QUOTE_INDEX)?;
-    msg!("3.1)  USDC native_deposits:: {:?}", native_deposits);
-
-    let dti = fund_data.mango_positions.deposit_index as usize;
-    //Check if deposit_index is valid
-    if(dti < QUOTE_INDEX){
-        root_bank_cache = &mango_cache.root_bank_cache[dti];
-        native_deposits = native_deposits.checked_add(mango_account.get_native_deposit(root_bank_cache, dti)?).unwrap();
-    }
-    // Get for USDC and the deposit_index on funds
-    fund_val = fund_val.checked_add(U64F64::from_fixed(native_deposits)).unwrap();
-    msg!("3.2) fund_val with mango-native deposits:: {:?}", fund_val);
-
-    let mut pnl: I80F48;
-    for i in 0..4 {
-        let market_index = fund_data.mango_positions.perp_markets[i] as usize;
-        if(market_index == u8::MAX as usize){
-            continue;
-        }
-        // Calculate pnl for perp account
-        let (base_val, quote_val) = mango_account.perp_accounts[market_index].get_val(&mango_group.perp_markets[market_index],
-            &mango_cache.perp_market_cache[market_index], mango_cache.price_cache[market_index].price)?;
-
-        pnl = base_val.checked_add(quote_val).unwrap();
-        msg!("pnl before:: {:?}", base_val + quote_val);
-
-        fund_val = fund_val.checked_add(U64F64::from_fixed(pnl)).unwrap();
+    if(fund_data.mango_positions.mango_account != Pubkey::default()){
+        let mango_group = MangoGroup::load_checked(mango_group_ai, mango_prog_ai.key)?;
+        let mango_account = MangoAccount::load_checked(mango_account_ai, mango_prog_ai.key, mango_group_ai.key)?;
+        let mango_cache = MangoCache::load_checked(mango_cache_ai, mango_prog_ai.key, &mango_group)?;
         
+        let mut root_bank_cache = &mango_cache.root_bank_cache[QUOTE_INDEX];
+
+        // account for native USDC deposits
+        let mut native_deposits  = mango_account.get_native_deposit(root_bank_cache, QUOTE_INDEX)?;
+        msg!("3.1)  USDC native_deposits:: {:?}", native_deposits);
+
+        let dti = fund_data.mango_positions.deposit_index as usize;
+        //Check if deposit_index is valid
+        if(dti < QUOTE_INDEX){
+            root_bank_cache = &mango_cache.root_bank_cache[dti];
+            native_deposits = native_deposits.checked_add(mango_account.get_native_deposit(root_bank_cache, dti)?).unwrap();
+        }
+        // Get for USDC and the deposit_index on funds
+        fund_val = fund_val.checked_add(U64F64::from_fixed(native_deposits)).unwrap();
+        msg!("3.2) fund_val with mango-native deposits:: {:?}", fund_val);
+
+        let mut pnl: I80F48;
+        for i in 0..4 {
+            let market_index = fund_data.mango_positions.perp_markets[i] as usize;
+            if(market_index == u8::MAX as usize){
+                continue;
+            }
+            // Calculate pnl for perp account
+            let (base_val, quote_val) = mango_account.perp_accounts[market_index].get_val(&mango_group.perp_markets[market_index],
+                &mango_cache.perp_market_cache[market_index], mango_cache.price_cache[market_index].price)?;
+
+            pnl = base_val.checked_add(quote_val).unwrap();
+            msg!("pnl before:: {:?}", base_val + quote_val);
+
+            fund_val = fund_val.checked_add(U64F64::from_fixed(pnl)).unwrap();
+            
+        }
     }
+    else{
+        msg!("NO MANGO ACCOUNT");
+    }
+    
     
    
     if update_perf {
