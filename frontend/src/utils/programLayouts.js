@@ -1,4 +1,4 @@
-import { Blob, seq, struct, u32, u8, u16, ns64 } from 'buffer-layout';
+import { Blob, seq, struct,Structure, u32, u8, u16, ns64 } from 'buffer-layout';
 import { PublicKey } from '@solana/web3.js';
 import BN from 'bn.js';
 
@@ -69,6 +69,54 @@ export function u64(property = "") {
 export function u128(property = "") {
   return new BNLayout(16, property);
 }
+
+const zeroKey = new PublicKey(new Uint8Array(32));
+export class MangoInfo {
+
+  mango_account;
+  perp_markets;
+  deposit_index;
+  markets_active;
+  deposits_active;
+  xpadding;
+  investor_debts;
+  padding;
+
+  constructor(decoded) {
+    Object.assign(this, decoded);
+  }
+  // isEmpty() {
+  //   return this.mango_account.equals(zeroKey);
+  // }
+}
+
+ 
+// export class MangoInfoLayout extends Structure {
+//   constructor(property) {
+//     super(
+//       [
+//         publicKeyLayout('mango_account'),
+//         seq(u8('perp_markets'), 4),
+//         u8('deposit_index'),
+//         u8('markets_active'),
+//         u8('deposits_active'),
+//         u8('xpadding'),
+//         seq(u64('investor_debts'), 2),
+//         seq(u8('padding'), 24),
+//       ],
+//       property,
+//     );
+//   }
+//   decode(b, offset) {
+//     return new MangoInfo(super.decode(b, offset));
+//   }
+//   encode(src, b, offset) {
+//     return super.encode(src.toBuffer(), b, offset);
+//   }
+// }
+// export function mangoInfoLayout(property = '') {
+//   return new MangoInfoLayout(property);
+// }
  
 export const PLATFORM_DATA = struct([
   u8('is_initialized'),
@@ -133,18 +181,21 @@ export const FUND_DATA = struct([
     NUM_TOKENS, 'tokens'
   ),
   seq(publicKeyLayout(), MAX_INVESTORS, 'investors'),
-  seq(
-    struct([
-      publicKeyLayout('margin_account'),
-      seq(u8('perp_market_index'), 4),
+  
+  struct([
+      publicKeyLayout('mango_account'),
+      seq(u8('perp_markets'), 4),
+      u8('deposit_index'),
       u8('markets_active'),
       u8('deposits_active'),
       u8('xpadding'),
       seq(u64('investor_debts'), 2),
       seq(u8('padding'), 24),
-    ]),
-    1, 'mango_positions'
-  ),
+    ],'mango_positions'),
+
+  // mangoInfoLayout('mango_positions'),
+  
+     
   seq(u8(), 80, 'margin_update_padding'),
   seq(u8(), 32, 'padding'),
 

@@ -27,11 +27,12 @@ export const InitialisedFund = () => {
     // const platformAccount = await createKeyIfNotExists(walletProvider, "", programId, PLATFORM_ACCOUNT_KEY, PLATFORM_DATA.span, transaction)
 
     console.log(`PLATFORM_DATA.span :::: `, PLATFORM_DATA.span)
-    console.log(`FUND_DATA.span :::: `, FUND_DATA.span) 
+    console.log(`**FUND_DATA.span :::: `, FUND_DATA.span) 
 
     const fundPDA = await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId);
     // const routerPDA = await PublicKey.findProgramAddress([Buffer.from('router')], programId);
     console.log(`fundPDA :::: `, fundPDA, fundPDA[0].toBase58()) 
+
 
     const fundAccount = await createKeyIfNotExists(
       walletProvider,
@@ -43,7 +44,8 @@ export const InitialisedFund = () => {
     );
 
     if (1) {
-      const dataLayout = struct([u8('instruction'), nu64('min_amount'), nu64('min_return'), nu64('performance_fee_percentage'), u8('no_of_tokens')])
+      const dataLayout = struct([u8('instruction'), nu64('min_amount'),
+       nu64('min_return'), nu64('performance_fee_percentage'), u8('no_of_tokens')])
 
       const data = Buffer.alloc(dataLayout.span)
       dataLayout.encode(

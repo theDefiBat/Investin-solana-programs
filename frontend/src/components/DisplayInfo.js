@@ -29,10 +29,10 @@ const priceStateAccountX = priceStateAccount.toBase58();
 const handleGetFundData = async () => {
 
   
-  let ammInfo = await connection.getAccountInfo(new PublicKey('384zMi9MbUKVUfkUdrnuMfWBwJR9gadSxYimuXeJ9DaJ'))
-  let amm = AMM_INFO_LAYOUT_V4.decode(ammInfo.data)
-  console.log("amm.poolCoinTokenAccount :: ", amm.poolCoinTokenAccount.toBase58())
-  console.log("amm.poolPcTokenAccount :: ", amm.poolPcTokenAccount.toBase58())
+  // let ammInfo = await connection.getAccountInfo(new PublicKey('384zMi9MbUKVUfkUdrnuMfWBwJR9gadSxYimuXeJ9DaJ'))
+  // let amm = AMM_INFO_LAYOUT_V4.decode(ammInfo.data)
+  // console.log("amm.poolCoinTokenAccount :: ", amm.poolCoinTokenAccount.toBase58())
+  // console.log("amm.poolPcTokenAccount :: ", amm.poolPcTokenAccount.toBase58())
 
   if(!walletProvider) {
     alert("connect wallet ")
@@ -77,7 +77,7 @@ const handleGetFundData = async () => {
     for (let j =0; j<fundData?.tokens.length; j++) {
        const i = fundData?.tokens[j];
        console.log("vault vault_info token::",i);
-       if(!i.is_initialized)
+       if(!i.is_active)
         continue;
 
        const vault_info = await connection.getAccountInfo(i.vault);
@@ -100,6 +100,7 @@ const handleGetFundData = async () => {
         vault : i.vault.toBase58(),
         mint_authority: data?.mint_authority?.toBase58(),
         index : i.index,
+        is_on_mango : i.is_on_mango,
         is_initialized : i.is_initialized,
         mux : i.mux,
         padding : i.padding
@@ -262,6 +263,20 @@ const getMangoAccountData = async () => {
 
             <p> mango_positions  state== 0: inactive, 1: deposited, 2: position_open, </p>
             <p> 3: settled_open, 4: position_closed, 5: settled_close, 6: stale </p>
+            <h5>----Mango-positions</h5>
+            <p> mango_account  : {fundData.mango_positions.mango_account.toBase58()}</p>
+            <p> deposit_index  : {fundData.mango_positions.deposit_index}</p>
+            <p> markets_active  : {fundData.mango_positions.markets_active}</p>
+            <p> deposits_active  : {fundData.mango_positions.deposits_active}</p>
+            {/* <p> investor_debts  : 
+                            {fundData.mango_positions.investor_debts[0].toString()} ||
+                            {fundData.mango_positions.investor_debts[1].toString()} </p>
+            <p> perp_markets  : 
+                            {fundData.mango_positions.perp_markets[0]} ||
+                            {fundData.mango_positions.perp_markets[1]} || 
+                            {fundData.mango_positions.perp_markets[2]} || 
+                            {fundData.mango_positions.perp_markets[3]} 
+                </p> */}
 
             {
                  fundData.mango_positions.length &&
@@ -331,6 +346,7 @@ const getMangoAccountData = async () => {
                                 <th style={{ width: "15%" }}>index</th>
                                   <th style={{ width: "15%" }}>vault</th>
                                   <th style={{ width: "15%" }}>mint_authority</th>
+                                  <th style={{ width: "15%" }}>is_on_mango</th>
                                   <th style={{ width: "15%" }}>balance</th>
                                   <th style={{ width: "15%" }}>debt</th>
                                   <th style={{ width: "15%" }}>index</th>
@@ -346,6 +362,7 @@ const getMangoAccountData = async () => {
                         <td >{x}</td>
                         <td >{i?.vault}</td>
                         <td >{i?.mint_authority}</td>
+                        <td >{i?.is_on_mango}</td>
                         <td >{i?.balance}</td>
                         <td >{i?.debt}</td>
                         <td >{i?.index}</td>
