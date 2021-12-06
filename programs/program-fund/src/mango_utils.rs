@@ -360,10 +360,12 @@ pub fn mango_withdraw(
 
     let dest_info = parse_token_account(fund_token_ai)?;
     check_eq!(dest_info.owner, fund_data.fund_pda);
+    fund_data.tokens[token_slot_index as usize].balance = dest_info.amount;
     let mango_account = MangoAccount::load_checked(mango_account_ai, mango_prog_ai.key, mango_group_ai.key)?;
     if(mango_account.deposits[mango_token_index as usize] == 0){
-        fund_data.mango_positions.deposit_index = QUOTE_INDEX as u8;
+        fund_data.mango_positions.deposit_index = u8::MAX;
     }
+    
     // fund_data.tokens[0].balance = parse_token_account(fund_token_ai)?.amount;
 
     Ok(())

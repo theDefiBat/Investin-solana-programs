@@ -58,7 +58,7 @@ pub enum FundError {
     PriceStaleInAccount,
 
     //13
-    #[error("Invalid Margin Instruction State")]
+    #[error("Invalid Mango Instruction State")]
     InvalidMangoState,
 
     //14

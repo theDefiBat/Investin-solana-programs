@@ -46,34 +46,34 @@ macro_rules! check_eq {
 pub mod investin_admin {
     use solana_program::declare_id;
     // set investin admin
-    #[cfg(feature = "devnet")]
+    // #[cfg(feature = "devnet")]
     declare_id!("E3Zhv46FWGLDKFM24Ft2tgoqX5NCU49CT8NwH3rDHbsA");
-    #[cfg(not(feature = "devnet"))]
-    declare_id!("owZmWQkqtY3Kqnxfua1KTHtR2S6DgBTP75JKbh15VWG");
+    // #[cfg(not(feature = "devnet"))]
+    // declare_id!("owZmWQkqtY3Kqnxfua1KTHtR2S6DgBTP75JKbh15VWG");
 }
 
 pub mod usdc_mint {
     use solana_program::declare_id;
-    #[cfg(feature = "devnet")]
+    // #[cfg(feature = "devnet")]
     declare_id!("8FRFC6MoGGkMFQwngccyu69VnYbzykGeez7ignHVAFSN");
-    #[cfg(not(feature = "devnet"))]
-    declare_id!("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+    // #[cfg(not(feature = "devnet"))]
+    // declare_id!("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
 }
 
 pub mod raydium_id {
     use solana_program::declare_id;
-    #[cfg(feature = "devnet")]
+    // #[cfg(feature = "devnet")]
     declare_id!("9rpQHSyFVM1dkkHFQ2TtTzPEW7DVmEyPmN8wVniqJtuC");
-    #[cfg(not(feature = "devnet"))]
-    declare_id!("675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8");
+    // #[cfg(not(feature = "devnet"))]
+    // declare_id!("675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8");
 }
 
 pub mod orca_id {
     use solana_program::declare_id;
-    #[cfg(feature = "devnet")]
+    // #[cfg(feature = "devnet")]
     declare_id!("9rpQHSyFVM1dkkHFQ2TtTzPEW7DVmEyPmN8wVniqJtuC"); //Same as Devnet Raydium for now
-    #[cfg(not(feature = "devnet"))]
-    declare_id!("9W959DqEETiGZocYWCQPaJ6sBmUzgfxXfqGeTEdp3aQP");
+    // #[cfg(not(feature = "devnet"))]
+    // declare_id!("9W959DqEETiGZocYWCQPaJ6sBmUzgfxXfqGeTEdp3aQP");
 }
 
 pub struct Fund {}
