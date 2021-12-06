@@ -76,7 +76,7 @@ export const devnet_pools = [
     serumProgramId: "DESVgJVGajEgKGXhb6XmqDHGz3VjdgP7rEVESBgxmroY",
     serumVaultSigner: "EY6yYbSyDTT7S5zrm94H8usLBRR4NE8YJ4hQJDmnxwUR",
 
-    ammAuthority: "HggGrUeg4ReGvpPMLJMFKV69NTXL1r4wQ9Pk9Ljutwyv",
+    ammAuthority: "DhVpojXMTbZMuTaCgiiaFU7U8GvEEhnYo4G9BUdiEYGh",
     ammId: "88CJ7Zqe6RdBSHetEkruSNRpSGibexoGWKo2Jf8pPPf6",
     ammOpenOrders: "AiyGzGf6bN5ozTNK69d3KrHS9hvQuZD6wZqU2ejBgZ1Q",
     ammQuantities: "11111111111111111111111111111111",

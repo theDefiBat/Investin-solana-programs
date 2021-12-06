@@ -19,7 +19,7 @@ export const Swap = () => {
   const [firstTokenAmount, setFirstTokenAmount] = useState(0);
   const [selectedFirstToken, setSelectedFirstToken] = useState('USDC');
   const [selectedSecondToken, setSelectedSecondToken] = useState('BTC');
-  const [isBuy, setIsBuy] = useState(true)
+  const [isBuy, setIsBuy] = useState(1)
   // const [selectedTokenSymbol, setSelectedTokenSymbol] = useState('')
   const [selectedSwapProtocol, setSelectedSwapProtocol] = useState(0);
 
@@ -400,7 +400,7 @@ const swapInstructionOrca = async () => {
       </select>
       {/* <br /> */}
 
-      <select name="protocol" onChange={ (event) => setIsBuy(parseInt(event.target.value))}>
+      <select name="buy" onChange={ (event) => setIsBuy(parseInt(event.target.value))}>
             <option key={1} value={1}>BUY</option>
             <option key={0} value={0}>SELL</option>
       </select>
