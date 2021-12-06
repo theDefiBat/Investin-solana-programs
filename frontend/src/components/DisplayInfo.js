@@ -32,8 +32,26 @@ const handleGetFundData = async () => {
   
   // let ammInfo = await connection.getAccountInfo(new PublicKey('384zMi9MbUKVUfkUdrnuMfWBwJR9gadSxYimuXeJ9DaJ'))
   // let amm = AMM_INFO_LAYOUT_V4.decode(ammInfo.data)
+  // console.log("amm :: ", amm)
+
   // console.log("amm.poolCoinTokenAccount :: ", amm.poolCoinTokenAccount.toBase58())
   // console.log("amm.poolPcTokenAccount :: ", amm.poolPcTokenAccount.toBase58())
+
+  // console.log("amm.ammId :: ", amm.ammId)
+  // console.log("amm.ammAuthority :: ", amm.ammAuthority.toBase58())
+  // console.log("amm.ammOpenOrders :: ", amm.ammOpenOrders.toBase58())
+  // console.log("amm.ammTargetOrders :: ", amm.ammTargetOrders.toBase58())
+
+  // console.log("amm.serumProgramId :: ", amm.serumProgramId.toBase58())
+  // console.log("amm.serumMarket :: ", amm.serumMarket.toBase58())
+  // console.log("amm.serumBids :: ", amm.serumBids.toBase58())
+  // console.log("amm.serumAsks :: ", amm.serumAsks.toBase58())
+  // console.log("amm.serumEventQueue :: ", amm.serumEventQueue.toBase58())
+  // console.log("amm.serumCoinVaultAccount :: ", amm.serumCoinVaultAccount.toBase58())
+  // console.log("amm.serumPcVaultAccount :: ", amm.serumPcVaultAccount.toBase58())
+  // console.log("amm.serumVaultSigner :: ", amm.serumVaultSigner.toBase58())
+
+  // const market = marketToLayout[ammInfo.serumMarket]
 
   if(!walletProvider) {
     alert("connect wallet ")

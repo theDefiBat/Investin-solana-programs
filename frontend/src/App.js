@@ -62,7 +62,7 @@ function App() {
 	      <Transfer />
         <GetPrices />
         <Swap />
-        <OrcaSwap />
+        {/* <OrcaSwap /> */}
         <Testing />
         <Withdraw />
         <Claim />
