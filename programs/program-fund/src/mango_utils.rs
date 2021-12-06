@@ -51,7 +51,6 @@ macro_rules! check_eq {
     }
 }
 
-
 pub fn init_mango_account(
     program_id: &Pubkey,
     mango_group_pk: &Pubkey,
@@ -137,12 +136,12 @@ pub fn mango_deposit(
         token_prog_ai,          // read
         owner_token_account_ai, // write
     ] = accounts;
-    msg!("Start Mango Deposit");
+
     let mut fund_data = FundData::load_mut_checked(fund_state_ai, program_id)?;
     let mango_group = MangoGroup::load_checked(mango_group_ai, mango_prog_ai.key)?;
     let mango_account = MangoAccount::load_checked(mango_account_ai, mango_prog_ai.key, mango_group_ai.key)?;
     let mango_cache = MangoCache::load_checked(mango_cache_ai, mango_prog_ai.key, &mango_group)?;
-    msg!("Loaded DATA");
+
     check_eq!(fund_data.tokens[token_slot_index as usize].vault, *owner_token_account_ai.key); 
     check_eq!(*mango_prog_ai.key, mango_v3_id::ID);
     // check_eq!(mango_group.tokens[mango_token_index].root_bank, )
@@ -159,7 +158,7 @@ pub fn mango_deposit(
 
     // // check fund vault
     // check_eq!(fund_data.vault_key, *owner_token_account_ai.key); 
-    msg!("CHECKS done invoking mango instruction");
+    
     invoke_signed(
         &deposit(mango_prog_ai.key, mango_group_ai.key, mango_account_ai.key, fund_pda_ai.key,
             mango_cache_ai.key, root_bank_ai.key, node_bank_ai.key, vault_ai.key, owner_token_account_ai.key, quantity)?,
@@ -172,7 +171,8 @@ pub fn mango_deposit(
             root_bank_ai.clone(),
             node_bank_ai.clone(),
             vault_ai.clone(),
-            owner_token_account_ai.clone()
+            owner_token_account_ai.clone(),
+            token_prog_ai.clone()
         ],
         &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
     )?;
@@ -181,7 +181,6 @@ pub fn mango_deposit(
 
     let token_info = parse_token_account(owner_token_account_ai)?;
 
-    msg!("TokenInfo loaded");
     fund_data.tokens[token_slot_index as usize].balance = token_info.amount;
     check!(fund_data.tokens[token_slot_index as usize].balance >= fund_data.tokens[token_slot_index as usize].debt, ProgramError::InsufficientFunds);
 

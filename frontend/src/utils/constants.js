@@ -10,6 +10,12 @@ export const PLATFORM_ACCOUNT_KEY = "pacck"; //"platAccKey_11";
 export const FUND_ACCOUNT_KEY = "facck"; //"fundAccKey_11";
 export const MARGIN_ACCOUNT_KEY_1 = "macck1"; //"margin_account_key_11"
 export const MARGIN_ACCOUNT_KEY_2 = "macck2";//"margin_account_key_22"
+
+// export const PERP_ACCOUNT_KEY_1 = "pacck1"; //"margin_account_key_11"
+// export const PERP_ACCOUNT_KEY_2 = "pacck2"; //"margin_account_key_11"
+// export const PERP_ACCOUNT_KEY_3 = "pacck3"; //"margin_account_key_11"
+// export const PERP_ACCOUNT_KEY_4 = "pacck4"; //"margin_account_key_11"
+
 export const PRICE_ACCOUNT_KEY = "margin_account_key_22"
 
 export const cluster = process.env.REACT_APP_CLUSTER_URL;

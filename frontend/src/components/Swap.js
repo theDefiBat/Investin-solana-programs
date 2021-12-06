@@ -95,7 +95,7 @@ export const Swap = () => {
 
 
   const handleFirstTokenSelect = (event) => {
-    setSelectedFirstToken(`${event.target.value}-USDC`);
+    setSelectedFirstToken(`${event.target.value}`);
     console.log(`${event.target.value}-1 :::: `, `${event.target.value}-1`)
   }
 
