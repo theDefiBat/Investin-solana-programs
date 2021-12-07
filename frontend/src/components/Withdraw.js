@@ -14,7 +14,7 @@ import { MarginAccountLayout, NUM_MARKETS, MangoGroupLayout } from '../utils/Man
 
 import { mangoWithdrawInvestor, placeOrder, placeOrder2 } from '../utils/mango';
 import { TOKENS } from '../utils/tokens';
-import { IDS } from '@blockworks-foundation/mango-client';
+import { IDS, MangoClient } from '@blockworks-foundation/mango-client';
 
 import { closeAccount } from '@project-serum/serum/lib/token-instructions'
 
@@ -64,14 +64,13 @@ export const Withdraw = () => {
 
   const handleWithdrawSettle = async () => {
 
-    console.log("**----handleWithdrawSettle investorStateAcc::",investorStateAcc)
+    console.log("**----handleWithdrawSettle investorStateAcc,investorAddr::",investorStateAcc,investorAddr)
 
     const key = walletProvider?.publicKey;
     if (!key) {
       console.log("connect wallet")
       return;
     };
-
     const fundPDA = await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId);
       const fundStateAccount = await PublicKey.createWithSeed(
           key,
@@ -108,7 +107,6 @@ export const Withdraw = () => {
     //       let x = orca_pools.find(p => p.coin.mintAddress == mint.toBase58())
     //       filt_pools.push(x)
     //     }
-        
     //   }
     // }
      //send WSOL everytime 
@@ -117,6 +115,33 @@ export const Withdraw = () => {
     //    filt_pools.push(wsol_usdc_pool)
     //  }
     updatePoolPrices(transaction, devnet_pools)
+
+    // console.log("mangoAccount:: ", mangoAccount)
+    let client = new MangoClient(connection, new PublicKey(ids.mangoProgramId))
+    // let mangoAcc = await client.getMangoAccount(new PublicKey(mangoAccount), ids.serumProgramId)
+    // console.log("mangoAcc DATA:: ", mangoAcc)
+    let mangoGroup = await client.getMangoGroup(connection, MANGO_GROUP_ACCOUNT)
+
+
+    // [      perp_market_ai,     // write default_ai if no perp market for i^th index
+    //        bids_ai,            // write default_ai if no perp market for i^th index
+    //        asks_ai,            // write default_ai if no perp market for i^th index
+    //        event_queue_ai,]   //write default_ai if no perp market for i^th index
+    let perpKeys = []
+    for(let i=0; i<4;i++){
+          const marketIndex = fund_data.mango_positions.perp_markets[0];
+          if(marketIndex!=255){
+            perpKeys.push(new PublicKey(ids.perpMarkets[marketIndex].publicKey))
+            perpKeys.push(new PublicKey(ids.perpMarkets[marketIndex].bidsKey))
+            perpKeys.push(new PublicKey(ids.perpMarkets[marketIndex].asksKey))
+            perpKeys.push(new PublicKey(ids.perpMarkets[marketIndex].eventsKey))
+          } else {
+            perpKeys.push(PublicKey.default)
+            perpKeys.push(PublicKey.default)
+            perpKeys.push(PublicKey.default)
+            perpKeys.push(PublicKey.default)
+          }
+    }
   
     const dataLayout = struct([u8('instruction')])
     const data = Buffer.alloc(dataLayout.span)
@@ -126,29 +151,33 @@ export const Withdraw = () => {
       },
       data
     )
+
+    const keys = [
+      { pubkey: platformStateAccount, isSigner: false, isWritable: true }, //fund State Account
+      { pubkey: new PublicKey(fundStateAccount), isSigner: false, isWritable: true },
+      { pubkey: fundPDA[0], isSigner: false, isWritable: true },
+
+      { pubkey: new PublicKey(investorStateAcc), isSigner: false, isWritable: true }, //fund State Account
+      { pubkey: key, isSigner: true, isWritable: true },
+
+      { pubkey: fund_data.mango_positions.mango_account , isSigner: false, isWritable: true },
+      { pubkey: new PublicKey(ids.publicKey), isSigner: false, isWritable: true },
+      { pubkey: mangoGroup.mangoCache, isSigner: false, isWritable: false },
+      { pubkey: new PublicKey(ids.mangoProgramId), isSigner: false, isWritable: false },
+       
+      { pubkey: PublicKey.default, isSigner: false, isWritable: false },
+       ...perpKeys, // 16 accs 
+    ];
+
+    for(let i=0; i<keys.length;i++) {
+      console.log("key:",i, keys[i].pubkey.toBase58())
+    }
   
     const instruction = new TransactionInstruction({
-      keys: [
-        { pubkey: platformStateAccount, isSigner: false, isWritable: true }, //fund State Account
-        { pubkey: new PublicKey(fundStateAccount), isSigner: false, isWritable: true },
-        { pubkey: new PublicKey(investorStateAcc), isSigner: false, isWritable: true }, //fund State Account
-        { pubkey: key, isSigner: true, isWritable: true },
-  
-        { pubkey: MANGO_GROUP_ACCOUNT, isSigner: false, isWritable: true },
-        { pubkey: SYSVAR_CLOCK_PUBKEY, isSigner: false, isWritable: false },
-  
-        // { pubkey: margin_account_1, isSigner: false, isWritable: true },
-        // { pubkey: margin_account_2, isSigner: false, isWritable: true },
-        // { pubkey: open_orders_1, isSigner: false, isWritable: true },
-        // { pubkey: open_orders_2, isSigner: false, isWritable: true },
-        // { pubkey: oracle_acc_1, isSigner: false, isWritable: true },
-        // { pubkey: oracle_acc_2, isSigner: false, isWritable: true },
-  
-      ],
+      keys: keys,
       programId,
       data
     });
-  
     transaction.add(instruction);
     transaction.feePayer = key;
     let hash = await connection.getRecentBlockhash("finalized");
@@ -170,12 +199,10 @@ export const Withdraw = () => {
     console.log("**----handleWithdrawFromFund investorStateAcc::",investorStateAcc)
 
     const key = walletProvider?.publicKey;
-  
     if (!key) {
       console.log("connect wallet")
       return;
     };
-    
      const fundPDA = await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId);
      const fundStateAccount = await PublicKey.createWithSeed(
             key,

@@ -148,8 +148,10 @@ export const Deposit = () => {
     setFundPDA(event.target.value);
     funds.forEach(fund => {
       if (fund.fundPDA == event.target.value) 
-      {setFundStateAccount(fund.fundStateAccount)
-       console.log("set fundStateAcoount:",fund.fundStateAccount)}
+      {
+        setFundStateAccount(fund.fundStateAccount)
+       console.log("set fundStateAcoount:",fund.fundStateAccount)
+      }
     });
     console.log(`setting fundPDA :::: `, fundPDA)
     console.log(`setting fundStateAccount :::: `, fundStateAccount)
@@ -165,6 +167,7 @@ export const Deposit = () => {
 
 
       <select name="funds" width = "100px"  onChange={handleFundSelect}>
+      <option key={-1} value={0}>NONE</option>
             { funds && 
                 funds.map((fund,index) => {
                     return (<option key={index} value={fund.fundPDA}>{fund.fundPDA}</option>)

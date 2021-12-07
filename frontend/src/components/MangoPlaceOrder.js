@@ -320,6 +320,7 @@ export const MangoPlaceOrder = () => {
     for(let i=0; i<fundState.tokens.length;i++){
       if(platformState.token_list[fundState.tokens[i].index[fundState.tokens[i].mux]]?.mint.toBase58() === ids.tokens[lendTokenIndex].mintKey){
         fundTokenSlot = i; 
+        break;
       }
     }
     if(fundTokenSlot==-1){
@@ -333,7 +334,7 @@ export const MangoPlaceOrder = () => {
       console.log("fundVault::::",fundVault.toBase58())
 
     const transaction = new Transaction()
-
+    console.log("fundTokenSlot:",fundTokenSlot)
     const dataLayout = struct([u8('instruction'),u8('token_slot_index'),u8('mango_token_index'),nu64('quantity')])
     const data = Buffer.alloc(dataLayout.span)
     dataLayout.encode(
