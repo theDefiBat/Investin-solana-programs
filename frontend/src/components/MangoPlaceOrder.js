@@ -136,10 +136,10 @@ export const MangoPlaceOrder = () => {
           { pubkey: fundPDA[0], isSigner: false, isWritable: false },
           { pubkey: mangoGroup.mangoCache, isSigner: false, isWritable: false },
           
-          { pubkey: new PublicKey(ids.perpMarkets[1].publicKey), isSigner: false, isWritable: true },
-          { pubkey: new PublicKey(ids.perpMarkets[1].bidsKey), isSigner: false, isWritable: true },
-          { pubkey: new PublicKey(ids.perpMarkets[1].asksKey) , isSigner: false, isWritable: true },
-          { pubkey: new PublicKey(ids.perpMarkets[1].eventsKey) , isSigner: false, isWritable: true }, 
+          { pubkey: new PublicKey(ids.perpMarkets[orderPerpIndex].publicKey), isSigner: false, isWritable: true },
+          { pubkey: new PublicKey(ids.perpMarkets[orderPerpIndex].bidsKey), isSigner: false, isWritable: true },
+          { pubkey: new PublicKey(ids.perpMarkets[orderPerpIndex].asksKey) , isSigner: false, isWritable: true },
+          { pubkey: new PublicKey(ids.perpMarkets[orderPerpIndex].eventsKey) , isSigner: false, isWritable: true }, 
           
           { pubkey: PublicKey.default, isSigner: false, isWritable: false },
       ]

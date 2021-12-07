@@ -138,10 +138,8 @@ pub fn mango_deposit(
     ] = accounts;
 
     let mut fund_data = FundData::load_mut_checked(fund_state_ai, program_id)?;
-    let mango_group = MangoGroup::load_checked(mango_group_ai, mango_prog_ai.key)?;
-    let mango_account = MangoAccount::load_checked(mango_account_ai, mango_prog_ai.key, mango_group_ai.key)?;
-    let mango_cache = MangoCache::load_checked(mango_cache_ai, mango_prog_ai.key, &mango_group)?;
-
+    
+    msg!("Loaded DATA");
     check_eq!(fund_data.tokens[token_slot_index as usize].vault, *owner_token_account_ai.key); 
     check_eq!(*mango_prog_ai.key, mango_v3_id::ID);
     // check_eq!(mango_group.tokens[mango_token_index].root_bank, )
@@ -212,7 +210,7 @@ pub fn mango_place_perp_order(
         default_ai,
     ] = accounts;
 
-    let fund_data = FundData::load_mut_checked(fund_state_ai, program_id)?;
+    let mut fund_data = FundData::load_mut_checked(fund_state_ai, program_id)?;
     //Check for perp_market_id matches derived from ai 
     //Check for perp_market_id already active on fund/add perp_market if markets_active < 4
     //Check if its close on full amount, if yes remove from active perp_markets on funds --> END
@@ -227,26 +225,39 @@ pub fn mango_place_perp_order(
     check!((fund_data.manager_account == *manager_ai.key), FundError::ManagerMismatch);
     
     let open_orders_accs = [Pubkey::default(); MAX_PAIRS];
+    msg!("INVOKING MANGO {:?}", quantity);
     invoke_signed(
         &place_perp_order(mango_prog_ai.key,
             mango_group_ai.key, mango_account_ai.key, fund_pda_ai.key,
             mango_cache_ai.key,perp_market_ai.key, bids_ai.key, asks_ai.key, event_queue_ai.key, &open_orders_accs,
-            side, 0, quantity, 0, OrderType::Market, true)?,
+            side, i64::MAX, quantity, 0, OrderType::Market, false)?,
         &[
             mango_prog_ai.clone(),
             mango_group_ai.clone(),
             mango_account_ai.clone(),
             fund_pda_ai.clone(),
-            perp_market_ai.clone(),
             mango_cache_ai.clone(),
+            perp_market_ai.clone(),
             bids_ai.clone(),
             asks_ai.clone(),
+            event_queue_ai.clone(),
             default_ai.clone(),
-            event_queue_ai.clone()
+            
         ],
         &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
     )?;
+
+    
+
+    let fund_perp_makret_index = fund_data.get_mango_perp_index(perp_market_id);
+    msg!("fund_perp_makret_index:: {:?} ", fund_perp_makret_index);
+    if(fund_perp_makret_index == None){
+        let new_fund_perp_makret_index = fund_data.get_mango_perp_index(u8::MAX).unwrap();
+        fund_data.mango_positions.perp_markets[new_fund_perp_makret_index] = perp_market_id;
+        msg!("new_fund_perp_makret_index:: {:?} ", new_fund_perp_makret_index);
+    }
     Ok(())
+
 }
 
 //TODO::Update!!!
@@ -306,7 +317,6 @@ pub fn mango_withdraw(
         fund_state_ai,
         manager_ai,
         mango_prog_ai,
-
         mango_group_ai,     // read
         mango_account_ai,   // write
         fund_pda_ai,           // read
@@ -328,7 +338,6 @@ pub fn mango_withdraw(
     //Check for Mango v3 ID 
     check_eq!(*mango_prog_ai.key, mango_v3_id::ID);
 
-    let mango_group = MangoGroup::load_checked(mango_group_ai, mango_prog_ai.key)?;
 
     // check_eq!(mango_group.tokens[mango_token_index].root_bank, )
     check!((fund_data.manager_account == *manager_ai.key), FundError::ManagerMismatch);
@@ -361,10 +370,12 @@ pub fn mango_withdraw(
     let dest_info = parse_token_account(fund_token_ai)?;
     check_eq!(dest_info.owner, fund_data.fund_pda);
     fund_data.tokens[token_slot_index as usize].balance = dest_info.amount;
-    let mango_account = MangoAccount::load_checked(mango_account_ai, mango_prog_ai.key, mango_group_ai.key)?;
-    if(mango_account.deposits[mango_token_index as usize] == 0){
-        fund_data.mango_positions.deposit_index = u8::MAX;
-    }
+    // let mango_group = MangoGroup::load_checked(mango_group_ai, mango_prog_ai.key)?;
+
+    // let mango_account = MangoAccount::load_checked(mango_account_ai, mango_prog_ai.key, mango_group_ai.key)?;
+    // if(mango_account.deposits[mango_token_index as usize] == 0){
+    //     fund_data.mango_positions.deposit_index = u8::MAX;
+    // }
     
     // fund_data.tokens[0].balance = parse_token_account(fund_token_ai)?.amount;
 
