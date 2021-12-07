@@ -61,15 +61,20 @@ pub enum FundInstruction {
     /// 8+NUM_TOKENS.. 8+2*NUM_TOKENS  Fund Token Accounts
     InvestorWithdrawFromFund,
 
-    /// 0. [WRITE]  Fund State Account (derived from FA)
-    /// 1. [WRITE]  Investor State Account (derived from IPDA)
-    /// 2. [SIGNER] investor wallet account
-    /// 3. [READ]   Price Account
-    /// 4. [READ]   Mango Group Account (for valuation)
-    /// 5. [READ]   Margin Account (for valuation)
-    /// 6. []       Open orders account
-    /// 7  []       mango oracle account
-    /// 8. [READ]   Clock Sysvar Account
+            // platform_ai,
+            // fund_state_ai, [write]
+            // investor_state_ai, [write]
+            // investor_ai,
+            // mango_account_ai,
+            // mango_group_ai,
+            // mango_cache_ai,
+            // mango_prog_ai,
+            // default_ai,
+            // ..4 X [perp_market_ai,     // write default_ai if no perp market for i^th index
+            //        bids_ai,            // write default_ai if no perp market for i^th index
+            //        asks_ai,            // write default_ai if no perp market for i^th index
+            //        event_queue_ai,]   //write default_ai if no perp market for i^th index
+
     InvestorWithdrawSettleFunds,
 
     /// 0. [WRITE] Fund State Account

@@ -22,12 +22,13 @@ use spl_token::state::{Account, Mint};
 
 use crate::error::FundError;
 use crate::instruction::{FundInstruction, Data};
-use crate::state::{NUM_TOKENS, MAX_INVESTORS, NUM_MARGIN, FundData, InvestorData, PlatformData};
+use crate::state::{NUM_TOKENS, MAX_INVESTORS, NUM_PERP, FundData, InvestorData, PlatformData};
 use crate::mango_utils::*;
 use crate::tokens::*;
 use mango::state::{MangoAccount, MangoGroup, MangoCache, PerpMarket, MAX_TOKENS, MAX_PAIRS, QUOTE_INDEX};
 use mango::instruction::{ cancel_all_perp_orders, withdraw, place_perp_order, consume_events };
 use mango::matching::{Side, OrderType, Book};
+
 macro_rules! check {
     ($cond:expr, $err:expr) => {
         if !($cond) {
@@ -42,6 +43,8 @@ macro_rules! check_eq {
         }
     }
 }
+
+pub const ZERO_I80F48: I80F48 = I80F48!(0);
 
 pub mod investin_admin {
     use solana_program::declare_id;
@@ -567,8 +570,12 @@ impl Fund {
         accounts: &[AccountInfo],
     ) -> Result<(), ProgramError> {
 
-        const NUM_FIXED:usize = 8;
-        let accounts = array_ref![accounts, 0, 8];
+        const NUM_FIXED:usize = 9;
+        let accounts = array_ref![accounts, 0, NUM_FIXED + 4*NUM_PERP];
+        let ( 
+            fixed_accs,
+            perp_accs,
+        ) = array_refs![accounts, NUM_FIXED, 4*NUM_PERP];
 
         let [
             platform_ai,
@@ -579,7 +586,8 @@ impl Fund {
             mango_group_ai,
             mango_cache_ai,
             mango_prog_ai,
-        ] = accounts;
+            default_ai,
+        ] = fixed_accs;
 
         let platform_data = PlatformData::load_mut_checked(platform_ai, program_id)?;
         let mut fund_data = FundData::load_mut_checked(fund_state_ai, program_id)?;
@@ -617,6 +625,12 @@ impl Fund {
                 check!(fund_data.tokens[i].balance >= fund_data.tokens[i].debt, ProgramError::InvalidAccountData);
             }
             // TODO Close Active Perp trades on mango and compute Dep Token Debt
+            // for i in 0..4 {
+            //     let mango_perp_index 
+            //     if(fund_data.mango_positions.perp_markets[i] != u8::MAX){
+            //         let mut perp_close_amount: u64 = 
+            //     }
+            // }
 
 
             fund_data.number_of_active_investments -= 1;
@@ -1091,10 +1105,10 @@ pub fn update_amount_and_performance(
     mango_cache_ai: &AccountInfo,
     mango_prog_ai: &AccountInfo,
     update_perf: bool
-) -> Result<(), ProgramError> {
+) -> Result<[I80F48; 4], ProgramError> {
     
     msg!("called update_amount_and_performance");
-
+    let mut pnl: [I80F48; 4] = [ZERO_I80F48; 4];
 
     // let mut fund_val = I80F48::from_num(fund_data.vault_balance); // add balance in fund vault
     // add USDT balance (not decimal adjusted)
@@ -1150,7 +1164,7 @@ pub fn update_amount_and_performance(
         fund_val = fund_val.checked_add(U64F64::from_fixed(native_deposits)).unwrap();
         msg!("3.2) fund_val with mango-native deposits:: {:?}", fund_val);
 
-        let mut pnl: I80F48;
+        
         for i in 0..4 {
             let market_index = fund_data.mango_positions.perp_markets[i] as usize;
             if(market_index == u8::MAX as usize){
@@ -1160,10 +1174,10 @@ pub fn update_amount_and_performance(
             let (base_val, quote_val) = mango_account.perp_accounts[market_index].get_val(&mango_group.perp_markets[market_index],
                 &mango_cache.perp_market_cache[market_index], mango_cache.price_cache[market_index].price)?;
 
-            pnl = base_val.checked_add(quote_val).unwrap();
+            pnl[i] = base_val.checked_add(quote_val).unwrap();
             msg!("pnl before:: {:?}", base_val + quote_val);
-
-            fund_val = fund_val.checked_add(U64F64::from_fixed(pnl)).unwrap();
+            
+            fund_val = fund_val.checked_add(U64F64::from_fixed(pnl[i])).unwrap();
             
         }
     }
@@ -1193,7 +1207,7 @@ pub fn update_amount_and_performance(
     msg!("updated amount: {:?}", fund_data.total_amount);
     msg!("updated perf {:?}", fund_data.prev_performance);
     
-    Ok(())
+    Ok(pnl)
 }
 
 pub fn parse_token_account (account_info: &AccountInfo) -> Result<Account, ProgramError> {

@@ -247,6 +247,9 @@ pub fn mango_place_perp_order(
         &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
     )?;
 
+    msg!{"Loading Mango Group Data"}
+    let mango_group_data = MangoGroup::load_checked(mango_group_ai, mango_prog_ai.key)?;
+    check_eq!(mango_group_data.perp_markets[perp_market_id as usize].perp_market, *perp_market_ai.key);
     
 
     let fund_perp_makret_index = fund_data.get_mango_perp_index(perp_market_id);
@@ -256,9 +259,107 @@ pub fn mango_place_perp_order(
         fund_data.mango_positions.perp_markets[new_fund_perp_makret_index] = perp_market_id;
         msg!("new_fund_perp_makret_index:: {:?} ", new_fund_perp_makret_index);
     }
+    else{
+        let mango_account_data = MangoAccount::load_checked(mango_account_ai, mango_prog_ai.key, mango_group_ai.key)?;
+        let base_pos = mango_account_data.perp_accounts[perp_market_id as usize].base_position;
+        msg!("Position Size on Mango: {:?}", base_pos);
+        if((side == Side::Bid && quantity.checked_add(base_pos).unwrap() == 0) || (side == Side::Ask && quantity == base_pos)){
+            msg!("Clearing Perp market on Fund");
+            fund_data.mango_positions.perp_markets[fund_perp_makret_index.unwrap() as usize] = u8::MAX;
+        }
+    }
     Ok(())
 
 }
+
+
+pub fn mango_place_perp_order_investor(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    perp_market_id: u8,
+    side: Side,
+    quantity: i64
+) -> Result<(), ProgramError> {
+    const NUM_FIXED: usize = 12;
+    let accounts = array_ref![accounts, 0, NUM_FIXED];
+
+    let [
+        fund_state_ai,
+        manager_ai,
+        mango_prog_ai,
+        mango_group_ai,     // read
+        mango_account_ai,   // write
+        fund_pda_ai,           // read, signer
+        mango_cache_ai,     // read
+        perp_market_ai,     // write
+        bids_ai,            // write
+        asks_ai,            // write
+        event_queue_ai,    // write
+        default_ai,
+    ] = accounts;
+
+    let mut fund_data = FundData::load_mut_checked(fund_state_ai, program_id)?;
+    //Check for perp_market_id matches derived from ai 
+    //Check for perp_market_id already active on fund/add perp_market if markets_active < 4
+    //Check if its close on full amount, if yes remove from active perp_markets on funds --> END
+    //Base_position + taker_base and quote_position and taker_quote should both be considered
+    //Settle PnL to be executed right after place_perp_order...
+
+    //Check for Mango v3 ID 
+    check_eq!(*mango_prog_ai.key, mango_v3_id::ID);
+    // check!(manager_ai.is_signer, ProgramError::MissingRequiredSignature);
+
+    // check_eq!(fund_data.manager_account, *manager_ai.key);
+    // check!((fund_data.manager_account == *manager_ai.key), FundError::ManagerMismatch);
+    
+    let open_orders_accs = [Pubkey::default(); MAX_PAIRS];
+    msg!("INVOKING MANGO {:?}", quantity);
+    invoke_signed(
+        &place_perp_order(mango_prog_ai.key,
+            mango_group_ai.key, mango_account_ai.key, fund_pda_ai.key,
+            mango_cache_ai.key,perp_market_ai.key, bids_ai.key, asks_ai.key, event_queue_ai.key, &open_orders_accs,
+            side, i64::MAX, quantity, 0, OrderType::Market, false)?,
+        &[
+            mango_prog_ai.clone(),
+            mango_group_ai.clone(),
+            mango_account_ai.clone(),
+            fund_pda_ai.clone(),
+            mango_cache_ai.clone(),
+            perp_market_ai.clone(),
+            bids_ai.clone(),
+            asks_ai.clone(),
+            event_queue_ai.clone(),
+            default_ai.clone(),
+            
+        ],
+        &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
+    )?;
+
+    msg!{"Loading Mango Group Data"}
+    let mango_group_data = MangoGroup::load_checked(mango_group_ai, mango_prog_ai.key)?;
+    check_eq!(mango_group_data.perp_markets[perp_market_id as usize].perp_market, *perp_market_ai.key);
+    
+
+    let fund_perp_makret_index = fund_data.get_mango_perp_index(perp_market_id);
+    msg!("fund_perp_makret_index:: {:?} ", fund_perp_makret_index);
+    if(fund_perp_makret_index == None){
+        let new_fund_perp_makret_index = fund_data.get_mango_perp_index(u8::MAX).unwrap();
+        fund_data.mango_positions.perp_markets[new_fund_perp_makret_index] = perp_market_id;
+        msg!("new_fund_perp_makret_index:: {:?} ", new_fund_perp_makret_index);
+    }
+    else{
+        let mango_account_data = MangoAccount::load_checked(mango_account_ai, mango_prog_ai.key, mango_group_ai.key)?;
+        let base_pos = mango_account_data.perp_accounts[perp_market_id as usize].base_position;
+        msg!("Position Size on Mango: {:?}", base_pos);
+        if((side == Side::Bid && quantity.checked_add(base_pos).unwrap() == 0) || (side == Side::Ask && quantity == base_pos)){
+            msg!("Clearing Perp market on Fund");
+            fund_data.mango_positions.perp_markets[fund_perp_makret_index.unwrap() as usize] = u8::MAX;
+        }
+    }
+    Ok(())
+
+}
+
 
 //TODO::Update!!!
 pub fn mango_settle_pnl(
