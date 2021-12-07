@@ -248,6 +248,8 @@ export const AllFundsInvestors = () => {
             </tbody>
           </Table>
 
+          <hr/>
+          <h2> PLATFORM TOKENS</h2>
       <Table 
         className="tablesorter"
         responsive

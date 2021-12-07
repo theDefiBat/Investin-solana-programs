@@ -81,84 +81,7 @@ export const MangoPlaceOrder = () => {
 
      }
 
-    const handleMangoPlace = async () => {
-
-      const key = walletProvider?.publicKey;
-      if (!key) {
-          alert("connect wallet")
-          return;
-      };
-      const fundPDA = await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId);
-      const fundStateAccount = await PublicKey.createWithSeed(
-          key,
-          FUND_ACCOUNT_KEY,
-          programId,
-      );
-  
-      let fundStateInfo = await connection.getAccountInfo(fundStateAccount)
-      let fundState = FUND_DATA.decode(fundStateInfo.data)
-      
-      let client = new MangoClient(connection, new PublicKey(ids.mangoProgramId))
-      let mangoGroup = await client.getMangoGroup(new PublicKey(ids.publicKey))
-      let mangoAcc = await client.getMangoAccount(fundState.mango_positions.margin_account, ids.serumProgramId)
-      // let mangoAcc = await client.getMangoAccount(new PublicKey('9rzuDYREjQ1UoiXgU2gJmixik5J2vSn5DoWitzKAmeJm'), ids.serumProgramId)
-      // const lotSizerPrice = fundState.mango_positions.margin_account === 1 ? 10 : 100000;
-      // let mangoCache = await mangoGroup.loadCache(connection)
-      // let price = (mangoCache.priceCache[fundState.perp_market_index].price * lotSizerPrice)
-      // let price_adj = mangoAcc.perpAccounts[fundState.perp_market_index].basePosition > 0 ? price * 0.95 : price * 1.05
-  
-      const transaction = new Transaction()
-  
-      const dataLayout = struct([u32('instruction'), ns64('quantity'), nu64('client_order_id'), u8('side'), u8('order_type')])
-      const data = Buffer.alloc(dataLayout.span)
-      dataLayout.encode(
-          {
-              instruction: 8,
-              // price: price_adj,
-              quantity: Math.abs(mangoAcc.perpAccounts[orderPerpIndex].basePosition),
-              client_order_id: 333,
-              side: side,
-              order_type: 0
-          },
-          data
-      )
-  
-      const instruction = new TransactionInstruction({
-          keys: [
-              { pubkey: fundStateAccount, isSigner: false, isWritable: true },
-              { pubkey: key, isSigner: true, isWritable: true },
-  
-              { pubkey: new PublicKey(ids.mangoProgramId), isSigner: false, isWritable: false },
-              { pubkey: new PublicKey(ids.publicKey), isSigner: false, isWritable: true },
-              { pubkey: fundState.mango_positions.margin_account, isSigner: false, isWritable: true },
-              { pubkey: fundPDA[0], isSigner: false, isWritable: true },
-              { pubkey: mangoGroup.mangoCache, isSigner: false, isWritable: true },
-  
-              { pubkey: new PublicKey(ids.perpMarkets[orderPerpIndex].publicKey), isSigner: false, isWritable: true },
-              { pubkey: new PublicKey(ids.perpMarkets[orderPerpIndex].bidsKey), isSigner: false, isWritable: true },
-              { pubkey: new PublicKey(ids.perpMarkets[orderPerpIndex].asksKey), isSigner: false, isWritable: true },
-              { pubkey: new PublicKey(ids.perpMarkets[orderPerpIndex].eventsKey), isSigner: false, isWritable: true },
-  
-              { pubkey: SYSTEM_PROGRAM_ID, isSigner: false, isWritable: false },
-  
-          ],
-          programId: programId,
-          data
-      });
-  
-      transaction.add(instruction);
-      console.log(`transaction ::: `, transaction)
-      transaction.feePayer = key;
-      let hash = await connection.getRecentBlockhash("finalized");
-      console.log("blockhash", hash);
-      transaction.recentBlockhash = hash.blockhash;
-  
-      const sign = await signAndSendTransaction(walletProvider, transaction);
-      console.log("tx::: ", sign)
-      return sign;
-     }
-
-     const handleAddPerpMarket = async () => {
+     const handlePerpMarketOrder = async () => {
        console.log("---** handleAddPerpMarketselected market :", orderPerpIndex, size)
         const key = walletProvider?.publicKey;
         if (!key) {
@@ -195,8 +118,8 @@ export const MangoPlaceOrder = () => {
         dataLayout.encode(
             {
                 instruction: 10,
-                perp_market_id: 1,
-                side : 1,
+                perp_market_id: orderPerpIndex,
+                side : side,
                 quantity: size // for btc * 10000 
             },
             data
@@ -243,10 +166,6 @@ export const MangoPlaceOrder = () => {
     
         
      }
-
-     const handleRemovePerpMarket = async () => {
-        console.log("selected market :", addRemovePerpIndex)
-      }
 
     const handleMangoPerpDeposit = async () => {
 
@@ -490,7 +409,7 @@ export const MangoPlaceOrder = () => {
 
         <h4>LEND TOKENS</h4>
           Amount :::  <input type="number" value={lendAmount} onChange={(event) => setLendAmount(event.target.value)} />
-          <select name="side" width = "100px" onClick={(event) => setAddRemoveTokenIndex(event.target.value)}>
+          <select name="side" width = "100px" onChange={(event) => setAddRemoveTokenIndex(event.target.value)}>
               {
                ids.tokens.map( (i,index) => <option value={index}>{i.symbol}</option> )
               }
@@ -500,7 +419,7 @@ export const MangoPlaceOrder = () => {
 
           <br/><hr/><br/>
           <h4>ADD/REMOVE PERP</h4>
-          <select name="side" width = "100px" onClick={(event) => setAddRemovePerpIndex(event.target.value)}>
+          <select name="side" width = "100px" onChange={(event) => setAddRemovePerpIndex(event.target.value)}>
               <option value={0}>MNGO-PERP</option>
               <option value={1}>BTC-PERP</option>
               <option value={2}>ETH-PERP</option>
@@ -510,8 +429,8 @@ export const MangoPlaceOrder = () => {
               <option value={6}>FTT-PERP</option>
               <option value={7}>ADA-PERP</option>
             </select>
-          <button onClick={handleAddPerpMarket}>ADD</button>
-          <button onClick={handleRemovePerpMarket}>REMOVE</button>
+          {/* <button onClick={handleAddPerpMarket}>ADD</button>
+          <button onClick={handleRemovePerpMarket}>REMOVE</button> */}
 
           <br/><hr/><br/>
 
@@ -520,12 +439,12 @@ export const MangoPlaceOrder = () => {
             <br />
             <label htmlFor="side">Buy/Sell</label><br/>
 
-            <select name="side" width = "100px" onClick={(event) => setSide(event.target.value)}>
-              <option value="buy">Buy</option>
-              <option value="sell">Sell</option>
+            <select name="side" width = "100px" onChange={(event) => setSide(parseInt(event.target.value))}>
+              <option value={0}>Buy</option>
+              <option value={1}>Sell</option>
             </select>
 
-            <select name="side" width = "100px" onClick={(event) => setOrderPerpIndex(event.target.value)}>
+            <select name="side" width = "100px" onChange={(event) => setOrderPerpIndex(parseInt(event.target.value))}>
               <option value={0}>MNGO-PERP</option>
               <option value={1}>BTC-PERP</option>
               <option value={2}>ETH-PERP</option>
@@ -536,7 +455,7 @@ export const MangoPlaceOrder = () => {
               <option value={7}>ADA-PERP</option>
             </select>
 
-          <button onClick={handleAddPerpMarket}>ORDER</button>
+          <button onClick={handlePerpMarketOrder}>ORDER</button>
 
           <br />
           <button onClick={handleMangoOpenOrders}>Open order init</button>

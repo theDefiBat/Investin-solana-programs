@@ -206,7 +206,7 @@ export const GetPrices = () => {
 
     return (
         <div className="form-div">
-          <h4>Get Token Prices</h4>
+          <h4>Get Token Prices / ADD or REMOVE token from FUND </h4>
 
           <button onClick={handleGetAllPlatformTokens}>Get ALL platform Tokens in log</button>
 

@@ -157,7 +157,7 @@ export const Deposit = () => {
 
   return (
     <div className="form-div">
-      <h4>Deposit</h4>
+      <h4>Investor Fund Deposit</h4>
       amount ::: {' '}
       <input type="number" value={amount} onChange={(event) => setAmount(event.target.value)} />
       <br />

@@ -144,7 +144,7 @@ export const Transfer = () => {
   
   return (
     <div className="form-div">
-      <h4>Transfer</h4>
+      <h4>Manager Transfer</h4>
 
       <button onClick={handleTransfer}>Transfer</button>
       <br />

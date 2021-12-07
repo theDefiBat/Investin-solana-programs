@@ -63,7 +63,7 @@ function App() {
         <GetPrices />
         <Swap />
         {/* <OrcaSwap /> */}
-        <Testing />
+        {/* <Testing /> */}
         <Withdraw />
         <Claim />
         <MangoInitialize />
