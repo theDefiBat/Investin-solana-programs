@@ -105,7 +105,7 @@ export const Swap = () => {
   }
 
   const swapInstructionRaydium = async (
-    walletProvider,
+    walletProviderP,
     poolProgramId,
     // tokenProgramId,
     // amm
@@ -137,6 +137,7 @@ export const Swap = () => {
    
 
     const key = walletProvider?.publicKey;
+    console.log("key::",key.toBase58())
     if (!key) {
         console.log("connect wallet")
         return;
@@ -155,9 +156,9 @@ export const Swap = () => {
     const keys = [
         { pubkey: platformStateAccount, isSigner: false, isWritable: true },
         { pubkey: fundStateAcc, isSigner: false, isWritable: true },
-        { pubkey: manager, isSigner: true, isWritable: true },
+        { pubkey: walletProvider?.publicKey, isSigner: true, isWritable: true },
 
-        { pubkey: poolProgramId, isSigner: false, isWritable: false },
+        { pubkey: new PublicKey(poolProgramId) , isSigner: false, isWritable: false },
 
         // spl token
         { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
@@ -182,6 +183,9 @@ export const Swap = () => {
         { pubkey: userDestTokenAccount, isSigner: false, isWritable: true },
         { pubkey: userOwner, isSigner: false, isWritable: true }
     ]
+    for(let i=0; i<keys.length;i++) {
+      console.log("key:",i, keys[i].pubkey.toBase58())
+    }
 
     const data = Buffer.alloc(dataLayout.span)
     dataLayout.encode(
@@ -224,7 +228,7 @@ const swapInstructionOrca = async () => {
     const transaction = new Transaction()
     const signers = []
 
-    const owner = walletProvider.publicKey
+    const owner = walletProvider?.publicKey
 
     // const { amountIn, amountOut } = getSwapOutAmount(poolInfo, fromCoinMint, toCoinMint, amount, slippage)
     let amountIn = new TokenAmount(amount, poolInfo.coin.decimals, false)
@@ -252,6 +256,8 @@ const swapInstructionOrca = async () => {
 
     let instruction;
 
+    console.log("poolInfo.programId::",poolInfo.programId)
+
     if(selectedSwapProtocol == 0){
         instruction = await  swapInstructionRaydium(
              walletProvider,
@@ -262,7 +268,7 @@ const swapInstructionOrca = async () => {
              new PublicKey(poolInfo.ammTargetOrders),
              new PublicKey(poolInfo.poolCoinTokenAccount),
              new PublicKey(poolInfo.poolPcTokenAccount),
-             poolInfo.serumProgramId,
+             new PublicKey(poolInfo.serumProgramId),
              new PublicKey(poolInfo.serumMarket),
              new PublicKey(poolInfo.serumBids),
              new PublicKey(poolInfo.serumAsks),

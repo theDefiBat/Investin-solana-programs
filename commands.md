@@ -33,6 +33,8 @@ solana-test-validator
 # airdrop
 solana airdrop 2
 
+# build
+npm run build:program-fund
 # deploy 
 solana program deploy /Users/aw/Desktop/Solana-Apps/Solana-IVN-Code/dist/program-fund/fund.so
 

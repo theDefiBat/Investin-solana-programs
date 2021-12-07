@@ -95,12 +95,12 @@ const handleGetFundData = async () => {
     let fundStateTokens = [];
     for (let j =0; j<fundData?.tokens.length; j++) {
        const i = fundData?.tokens[j];
-       console.log("vault vault_info token::",i);
+      //  console.log("vault vault_info token::",i);
        if(!i.is_active)
         continue;
 
        const vault_info = await connection.getAccountInfo(i.vault);
-       console.log("vault vault_info ::",vault_info);
+      //  console.log("vault vault_info ::",vault_info);
        if(!vault_info)
          {
            console.log("vault error ::");
@@ -398,7 +398,7 @@ const getMangoAccountData = async () => {
                         <td >{i?.vault}</td>
                         <td >{i?.mint_authority} || { ((ids.tokens).find(j => j.mintKey === i?.mint_authority))?.symbol}</td>
                         <td >{i?.is_on_mango}</td>
-                        <td >{i?.balance}</td>
+                        <td >{i?.balance / 10**((ids.tokens).find(j => j.mintKey === i?.mint_authority))?.decimals}</td>
                         <td >{i?.debt}</td>
                         <td >{i?.index[0]} ||  {i?.index[1]} || {i?.index[2]}</td>
                         <td >{i?.mux}</td>

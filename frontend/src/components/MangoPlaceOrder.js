@@ -1,10 +1,10 @@
 import { PublicKey, Transaction, TransactionInstruction } from '@solana/web3.js';
 import React, { useState } from 'react'
 import { GlobalState } from '../store/globalState';
-import { adminAccount, connection, FUND_ACCOUNT_KEY, programId, TOKEN_PROGRAM_ID , MANGO_GROUP_ACCOUNT, SOL_USDC_MARKET, SYSTEM_PROGRAM_ID, idsIndex, MARGIN_ACCOUNT_KEY_1, PERP_ACCOUNT_KEY_1, MANGO_PROGRAM_ID} from '../utils/constants';
+import { adminAccount, connection, FUND_ACCOUNT_KEY, programId, TOKEN_PROGRAM_ID , MANGO_GROUP_ACCOUNT, SOL_USDC_MARKET, SYSTEM_PROGRAM_ID, idsIndex, MARGIN_ACCOUNT_KEY_1, PERP_ACCOUNT_KEY_1, MANGO_PROGRAM_ID, MANGO_TOKENS, PERP_MARKETS, platformStateAccount} from '../utils/constants';
 import { nu64, struct, u8 ,u32, ns64} from 'buffer-layout';
 import { createKeyIfNotExists, findAssociatedTokenAddress, setWalletTransaction, signAndSendTransaction, createAssociatedTokenAccountIfNotExist } from '../utils/web3';
-import { FUND_DATA, INVESTOR_DATA } from '../utils/programLayouts';
+import { FUND_DATA, INVESTOR_DATA, PLATFORM_DATA } from '../utils/programLayouts';
 import { MarginAccountLayout, selfTradeBehaviorLayout } from '../utils/MangoLayout';
 import { devnet_pools, pools } from '../utils/pools'
 import { updatePoolPrices } from './updatePrices';
@@ -25,6 +25,8 @@ export const MangoPlaceOrder = () => {
     const [orderPerpIndex, setOrderPerpIndex] = useState(0);
     const [addRemovePerpIndex, setAddRemovePerpIndex] = useState(0);
     const [addRemoveTokenIndex, setAddRemoveTokenIndex] = useState(0);
+
+    const [lendTokenIndex, setLendTokenIndex] = useState(0)
     const [side, setSide] = useState('');
     
 
@@ -92,9 +94,7 @@ export const MangoPlaceOrder = () => {
 
         // const perpAccount = await createKeyIfNotExists(walletProvider, "", MANGO_PROGRAM_ID, PERP_ACCOUNT_KEY_1, perpAccountLayout.span, transaction)
         // console.log("mangoAccount created::",perpAccount.toBase58())
-
         // const mango_token_index = 
-
 
         const fundPDA = await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId);
         const fundStateAccount = await PublicKey.createWithSeed(
@@ -120,7 +120,7 @@ export const MangoPlaceOrder = () => {
                 instruction: 10,
                 perp_market_id: orderPerpIndex,
                 side : side,
-                quantity: size // for btc * 10000 
+                quantity: size/(PERP_MARKETS[orderPerpIndex]) 
             },
             data
         )
@@ -186,10 +186,10 @@ export const MangoPlaceOrder = () => {
       let client = new MangoClient(connection, new PublicKey(ids.mangoProgramId))
       let mangoGroup = await client.getMangoGroup(new PublicKey(ids.publicKey))
   
-      let nodeBankInfo = await connection.getAccountInfo(new PublicKey(ids.tokens[addRemoveTokenIndex].nodeKeys[0]))
+      let nodeBankInfo = await connection.getAccountInfo(new PublicKey(ids.tokens[lendTokenIndex].nodeKeys[0]))
       let nodeBank = NodeBankLayout.decode(nodeBankInfo.data)
   
-      console.log("lendAmount::::",addRemoveTokenIndex, lendAmount,ids.tokens[addRemoveTokenIndex])
+      console.log("lendAmount::::",lendTokenIndex, lendAmount,ids.tokens[lendTokenIndex])
       console.log("fundStateAccount::::",fundStateAccount.toBase58())
       console.log("fundState.fund_pda::::",fundState.fund_pda.toBase58())
 
@@ -198,18 +198,49 @@ export const MangoPlaceOrder = () => {
       console.log("fundState.mango_positions.mango_account::::",fundState.mango_positions.mango_account.toBase58())
       console.log("mangoGroup.mangoCache::::",mangoGroup.mangoCache.toBase58())
 
-      //should be dynamic based on token
-      const fundVault = fundState.tokens[0].vault;
-      console.log("fundVault::::",fundVault.toBase58())
+     
+
+      const platformDataAcc = await connection.getAccountInfo(platformStateAccount)
+      if(!platformDataAcc){
+        alert('platform state not initilaized');
+        return;
+      }
+      const platformState = PLATFORM_DATA.decode(platformDataAcc.data)
+
+      //TODO :
+      // findTokenSlotIndex ids.tokens[lendTokenIndex].mintKey
+      let fundTokenSlot = -1;
+      console.log("check for mint:",ids.tokens[lendTokenIndex].mintKey)
+      for(let i=0; i<fundState.tokens.length;i++){
+        const t = fundState.tokens[i];
+        console.log("i - mint:",i,platformState.token_list[t.index[t.mux]]?.mint.toBase58())
+        if(platformState.token_list[t.index[t.mux]]?.mint.toBase58()==(ids.tokens[lendTokenIndex].mintKey)){
+          fundTokenSlot=i;
+          console.log("found:",i)
+          break;
+        }
+      }
+      if(fundTokenSlot==-1){
+        alert('token not whitelisted on fund');
+        return;
+      } 
+      // findMangoTokenIndex DONE
+
+       //should be dynamic based on token
+       const fundVault = fundState.tokens[fundTokenSlot].vault;
+       console.log("fundVault::::",fundVault.toBase58())
 
       const dataLayout = struct([u8('instruction'),u8('token_slot_index'), u8('mango_token_index'), nu64('quantity')])
       const data = Buffer.alloc(dataLayout.span)
+      console.log("fundTokenSlot:",fundTokenSlot)
+      console.log("MANGO_TOKENS[lendTokenIndex].mangoTokenIndex:",MANGO_TOKENS[lendTokenIndex].mangoTokenIndex)
+
       dataLayout.encode(
           {
               instruction: 9,
-              token_slot_index: 0,
-              mango_token_index: 15,
-              quantity: lendAmount * 10 ** ids.tokens[addRemoveTokenIndex].decimals
+              token_slot_index: fundTokenSlot,
+              mango_token_index: MANGO_TOKENS[lendTokenIndex].mangoTokenIndex,
+              quantity: lendAmount * 10 ** ids.tokens[lendTokenIndex].decimals
           },
           data
       )
@@ -224,8 +255,8 @@ export const MangoPlaceOrder = () => {
 
         { pubkey: fundState.mango_positions.mango_account , isSigner: false, isWritable: true },
         { pubkey: mangoGroup.mangoCache, isSigner: false, isWritable: true },
-        { pubkey: new PublicKey(ids.tokens[addRemoveTokenIndex].rootKey), isSigner: false, isWritable: true },
-        { pubkey: new PublicKey(ids.tokens[addRemoveTokenIndex].nodeKeys[0]), isSigner: false, isWritable: true },
+        { pubkey: new PublicKey(ids.tokens[lendTokenIndex].rootKey), isSigner: false, isWritable: true },
+        { pubkey: new PublicKey(ids.tokens[lendTokenIndex].nodeKeys[0]), isSigner: false, isWritable: true },
         { pubkey: nodeBank.vault, isSigner: false, isWritable: true },
         { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
         { pubkey: fundVault, isSigner: false, isWritable: true },
@@ -272,11 +303,33 @@ export const MangoPlaceOrder = () => {
 
     let client = new MangoClient(connection, new PublicKey(ids.mangoProgramId))
     let mangoGroup = await client.getMangoGroup(new PublicKey(ids.publicKey))
-    let nodeBankInfo = await connection.getAccountInfo(new PublicKey(ids.tokens[addRemoveTokenIndex].nodeKeys[0]))
+    let nodeBankInfo = await connection.getAccountInfo(new PublicKey(ids.tokens[lendTokenIndex].nodeKeys[0]))
     let nodeBank = NodeBankLayout.decode(nodeBankInfo.data)
 
+
+    const platformDataAcc = await connection.getAccountInfo(platformStateAccount)
+    if(!platformDataAcc){
+      alert('platform state not initilaized');
+      return;
+    }
+    const platformState = PLATFORM_DATA.decode(platformDataAcc.data)
+
+    //TODO :
+    // findTokenSlotIndex ids.tokens[lendTokenIndex].mintKey
+    let fundTokenSlot = -1;
+    for(let i=0; i<fundState.tokens.length;i++){
+      if(platformState.token_list[fundState.tokens[i].index[fundState.tokens[i].mux]]?.mint.toBase58() === ids.tokens[lendTokenIndex].mintKey){
+        fundTokenSlot = i; 
+      }
+    }
+    if(fundTokenSlot==-1){
+      alert('token not whitelisted on fund');
+      return;
+    }
+    // findMangoTokenIndex DONE
+
     //should be dynamic based on token
-      const fundVault = fundState.tokens[0].vault;
+      const fundVault = fundState.tokens[fundTokenSlot].vault;
       console.log("fundVault::::",fundVault.toBase58())
 
     const transaction = new Transaction()
@@ -286,9 +339,9 @@ export const MangoPlaceOrder = () => {
     dataLayout.encode(
         {
             instruction: 13,
-            token_slot_index: 0,
-            mango_token_index : 15,
-            quantity: lendAmount * 10 ** ids.tokens[addRemoveTokenIndex].decimals
+            token_slot_index: fundTokenSlot,
+            mango_token_index: MANGO_TOKENS[lendTokenIndex].mangoTokenIndex,
+            quantity: lendAmount * 10 ** ids.tokens[lendTokenIndex].decimals
         },
         data
     )
@@ -302,8 +355,8 @@ export const MangoPlaceOrder = () => {
       { pubkey: fundState.mango_positions.mango_account , isSigner: false, isWritable: true },
       { pubkey: fundPDA[0], isSigner: false, isWritable: false },
       { pubkey: mangoGroup.mangoCache, isSigner: false, isWritable: false },
-      { pubkey: new PublicKey(ids.tokens[addRemoveTokenIndex].rootKey), isSigner: false, isWritable: false },
-      { pubkey: new PublicKey(ids.tokens[addRemoveTokenIndex].nodeKeys[0]), isSigner: false, isWritable: true },
+      { pubkey: new PublicKey(ids.tokens[lendTokenIndex].rootKey), isSigner: false, isWritable: false },
+      { pubkey: new PublicKey(ids.tokens[lendTokenIndex].nodeKeys[0]), isSigner: false, isWritable: true },
       { pubkey: nodeBank.vault, isSigner: false, isWritable: true },
       { pubkey: fundVault, isSigner: false, isWritable: true }, // Fund Vault
       { pubkey: mangoGroup.signerKey, isSigner: false, isWritable: false },
@@ -409,13 +462,15 @@ export const MangoPlaceOrder = () => {
 
         <h4>LEND TOKENS</h4>
           Amount :::  <input type="number" value={lendAmount} onChange={(event) => setLendAmount(event.target.value)} />
-          <select name="side" width = "100px" onChange={(event) => setAddRemoveTokenIndex(event.target.value)}>
+          <select name="side" width = "100px" onChange={(event) => setLendTokenIndex(event.target.value)}>
               {
                ids.tokens.map( (i,index) => <option value={index}>{i.symbol}</option> )
               }
             </select>
           <button onClick={handleMangoPerpDeposit}>DEPOSIT</button>
           <button onClick={handleMangoPerpWithdraw}>WITHDRAW</button>
+
+
 
           <br/><hr/><br/>
           <h4>ADD/REMOVE PERP</h4>
