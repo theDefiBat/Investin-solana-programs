@@ -282,11 +282,27 @@ const getMangoAccountData = async () => {
 
             <p> mango_positions  state== 0: inactive, 1: deposited, 2: position_open, </p>
             <p> 3: settled_open, 4: position_closed, 5: settled_close, 6: stale </p>
+            <hr/>
+
             <h5>----Mango-positions</h5>
             <p> mango_account  : {fundData.mango_positions.mango_account.toBase58()}</p>
             <p> deposit_index  : {fundData.mango_positions.deposit_index}</p>
             <p> markets_active  : {fundData.mango_positions.markets_active}</p>
             <p> deposits_active  : {fundData.mango_positions.deposits_active}</p>
+            <br/>
+            <p> perp_markets[]  : {fundData.mango_positions.perp_markets[0]} {' || '}
+            {fundData.mango_positions.perp_markets[1]} {' || '}
+            {fundData.mango_positions.perp_markets[2]}{' || '}
+            {fundData.mango_positions.perp_markets[3]}
+            </p>
+            
+
+            <p> investor_debts[]  : {fundData.mango_positions.investor_debts[0].toString()} {' || '}
+                   {fundData.mango_positions.investor_debts[1].toString()} 
+            </p>
+           
+
+            
             {/* <p> investor_debts  : 
                             {fundData.mango_positions.investor_debts[0].toString()} ||
                             {fundData.mango_positions.investor_debts[1].toString()} </p>

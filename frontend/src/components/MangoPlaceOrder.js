@@ -197,7 +197,7 @@ export const MangoPlaceOrder = () => {
                 instruction: 10,
                 perp_market_id: 1,
                 side : 1,
-                quantity: size 
+                quantity: size // for btc * 10000 
             },
             data
         )

@@ -59,12 +59,12 @@ export const AllFundsInvestors = () => {
 
   const handleGetAllInvestments = async () => {
 
-     const userkey = new PublicKey('zRzdC1b2zJte4rMjfaSFZwbnBfL1kNYaTAF4UC4bqpx');
+    //  const userkey = new PublicKey('zRzdC1b2zJte4rMjfaSFZwbnBfL1kNYaTAF4UC4bqpx');
     let investments = await connection.getProgramAccounts(programId, { filters: [
       { dataSize: INVESTOR_DATA.span },
-      {
-        // memcmp: { offset: INVESTOR_DATA.offsetOf('owner'), bytes: userkey.toBase58() }
-      }
+      // {
+      //   memcmp: { offset: INVESTOR_DATA.offsetOf('owner'), bytes: walletProvider.key.toBase58() }
+      // }
     ] });
     // console.log("investments::",investments)
     const newInvestors = []

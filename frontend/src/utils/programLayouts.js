@@ -184,12 +184,12 @@ export const FUND_DATA = struct([
   
   struct([
       publicKeyLayout('mango_account'),
-      seq(u8('perp_markets'), 4),
+      seq(u8(),4,'perp_markets'),
       u8('deposit_index'),
       u8('markets_active'),
       u8('deposits_active'),
       u8('xpadding'),
-      seq(u64('investor_debts'), 2),
+      seq(u64(), 2, 'investor_debts'),
       seq(u8('padding'), 24),
     ],'mango_positions'),
 
