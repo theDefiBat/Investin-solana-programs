@@ -103,8 +103,11 @@ export const Withdraw = () => {
     //        event_queue_ai,]   //write default_ai if no perp market for i^th index
     let perpKeys = []
     for(let i=0; i<4;i++){
-          const marketIndex = fund_data.mango_positions.perp_markets[0];
+          const marketIndex = fund_data.mango_positions.perp_markets[i];
+          console.log("marketIndex:",marketIndex,i)
           if(marketIndex!=255){
+             console.log("pusing:",marketIndex,i)
+
             perpKeys.push(
               { pubkey:  new PublicKey(ids.perpMarkets[marketIndex].publicKey), isSigner: false, isWritable: true },
              )

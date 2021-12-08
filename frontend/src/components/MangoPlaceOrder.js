@@ -120,7 +120,7 @@ export const MangoPlaceOrder = () => {
                 instruction: 10,
                 perp_market_id: orderPerpIndex,
                 side : side,
-                quantity: size/(PERP_MARKETS[orderPerpIndex]) 
+                quantity: size/(PERP_MARKETS[orderPerpIndex].contractSize) 
             },
             data
         )
