@@ -1233,7 +1233,7 @@ pub fn update_amount_and_performance(
             pnl[i] = base_val.checked_add(quote_val).unwrap();
             msg!("pnl before:: {:?}", base_val + quote_val);
             
-            fund_val = fund_val.checked_add(U64F64::from_fixed(pnl[i])).unwrap();
+            fund_val = fund_val.checked_add(0).unwrap();
             
         }
     }

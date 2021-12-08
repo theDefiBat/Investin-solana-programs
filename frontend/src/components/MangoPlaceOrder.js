@@ -84,7 +84,7 @@ export const MangoPlaceOrder = () => {
      }
 
      const handlePerpMarketOrder = async () => {
-       console.log("---** handleAddPerpMarketselected market :", orderPerpIndex, size)
+       console.log("---** handleAddPerpMarketselected orderPerpIndex, size, side :", orderPerpIndex, size, side)
         const key = walletProvider?.publicKey;
         if (!key) {
             alert("connect wallet")
@@ -112,6 +112,7 @@ export const MangoPlaceOrder = () => {
     
         
         const BTCBaseLotSize = 2 // baseLotSize / quoteLotSize
+        console.log("size::::",size/(PERP_MARKETS[orderPerpIndex].contractSize)  )
   
         const dataLayout = struct([u8('instruction'),u8('perp_market_id'),u8('side'), nu64('quantity')])
         const data = Buffer.alloc(dataLayout.span)
