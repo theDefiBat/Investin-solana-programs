@@ -231,9 +231,10 @@ export const Withdraw = () => {
     );
     let fundStateInfo = await connection.getAccountInfo((fundStateAccount))
     let fundState = FUND_DATA.decode(fundStateInfo.data) 
+    console.log("fundState:",fundState)
 
-    let investorStateData = await connection.getAccountInfo(investorStateAcc);
-    investorStateData = INVESTOR_DATA.decode(investorStateData.data)
+    // let investorStateData = await connection.getAccountInfo(investorStateAcc);
+    // investorStateData = INVESTOR_DATA.decode(investorStateData.data)
 
     let client = new MangoClient(connection, new PublicKey(ids.mangoProgramId))
     let mangoGroup = await client.getMangoGroup(new PublicKey(ids.publicKey))
@@ -241,9 +242,10 @@ export const Withdraw = () => {
     let usdcnodeBankInfo = await connection.getAccountInfo(new PublicKey(MANGO_TOKENS[0].nodeKeys[0]))
     let usdcnodeBank = NodeBankLayout.decode(usdcnodeBankInfo.data)
 
-      const deposit_index = investorStateData.margin_position_id[1];
-      const user_other_token_deposit_debt = investorStateData.margin_debt[1]
+      const deposit_index = parseInt(investments[investmentIndex]?.margin_position_id[1].toString());
+      const user_other_token_deposit_debt = investments[investmentIndex]?.margin_debt[1]
       console.log("deposit_index::::",deposit_index)
+      console.log("user_other_token_deposit_debt::::",user_other_token_deposit_debt)
 
       const transaction = new Transaction()
 
@@ -286,7 +288,7 @@ export const Withdraw = () => {
       
     const keys = [
       { pubkey: fundStateAccount, isSigner: false, isWritable: true },
-      { pubkey: investorStateAcc, isSigner: false, isWritable: true },
+      { pubkey: new PublicKey(investorStateAcc), isSigner: false, isWritable: true },
       { pubkey: key, isSigner: true, isWritable: true },
 
       { pubkey: new PublicKey(ids.mangoProgramId), isSigner: false, isWritable: false },

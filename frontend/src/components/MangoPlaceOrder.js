@@ -168,6 +168,24 @@ export const MangoPlaceOrder = () => {
         
      }
 
+     const callFromKeeper = async () => {
+      const key = walletProvider?.publicKey;
+      if (!key) {
+          alert("connect wallet")
+          return;
+      };
+
+      let client = new MangoClient(connection, new PublicKey(ids.mangoProgramId))
+      let mangoGroup = await client.getMangoGroup(new PublicKey(ids.publicKey))
+
+
+     const sign =  await client.cacheRootBanks(new PublicKey(ids.publicKey),
+          mangoGroup.mangoCache,
+          [new PublicKey(MANGO_TOKENS[0].rootKey),new PublicKey(MANGO_TOKENS[2].rootKey)],
+          walletProvider
+       )
+     }
+
     const handleMangoPerpDeposit = async () => {
 
       const key = walletProvider?.publicKey;
@@ -186,7 +204,8 @@ export const MangoPlaceOrder = () => {
   
       let client = new MangoClient(connection, new PublicKey(ids.mangoProgramId))
       let mangoGroup = await client.getMangoGroup(new PublicKey(ids.publicKey))
-  
+
+     
       let nodeBankInfo = await connection.getAccountInfo(new PublicKey(ids.tokens[lendTokenIndex].nodeKeys[0]))
       let nodeBank = NodeBankLayout.decode(nodeBankInfo.data)
   
@@ -518,6 +537,10 @@ export const MangoPlaceOrder = () => {
           <button onClick={handleMangoOpenOrders}>Open order init</button>
           <br />
           <button onClick={handleConsumeEvents}> Consume Events </button>
+
+          <button onClick={callFromKeeper}> KEEPER </button>
+
+          
           <br />
         </div>
     )
