@@ -62,6 +62,10 @@ pub enum FundError {
     InvalidMangoState,
 
     //14
+    #[error("Mango Account Not Initialized")]
+    MangoNotInitialized,
+
+    //15
     #[error("Default Error")]
     Default
 }

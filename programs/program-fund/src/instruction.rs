@@ -247,27 +247,26 @@ pub enum FundInstruction {
     },
 
     /// Withdraw funds that were deposited earlier.
-    ///
-    /// Accounts expected by this instruction (11 + 2 * NUM_TOKENS + 2 * NUM_MARKETS):
-    ///
-    /// 0.  [writable]  fund_state_acc - Fund State Account
-    /// 1.  []          inv_state_acc - Investor State Account
-    /// 2.  [signer]    investor_acc - Investor Account
-    /// 3.  []          fund_pda_acc- Fund PDA Account
-    
-    /// 5.  []          mango_prog_acc - Mango Program Account
-    /// 
-    /// 0. `[writable]` mango_group_acc - MangoGroup that this margin account is for
-    /// 1. `[writable]` margin_account_acc - the margin account for this user
-    /// 3. `[writable]` token_account_acc - TokenAccount owned by user which will be receiving the funds
-    /// 4. `[writable]` vault_acc - TokenAccount owned by MangoGroup which will be sending
-    /// 2. `[]` signer_acc - acc pointed to by signer_key
-    /// 3. `[]` token_prog_acc - acc pointed to by SPL token program id
-    /// 4. `[]` clock_acc - Clock sysvar account
-    /// 
-    /// 16..19 (NUM_MARKETS) `[]` open_orders_accs - open orders for each of the spot market
-    /// 20..23 (NUM_MARKETS) `[]` oracle_accs - flux aggregator feed accounts
-    // MangoWithdrawInvestor,
+    // fund_state_ai,      //write
+    // investor_state_ai,  //write
+    // investor_ai,        //signer
+    // mango_prog_ai,      //
+    // mango_group_ai,     // read
+    // mango_account_ai,   // write
+    // fund_pda_ai,           // read
+    // mango_cache_ai,     // read
+    // usdc_root_bank_ai,       // read
+    // usdc_node_bank_ai,       // write
+    // usdc_vault_ai,           // write
+    // usdc_investor_token_ai,   // write
+    // token_root_bank_ai,       // read
+    // token_node_bank_ai,       // write
+    // token_vault_ai,           // write
+    // token_investor_token_ai,   // write
+    // signer_ai,          // read
+    // token_prog_ai,      // read
+    // default_ai
+    MangoWithdrawInvestor,
 
     /// Place an order on the Serum Dex and settle funds from the open orders account
     ///
@@ -516,9 +515,9 @@ impl FundInstruction {
                     quantity: u64::from_le_bytes(*quantity)
                 }
             },
-            // 14 => {
-            //     FundInstruction::MangoWithdrawInvestor
-            // },
+            14 => {
+                FundInstruction::MangoWithdrawInvestor
+            },
             // 15 => {
             //     let price = array_ref![data, 0, 8];
             //     FundInstruction::MangoWithdrawInvestorPlaceOrder {

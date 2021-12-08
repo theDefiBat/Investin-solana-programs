@@ -18,6 +18,7 @@ use std::cell::RefMut;
 
 use fixed_macro::types::U64F64;
 pub const ONE_U64F64: U64F64 = U64F64!(1);
+pub const ZERO_U64F64: U64F64 = U64F64!(0);
 
 use std::num::NonZeroU64;
 
@@ -142,7 +143,8 @@ pub fn mango_deposit(
     msg!("Loaded DATA");
     check_eq!(fund_data.tokens[token_slot_index as usize].vault, *owner_token_account_ai.key); 
     check_eq!(*mango_prog_ai.key, mango_v3_id::ID);
-    // check_eq!(mango_group.tokens[mango_token_index].root_bank, )
+    check!(fund_data.mango_positions.mango_account != Pubkey::default(), FundError::MangoNotInitialized);
+    // check_eq!(mango_group.tokens[mango_token_index].root_bank, )   
     if(mango_token_index as usize != QUOTE_INDEX){
         check!(fund_data.mango_positions.deposit_index == mango_token_index || 
             fund_data.mango_positions.deposit_index == u8::MAX, FundError::InvalidMangoState);
@@ -226,7 +228,6 @@ pub fn mango_place_perp_order(
     check!((fund_data.manager_account == *manager_ai.key), FundError::ManagerMismatch);
     
     let open_orders_accs = [Pubkey::default(); MAX_PAIRS];
-    msg!("INVOKING MANGO {:?}", quantity);
     invoke_signed(
         &place_perp_order(mango_prog_ai.key,
             mango_group_ai.key, mango_account_ai.key, fund_pda_ai.key,
@@ -248,22 +249,18 @@ pub fn mango_place_perp_order(
         &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
     )?;
 
-    msg!{"Loading Mango Group Data"}
     let mango_group_data = MangoGroup::load_checked(mango_group_ai, mango_prog_ai.key)?;
     check_eq!(mango_group_data.perp_markets[perp_market_id as usize].perp_market, *perp_market_ai.key);
     
 
     let fund_perp_makret_index = fund_data.get_mango_perp_index(perp_market_id);
-    msg!("fund_perp_makret_index:: {:?} ", fund_perp_makret_index);
     if(fund_perp_makret_index == None){
         let new_fund_perp_makret_index = fund_data.get_mango_perp_index(u8::MAX).unwrap();
         fund_data.mango_positions.perp_markets[new_fund_perp_makret_index] = perp_market_id;
-        msg!("new_fund_perp_makret_index:: {:?} ", new_fund_perp_makret_index);
     }
     else{
         let mango_account_data = MangoAccount::load_checked(mango_account_ai, mango_prog_ai.key, mango_group_ai.key)?;
         let base_pos = mango_account_data.perp_accounts[perp_market_id as usize].base_position;
-        msg!("Position Size on Mango: {:?}", base_pos);
         if((side == Side::Bid && quantity.checked_add(base_pos).unwrap() == 0) || (side == Side::Ask && quantity == base_pos)){
             msg!("Clearing Perp market on Fund");
             fund_data.mango_positions.perp_markets[fund_perp_makret_index.unwrap() as usize] = u8::MAX;
@@ -351,7 +348,7 @@ pub fn mango_withdraw(
 
     check!(fund_data.is_initialized, ProgramError::InvalidAccountData);
     check!(manager_ai.is_signer, ProgramError::MissingRequiredSignature);
-    
+    check!(fund_data.mango_positions.mango_account != Pubkey::default(), FundError::MangoNotInitialized);
     //Check for Mango v3 ID 
     check_eq!(*mango_prog_ai.key, mango_v3_id::ID);
 
@@ -399,7 +396,99 @@ pub fn mango_withdraw(
     Ok(())
 }
 
+pub fn mango_withdraw_investor(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+) -> Result<(), ProgramError>
+{
+    const NUM_FIXED: usize = 19;
+    let accounts = array_ref![accounts, 0, NUM_FIXED];
+    let [
+        fund_state_ai,      //write
+        investor_state_ai,  //write
+        investor_ai,        //signer
+        mango_prog_ai,      //
+        mango_group_ai,     // read
+        mango_account_ai,   // write
+        fund_pda_ai,           // read
+        mango_cache_ai,     // read
+        usdc_root_bank_ai,       // read
+        usdc_node_bank_ai,       // write
+        usdc_vault_ai,           // write
+        usdc_investor_token_ai,   // write
+        token_root_bank_ai,       // read
+        token_node_bank_ai,       // write
+        token_vault_ai,           // write
+        token_investor_token_ai,   // write
+        signer_ai,          // read
+        token_prog_ai,      // read
+        default_ai
+    ] = accounts;
 
+    let mut fund_data = FundData::load_mut_checked(fund_state_ai, program_id)?;
+    let mut investor_data = InvestorData::load_mut_checked(investor_state_ai, program_id)?;
+
+    check!(investor_data.owner == *investor_ai.key, ProgramError::MissingRequiredSignature);
+    check!(investor_ai.is_signer, ProgramError::MissingRequiredSignature);
+    check_eq!(investor_data.manager, fund_data.manager_account);
+    check!(investor_data.has_withdrawn == true && investor_data.withdrawn_from_margin == false, FundError::InvalidStateAccount);
+    check_eq!(*mango_prog_ai.key, mango_v3_id::ID);
+
+    let open_orders_accs = [Pubkey::default(); MAX_PAIRS];
+    let usdc_quantity:u64 =  U64F64::to_num(investor_data.margin_debt[0]);
+    invoke_signed(
+        &withdraw(mango_prog_ai.key, mango_group_ai.key, mango_account_ai.key, fund_pda_ai.key,
+            mango_cache_ai.key, usdc_root_bank_ai.key, usdc_node_bank_ai.key, usdc_vault_ai.key, usdc_investor_token_ai.key,
+            signer_ai.key, &open_orders_accs, usdc_quantity, false)?,
+        &[
+            mango_prog_ai.clone(),
+            mango_group_ai.clone(),
+            mango_account_ai.clone(),
+            fund_pda_ai.clone(),
+            mango_cache_ai.clone(),
+            usdc_root_bank_ai.clone(),
+            usdc_node_bank_ai.clone(),
+            usdc_vault_ai.clone(),
+            usdc_investor_token_ai.clone(),
+            signer_ai.clone(),
+            default_ai.clone(),
+            token_prog_ai.clone()
+        ],
+        &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
+    )?;
+
+    let token_quantity:u64 =  U64F64::to_num(investor_data.margin_debt[1]);
+    if token_quantity > 0 {
+        invoke_signed(
+            &withdraw(mango_prog_ai.key, mango_group_ai.key, mango_account_ai.key, fund_pda_ai.key,
+                mango_cache_ai.key, token_root_bank_ai.key, token_node_bank_ai.key, token_vault_ai.key, token_investor_token_ai.key,
+                signer_ai.key, &open_orders_accs, usdc_quantity, false)?,
+            &[
+                mango_prog_ai.clone(),
+                mango_group_ai.clone(),
+                mango_account_ai.clone(),
+                fund_pda_ai.clone(),
+                mango_cache_ai.clone(),
+                token_root_bank_ai.clone(),
+                token_node_bank_ai.clone(),
+                token_vault_ai.clone(),
+                token_investor_token_ai.clone(),
+                signer_ai.clone(),
+                default_ai.clone(),
+                token_prog_ai.clone()
+            ],
+            &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
+        )?;
+    }
+    
+    msg!("invoke done");
+
+    investor_data.margin_debt = [ZERO_U64F64; 2];
+    investor_data.withdrawn_from_margin = true;
+    fund_data.mango_positions.investor_debts[0] = fund_data.mango_positions.investor_debts[0].checked_sub(U64F64::to_num(investor_data.margin_debt[0])).unwrap();
+    fund_data.mango_positions.investor_debts[1] = fund_data.mango_positions.investor_debts[1].checked_sub(U64F64::to_num(investor_data.margin_debt[1])).unwrap();
+    Ok(())
+}
 
 // pub fn convert_size_to_lots(
 //     spot_market_acc: &AccountInfo,
