@@ -118,7 +118,7 @@ export const Withdraw = () => {
               { pubkey:  new PublicKey(ids.perpMarkets[marketIndex].asksKey), isSigner: false, isWritable: true },
              )
              perpKeys.push(
-              { pubkey:  new PublicKey(ids.perpMarkets[marketIndex].asksKey), isSigner: false, isWritable: true },
+              { pubkey:  new PublicKey(ids.perpMarkets[marketIndex].eventsKey), isSigner: false, isWritable: true },
              )
           
           } else {
