@@ -364,14 +364,13 @@ export const Withdraw = () => {
     const investerStateAccount = new PublicKey(investorStateAcc);
     const routerAssociatedTokenAddress = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(DEV_TOKENS['USDC'].mintKey), RPDA[0], transaction);
   
-    let investorStateData = await connection.getAccountInfo(investerStateAccount);
-    investorStateData = INVESTOR_DATA.decode(investorStateData.data)
-  
     const investorBaseTokenAccounts = [];
     const fundAssociatedTokenAddresses = []
   
-    const investorTokens = investorStateData.token_indexes;
-    const investorTokenDebts = investorStateData.token_debts;
+    const investorTokens = investments[investmentIndex].token_indexes;
+    console.log("investorTokens:",investorTokens)
+    const investorTokenDebts = investments[investmentIndex].token_debts;
+    console.log("investorTokenDebts:",investorTokenDebts)
   
       const platformDataAcc = await connection.getAccountInfo(platformStateAccount)
       if(!platformDataAcc){
@@ -381,7 +380,7 @@ export const Withdraw = () => {
       const platformState = PLATFORM_DATA.decode(platformDataAcc.data)
       let wsolTokenAccount;
   
-    for (let i = 0; i < investorStateData.token_indexes.length; i++) {
+    for (let i = 0; i < investments[investmentIndex].token_indexes.length; i++) {
   
       // if wsol then save to close account
       if (platformState.token_list[investorTokens[i]]?.mint.toBase58() === DEV_TOKENS.SOL.mintKey && investorTokenDebts[i] > 0) {
@@ -396,7 +395,7 @@ export const Withdraw = () => {
       })
       // const fundAssToken = await createAssociatedTokenAccountIfNotExist(walletProvider, platformState.token_list[investorTokens[i]].mint, new PublicKey(fundPDA), transaction) ;
       fundAssociatedTokenAddresses.push({
-        pubkey: investorTokenDebts[i] > 0 ? await createAssociatedTokenAccountIfNotExist(walletProvider, platformState.token_list[investorTokens[i]].mint, new PublicKey(fundPDA), transaction) : PublicKey.default,
+        pubkey: investorTokenDebts[i] > 0 || i === 0 ? await createAssociatedTokenAccountIfNotExist(walletProvider, platformState.token_list[investorTokens[i]].mint, fundPDA[0], transaction) : PublicKey.default,
         isSigner: false,
         isWritable: true
       })
@@ -410,11 +409,9 @@ export const Withdraw = () => {
       },
       data
     )
-  
-    const instruction = new TransactionInstruction({
-      keys: [
+      const keys = [
         { pubkey: platformStateAccount, isSigner: false, isWritable: true }, //fund State Account
-        { pubkey: new PublicKey(fundStateAccount), isSigner: false, isWritable: true },
+        { pubkey: fundStateAccount, isSigner: false, isWritable: true },
         { pubkey: investerStateAccount, isSigner: false, isWritable: true }, //fund State Account
         { pubkey: key, isSigner: true, isWritable: true },
   
@@ -422,9 +419,17 @@ export const Withdraw = () => {
         { pubkey: fundPDA[0], isSigner: false, isWritable: false },
         { pubkey: RPDA[0], isSigner: false, isWritable: false },
         { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+
         ...investorBaseTokenAccounts,
         ...fundAssociatedTokenAddresses
-      ],
+      ];
+
+    for(let i=0; i<keys.length;i++) {
+      console.log("key:",i, keys[i].pubkey.toBase58())
+    }
+  
+    const instruction = new TransactionInstruction({
+      keys: keys,
       programId,
       data
     });
