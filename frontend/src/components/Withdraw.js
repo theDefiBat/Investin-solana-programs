@@ -192,12 +192,28 @@ export const Withdraw = () => {
 
   }
 
+  const isMangoWithdrawRequired = async () => {
+    
+    const investorStateAcc = investments[investmentIndex].ivnStatePubKey?.toBase58()
+    const investorAddr = investments[investmentIndex].owner?.toBase58()
+    console.log("**----isMangoWithdrawRequired investorStateAcc,investorAddr::",investorStateAcc,investorAddr)
+
+    let investorStateData = await connection.getAccountInfo(investorStateAcc);
+    investorStateData = INVESTOR_DATA.decode(investorStateData.data)
+
+    // const user_other_token_deposit_debt = investorStateData.margin_debt[1]
+
+    // zero debts
+    // IMP but rare senario :: when it gets liquidated after partial withdraw 
+    return ( !investorStateData.margin_debt[0] && !investorStateData.margin_debt[1] ) 
+
+  }
+
   const handleWithdrawFromMango = async ( ) => {
 
     const investorStateAcc = investments[investmentIndex].ivnStatePubKey?.toBase58()
     const investorAddr = investments[investmentIndex].owner?.toBase58()
     console.log("**----handleWithdrawFromMango investorStateAcc,investorAddr::",investorStateAcc,investorAddr)
-
     const key = walletProvider?.publicKey;
     if (!key) {
         alert("connect wallet")
@@ -216,13 +232,8 @@ export const Withdraw = () => {
     let fundStateInfo = await connection.getAccountInfo((fundStateAccount))
     let fundState = FUND_DATA.decode(fundStateInfo.data) 
 
-    const platformDataAcc = await connection.getAccountInfo(platformStateAccount)
-    if(!platformDataAcc){
-      alert('platform state not initilaized');
-      return;
-    }
-    const platformState = PLATFORM_DATA.decode(platformDataAcc.data)
-
+    let investorStateData = await connection.getAccountInfo(investorStateAcc);
+    investorStateData = INVESTOR_DATA.decode(investorStateData.data)
 
     let client = new MangoClient(connection, new PublicKey(ids.mangoProgramId))
     let mangoGroup = await client.getMangoGroup(new PublicKey(ids.publicKey))
@@ -230,43 +241,32 @@ export const Withdraw = () => {
     let usdcnodeBankInfo = await connection.getAccountInfo(new PublicKey(MANGO_TOKENS[0].nodeKeys[0]))
     let usdcnodeBank = NodeBankLayout.decode(usdcnodeBankInfo.data)
 
-      const deposit_index = fundState.mango_positions.deposit_index;
+      const deposit_index = investorStateData.margin_position_id[1];
+      const user_other_token_deposit_debt = investorStateData.margin_debt[1]
       console.log("deposit_index::::",deposit_index)
 
-      const usdcFundtokenAcc = fundState.tokens[0].vault;
-      console.log("usdcfundtokenAcc::::",usdcFundtokenAcc.toBase58())
+      const transaction = new Transaction()
 
+      const usdcInvestorTokenAcc = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(MANGO_TOKENS[0].mintKey), walletProvider.publicKey, transaction)
+      console.log("usdcInvestorTokenAcc::::",usdcInvestorTokenAcc.toBase58())
 
 
     let otherDespoitTokenKeys = [];
-    if (deposit_index !=255) {
+    if (user_other_token_deposit_debt != 0) {
 
       //getting token info if the deposit_index token at mango
       const deposit_index_token_info = MANGO_TOKENS.find( t => t.mangoTokenIndex==deposit_index )
       console.log("deposit_index_token_info:",deposit_index_token_info)
 
-      let fundTokenSlot = -1;
-      for(let i=0; i<fundState.tokens.length;i++){
-        if(platformState.token_list[fundState.tokens[i].index[fundState.tokens[i].mux]]?.mint.toBase58() === deposit_index_token_info.mintKey){
-          fundTokenSlot = i; 
-          break;
-        }
-      }
-      if(fundTokenSlot==-1){
-        alert('token not found on fund');
-        return;
-      }
-     console.log("fundTokenSlot:",fundTokenSlot)
-
-      const despositTokenFundtokenAcc = fundState.tokens[fundTokenSlot].vault;
-      console.log("despositTokenFundtokenAcc::::",despositTokenFundtokenAcc.toBase58())
+      const despositTokenInvestortokenAcc =  await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(deposit_index_token_info.mintKey), walletProvider.publicKey, transaction)
+      console.log("despositTokenInvestortokenAcc::::",despositTokenInvestortokenAcc.toBase58())
 
       let tokennodeBankInfo = await connection.getAccountInfo(new PublicKey(deposit_index_token_info.nodeKeys[0]))
       let tokennodeBank = NodeBankLayout.decode(tokennodeBankInfo.data)
         otherDespoitTokenKeys.push({ pubkey: new PublicKey(deposit_index_token_info.rootKey), isSigner: false, isWritable: false } )
         otherDespoitTokenKeys.push({ pubkey: new PublicKey(deposit_index_token_info.nodeKeys[0]), isSigner: false, isWritable: true } )
         otherDespoitTokenKeys.push({ pubkey: tokennodeBank.vault, isSigner: false, isWritable: true } )
-        otherDespoitTokenKeys.push({ pubkey: despositTokenFundtokenAcc, isSigner: false, isWritable: true } )
+        otherDespoitTokenKeys.push({ pubkey: despositTokenInvestortokenAcc, isSigner: false, isWritable: true } )
     } else {
         otherDespoitTokenKeys.push( { pubkey:PublicKey.default, isSigner: false, isWritable: false  } )
         otherDespoitTokenKeys.push( { pubkey:PublicKey.default, isSigner: false, isWritable: false  } )
@@ -275,40 +275,34 @@ export const Withdraw = () => {
     }
 
 
-
-    const transaction = new Transaction()
-    const dataLayout = struct([u8('instruction'),u8('token_slot_index'),u8('mango_token_index'),nu64('quantity')])
+    const dataLayout = struct([u8('instruction')])
     const data = Buffer.alloc(dataLayout.span)
     dataLayout.encode(
         {
-            instruction: 13,
-            token_slot_index: 0,
-            // mango_token_index: MANGO_TOKENS[lendTokenIndex].mangoTokenIndex,
-            // quantity: lendAmount * 10 ** ids.tokens[lendTokenIndex].decimals
+            instruction: 14,
         },
         data
     )
       
     const keys = [
       { pubkey: fundStateAccount, isSigner: false, isWritable: true },
+      { pubkey: investorStateAcc, isSigner: false, isWritable: true },
       { pubkey: key, isSigner: true, isWritable: true },
-      { pubkey: new PublicKey(ids.mangoProgramId), isSigner: false, isWritable: false },
 
+      { pubkey: new PublicKey(ids.mangoProgramId), isSigner: false, isWritable: false },
       { pubkey: new PublicKey(ids.publicKey), isSigner: false, isWritable: true },
       { pubkey: fundState.mango_positions.mango_account , isSigner: false, isWritable: true },
       { pubkey: fundPDA[0], isSigner: false, isWritable: false },
-
       { pubkey: mangoGroup.mangoCache, isSigner: false, isWritable: false },
 
       { pubkey: new PublicKey(MANGO_TOKENS[0].rootKey), isSigner: false, isWritable: false },
       { pubkey: new PublicKey(MANGO_TOKENS[0].nodeKeys[0]), isSigner: false, isWritable: true },
       { pubkey: usdcnodeBank.vault, isSigner: false, isWritable: true },
-      { pubkey: usdcFundtokenAcc, isSigner: false, isWritable: true }, // Fund Vault
+      { pubkey: usdcInvestorTokenAcc, isSigner: false, isWritable: true }, 
 
       ...otherDespoitTokenKeys,
 
       { pubkey: mangoGroup.signerKey, isSigner: false, isWritable: false },
-
       { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
       { pubkey: PublicKey.default, isSigner: false, isWritable: false },
   ]
