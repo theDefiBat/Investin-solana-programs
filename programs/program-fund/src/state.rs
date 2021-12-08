@@ -191,7 +191,7 @@ pub struct InvestorData {
     pub manager: Pubkey,
 
     // TODO Debt in Depost Tokens on Mango
-    pub margin_debt: [I80F48; NUM_MARGIN],
+    pub margin_debt: [I80F48; NUM_MARGIN], //May need to change back to U64F64 for backwards compatability
 
     // margin position id
     pub margin_position_id: [u64; NUM_MARGIN],

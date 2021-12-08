@@ -63,6 +63,7 @@ pub enum FundInstruction {
 
             // platform_ai,
             // fund_state_ai, [write]
+            // fund_pda_ai,
             // investor_state_ai, [write]
             // investor_ai,
             // mango_account_ai,
