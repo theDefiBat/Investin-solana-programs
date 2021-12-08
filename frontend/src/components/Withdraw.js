@@ -36,8 +36,8 @@ export const Withdraw = () => {
   const [amount, setAmount] = useState(0);
   const [investments, setInvestments] = useState([])
   const [investmentIndex, setInvestmentIndex] = useState(0)
-  const [investorAddr, setInvestorAddr] = useState('')
-  const [investorStateAcc, setInvestorStateAcc] = useState('')
+  // const [investorAddr, setInvestorAddr] = useState('')
+  // const [investorStateAcc, setInvestorStateAcc] = useState('')
 
   
   const handleGetAllInvestments = async () => {
@@ -64,6 +64,9 @@ export const Withdraw = () => {
 
   const handleWithdrawSettle = async () => {
 
+    const investorStateAcc = investments[investmentIndex].ivnStatePubKey?.toBase58()
+    const investorAddr = investments[investmentIndex].owner?.toBase58()
+
     console.log("**----handleWithdrawSettle investorStateAcc,investorAddr::",investorStateAcc,investorAddr)
 
     const key = walletProvider?.publicKey;
@@ -72,55 +75,26 @@ export const Withdraw = () => {
       return;
     };
     const fundPDA = await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId);
-      const fundStateAccount = await PublicKey.createWithSeed(
-          key,
-          FUND_ACCOUNT_KEY,
-          programId,
-      );
-    if (!fundStateAccount) {
-      console.log("no funds found")
-      return
-    }
+    const fundStateAccount = await PublicKey.createWithSeed(
+        key,
+        FUND_ACCOUNT_KEY,
+        programId,
+    );
+    console.log("fundStateAccount:",fundStateAccount.toBase58())
+    let fundStateInfo = await connection.getAccountInfo((fundStateAccount))
+    let fund_data = FUND_DATA.decode(fundStateInfo.data) 
   
-    //getting fresh fund_state of invested fund
-    const accountInfo = await connection.getAccountInfo(new PublicKey(fundStateAccount));
-    const fund_data = FUND_DATA.decode(accountInfo.data);
-  
-      // let margin_account_1 = fund_data.mango_positions[0].margin_account;
-      // let mango_info = await connection.getAccountInfo(MANGO_GROUP_ACCOUNT)
-      // let mango_data = MANGO_GROUP_LAYOUT.decode(mango_info.data)
+   
+    console.log("fund_data:",fund_data)
   
     const transaction = new Transaction()
   
-    // let filt_pools = []
-    // let WSOLWhitelisted = false;
-    // for (let i = 1; i < NUM_TOKENS; i++) {
-    //   if (fund_data.tokens[i].balance > 0) {
-    //     let mint = platformState.token_list[fund_data.tokens[i].index[fund_data.tokens[i].mux]].mint
-    //     if(mint.toBase58() === TOKENS.WSOL.mintAddress){
-    //       WSOLWhitelisted=true;
-    //     }
-    //     if(fund_data.tokens[i].mux === 0){
-    //       let x = pools.find(p => p.coin.mintAddress == mint.toBase58())
-    //       filt_pools.push(x)
-    //     } else {
-    //       let x = orca_pools.find(p => p.coin.mintAddress == mint.toBase58())
-    //       filt_pools.push(x)
-    //     }
-    //   }
-    // }
-     //send WSOL everytime 
-    //  const wsol_usdc_pool = pools.find(p => p.name == 'WSOL-USDC');
-    //  if(!WSOLWhitelisted){
-    //    filt_pools.push(wsol_usdc_pool)
-    //  }
     updatePoolPrices(transaction, devnet_pools)
 
-    // console.log("mangoAccount:: ", mangoAccount)
+    console.log("ids.mangoProgramId:: ", ids.mangoProgramId)
     let client = new MangoClient(connection, new PublicKey(ids.mangoProgramId))
-    // let mangoAcc = await client.getMangoAccount(new PublicKey(mangoAccount), ids.serumProgramId)
-    // console.log("mangoAcc DATA:: ", mangoAcc)
-    let mangoGroup = await client.getMangoGroup(connection, MANGO_GROUP_ACCOUNT)
+    let mangoGroup = await client.getMangoGroup(new PublicKey(ids.publicKey))
+    console.log("mangoGroup.mangoCache :: ", mangoGroup.mangoCache.toBase58())
 
 
     // [      perp_market_ai,     // write default_ai if no perp market for i^th index
@@ -131,15 +105,34 @@ export const Withdraw = () => {
     for(let i=0; i<4;i++){
           const marketIndex = fund_data.mango_positions.perp_markets[0];
           if(marketIndex!=255){
-            perpKeys.push(new PublicKey(ids.perpMarkets[marketIndex].publicKey))
-            perpKeys.push(new PublicKey(ids.perpMarkets[marketIndex].bidsKey))
-            perpKeys.push(new PublicKey(ids.perpMarkets[marketIndex].asksKey))
-            perpKeys.push(new PublicKey(ids.perpMarkets[marketIndex].eventsKey))
+            perpKeys.push(
+              { pubkey:  new PublicKey(ids.perpMarkets[marketIndex].publicKey), isSigner: false, isWritable: true },
+             )
+             perpKeys.push(
+              { pubkey:  new PublicKey(ids.perpMarkets[marketIndex].bidsKey), isSigner: false, isWritable: true },
+             )
+             perpKeys.push(
+              { pubkey:  new PublicKey(ids.perpMarkets[marketIndex].asksKey), isSigner: false, isWritable: true },
+             )
+             perpKeys.push(
+              { pubkey:  new PublicKey(ids.perpMarkets[marketIndex].asksKey), isSigner: false, isWritable: true },
+             )
+          
           } else {
-            perpKeys.push(PublicKey.default)
-            perpKeys.push(PublicKey.default)
-            perpKeys.push(PublicKey.default)
-            perpKeys.push(PublicKey.default)
+
+            perpKeys.push(
+              { pubkey:  PublicKey.default, isSigner: false, isWritable: false },
+             )
+             perpKeys.push(
+              { pubkey:  PublicKey.default, isSigner: false, isWritable: false },
+             )
+             perpKeys.push(
+              { pubkey:  PublicKey.default, isSigner: false, isWritable: false },
+             )
+             perpKeys.push(
+              { pubkey:  PublicKey.default, isSigner: false, isWritable: false },
+             )
+           
           }
     }
   
@@ -154,7 +147,7 @@ export const Withdraw = () => {
 
     const keys = [
       { pubkey: platformStateAccount, isSigner: false, isWritable: true }, //fund State Account
-      { pubkey: new PublicKey(fundStateAccount), isSigner: false, isWritable: true },
+      { pubkey: fundStateAccount, isSigner: false, isWritable: true },
       { pubkey: fundPDA[0], isSigner: false, isWritable: true },
 
       { pubkey: new PublicKey(investorStateAcc), isSigner: false, isWritable: true }, //fund State Account
@@ -195,6 +188,10 @@ export const Withdraw = () => {
   }
 
   const handleWithdrawFromFund =  async () => {
+
+    const investorStateAcc = investments[investmentIndex].ivnStatePubKey?.toBase58()
+    const investorAddr = investments[investmentIndex].owner?.toBase58()
+
 
     console.log("**----handleWithdrawFromFund investorStateAcc::",investorStateAcc)
 
