@@ -419,7 +419,7 @@ export const Withdraw = () => {
         { pubkey: key, isSigner: true, isWritable: true },
   
         { pubkey: routerAssociatedTokenAddress, isSigner: false, isWritable: true }, // Router Base Token Account
-        { pubkey: new PublicKey(fundPDA), isSigner: false, isWritable: false },
+        { pubkey: fundPDA[0], isSigner: false, isWritable: false },
         { pubkey: RPDA[0], isSigner: false, isWritable: false },
         { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
         ...investorBaseTokenAccounts,
