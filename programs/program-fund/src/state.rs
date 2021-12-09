@@ -76,7 +76,6 @@ pub struct PlatformData {
 }
 impl_loadable!(PlatformData);
 
-
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct FundData {
@@ -98,10 +97,6 @@ pub struct FundData {
     /// version info
     pub version: u8,
     pub padding: [u8; 7],
-    // pub signer_nonce: u8,
-    // pub perp_market_index: u8,
-    // pub padding: u8,
-    // pub no_of_investments: u32,
 
     /// Minimum Amount
     pub min_amount: u64,
@@ -191,7 +186,7 @@ pub struct InvestorData {
     pub manager: Pubkey,
 
     // TODO Debt in Depost Tokens on Mango
-    pub margin_debt: [I80F48; NUM_MARGIN], //May need to change back to U64F64 for backwards compatability
+    pub margin_debt: [U64F64; NUM_MARGIN], 
 
     // margin position id
     pub margin_position_id: [u64; NUM_MARGIN],
@@ -200,8 +195,9 @@ pub struct InvestorData {
     pub token_indexes: [u8; NUM_TOKENS],
     pub token_debts: [u64; NUM_TOKENS],
 
+    pub has_withdrawn_from_fund: bool,
     // padding for future use
-    pub xpadding: [u8; 32] 
+    pub xpadding: [u8; 31] 
 }
 impl_loadable!(InvestorData);
 
