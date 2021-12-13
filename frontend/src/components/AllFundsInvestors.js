@@ -80,6 +80,12 @@ export const AllFundsInvestors = () => {
                 fundPDA: decodedData.fund_pda.toBase58(),
                 fundManager: decodedData.manager_account.toBase58(),
                 fundStateAccount: data.pubkey.toBase58(),
+                mango_acc1 : decodedData.mango_positions[0].margin_account.toBase58(),
+                trade_amount1 : decodedData.mango_positions[0].trade_amount.toString(),
+                debtors1 :  decodedData.mango_positions[0].debtors.toString(),
+                mango_acc2 : decodedData.mango_positions[1].margin_account.toBase58(),
+                trade_amount2 : decodedData.mango_positions[1].trade_amount.toString(),
+                debtors2 :  decodedData.mango_positions[1].debtors.toString(),
                 // fundName: decodedData.fund_pda.toBase58(),
                 // totalAmount: (new TokenAmount(decodedData.total_amount, TOKENS.USDC.decimals)).toEther().toNumber(),
                 // currentPerformance: decodedData.number_of_active_investments == 0 ?
@@ -183,6 +189,12 @@ export const AllFundsInvestors = () => {
                               <th style={{ width: "15%" }}>fundStateAccount</th>
                               {/* <th style={{ width: "15%" }}>amount</th>
                               <th style={{ width: "15%" }}>amount_in_router</th> */}
+                              <th style={{ width: "15%" }}>mango_acc1</th>
+                              <th style={{ width: "15%" }}>trade_amount1</th>
+                              <th style={{ width: "15%" }}>debtors1</th>
+                              <th style={{ width: "15%" }}>mango_acc2</th>
+                              <th style={{ width: "15%" }}>trade_amount2</th>
+                              <th style={{ width: "15%" }}>debtors2</th>
                             </tr>
                           </thead>
 
@@ -199,7 +211,12 @@ export const AllFundsInvestors = () => {
                  <td >{i?.fundStateAccount}</td>
                  {/* <td>{i?.amount?.toString()/10**6}</td>
                  <td>{i?.amount_in_router?.toString()/10**6}</td> */}
-               
+                <td >{i?.mango_acc1}</td>
+                 <td >{i?.trade_amount1}</td>
+                 <td >{i?.debtors1}</td>
+                 <td >{i?.mango_acc2}</td>
+                 <td >{i?.trade_amount2}</td>
+                 <td >{i?.debtors2}</td>
                </tr>
             })
           }
