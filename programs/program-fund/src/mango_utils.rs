@@ -72,9 +72,9 @@ pub fn init_mango_account(
 pub mod mango_v3_id {
     use solana_program::declare_id;
     // #[cfg(feature = "devnet")]
-    declare_id!("4skJ85cdxQAFVKbcGgfun8iZPL7BadVYXG3kGEGkufqA");
+    // declare_id!("4skJ85cdxQAFVKbcGgfun8iZPL7BadVYXG3kGEGkufqA");
     // #[cfg(not(feature = "devnet"))]
-    // declare_id!("mv3ekLzLbnVPNxjSKvqBpU3ZeZXPQdEC3bp5MDEBG68");
+    declare_id!("mv3ekLzLbnVPNxjSKvqBpU3ZeZXPQdEC3bp5MDEBG68");
 }
 
 pub fn mango_init_mango_account(
@@ -214,12 +214,6 @@ pub fn mango_place_perp_order(
     ] = accounts;
 
     let mut fund_data = FundData::load_mut_checked(fund_state_ai, program_id)?;
-    //Check for perp_market_id matches derived from ai 
-    //Check for perp_market_id already active on fund/add perp_market if markets_active < 4
-    //Check if its close on full amount, if yes remove from active perp_markets on funds --> END
-    //Base_position + taker_base and quote_position and taker_quote should both be considered
-    //Settle PnL to be executed right after place_perp_order...
-
     //Check for Mango v3 ID 
     check_eq!(*mango_prog_ai.key, mango_v3_id::ID);
     check!(manager_ai.is_signer, ProgramError::MissingRequiredSignature);
@@ -266,13 +260,11 @@ pub fn mango_place_perp_order(
             fund_data.mango_positions.perp_markets[fund_perp_makret_index.unwrap() as usize] = u8::MAX;
         }
     }
+    //Settle PnL to be executed right after place_perp_order...
+
     Ok(())
 
 }
-
-
-
-
 
 //TODO::Update!!!
 pub fn mango_settle_pnl(
@@ -352,7 +344,9 @@ pub fn mango_withdraw(
     //Check for Mango v3 ID 
     check_eq!(*mango_prog_ai.key, mango_v3_id::ID);
 
+    check_eq!(fund_data.tokens[token_slot_index as usize].vault, *fund_token_ai.key);
 
+    
     // check_eq!(mango_group.tokens[mango_token_index].root_bank, )
     check!((fund_data.manager_account == *manager_ai.key), FundError::ManagerMismatch);
     
@@ -387,8 +381,16 @@ pub fn mango_withdraw(
     // let mango_group = MangoGroup::load_checked(mango_group_ai, mango_prog_ai.key)?;
 
     let mango_account = MangoAccount::load_checked(mango_account_ai, mango_prog_ai.key, mango_group_ai.key)?;
-    if(mango_account.deposits[mango_token_index as usize] == 0){
-        fund_data.mango_positions.deposit_index = u8::MAX;
+    
+    let deposits_after = mango_account.deposits[mango_token_index as usize];
+    if mango_token_index as usize != QUOTE_INDEX {
+        check!(deposits_after >= fund_data.mango_positions.investor_debts[1] , FundError::InvalidAmount);
+        if deposits_after == 0 {
+            fund_data.mango_positions.deposit_index = u8::MAX;
+            fund_data.tokens[token_slot_index as usize].is_on_mango = 0;
+        }
+    } else {
+        check!(deposits_after >= fund_data.mango_positions.investor_debts[0] , FundError::InvalidAmount);
     }
     
     // fund_data.tokens[0].balance = parse_token_account(fund_token_ai)?.amount;
@@ -482,11 +484,10 @@ pub fn mango_withdraw_investor(
     }
     
     msg!("invoke done");
-
-    investor_data.margin_debt = [ZERO_U64F64; 2];
-    investor_data.withdrawn_from_margin = true;
     fund_data.mango_positions.investor_debts[0] = fund_data.mango_positions.investor_debts[0].checked_sub(U64F64::to_num(investor_data.margin_debt[0])).unwrap();
     fund_data.mango_positions.investor_debts[1] = fund_data.mango_positions.investor_debts[1].checked_sub(U64F64::to_num(investor_data.margin_debt[1])).unwrap();
+    investor_data.margin_debt = [ZERO_U64F64; 2];
+    investor_data.withdrawn_from_margin = true;
     Ok(())
 }
 
