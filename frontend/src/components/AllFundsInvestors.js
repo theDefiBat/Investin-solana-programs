@@ -17,7 +17,7 @@ export const AllFundsInvestors = () => {
 
   const handleGetAllInvestments = async () => {
 
-     const userkey = new PublicKey('zRzdC1b2zJte4rMjfaSFZwbnBfL1kNYaTAF4UC4bqpx');
+     const userkey = new PublicKey('FFcfJ3QqPHReUkdhnqCws7dDDhHPuwZyiCDiYVr49NEb');
     let investments = await connection.getProgramAccounts(programId, { filters: [
       { dataSize: INVESTOR_DATA.span },
       {
@@ -129,10 +129,10 @@ export const AllFundsInvestors = () => {
                               <th style={{ width: "15%" }}>is_initialized</th>
                               <th style={{ width: "15%" }}>has_withdrawn</th>
                               <th style={{ width: "15%" }}>withdrawn_from_margin</th>
-
                               <th style={{ width: "15%" }}>margin_debt</th>
                               <th style={{ width: "15%" }}>margin_position_id</th>
-                              <th style={{ width: "15%" }}>8TokensIndexsAndDebts</th>
+                              <th style={{ width: "15%" }}>token_debts</th> 
+                              <th style={{ width: "15%" }}>token_indexes</th> 
 
                             </tr>
                           </thead>
@@ -159,10 +159,13 @@ export const AllFundsInvestors = () => {
                  <td>{`${i?.margin_debt[0]} <==>  ${i?.margin_debt[1]}`}</td>
                  <td>{`${i?.margin_position_id[0]} <==>  ${i?.margin_position_id[1]}`}</td>
 
-                 <td>8TokensIndexsAndDebts</td>
+                 <td>{i?.token_debts.toString()}</td>
+                 <td>{i?.token_indexes.toString()}</td>
+
                </tr>
             })
           }
+        
             </tbody>
           </Table>
 
@@ -185,7 +188,7 @@ export const AllFundsInvestors = () => {
                             <tr>
                               <th style={{ width: "15%" }}>index</th>
                               <th style={{ width: "15%" }}>fundManager</th>
-                              <th style={{ width: "15%" }}>fundPDA</th>
+                              <th style={{ width: "15%" }}>fundAddress</th>
                               <th style={{ width: "15%" }}>fundStateAccount</th>
                               {/* <th style={{ width: "15%" }}>amount</th>
                               <th style={{ width: "15%" }}>amount_in_router</th> */}
@@ -204,6 +207,9 @@ export const AllFundsInvestors = () => {
             funds && 
 
             funds.map((i,x)=>{
+              // if(i?.trade_amount1==0 && i?.trade_amount2==0){
+              //   return <></>
+              // }
                return <tr key={x}>
                  <td >{x}</td>
                  <td >{i?.fundManager}</td>
