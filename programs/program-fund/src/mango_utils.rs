@@ -28,7 +28,7 @@ use arrayref::{array_ref, array_refs};
 use crate::error::FundError;
 use crate::state::{MAX_INVESTORS_WITHDRAW, NUM_MARGIN, FundData, InvestorData};
 use crate::state::Loadable;
-use crate::processor::{ parse_token_account };
+use crate::processor::{ parse_token_account, close_investor_account };
 
 use mango::state::{MangoAccount, MangoGroup, MangoCache, MAX_PAIRS, QUOTE_INDEX};
 // use mango::state::Loadable as OtherLoadable;
@@ -385,7 +385,7 @@ pub fn mango_withdraw(
     let deposits_after = mango_account.deposits[mango_token_index as usize];
     if mango_token_index as usize != QUOTE_INDEX {
         check!(deposits_after >= fund_data.mango_positions.investor_debts[1] , FundError::InvalidAmount);
-        if deposits_after == 0 {
+        if deposits_after < 0.00001 {
             fund_data.mango_positions.deposit_index = u8::MAX;
             fund_data.tokens[token_slot_index as usize].is_on_mango = 0;
         }
@@ -438,26 +438,28 @@ pub fn mango_withdraw_investor(
 
     let open_orders_accs = [Pubkey::default(); MAX_PAIRS];
     let usdc_quantity:u64 =  U64F64::to_num(investor_data.margin_debt[0]);
-    invoke_signed(
-        &withdraw(mango_prog_ai.key, mango_group_ai.key, mango_account_ai.key, fund_pda_ai.key,
-            mango_cache_ai.key, usdc_root_bank_ai.key, usdc_node_bank_ai.key, usdc_vault_ai.key, usdc_investor_token_ai.key,
-            signer_ai.key, &open_orders_accs, usdc_quantity, false)?,
-        &[
-            mango_prog_ai.clone(),
-            mango_group_ai.clone(),
-            mango_account_ai.clone(),
-            fund_pda_ai.clone(),
-            mango_cache_ai.clone(),
-            usdc_root_bank_ai.clone(),
-            usdc_node_bank_ai.clone(),
-            usdc_vault_ai.clone(),
-            usdc_investor_token_ai.clone(),
-            signer_ai.clone(),
-            default_ai.clone(),
-            token_prog_ai.clone()
-        ],
-        &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
-    )?;
+    if usdc_quantity > 0 {
+        invoke_signed(
+            &withdraw(mango_prog_ai.key, mango_group_ai.key, mango_account_ai.key, fund_pda_ai.key,
+                mango_cache_ai.key, usdc_root_bank_ai.key, usdc_node_bank_ai.key, usdc_vault_ai.key, usdc_investor_token_ai.key,
+                signer_ai.key, &open_orders_accs, usdc_quantity, false)?,
+            &[
+                mango_prog_ai.clone(),
+                mango_group_ai.clone(),
+                mango_account_ai.clone(),
+                fund_pda_ai.clone(),
+                mango_cache_ai.clone(),
+                usdc_root_bank_ai.clone(),
+                usdc_node_bank_ai.clone(),
+                usdc_vault_ai.clone(),
+                usdc_investor_token_ai.clone(),
+                signer_ai.clone(),
+                default_ai.clone(),
+                token_prog_ai.clone()
+            ],
+            &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
+        )?;
+    }
 
     let token_quantity:u64 =  U64F64::to_num(investor_data.margin_debt[1]);
     if token_quantity > 0 {
@@ -488,6 +490,14 @@ pub fn mango_withdraw_investor(
     fund_data.mango_positions.investor_debts[1] = fund_data.mango_positions.investor_debts[1].checked_sub(U64F64::to_num(investor_data.margin_debt[1])).unwrap();
     investor_data.margin_debt = [ZERO_U64F64; 2];
     investor_data.withdrawn_from_margin = true;
+    if investor_data.has_withdrawn_from_fund == true {
+        investor_data.amount = 0;
+        investor_data.start_performance = U64F64!(0);
+        investor_data.amount_in_router = 0;
+        investor_data.has_withdrawn = false;
+        investor_data.is_initialized = false;
+        close_investor_account(investor_ai, investor_state_ai)?;
+    }
     Ok(())
 }
 
