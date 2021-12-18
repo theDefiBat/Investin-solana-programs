@@ -334,11 +334,11 @@ impl Fund {
             &mango_cache_ai,
             &mango_prog_ai
         )?;
-        let mango_val = usdc_deposits.checked_add(token_deposits_val).unwrap().checked_add(perp_pnl).unwrap();
+        let mango_val = U64F64::from_fixed(usdc_deposits.checked_add(token_deposits_val).unwrap().checked_add(perp_pnl).unwrap());
         update_amount_and_performance(
             &platform_data,
             &mut fund_data,
-            U64F64::from_fixed(mango_val),
+            mango_val,
             true
         )?;
 
@@ -436,7 +436,7 @@ impl Fund {
         update_amount_and_performance(
             &platform_data,
             &mut fund_data,
-            U64F64::from_fixed(mango_val),
+            mango_val,
             false
         )?;
         
@@ -597,23 +597,16 @@ impl Fund {
                 &mango_cache_ai,
                 &mango_prog_ai
             )?;
-            let mango_val = usdc_deposits_before.checked_add(token_deposits_val_before).unwrap().checked_add(perp_pnl_before).unwrap();
+            let mango_val_before = U64F64::from_fixed(usdc_deposits_before.checked_add(token_deposits_val_before).unwrap().checked_add(perp_pnl_before).unwrap());
+            msg!("pnl: {:?}, val: {:?}", perp_pnl_before, mango_val_before);
             update_amount_and_performance(
                 &platform_data,
                 &mut fund_data,
-                U64F64::from_fixed(mango_val),
+                mango_val_before,
                 true
             )?;
             let share = get_share(&mut fund_data, &mut investor_data)?;
             msg!("share {:?}", share);
-            if perp_pnl_before < 0 {
-                let pnl_ratio = get_pnl_ratio(mango_val, usdc_deposits_before.checked_add(token_deposits_val_before).unwrap())?;
-                msg!("pnl -ve {:?}", pnl_ratio);
-                usdc_deposits_before = usdc_deposits_before.checked_mul(pnl_ratio).unwrap();
-                token_deposits_before = token_deposits_before.checked_mul(pnl_ratio).unwrap();
-            } else {
-                usdc_deposits_before = usdc_deposits_before.checked_add(perp_pnl_before).unwrap();
-            }
             for i in 0..NUM_TOKENS {
                 let mut withdraw_amount: u64 = U64F64::to_num(
                     U64F64::from_num(fund_data.tokens[i].balance-fund_data.tokens[i].debt)
@@ -629,15 +622,7 @@ impl Fund {
                 fund_data.tokens[i].debt += withdraw_amount;
                 check!(fund_data.tokens[i].balance >= fund_data.tokens[i].debt, ProgramError::InvalidAccountData);
             }
-            if mango_val > 0 {
-                msg!("usdc {:?}, tok {:?}", usdc_deposits_before, token_deposits_before);
-                investor_data.margin_position_id[0] = QUOTE_INDEX as u64;
-                investor_data.margin_position_id[1] = fund_data.mango_positions.deposit_index as u64;
-                investor_data.margin_debt[0] = U64F64::from_fixed(usdc_deposits_before.checked_mul(I80F48::from_fixed(share)).unwrap());
-                investor_data.margin_debt[1] = U64F64::from_fixed(token_deposits_before.checked_mul(I80F48::from_fixed(share)).unwrap());
-                msg!("investor debts: {:?}", investor_data.margin_debt);
-                fund_data.mango_positions.investor_debts[0] = fund_data.mango_positions.investor_debts[0].checked_add(U64F64::to_num(investor_data.margin_debt[0])).unwrap();
-                fund_data.mango_positions.investor_debts[1] = fund_data.mango_positions.investor_debts[1].checked_add(U64F64::to_num(investor_data.margin_debt[1])).unwrap();
+            if mango_val_before > 0 {
                 let mut perp_vals: [i64; 4] = get_perp_vals(&fund_data, &mango_account_ai, &mango_prog_ai, &mango_group_ai).unwrap();
                 msg!("closing perps: {:?}", perp_vals);
                 for i in 0..4 {
@@ -679,8 +664,26 @@ impl Fund {
                 }
                 
             }
+            msg!("usdc {:?}, tok {:?}", usdc_deposits_before, token_deposits_before);
+            if perp_pnl_before < 0 {
+                let pnl_ratio:U64F64 = mango_val_before.checked_div(U64F64::from_num(
+                    usdc_deposits_before.checked_add(token_deposits_val_before).unwrap()
+                )).unwrap();
+                msg!("pnl -ve {:?}", pnl_ratio);
+                usdc_deposits_before = usdc_deposits_before.checked_mul(I80F48::from_fixed(pnl_ratio)).unwrap();
+                token_deposits_before = token_deposits_before.checked_mul(I80F48::from_fixed(pnl_ratio)).unwrap();
+            } else {
+                usdc_deposits_before = usdc_deposits_before.checked_add(perp_pnl_before).unwrap();
+            }
 
-
+            msg!("usdc* {:?}, tok* {:?}", usdc_deposits_before, token_deposits_before);
+            investor_data.margin_position_id[0] = QUOTE_INDEX as u64;
+            investor_data.margin_position_id[1] = fund_data.mango_positions.deposit_index as u64;
+            investor_data.margin_debt[0] = U64F64::from_fixed(usdc_deposits_before.checked_mul(I80F48::from_fixed(share)).unwrap());
+            investor_data.margin_debt[1] = U64F64::from_fixed(token_deposits_before.checked_mul(I80F48::from_fixed(share)).unwrap());
+            msg!("investor debts: {:?}", investor_data.margin_debt);
+            fund_data.mango_positions.investor_debts[0] = fund_data.mango_positions.investor_debts[0].checked_add(U64F64::to_num(investor_data.margin_debt[0])).unwrap();
+            fund_data.mango_positions.investor_debts[1] = fund_data.mango_positions.investor_debts[1].checked_add(U64F64::to_num(investor_data.margin_debt[1])).unwrap();
             fund_data.number_of_active_investments -= 1;
             fund_data.no_of_investments -= 1;
             investor_data.has_withdrawn = true;
@@ -691,28 +694,30 @@ impl Fund {
                 &mango_cache_ai,
                 &mango_prog_ai
             )?;
-            let mango_val = U64F64::from_fixed(usdc_deposits_after.checked_add(token_deposits_val_after).unwrap().checked_add(perp_pnl_after).unwrap());
+            // let mut mango_val_after = U64F64::from_fixed(usdc_deposits_after.checked_add(token_deposits_val_after).unwrap().checked_add(perp_pnl_after).unwrap());
+            msg!("*pnl: {:?}", perp_pnl_after);
+            let pnl_diff = perp_pnl_before.checked_sub(perp_pnl_after).unwrap();
+            let mut mango_val_after = mango_val_before.checked_mul(ONE_U64F64.checked_sub).unwrap():
+            msg!("pnl_diff {:?}", pnl_diff);
+            if pnl_diff > 0 {
+                mango_val_after = mango_val_after.checked_add(U64F64::from_num(pnl_diff)).unwrap();
+                let pnl_diff_ratio:U64F64 = U64F64::from_fixed(pnl_diff).checked_div(mango_val_before).unwrap();
+                let fund_usdc_comp = investor_data.margin_debt[0].checked_mul(pnl_diff_ratio).unwrap();
+                investor_data.margin_debt[0] = investor_data.margin_debt[0].checked_sub(fund_usdc_comp).unwrap();
+                fund_data.mango_positions.investor_debts[0] = fund_data.mango_positions.investor_debts[0].checked_sub(U64F64::to_num(fund_usdc_comp)).unwrap();
+                let fund_token_comp = investor_data.margin_debt[1].checked_mul(pnl_diff_ratio).unwrap();
+                investor_data.margin_debt[1] = investor_data.margin_debt[1].checked_sub(fund_token_comp).unwrap();
+                fund_data.mango_positions.investor_debts[1] = fund_data.mango_positions.investor_debts[1].checked_sub(U64F64::to_num(fund_token_comp)).unwrap();
+                msg!("investor debts: {:?}", investor_data.margin_debt);
+            }
+
+            
             update_amount_and_performance(
                 &platform_data,
                 &mut fund_data,
-                mango_val,
+                mango_val_after,
                 false
             )?;
-            // if perp_pnl_before > perp_pnl_after {
-            //     *Pending*
-            //     update_settle_amounts(
-            //         &mut fund_data,
-            //         &mut investor_data,
-            //         usdc_deposits_before,
-            //         usdc_deposits_after,
-            //         token_deposits_before,
-            //         token_deposits_after
-            //     );
-            // }
-            msg!("investor: {:?}", investor_data.margin_debt);
-            if true {
-                return Err(ProgramError::AccountAlreadyInitialized)
-            }
             //investor_data.margin_debt[0] = investor_data.margin_debt[0].checked_add(usdc_deposits_after.checked_sub(usdc_deposits_before).unwrap()).unwrap();
         }
         Ok(())
@@ -885,7 +890,7 @@ impl Fund {
         update_amount_and_performance(
             &platform_data,
             &mut fund_data,
-            U64F64::from_fixed(mango_val),
+            mango_val,
             false
         )?;
 
@@ -1539,9 +1544,6 @@ pub fn get_perp_vals(
     Ok(perp_vals)
 }
 
-pub fn get_pnl_ratio(mango_val: I80F48, deposits_val: I80F48)-> Result<I80F48, ProgramError> {
-    Ok(I80F48::from_num(mango_val).checked_div(I80F48::from_num(deposits_val)).unwrap())
-}
 
 pub fn update_settle_amounts(
     fund_data: &mut FundData,

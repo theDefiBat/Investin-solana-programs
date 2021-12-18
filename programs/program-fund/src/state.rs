@@ -217,7 +217,11 @@ pub struct MangoInfo {
 }
 impl_loadable!(MangoInfo);
 
-
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct MangoAccountValue {
+    pub pnl: I80F48
+}
 impl Sealed for InvestorData {}
 impl IsInitialized for InvestorData {
     fn is_initialized(&self) -> bool {
