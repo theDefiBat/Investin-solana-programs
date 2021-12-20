@@ -29,7 +29,9 @@ use crate::error::FundError;
 use crate::state::{MAX_INVESTORS_WITHDRAW, NUM_MARGIN, FundData, InvestorData};
 use crate::state::Loadable;
 use crate::processor::{ parse_token_account, close_investor_account };
-
+use serum_dex::state::MarketState;
+use serum_dex::instruction::{NewOrderInstructionV3, SelfTradeBehavior};
+use serum_dex::matching::{Side as SerumSide, OrderType as SerumOrderType};
 use mango::state::{MangoAccount, MangoGroup, MangoCache, MAX_PAIRS, QUOTE_INDEX};
 // use mango::state::Loadable as OtherLoadable;
 use mango::instruction::{deposit, withdraw, place_perp_order, settle_pnl, MangoInstruction};
@@ -50,6 +52,73 @@ macro_rules! check_eq {
             return Err(FundError::Default.into())
         }
     }
+}
+
+pub fn place_spot_order2(
+    program_id: &Pubkey,
+    mango_group_pk: &Pubkey,
+    mango_account_pk: &Pubkey,
+    owner_pk: &Pubkey,
+    mango_cache_pk: &Pubkey,
+    dex_prog_pk: &Pubkey,
+    spot_market_pk: &Pubkey,
+    bids_pk: &Pubkey,
+    asks_pk: &Pubkey,
+    dex_request_queue_pk: &Pubkey,
+    dex_event_queue_pk: &Pubkey,
+    dex_base_pk: &Pubkey,
+    dex_quote_pk: &Pubkey,
+    base_root_bank_pk: &Pubkey,
+    base_node_bank_pk: &Pubkey,
+    base_vault_pk: &Pubkey,
+    quote_root_bank_pk: &Pubkey,
+    quote_node_bank_pk: &Pubkey,
+    quote_vault_pk: &Pubkey,
+    signer_pk: &Pubkey,
+    dex_signer_pk: &Pubkey,
+    msrm_or_srm_vault_pk: &Pubkey,
+    open_orders_pks: &[Pubkey],
+    order: serum_dex::instruction::NewOrderInstructionV3,
+) -> Result<Instruction, ProgramError> {
+    let mut accounts = vec![
+        AccountMeta::new_readonly(*mango_group_pk, false),
+        AccountMeta::new(*mango_account_pk, false),
+        AccountMeta::new_readonly(*owner_pk, true),
+        AccountMeta::new_readonly(*mango_cache_pk, false),
+        AccountMeta::new_readonly(*dex_prog_pk, false),
+        AccountMeta::new(*spot_market_pk, false),
+        AccountMeta::new(*bids_pk, false),
+        AccountMeta::new(*asks_pk, false),
+        AccountMeta::new(*dex_request_queue_pk, false),
+        AccountMeta::new(*dex_event_queue_pk, false),
+        AccountMeta::new(*dex_base_pk, false),
+        AccountMeta::new(*dex_quote_pk, false),
+        AccountMeta::new_readonly(*base_root_bank_pk, false),
+        AccountMeta::new(*base_node_bank_pk, false),
+        AccountMeta::new(*base_vault_pk, false),
+        AccountMeta::new_readonly(*quote_root_bank_pk, false),
+        AccountMeta::new(*quote_node_bank_pk, false),
+        AccountMeta::new(*quote_vault_pk, false),
+        AccountMeta::new_readonly(spl_token::ID, false),
+        AccountMeta::new_readonly(*signer_pk, false),
+        AccountMeta::new_readonly(solana_program::sysvar::rent::ID, false),
+        AccountMeta::new_readonly(*dex_signer_pk, false),
+        AccountMeta::new_readonly(*msrm_or_srm_vault_pk, false),
+    ];
+
+    accounts.extend(open_orders_pks.iter().map(
+        |pk| 
+        if *pk == Pubkey::default(){
+            AccountMeta::new_readonly(*pk, false)
+        } else {
+            AccountMeta::new(*pk, false)
+        })
+    );
+
+    let instr = MangoInstruction::PlaceSpotOrder2 { order };
+    let data = instr.pack();
+
+    Ok(Instruction { program_id: *program_id, accounts, data })
 }
 
 pub fn init_mango_account(
@@ -398,11 +467,143 @@ pub fn mango_withdraw(
     Ok(())
 }
 
+pub fn mango_place_spot_order2(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    side: u8,
+    price: u64,
+    trade_size: u64
+) -> Result<(), ProgramError> {
+    const NUM_FIXED: usize = 25;
+    let (fixed_ais, packed_open_orders_ais) = array_refs![accounts, NUM_FIXED; ..;];
+    let [
+        fund_state_ai,
+        fund_pda_ai,
+        manager_ai,
+        mango_prog_ai,
+        mango_group_ai,         // read
+        mango_account_ai,       // write
+        mango_cache_ai,         // read
+        dex_prog_ai,            // read
+        spot_market_ai,         // write
+        bids_ai,                // write
+        asks_ai,                // write
+        dex_request_queue_ai,   // write
+        dex_event_queue_ai,     // write
+        dex_base_ai,            // write
+        dex_quote_ai,           // write
+        base_root_bank_ai,      // read
+        base_node_bank_ai,      // write
+        base_vault_ai,          // write
+        quote_root_bank_ai,     // read
+        quote_node_bank_ai,     // write
+        quote_vault_ai,         // write
+        token_prog_ai,          // read
+        signer_ai,              // read
+        dex_signer_ai,          // read
+        msrm_or_srm_vault_ai,   // read
+    ] = fixed_ais;
+
+    let fund_data = FundData::load_mut_checked(fund_state_ai, program_id)?;
+    check!(fund_data.is_initialized, ProgramError::InvalidAccountData);
+    check!(manager_ai.is_signer, ProgramError::MissingRequiredSignature);
+    check!(fund_data.mango_positions.mango_account != Pubkey::default(), FundError::MangoNotInitialized);
+    //Check for Mango v3 ID 
+    check_eq!(*mango_prog_ai.key, mango_v3_id::ID);
+    //TODO Check for qotue params to match USDC
+        
+    let coin_lots = convert_size_to_lots(spot_market_ai, dex_prog_ai.key, trade_size, false)?;
+    msg!("coin_lots:: {:?} ", coin_lots);
+
+    let pc_qty = convert_size_to_lots(spot_market_ai, dex_prog_ai.key, trade_size * price, true)?;
+    msg!("pc_qty:: {:?}", pc_qty);
+    let fee_rate:U64F64 = U64F64!(0.0022); // fee_bps = 22; BASE
+
+    let exact_fee: u64 = U64F64::to_num(fee_rate.checked_mul(U64F64::from_num(pc_qty)).unwrap());
+
+    let pc_qty_including_fees = pc_qty + exact_fee;
+    msg!("pc_qty:: {:?}", pc_qty_including_fees);
+
+    let order_side = serum_dex::matching::Side::try_from_primitive(side.try_into().unwrap()).unwrap();
+
+    let order = NewOrderInstructionV3 {
+        side: order_side,
+        limit_price: NonZeroU64::new(price).unwrap(),
+        max_coin_qty: NonZeroU64::new(coin_lots).unwrap(),
+        max_native_pc_qty_including_fees: NonZeroU64::new(pc_qty_including_fees).unwrap(),
+        order_type: SerumOrderType::ImmediateOrCancel,
+        client_order_id: 1,
+        self_trade_behavior: SelfTradeBehavior::AbortTransaction,
+        limit: 65535,
+    };
+
+        invoke_signed(
+            &place_spot_order2(
+                mango_prog_ai.key,
+                mango_group_ai.key, 
+                mango_account_ai.key, 
+                fund_pda_ai.key, 
+                mango_cache_ai.key, 
+                dex_prog_ai.key, 
+                spot_market_ai.key, 
+                bids_ai.key, 
+                asks_ai.key, 
+                dex_request_queue_ai.key, 
+                dex_event_queue_ai.key, 
+                dex_base_ai.key, 
+                dex_quote_ai.key, 
+                base_root_bank_ai.key, 
+                base_node_bank_ai.key, 
+                base_vault_ai.key, 
+                quote_root_bank_ai.key, 
+                quote_node_bank_ai.key, 
+                quote_vault_ai.key, 
+                signer_ai.key, 
+                dex_signer_ai.key, 
+                msrm_or_srm_vault_ai.key, 
+                &[*packed_open_orders_ais[0].key,
+                *packed_open_orders_ais[1].key,
+                *packed_open_orders_ais[2].key,
+                *packed_open_orders_ais[3].key],
+                order)?,
+            &[
+                mango_prog_ai.clone(),
+                mango_group_ai.clone(), 
+                mango_account_ai.clone(), 
+                fund_pda_ai.clone(), 
+                mango_cache_ai.clone(), 
+                dex_prog_ai.clone(), 
+                spot_market_ai.clone(), 
+                bids_ai.clone(), 
+                asks_ai.clone(), 
+                dex_request_queue_ai.clone(), 
+                dex_event_queue_ai.clone(), 
+                dex_base_ai.clone(), 
+                dex_quote_ai.clone(), 
+                base_root_bank_ai.clone(), 
+                base_node_bank_ai.clone(), 
+                base_vault_ai.clone(), 
+                quote_root_bank_ai.clone(), 
+                quote_node_bank_ai.clone(), 
+                quote_vault_ai.clone(), 
+                signer_ai.clone(), 
+                dex_signer_ai.clone(), 
+                msrm_or_srm_vault_ai.clone(), 
+                packed_open_orders_ais[0].clone(),
+                packed_open_orders_ais[1].clone(),
+                packed_open_orders_ais[2].clone(),
+                packed_open_orders_ais[3].clone(),
+            ],
+            &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
+        )?;
+
+    Ok(())
+}
+
 pub fn mango_withdraw_investor(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
-) -> Result<(), ProgramError>
-{
+) -> Result<(), ProgramError> {
     const NUM_FIXED: usize = 19;
     let accounts = array_ref![accounts, 0, NUM_FIXED];
     let [
@@ -500,6 +701,21 @@ pub fn mango_withdraw_investor(
         close_investor_account(investor_ai, investor_state_ai)?;
     }
     Ok(())
+}
+
+pub fn convert_size_to_lots(
+    spot_market_acc: &AccountInfo,
+    dex_program_id: &Pubkey,
+    size: u64,
+    pc: bool
+) -> Result <u64, ProgramError> {
+    let market = MarketState::load(spot_market_acc, dex_program_id)?;
+    if pc {
+        Ok(size * market.pc_lot_size / market.coin_lot_size)
+    }
+    else {
+        Ok(size / market.coin_lot_size)
+    }
 }
 
 // pub fn convert_size_to_lots(

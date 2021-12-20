@@ -269,37 +269,40 @@ pub enum FundInstruction {
     MangoWithdrawInvestor,
 
     /// Place an order on the Serum Dex and settle funds from the open orders account
+    ///fund_state_ai,
+    // fund_pda_ai,
+    // manager_ai,
+    // mango_prog_ai,
+    // mango_group_ai,         // read
+    // mango_account_ai,       // write
+    // owner_ai,               // read & signer
+    // mango_cache_ai,         // read
+    // dex_prog_ai,            // read
+    // spot_market_ai,         // write
+    // bids_ai,                // write
+    // asks_ai,                // write
+    // dex_request_queue_ai,   // write
+    // dex_event_queue_ai,     // write
+    // dex_base_ai,            // write
+    // dex_quote_ai,           // write
+    // base_root_bank_ai,      // read
+    // base_node_bank_ai,      // write
+    // base_vault_ai,          // write
+    // quote_root_bank_ai,     // read
+    // quote_node_bank_ai,     // write
+    // quote_vault_ai,         // write
+    // token_prog_ai,          // read
+    // signer_ai,              // read
+    // dex_signer_ai,          // read
+    // msrm_or_srm_vault_ai,   // read
+    /// +NUM_MARKETS `[writable]` open_orders_accs - open orders for each of the spot market
     ///
-    /// Accounts expected by this instruction (19 + 2 * NUM_MARKETS):
-    ///
-    /// 0.  [writable]  fund_state_acc - Fund State Account
-    /// 1.  []          inv_state_acc - Investor State Account
-    /// 1.  [signer]    investor_acc - Manager Account to sign
-    /// 2.  []          fund_pda_acc - Fund PDA Account
-    /// 3.  []          mango_prog_acc - Mango Program Account
-    /// 
-    /// 0. `[writable]` mango_group_acc - MangoGroup that this margin account is for
-    /// 2. `[writable]` margin_account_acc - MarginAccount
-    /// 3. `[]` clock_acc - Clock sysvar account
-    /// 4. `[]` dex_prog_acc - program id of serum dex
-    /// 5. `[writable]` spot_market_acc - serum dex MarketState
-    /// 6. `[writable]` dex_request_queue_acc - serum dex request queue for this market
-    /// 7. `[writable]` dex_event_queue - serum dex event queue for this market
-    /// 8. `[writable]` bids_acc - serum dex bids for this market
-    /// 9. `[writable]` asks_acc - serum dex asks for this market
-    /// 10. `[writable]` vault_acc - mango's vault for this currency (quote if buying, base if selling)
-    /// 11. `[]` signer_acc - mango signer key
-    /// 12. `[writable]` dex_base_acc - serum dex market's vault for base (coin) currency
-    /// 13. `[writable]` dex_quote_acc - serum dex market's vault for quote (pc) currency
-    /// 14. `[]` spl token program
-    /// 15. `[]` the rent sysvar
-    /// 16. `[writable]` srm_vault_acc - MangoGroup's srm_vault used for fee reduction
-    /// 17..17+NUM_MARKETS `[writable]` open_orders_accs - open orders for each of the spot market
-    /// 17+NUM_MARKETS..17+2*NUM_MARKETS `[]`
-    ///     oracle_accs - flux aggregator feed accounts
-    // MangoWithdrawInvestorPlaceOrder {
-    //     price: u64
-    // },
+    MangoPlaceSpotOrder {
+        side: u8, // 1 for sell, 0 for buy
+        price: u64, // remove later
+        trade_size: u64 // trade amount
+    },
+    
 
     /// Settle all funds from serum dex open orders into MarginAccount positions
     ///
@@ -500,12 +503,19 @@ impl FundInstruction {
                     perp_market_id: u8::from_le_bytes(*perp_market_id)
                 }
             },
-            // 12 => {
-            //     let price = array_ref![data, 0, 8];
-            //     FundInstruction::MangoClosePosition {
-            //         price: u64::from_le_bytes(*price),
-            //     }
-            // },
+            12 => {
+                let data_arr = array_ref![data, 0, 17];
+                let (
+                    side,
+                    price,
+                    trade_size
+                ) = array_refs![data_arr, 1, 8, 8];
+                FundInstruction::MangoPlaceSpotOrder {
+                    side: u8::from_le_bytes(*side),
+                    price: u64::from_le_bytes(*price),
+                    trade_size: u64::from_le_bytes(*trade_size),
+                }
+            },
             13 => {
                 let data_arr = array_ref![data, 0, 1 + 1 + 8];
                 let (token_slot_index, mango_token_index, quantity) = array_refs![data_arr, 1, 1, 8];
