@@ -275,7 +275,6 @@ pub enum FundInstruction {
     // mango_prog_ai,
     // mango_group_ai,         // read
     // mango_account_ai,       // write
-    // owner_ai,               // read & signer
     // mango_cache_ai,         // read
     // dex_prog_ai,            // read
     // spot_market_ai,         // write
