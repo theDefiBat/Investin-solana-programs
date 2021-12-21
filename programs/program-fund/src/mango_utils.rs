@@ -34,7 +34,7 @@ use serum_dex::instruction::{NewOrderInstructionV3, SelfTradeBehavior};
 use serum_dex::matching::{Side as SerumSide, OrderType as SerumOrderType};
 use mango::state::{MangoAccount, MangoGroup, MangoCache, MAX_PAIRS, QUOTE_INDEX};
 // use mango::state::Loadable as OtherLoadable;
-use mango::instruction::{deposit, withdraw, place_perp_order, settle_pnl, MangoInstruction};
+use mango::instruction::{deposit, withdraw, place_perp_order, init_spot_open_orders, settle_pnl, MangoInstruction};
 use mango::matching::{Side, OrderType};
 use spl_token::state::Account;
 
@@ -80,6 +80,7 @@ pub fn place_spot_order2(
     open_orders_pks: &[Pubkey],
     order: serum_dex::instruction::NewOrderInstructionV3,
 ) -> Result<Instruction, ProgramError> {
+    msg!("Calling Mango...");
     let mut accounts = vec![
         AccountMeta::new_readonly(*mango_group_pk, false),
         AccountMeta::new(*mango_account_pk, false),
@@ -101,7 +102,6 @@ pub fn place_spot_order2(
         AccountMeta::new(*quote_vault_pk, false),
         AccountMeta::new_readonly(spl_token::ID, false),
         AccountMeta::new_readonly(*signer_pk, false),
-        AccountMeta::new_readonly(solana_program::sysvar::rent::ID, false),
         AccountMeta::new_readonly(*dex_signer_pk, false),
         AccountMeta::new_readonly(*msrm_or_srm_vault_pk, false),
     ];
@@ -506,12 +506,36 @@ pub fn mango_place_spot_order2(
 
     let fund_data = FundData::load_mut_checked(fund_state_ai, program_id)?;
     check!(fund_data.is_initialized, ProgramError::InvalidAccountData);
-    check!(manager_ai.is_signer, ProgramError::MissingRequiredSignature);
+    // check!(manager_ai.is_signer, ProgramError::MissingRequiredSignature);
     check!(fund_data.mango_positions.mango_account != Pubkey::default(), FundError::MangoNotInitialized);
     //Check for Mango v3 ID 
     check_eq!(*mango_prog_ai.key, mango_v3_id::ID);
     //TODO Check for qotue params to match USDC
-        
+
+    invoke_signed(
+        &init_spot_open_orders(
+            mango_prog_ai.key,
+            mango_group_ai.key, 
+            mango_account_ai.key, 
+            fund_pda_ai.key, 
+            dex_prog_ai.key,
+            packed_open_orders_ais[0].key, 
+            spot_market_ai.key, 
+            signer_ai.key
+        )?,
+        &[
+            mango_prog_ai.clone(),
+            mango_group_ai.clone(),
+            mango_account_ai.clone(),
+            fund_pda_ai.clone(),
+            dex_prog_ai.clone(),
+            packed_open_orders_ais[0].clone(),
+            spot_market_ai.clone(),
+            signer_ai.clone()
+        ], 
+        &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
+    )?;
+    
     let coin_lots = convert_size_to_lots(spot_market_ai, dex_prog_ai.key, trade_size, false)?;
     msg!("coin_lots:: {:?} ", coin_lots);
 
@@ -525,15 +549,16 @@ pub fn mango_place_spot_order2(
     msg!("pc_qty:: {:?}", pc_qty_including_fees);
 
     let order_side = serum_dex::matching::Side::try_from_primitive(side.try_into().unwrap()).unwrap();
-
-    let order = NewOrderInstructionV3 {
+    // let mut open_orders_accs = [Pubkey::default(); MAX_PAIRS];
+    // open_orders_accs[3] = *packed_open_orders_ais[3].key;
+    let order: NewOrderInstructionV3 = NewOrderInstructionV3 {
         side: order_side,
         limit_price: NonZeroU64::new(price).unwrap(),
         max_coin_qty: NonZeroU64::new(coin_lots).unwrap(),
         max_native_pc_qty_including_fees: NonZeroU64::new(pc_qty_including_fees).unwrap(),
+        self_trade_behavior: SelfTradeBehavior::AbortTransaction,
         order_type: SerumOrderType::ImmediateOrCancel,
         client_order_id: 1,
-        self_trade_behavior: SelfTradeBehavior::AbortTransaction,
         limit: 65535,
     };
 
@@ -561,10 +586,7 @@ pub fn mango_place_spot_order2(
                 signer_ai.key, 
                 dex_signer_ai.key, 
                 msrm_or_srm_vault_ai.key, 
-                &[*packed_open_orders_ais[0].key,
-                *packed_open_orders_ais[1].key,
-                *packed_open_orders_ais[2].key,
-                *packed_open_orders_ais[3].key],
+                &[*packed_open_orders_ais[0].key],
                 order)?,
             &[
                 mango_prog_ai.clone(),
@@ -588,11 +610,8 @@ pub fn mango_place_spot_order2(
                 quote_vault_ai.clone(), 
                 signer_ai.clone(), 
                 dex_signer_ai.clone(), 
-                msrm_or_srm_vault_ai.clone(), 
+                msrm_or_srm_vault_ai.clone(),
                 packed_open_orders_ais[0].clone(),
-                packed_open_orders_ais[1].clone(),
-                packed_open_orders_ais[2].clone(),
-                packed_open_orders_ais[3].clone(),
             ],
             &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
         )?;
