@@ -194,7 +194,7 @@ impl Fund {
         fund_data.number_of_active_investments = 0;
         fund_data.no_of_investments = 0;
         fund_data.mango_positions.mango_account = Pubkey::default();
-        fund_data.mango_positions.perp_markets = [u8::MAX; 4];
+        fund_data.mango_positions.perp_markets = [u8::MAX; 3];
         fund_data.mango_positions.deposit_index = u8::MAX;
         fund_data.mango_positions.markets_active = 0;
         fund_data.mango_positions.deposits_active = 0;
@@ -628,7 +628,7 @@ impl Fund {
             if mango_val_before > 0 {
                 let mut perp_vals: [i64; 4] = get_perp_vals(&fund_data, &mango_account_ai, &mango_prog_ai, &mango_group_ai).unwrap();
                 // msg!("closing perps: {:?}", perp_vals);
-                for i in 0..4 {
+                for i in 0..3 {
                     if perp_vals[i] != 0 {
                         let mut side:Side = Side::Ask;
                         if perp_vals[i] < 0 {
@@ -1080,11 +1080,11 @@ impl Fund {
                 return Self::transfer(program_id, accounts);
             }
             FundInstruction::InvestorWithdrawFromFund => {
-                msg!("FundInstruction::InvestorWithdraw");
+                msg!("FundInstruction::InvestorWithdrawFromFund");
                 return Self::withdraw_from_fund(program_id, accounts);
             }
             FundInstruction::InvestorWithdrawSettleFunds => {
-                msg!("FundInstruction::InvestorWithdraw");
+                msg!("FundInstruction::InvestorWithdrawSettle");
                 return Self::withdraw_settle(program_id, accounts);
             }
             FundInstruction::Swap { swap_index, data } => {
@@ -1259,7 +1259,7 @@ pub fn get_mango_valuation(
         //     token_deposits_val = token_deposits.checked_mul(mango_cache.price_cache[dti].price).unwrap();
         //     // msg!("rootbank.di {:?}", mango_cache.root_bank_cache[dti].deposit_index);
         // }
-        for i in 0..4 {
+        for i in 0..3 {
             let market_index = fund_data.mango_positions.perp_markets[i] as usize;
             if(market_index == u8::MAX as usize){
                 continue;
@@ -1536,7 +1536,7 @@ pub fn get_perp_vals(
 )-> Result<[i64; 4], ProgramError> {
     let mut perp_vals: [i64; 4] = [0; 4];
     let mango_account = MangoAccount::load_checked(mango_account_ai, mango_prog_ai.key, mango_group_ai.key)?;
-    for i in 0..4 {
+    for i in 0..3 {
         let fpi = fund_data.mango_positions.perp_markets[i];
         if fpi != u8::MAX {
             perp_vals[i] = mango_account.perp_accounts[fpi as usize].base_position;

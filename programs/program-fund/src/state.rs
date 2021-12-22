@@ -16,7 +16,7 @@ pub const MAX_TOKENS:usize = 50;
 pub const MAX_INVESTORS:usize = 10;
 pub const MAX_INVESTORS_WITHDRAW: usize = 2;
 pub const NUM_MARGIN: usize = 2;
-pub const NUM_PERP: usize = 4;
+pub const NUM_PERP: usize = 3;
 
 pub trait Loadable: Pod {
     fn load_mut<'a>(account: &'a AccountInfo) -> Result<RefMut<'a, Self>, ProgramError> {
@@ -206,7 +206,8 @@ impl_loadable!(InvestorData);
 pub struct MangoInfo {
     // margin account pubkey to check if the passed acc is correct
     pub mango_account: Pubkey, 
-    pub perp_markets: [u8; 4],
+    pub perp_markets: [u8; 3],
+    pub perp_padding: u8,
     pub deposit_index: u8,
     pub markets_active: u8,
     pub deposits_active: u8,
