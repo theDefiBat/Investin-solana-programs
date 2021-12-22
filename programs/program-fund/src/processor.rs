@@ -207,8 +207,9 @@ impl Fund {
         fund_data.version = 2;
         fund_data.mango_positions.mango_account = Pubkey::default();
         fund_data.mango_positions.perp_markets = [u8::MAX; 3];
+        fund_data.mango_positions.perp_padding = u8::MAX;
         fund_data.mango_positions.deposit_index = u8::MAX;
-
+        
         Ok(())
     }
 
