@@ -19,6 +19,11 @@ pub enum FundInstruction {
         no_of_tokens: u8
     },
 
+    /// Accounts expected
+    /// 
+    /// 
+    UpdateFundState,
+
     /// 0. [WRITE]  Fund State Account (derived from FA)
     /// 1. [WRITE]  Investor State Account (derived from IPDA)
     /// 2. [SIGNER] Investor Wallet Account
@@ -197,7 +202,7 @@ pub enum FundInstruction {
     /// 11. `[writable]` quote_vault_acc - MangoGroup quote vault acc
     /// 12. `[]` dex_signer_acc - dex Market signer account
     /// 13. `[]` spl token program
-    MangoSettlePosition,
+    // MangoSettlePosition,
 
     /// Withdraw funds that were deposited earlier.
     ///
@@ -488,7 +493,7 @@ impl FundInstruction {
                 }
             },
             11 => {
-                FundInstruction::MangoSettlePosition
+                FundInstruction::UpdateFundState
             },
             12 => {
                 let price = array_ref![data, 0, 8];

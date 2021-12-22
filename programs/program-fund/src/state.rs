@@ -200,7 +200,7 @@ pub struct FundDataNew {
      // padding for future use
      pub xpadding: [u8; 32]
 }
-impl_loadable!(FundData);
+impl_loadable!(FundDataNew);
 
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -285,7 +285,8 @@ impl_loadable!(MarginInfo);
 pub struct MangoInfo {
     // margin account pubkey to check if the passed acc is correct
     pub mango_account: Pubkey, 
-    pub perp_markets: [u8; 4],
+    pub perp_markets: [u8; 3],
+    pub perp_padding: u8,
     pub deposit_index: u8,
     pub markets_active: u8,
     pub deposits_active: u8,

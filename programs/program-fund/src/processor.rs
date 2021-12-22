@@ -20,7 +20,7 @@ use spl_token::state::{Account, Mint};
 
 use crate::error::FundError;
 use crate::instruction::{FundInstruction, Data};
-use crate::state::{NUM_TOKENS, MAX_INVESTORS, NUM_MARGIN, FundData, InvestorData, PlatformData};
+use crate::state::{NUM_TOKENS, MAX_INVESTORS, NUM_MARGIN, FundDataNew, FundData, InvestorData, PlatformData};
 use crate::mango_utils::*;
 use crate::tokens::*;
 use mango::state::{MarginAccount, MangoGroup, NUM_MARKETS, load_open_orders, Loadable as MangoLoadable};
@@ -178,6 +178,40 @@ impl Fund {
 
         Ok(())
     }
+
+    pub fn update_fund_state (
+        program_id: &Pubkey,
+        accounts: &[AccountInfo],
+    ) -> Result<(), ProgramError> {
+
+        let accounts_iter = &mut accounts.iter();
+
+        let investin_admin_acc = next_account_info(accounts_iter)?;
+        check!(investin_admin_acc.is_signer, FundError::IncorrectSignature);
+        check_eq!(investin_admin::ID, *investin_admin_acc.key);
+        let fund_state_acc = next_account_info(accounts_iter)?;
+        let mut fund_data_old = FundData::load_mut_checked(fund_state_acc, program_id)?;
+
+        for i in 0..2{
+            fund_data_old.mango_positions[i].margin_account = Pubkey::default();
+            fund_data_old.mango_positions[i].state = 0;
+            fund_data_old.mango_positions[i].margin_index = 0;
+            fund_data_old.mango_positions[i].position_side = 0;
+            fund_data_old.mango_positions[i].position_id = 0;
+            fund_data_old.mango_positions[i].trade_amount = 0;
+            fund_data_old.mango_positions[i].fund_share = U64F64!(0);
+            fund_data_old.mango_positions[i].share_ratio = U64F64!(0);
+        }
+
+        let mut fund_data = FundDataNew::load_mut_checked(fund_state_acc, program_id)?;
+        fund_data.version = 2;
+        fund_data.mango_positions.mango_account = Pubkey::default();
+        fund_data.mango_positions.perp_markets = [u8::MAX; 3];
+        fund_data.mango_positions.deposit_index = u8::MAX;
+
+        Ok(())
+    }
+
 
     // investor deposit
     pub fn deposit (
@@ -867,7 +901,7 @@ impl Fund {
         let mut platform_data = PlatformData::load_mut_checked(platform_state_acc, program_id)?;
         check!(investin_admin_acc.is_signer, FundError::IncorrectSignature);
 
-        //check_eq!(investin_admin::ID, *investin_admin_acc.key);
+        check_eq!(investin_admin::ID, *investin_admin_acc.key);
 
         if intialize_platform == 1 {
             platform_data.is_initialized = true;
@@ -1001,9 +1035,9 @@ impl Fund {
                 msg!("FundInstruction::MangoPlaceOrder");
                 return mango_open_position(program_id, accounts, side, price, trade_size);
             }
-            FundInstruction::MangoSettlePosition => {
-                msg!("FundInstruction::MangoSettleFunds");
-                return mango_settle_position(program_id, accounts);
+            FundInstruction::UpdateFundState => {
+                msg!("FundInstruction::UpdateFundState");
+                return Self::update_fund_state(program_id, accounts);
             }
             FundInstruction::MangoClosePosition { price } => {
                 msg!("FundInstruction::MangoClosePosition");
@@ -1048,6 +1082,7 @@ impl Fund {
         }
     }
 }
+
 
 // calculate prices, get fund valuation and performance
 pub fn update_amount_and_performance(
