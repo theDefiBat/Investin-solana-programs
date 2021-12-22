@@ -201,7 +201,7 @@ pub fn remove_token_from_fund (
 
     check_eq!(fund_data.tokens[token_slot].balance, 0);
     check_eq!(fund_data.tokens[token_slot].debt, 0);
-    check_eq!(fund_data.tokens[token_slot].is_on_mango, 0);
+    // check_eq!(fund_data.tokens[token_slot].is_on_mango, 0);
     check_eq!((fund_data.tokens[token_slot].index[mux] == 0), false); // cant remove USDC
 
     fund_data.tokens[token_slot].is_active = false;

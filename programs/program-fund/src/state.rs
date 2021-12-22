@@ -148,8 +148,7 @@ pub struct TokenSlot {
     pub is_active: bool,
     pub index: [u8; 3],
     pub mux: u8,
-    pub is_on_mango: u8,
-    pub padding: [u8; 2],
+    pub padding: [u8; 3],
 
     // token balances & debts
     pub balance: u64,
@@ -194,10 +193,8 @@ pub struct InvestorData {
     // investor assets in tokens
     pub token_indexes: [u8; NUM_TOKENS],
     pub token_debts: [u64; NUM_TOKENS],
-
-    pub has_withdrawn_from_fund: bool,
     // padding for future use
-    pub xpadding: [u8; 31] 
+    pub xpadding: [u8; 32] 
 }
 impl_loadable!(InvestorData);
 

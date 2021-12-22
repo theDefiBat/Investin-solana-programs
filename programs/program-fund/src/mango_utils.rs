@@ -456,7 +456,7 @@ pub fn mango_withdraw(
     let usdc_deposits  = mango_account.get_native_deposit(&mango_cache.root_bank_cache[QUOTE_INDEX], QUOTE_INDEX)?;
     
     //.checked_sub(mango_account.get_native_borrow(&mango_cache.root_bank_cache[QUOTE_INDEX], QUOTE_INDEX)?).unwrap();
-    check!(I80F48::from_num(fund_data.mango_positions.investor_debts[0]) >= usdc_deposits, ProgramError::InsufficientFunds);
+    check!(I80F48::from_num(fund_data.mango_positions.investor_debts[0]) <= usdc_deposits, ProgramError::InsufficientFunds);
     // .checked_sub(I80F48::from_num(fund_data.mango_positions.investor_debts[0])).unwrap();
     // if mango_token_index as usize != QUOTE_INDEX {
     //     check!(deposits_after >= fund_data.mango_positions.investor_debts[1] , FundError::InvalidAmount);
@@ -722,14 +722,6 @@ pub fn mango_withdraw_investor(
     // fund_data.mango_positions.investor_debts[1] = fund_data.mango_positions.investor_debts[1].checked_sub(U64F64::to_num(investor_data.margin_debt[1])).unwrap();
     investor_data.margin_debt = [ZERO_U64F64; 2];
     investor_data.withdrawn_from_margin = true;
-    if investor_data.has_withdrawn_from_fund == true {
-        investor_data.amount = 0;
-        investor_data.start_performance = U64F64!(0);
-        investor_data.amount_in_router = 0;
-        investor_data.has_withdrawn = false;
-        investor_data.is_initialized = false;
-        close_investor_account(investor_ai, investor_state_ai)?;
-    }
     Ok(())
 }
 

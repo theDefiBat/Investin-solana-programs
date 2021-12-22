@@ -538,19 +538,20 @@ impl Fund {
                 investor_data.token_debts[i] = 0;
                 investor_data.token_indexes[i] = 0;
             }
-            investor_data.has_withdrawn_from_fund = true;
             // check if there are no margin debts
             // check_eq!(investor_data.margin_debt[0], 0);
             // check_eq!(investor_data.margin_debt[1], 0);
             // close investor account
-            if investor_data.margin_debt[0] == 0 && investor_data.margin_debt[1] == 0 {
-                investor_data.amount = 0;
-                investor_data.start_performance = U64F64!(0);
-                investor_data.amount_in_router = 0;
-                investor_data.has_withdrawn = false;
-                investor_data.is_initialized = false;
-                close_investor_account(investor_ai, investor_state_ai)?;
+            //&& investor_data.margin_debt[1] == 0
+            if investor_data.margin_debt[0] != 0  {
+                fund_data.mango_positions.investor_debts[0] = fund_data.mango_positions.investor_debts[0].checked_sub(U64F64::to_num(investor_data.margin_debt[0])).unwrap();
             }
+            investor_data.amount = 0;
+            investor_data.start_performance = U64F64!(0);
+            investor_data.amount_in_router = 0;
+            investor_data.has_withdrawn = false;
+            investor_data.is_initialized = false;
+            close_investor_account(investor_ai, investor_state_ai)?;
 
         }
         Ok(())
@@ -1225,7 +1226,7 @@ pub fn update_amount_and_performance(
         fund_data.performance_fee = U64F64::to_num(U64F64::from_num(perf)
             .checked_div(U64F64::from_num(fund_data.prev_performance)).unwrap()
             .checked_mul(U64F64::from_num(fund_data.performance_fee)).unwrap());
-            fund_data.prev_performance = U64F64::to_num(perf);
+        fund_data.prev_performance = U64F64::to_num(perf);
     }
     fund_data.total_amount = fund_val;
     Ok(())
@@ -1252,6 +1253,13 @@ pub fn get_mango_valuation(
         usdc_deposits  = mango_account.get_native_deposit(&mango_cache.root_bank_cache[QUOTE_INDEX], QUOTE_INDEX)?
         .checked_sub(mango_account.get_native_borrow(&mango_cache.root_bank_cache[QUOTE_INDEX], QUOTE_INDEX)?).unwrap()
         .checked_sub(I80F48::from_num(fund_data.mango_positions.investor_debts[0])).unwrap();
+        // let fund_debts = I80F48::from_num(fund_data.mango_positions.investor_debts[0]);
+        // if usdc_deposits > fund_debts {
+        //     usdc_deposits = usdc_deposits.checked_sub(fund_debts).unwrap();
+        // } else {
+        //     fund_data.mango_positions.investor_debts[0] = 0;
+        // }
+
         // let dti = fund_data.mango_positions.deposit_index as usize;
         // //Check if deposit_index is valid
         // if(dti < QUOTE_INDEX){
