@@ -193,9 +193,9 @@ pub enum FundInstruction {
     /// 11. `[writable]` quote_vault_acc - MangoGroup quote vault acc
     /// 12. `[]` dex_signer_acc - dex Market signer account
     /// 13. `[]` spl token program
-    MangoSettlePnL {
-        perp_market_id: u8,
-    },
+    // MangoSettlePnL {
+    //     perp_market_id: u8,
+    // },
 
     /// Withdraw funds that were deposited earlier.
     ///
@@ -296,11 +296,11 @@ pub enum FundInstruction {
     // msrm_or_srm_vault_ai,   // read
     /// +NUM_MARKETS `[writable]` open_orders_accs - open orders for each of the spot market
     ///
-    MangoPlaceSpotOrder {
-        side: u8, // 1 for sell, 0 for buy
-        price: u64, // remove later
-        trade_size: u64 // trade amount
-    },
+    // MangoPlaceSpotOrder {
+    //     side: u8, // 1 for sell, 0 for buy
+    //     price: u64, // remove later
+    //     trade_size: u64 // trade amount
+    // },
     
 
     /// Settle all funds from serum dex open orders into MarginAccount positions
@@ -496,25 +496,25 @@ impl FundInstruction {
                     quantity: i64::from_le_bytes(*quantity)
                 }
             },
-            11 => {
-                let perp_market_id = array_ref![data, 0, 1];
-                FundInstruction::MangoSettlePnL {
-                    perp_market_id: u8::from_le_bytes(*perp_market_id)
-                }
-            },
-            12 => {
-                let data_arr = array_ref![data, 0, 17];
-                let (
-                    side,
-                    price,
-                    trade_size
-                ) = array_refs![data_arr, 1, 8, 8];
-                FundInstruction::MangoPlaceSpotOrder {
-                    side: u8::from_le_bytes(*side),
-                    price: u64::from_le_bytes(*price),
-                    trade_size: u64::from_le_bytes(*trade_size),
-                }
-            },
+            // 11 => {
+            //     let perp_market_id = array_ref![data, 0, 1];
+            //     FundInstruction::MangoSettlePnL {
+            //         perp_market_id: u8::from_le_bytes(*perp_market_id)
+            //     }
+            // },
+            // 12 => {
+            //     let data_arr = array_ref![data, 0, 17];
+            //     let (
+            //         side,
+            //         price,
+            //         trade_size
+            //     ) = array_refs![data_arr, 1, 8, 8];
+            //     FundInstruction::MangoPlaceSpotOrder {
+            //         side: u8::from_le_bytes(*side),
+            //         price: u64::from_le_bytes(*price),
+            //         trade_size: u64::from_le_bytes(*trade_size),
+            //     }
+            // },
             13 => {
                 let data_arr = array_ref![data, 0, 1 + 1 + 8];
                 let (token_slot_index, mango_token_index, quantity) = array_refs![data_arr, 1, 1, 8];

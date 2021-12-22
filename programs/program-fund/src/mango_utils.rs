@@ -54,72 +54,72 @@ macro_rules! check_eq {
     }
 }
 
-pub fn place_spot_order2(
-    program_id: &Pubkey,
-    mango_group_pk: &Pubkey,
-    mango_account_pk: &Pubkey,
-    owner_pk: &Pubkey,
-    mango_cache_pk: &Pubkey,
-    dex_prog_pk: &Pubkey,
-    spot_market_pk: &Pubkey,
-    bids_pk: &Pubkey,
-    asks_pk: &Pubkey,
-    dex_request_queue_pk: &Pubkey,
-    dex_event_queue_pk: &Pubkey,
-    dex_base_pk: &Pubkey,
-    dex_quote_pk: &Pubkey,
-    base_root_bank_pk: &Pubkey,
-    base_node_bank_pk: &Pubkey,
-    base_vault_pk: &Pubkey,
-    quote_root_bank_pk: &Pubkey,
-    quote_node_bank_pk: &Pubkey,
-    quote_vault_pk: &Pubkey,
-    signer_pk: &Pubkey,
-    dex_signer_pk: &Pubkey,
-    msrm_or_srm_vault_pk: &Pubkey,
-    open_orders_pks: &[Pubkey],
-    order: serum_dex::instruction::NewOrderInstructionV3,
-) -> Result<Instruction, ProgramError> {
-    msg!("Calling Mango...");
-    let mut accounts = vec![
-        AccountMeta::new_readonly(*mango_group_pk, false),
-        AccountMeta::new(*mango_account_pk, false),
-        AccountMeta::new_readonly(*owner_pk, true),
-        AccountMeta::new_readonly(*mango_cache_pk, false),
-        AccountMeta::new_readonly(*dex_prog_pk, false),
-        AccountMeta::new(*spot_market_pk, false),
-        AccountMeta::new(*bids_pk, false),
-        AccountMeta::new(*asks_pk, false),
-        AccountMeta::new(*dex_request_queue_pk, false),
-        AccountMeta::new(*dex_event_queue_pk, false),
-        AccountMeta::new(*dex_base_pk, false),
-        AccountMeta::new(*dex_quote_pk, false),
-        AccountMeta::new_readonly(*base_root_bank_pk, false),
-        AccountMeta::new(*base_node_bank_pk, false),
-        AccountMeta::new(*base_vault_pk, false),
-        AccountMeta::new_readonly(*quote_root_bank_pk, false),
-        AccountMeta::new(*quote_node_bank_pk, false),
-        AccountMeta::new(*quote_vault_pk, false),
-        AccountMeta::new_readonly(spl_token::ID, false),
-        AccountMeta::new_readonly(*signer_pk, false),
-        AccountMeta::new_readonly(*dex_signer_pk, false),
-        AccountMeta::new_readonly(*msrm_or_srm_vault_pk, false),
-    ];
+// pub fn place_spot_order2(
+//     program_id: &Pubkey,
+//     mango_group_pk: &Pubkey,
+//     mango_account_pk: &Pubkey,
+//     owner_pk: &Pubkey,
+//     mango_cache_pk: &Pubkey,
+//     dex_prog_pk: &Pubkey,
+//     spot_market_pk: &Pubkey,
+//     bids_pk: &Pubkey,
+//     asks_pk: &Pubkey,
+//     dex_request_queue_pk: &Pubkey,
+//     dex_event_queue_pk: &Pubkey,
+//     dex_base_pk: &Pubkey,
+//     dex_quote_pk: &Pubkey,
+//     base_root_bank_pk: &Pubkey,
+//     base_node_bank_pk: &Pubkey,
+//     base_vault_pk: &Pubkey,
+//     quote_root_bank_pk: &Pubkey,
+//     quote_node_bank_pk: &Pubkey,
+//     quote_vault_pk: &Pubkey,
+//     signer_pk: &Pubkey,
+//     dex_signer_pk: &Pubkey,
+//     msrm_or_srm_vault_pk: &Pubkey,
+//     open_orders_pks: &[Pubkey],
+//     order: serum_dex::instruction::NewOrderInstructionV3,
+// ) -> Result<Instruction, ProgramError> {
+//     msg!("Calling Mango...");
+//     let mut accounts = vec![
+//         AccountMeta::new_readonly(*mango_group_pk, false),
+//         AccountMeta::new(*mango_account_pk, false),
+//         AccountMeta::new_readonly(*owner_pk, true),
+//         AccountMeta::new_readonly(*mango_cache_pk, false),
+//         AccountMeta::new_readonly(*dex_prog_pk, false),
+//         AccountMeta::new(*spot_market_pk, false),
+//         AccountMeta::new(*bids_pk, false),
+//         AccountMeta::new(*asks_pk, false),
+//         AccountMeta::new(*dex_request_queue_pk, false),
+//         AccountMeta::new(*dex_event_queue_pk, false),
+//         AccountMeta::new(*dex_base_pk, false),
+//         AccountMeta::new(*dex_quote_pk, false),
+//         AccountMeta::new_readonly(*base_root_bank_pk, false),
+//         AccountMeta::new(*base_node_bank_pk, false),
+//         AccountMeta::new(*base_vault_pk, false),
+//         AccountMeta::new_readonly(*quote_root_bank_pk, false),
+//         AccountMeta::new(*quote_node_bank_pk, false),
+//         AccountMeta::new(*quote_vault_pk, false),
+//         AccountMeta::new_readonly(spl_token::ID, false),
+//         AccountMeta::new_readonly(*signer_pk, false),
+//         AccountMeta::new_readonly(*dex_signer_pk, false),
+//         AccountMeta::new_readonly(*msrm_or_srm_vault_pk, false),
+//     ];
 
-    accounts.extend(open_orders_pks.iter().map(
-        |pk| 
-        if *pk == Pubkey::default(){
-            AccountMeta::new_readonly(*pk, false)
-        } else {
-            AccountMeta::new(*pk, false)
-        })
-    );
+//     accounts.extend(open_orders_pks.iter().map(
+//         |pk| 
+//         if *pk == Pubkey::default(){
+//             AccountMeta::new_readonly(*pk, false)
+//         } else {
+//             AccountMeta::new(*pk, false)
+//         })
+//     );
 
-    let instr = MangoInstruction::PlaceSpotOrder2 { order };
-    let data = instr.pack();
+//     let instr = MangoInstruction::PlaceSpotOrder2 { order };
+//     let data = instr.pack();
 
-    Ok(Instruction { program_id: *program_id, accounts, data })
-}
+//     Ok(Instruction { program_id: *program_id, accounts, data })
+// }
 
 pub fn init_mango_account(
     program_id: &Pubkey,
@@ -214,12 +214,13 @@ pub fn mango_deposit(
     check_eq!(*mango_prog_ai.key, mango_v3_id::ID);
     check!(fund_data.mango_positions.mango_account != Pubkey::default(), FundError::MangoNotInitialized);
     // check_eq!(mango_group.tokens[mango_token_index].root_bank, )   
-    if(mango_token_index as usize != QUOTE_INDEX){
-        check!(fund_data.mango_positions.deposit_index == mango_token_index || 
-            fund_data.mango_positions.deposit_index == u8::MAX, FundError::InvalidMangoState);
-        fund_data.mango_positions.deposit_index = mango_token_index;
-        fund_data.tokens[token_slot_index as usize].is_on_mango = 1;
-    }
+    check_eq!(mango_token_index as usize, QUOTE_INDEX);
+    // if(mango_token_index as usize != QUOTE_INDEX){
+    //     check!(fund_data.mango_positions.deposit_index == mango_token_index || 
+    //         fund_data.mango_positions.deposit_index == u8::MAX, FundError::InvalidMangoState);
+    //     fund_data.mango_positions.deposit_index = mango_token_index;
+    //     fund_data.tokens[token_slot_index as usize].is_on_mango = 1;
+    // }
     check!(fund_data.is_initialized, ProgramError::InvalidAccountData);
     check!(manager_ai.is_signer, ProgramError::MissingRequiredSignature);
     
@@ -336,46 +337,46 @@ pub fn mango_place_perp_order(
 }
 
 //TODO::Update!!!
-pub fn mango_settle_pnl(
-    program_id: &Pubkey,
-    accounts: &[AccountInfo],
-    perp_market_id: u8
-) -> Result<(), ProgramError>
-{
-    const NUM_FIXED: usize = 10;
-    let accounts = array_ref![accounts, 0, NUM_FIXED];
+// pub fn mango_settle_pnl(
+//     program_id: &Pubkey,
+//     accounts: &[AccountInfo],
+//     perp_market_id: u8
+// ) -> Result<(), ProgramError>
+// {
+//     const NUM_FIXED: usize = 10;
+//     let accounts = array_ref![accounts, 0, NUM_FIXED];
 
-    let [
-        fund_state_ai,
-        manager_ai,
-        fund_pda_ai,
-        mango_prog_ai,
-        mango_group_ai,
-        mango_account_a_ai,
-        mango_account_b_ai,
-        mango_cache_ai,
-        root_bank_ai,
-        node_bank_ai,
-    ] = accounts;
-    let mut fund_data = FundData::load_mut_checked(fund_state_ai, program_id)?;
-    // check!(manager_ai.is_signer, ProgramError::MissingRequiredSignature);
-    // check!((fund_data.manager_account == *manager_ai.key), FundError::ManagerMismatch);
-    invoke_signed(
-        &settle_pnl(mango_prog_ai.key, mango_group_ai.key, mango_account_a_ai.key, mango_account_a_ai.key, 
-            mango_cache_ai.key, root_bank_ai.key, node_bank_ai.key, perp_market_id as usize)?,
-        &[
-            mango_prog_ai.clone(),
-            mango_group_ai.clone(),
-            mango_account_a_ai.clone(),
-            mango_account_b_ai.clone(),
-            mango_cache_ai.clone(),
-            root_bank_ai.clone(),
-            node_bank_ai.clone()
-        ],
-        &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
-    )?;
-    Ok(())
-}
+//     let [
+//         fund_state_ai,
+//         manager_ai,
+//         fund_pda_ai,
+//         mango_prog_ai,
+//         mango_group_ai,
+//         mango_account_a_ai,
+//         mango_account_b_ai,
+//         mango_cache_ai,
+//         root_bank_ai,
+//         node_bank_ai,
+//     ] = accounts;
+//     let mut fund_data = FundData::load_mut_checked(fund_state_ai, program_id)?;
+//     // check!(manager_ai.is_signer, ProgramError::MissingRequiredSignature);
+//     // check!((fund_data.manager_account == *manager_ai.key), FundError::ManagerMismatch);
+//     invoke_signed(
+//         &settle_pnl(mango_prog_ai.key, mango_group_ai.key, mango_account_a_ai.key, mango_account_a_ai.key, 
+//             mango_cache_ai.key, root_bank_ai.key, node_bank_ai.key, perp_market_id as usize)?,
+//         &[
+//             mango_prog_ai.clone(),
+//             mango_group_ai.clone(),
+//             mango_account_a_ai.clone(),
+//             mango_account_b_ai.clone(),
+//             mango_cache_ai.clone(),
+//             root_bank_ai.clone(),
+//             node_bank_ai.clone()
+//         ],
+//         &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
+//     )?;
+//     Ok(())
+// }
 
 
 pub fn mango_withdraw(
@@ -448,176 +449,186 @@ pub fn mango_withdraw(
     check_eq!(dest_info.owner, fund_data.fund_pda);
     fund_data.tokens[token_slot_index as usize].balance = dest_info.amount;
     // let mango_group = MangoGroup::load_checked(mango_group_ai, mango_prog_ai.key)?;
-
+    let mango_group = MangoGroup::load_checked(mango_group_ai, mango_prog_ai.key)?;
     let mango_account = MangoAccount::load_checked(mango_account_ai, mango_prog_ai.key, mango_group_ai.key)?;
+    let mango_cache = MangoCache::load_checked(mango_cache_ai, mango_prog_ai.key, &mango_group)?;
+    // account for native USDC deposits
+    let usdc_deposits  = mango_account.get_native_deposit(&mango_cache.root_bank_cache[QUOTE_INDEX], QUOTE_INDEX)?;
     
-    let deposits_after = mango_account.deposits[mango_token_index as usize];
-    if mango_token_index as usize != QUOTE_INDEX {
-        check!(deposits_after >= fund_data.mango_positions.investor_debts[1] , FundError::InvalidAmount);
-        if deposits_after < 0.00001 {
-            fund_data.mango_positions.deposit_index = u8::MAX;
-            fund_data.tokens[token_slot_index as usize].is_on_mango = 0;
-        }
-    } else {
-        check!(deposits_after >= fund_data.mango_positions.investor_debts[0] , FundError::InvalidAmount);
-    }
+    //.checked_sub(mango_account.get_native_borrow(&mango_cache.root_bank_cache[QUOTE_INDEX], QUOTE_INDEX)?).unwrap();
+    check!(I80F48::from_num(fund_data.mango_positions.investor_debts[0]) >= usdc_deposits, ProgramError::InsufficientFunds);
+    // .checked_sub(I80F48::from_num(fund_data.mango_positions.investor_debts[0])).unwrap();
+    // if mango_token_index as usize != QUOTE_INDEX {
+    //     check!(deposits_after >= fund_data.mango_positions.investor_debts[1] , FundError::InvalidAmount);
+    //     if deposits_after < 0.00001 {
+    //         fund_data.mango_positions.deposit_index = u8::MAX;
+    //         fund_data.tokens[token_slot_index as usize].is_on_mango = 0;
+    //     }
+    // } else {
+        // check!(deposits_after >= fund_data.mango_positions.investor_debts[0] , FundError::InvalidAmount);
+    // }
     
     // fund_data.tokens[0].balance = parse_token_account(fund_token_ai)?.amount;
 
     Ok(())
 }
 
-pub fn mango_place_spot_order2(
-    program_id: &Pubkey,
-    accounts: &[AccountInfo],
-    side: u8,
-    price: u64,
-    trade_size: u64
-) -> Result<(), ProgramError> {
-    const NUM_FIXED: usize = 25;
-    let (fixed_ais, packed_open_orders_ais) = array_refs![accounts, NUM_FIXED; ..;];
-    let [
-        fund_state_ai,
-        fund_pda_ai,
-        manager_ai,
-        mango_prog_ai,
-        mango_group_ai,         // read
-        mango_account_ai,       // write
-        mango_cache_ai,         // read
-        dex_prog_ai,            // read
-        spot_market_ai,         // write
-        bids_ai,                // write
-        asks_ai,                // write
-        dex_request_queue_ai,   // write
-        dex_event_queue_ai,     // write
-        dex_base_ai,            // write
-        dex_quote_ai,           // write
-        base_root_bank_ai,      // read
-        base_node_bank_ai,      // write
-        base_vault_ai,          // write
-        quote_root_bank_ai,     // read
-        quote_node_bank_ai,     // write
-        quote_vault_ai,         // write
-        token_prog_ai,          // read
-        signer_ai,              // read
-        dex_signer_ai,          // read
-        msrm_or_srm_vault_ai,   // read
-    ] = fixed_ais;
+// pub fn mango_place_spot_order2(
+//     program_id: &Pubkey,
+//     accounts: &[AccountInfo],
+//     side: u8,
+//     price: u64,
+//     trade_size: u64,
+//     call_init: bool
+// ) -> Result<(), ProgramError> {
+//     const NUM_FIXED: usize = 27;
+//     let fixed_ais = array_ref![accounts, 0, NUM_FIXED];
+//     let [
+//         fund_state_ai,
+//         fund_pda_ai,
+//         manager_ai,
+//         mango_prog_ai,
+//         mango_group_ai,         // read
+//         mango_account_ai,       // write
+//         mango_cache_ai,         // read
+//         dex_prog_ai,            // read
+//         spot_market_ai,         // write
+//         bids_ai,                // write
+//         asks_ai,                // write
+//         dex_request_queue_ai,   // write
+//         dex_event_queue_ai,     // write
+//         dex_base_ai,            // write
+//         dex_quote_ai,           // write
+//         base_root_bank_ai,      // read
+//         base_node_bank_ai,      // write
+//         base_vault_ai,          // write
+//         quote_root_bank_ai,     // read
+//         quote_node_bank_ai,     // write
+//         quote_vault_ai,         // write
+//         token_prog_ai,          // read
+//         signer_ai,              // read
+//         dex_signer_ai,          // read
+//         msrm_or_srm_vault_ai,   // read
+//         packed_open_orders_ais,
+//         rent_ai
+//     ] = fixed_ais;
 
-    let fund_data = FundData::load_mut_checked(fund_state_ai, program_id)?;
-    check!(fund_data.is_initialized, ProgramError::InvalidAccountData);
-    // check!(manager_ai.is_signer, ProgramError::MissingRequiredSignature);
-    check!(fund_data.mango_positions.mango_account != Pubkey::default(), FundError::MangoNotInitialized);
-    //Check for Mango v3 ID 
-    check_eq!(*mango_prog_ai.key, mango_v3_id::ID);
-    //TODO Check for qotue params to match USDC
-
-    invoke_signed(
-        &init_spot_open_orders(
-            mango_prog_ai.key,
-            mango_group_ai.key, 
-            mango_account_ai.key, 
-            fund_pda_ai.key, 
-            dex_prog_ai.key,
-            packed_open_orders_ais[0].key, 
-            spot_market_ai.key, 
-            signer_ai.key
-        )?,
-        &[
-            mango_prog_ai.clone(),
-            mango_group_ai.clone(),
-            mango_account_ai.clone(),
-            fund_pda_ai.clone(),
-            dex_prog_ai.clone(),
-            packed_open_orders_ais[0].clone(),
-            spot_market_ai.clone(),
-            signer_ai.clone()
-        ], 
-        &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
-    )?;
+//     let fund_data = FundData::load_mut_checked(fund_state_ai, program_id)?;
+//     check!(fund_data.is_initialized, ProgramError::InvalidAccountData);
+//     // check!(manager_ai.is_signer, ProgramError::MissingRequiredSignature);
+//     check!(fund_data.mango_positions.mango_account != Pubkey::default(), FundError::MangoNotInitialized);
+//     //Check for Mango v3 ID 
+//     check_eq!(*mango_prog_ai.key, mango_v3_id::ID);
+//     //TODO Check for qotue params to match USDC
+//     if call_init {
+//         invoke_signed(
+//             &init_spot_open_orders(
+//                 mango_prog_ai.key,
+//                 mango_group_ai.key, 
+//                 mango_account_ai.key, 
+//                 fund_pda_ai.key, 
+//                 dex_prog_ai.key,
+//                 packed_open_orders_ais.key, 
+//                 spot_market_ai.key, 
+//                 signer_ai.key
+//             )?,
+//             &[
+//                 mango_prog_ai.clone(),
+//                 mango_group_ai.clone(),
+//                 mango_account_ai.clone(),
+//                 fund_pda_ai.clone(),
+//                 dex_prog_ai.clone(),
+//                 packed_open_orders_ais.clone(),
+//                 spot_market_ai.clone(),
+//                 signer_ai.clone(),
+//                 rent_ai.clone()
+//             ], 
+//             &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
+//         )?;
+//     }
     
-    let coin_lots = convert_size_to_lots(spot_market_ai, dex_prog_ai.key, trade_size, false)?;
-    msg!("coin_lots:: {:?} ", coin_lots);
+//     let coin_lots = convert_size_to_lots(spot_market_ai, dex_prog_ai.key, trade_size, false)?;
+//     msg!("coin_lots:: {:?} ", coin_lots);
 
-    let pc_qty = convert_size_to_lots(spot_market_ai, dex_prog_ai.key, trade_size * price, true)?;
-    msg!("pc_qty:: {:?}", pc_qty);
-    let fee_rate:U64F64 = U64F64!(0.0022); // fee_bps = 22; BASE
+//     let pc_qty = convert_size_to_lots(spot_market_ai, dex_prog_ai.key, trade_size * price, true)?;
+//     msg!("pc_qty:: {:?}", pc_qty);
+//     let fee_rate:U64F64 = U64F64!(0.0022); // fee_bps = 22; BASE
 
-    let exact_fee: u64 = U64F64::to_num(fee_rate.checked_mul(U64F64::from_num(pc_qty)).unwrap());
+//     let exact_fee: u64 = U64F64::to_num(fee_rate.checked_mul(U64F64::from_num(pc_qty)).unwrap());
 
-    let pc_qty_including_fees = pc_qty + exact_fee;
-    msg!("pc_qty:: {:?}", pc_qty_including_fees);
+//     let pc_qty_including_fees = pc_qty + exact_fee;
+//     msg!("pc_qty:: {:?}", pc_qty_including_fees);
 
-    let order_side = serum_dex::matching::Side::try_from_primitive(side.try_into().unwrap()).unwrap();
-    // let mut open_orders_accs = [Pubkey::default(); MAX_PAIRS];
-    // open_orders_accs[3] = *packed_open_orders_ais[3].key;
-    let order: NewOrderInstructionV3 = NewOrderInstructionV3 {
-        side: order_side,
-        limit_price: NonZeroU64::new(price).unwrap(),
-        max_coin_qty: NonZeroU64::new(coin_lots).unwrap(),
-        max_native_pc_qty_including_fees: NonZeroU64::new(pc_qty_including_fees).unwrap(),
-        self_trade_behavior: SelfTradeBehavior::AbortTransaction,
-        order_type: SerumOrderType::ImmediateOrCancel,
-        client_order_id: 1,
-        limit: 65535,
-    };
+//     let order_side = serum_dex::matching::Side::try_from_primitive(side.try_into().unwrap()).unwrap();
+//     // let mut open_orders_accs = [Pubkey::default(); MAX_PAIRS];
+//     // open_orders_accs[3] = *packed_open_orders_ais[3].key;
+//     let order: NewOrderInstructionV3 = NewOrderInstructionV3 {
+//         side: order_side,
+//         limit_price: NonZeroU64::new(price).unwrap(),
+//         max_coin_qty: NonZeroU64::new(coin_lots).unwrap(),
+//         max_native_pc_qty_including_fees: NonZeroU64::new(pc_qty_including_fees).unwrap(),
+//         self_trade_behavior: SelfTradeBehavior::AbortTransaction,
+//         order_type: SerumOrderType::ImmediateOrCancel,
+//         client_order_id: 1,
+//         limit: 65535,
+//     };
 
-        invoke_signed(
-            &place_spot_order2(
-                mango_prog_ai.key,
-                mango_group_ai.key, 
-                mango_account_ai.key, 
-                fund_pda_ai.key, 
-                mango_cache_ai.key, 
-                dex_prog_ai.key, 
-                spot_market_ai.key, 
-                bids_ai.key, 
-                asks_ai.key, 
-                dex_request_queue_ai.key, 
-                dex_event_queue_ai.key, 
-                dex_base_ai.key, 
-                dex_quote_ai.key, 
-                base_root_bank_ai.key, 
-                base_node_bank_ai.key, 
-                base_vault_ai.key, 
-                quote_root_bank_ai.key, 
-                quote_node_bank_ai.key, 
-                quote_vault_ai.key, 
-                signer_ai.key, 
-                dex_signer_ai.key, 
-                msrm_or_srm_vault_ai.key, 
-                &[*packed_open_orders_ais[0].key],
-                order)?,
-            &[
-                mango_prog_ai.clone(),
-                mango_group_ai.clone(), 
-                mango_account_ai.clone(), 
-                fund_pda_ai.clone(), 
-                mango_cache_ai.clone(), 
-                dex_prog_ai.clone(), 
-                spot_market_ai.clone(), 
-                bids_ai.clone(), 
-                asks_ai.clone(), 
-                dex_request_queue_ai.clone(), 
-                dex_event_queue_ai.clone(), 
-                dex_base_ai.clone(), 
-                dex_quote_ai.clone(), 
-                base_root_bank_ai.clone(), 
-                base_node_bank_ai.clone(), 
-                base_vault_ai.clone(), 
-                quote_root_bank_ai.clone(), 
-                quote_node_bank_ai.clone(), 
-                quote_vault_ai.clone(), 
-                signer_ai.clone(), 
-                dex_signer_ai.clone(), 
-                msrm_or_srm_vault_ai.clone(),
-                packed_open_orders_ais[0].clone(),
-            ],
-            &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
-        )?;
+//         invoke_signed(
+//             &place_spot_order2(
+//                 mango_prog_ai.key,
+//                 mango_group_ai.key, 
+//                 mango_account_ai.key, 
+//                 fund_pda_ai.key, 
+//                 mango_cache_ai.key, 
+//                 dex_prog_ai.key, 
+//                 spot_market_ai.key, 
+//                 bids_ai.key, 
+//                 asks_ai.key, 
+//                 dex_request_queue_ai.key, 
+//                 dex_event_queue_ai.key, 
+//                 dex_base_ai.key, 
+//                 dex_quote_ai.key, 
+//                 base_root_bank_ai.key, 
+//                 base_node_bank_ai.key, 
+//                 base_vault_ai.key, 
+//                 quote_root_bank_ai.key, 
+//                 quote_node_bank_ai.key, 
+//                 quote_vault_ai.key, 
+//                 signer_ai.key, 
+//                 dex_signer_ai.key, 
+//                 msrm_or_srm_vault_ai.key, 
+//                 &[*packed_open_orders_ais.key],
+//                 order)?,
+//             &[
+//                 mango_prog_ai.clone(),
+//                 mango_group_ai.clone(), 
+//                 mango_account_ai.clone(), 
+//                 fund_pda_ai.clone(), 
+//                 mango_cache_ai.clone(), 
+//                 dex_prog_ai.clone(), 
+//                 spot_market_ai.clone(), 
+//                 bids_ai.clone(), 
+//                 asks_ai.clone(), 
+//                 dex_request_queue_ai.clone(), 
+//                 dex_event_queue_ai.clone(), 
+//                 dex_base_ai.clone(), 
+//                 dex_quote_ai.clone(), 
+//                 base_root_bank_ai.clone(), 
+//                 base_node_bank_ai.clone(), 
+//                 base_vault_ai.clone(), 
+//                 quote_root_bank_ai.clone(), 
+//                 quote_node_bank_ai.clone(), 
+//                 quote_vault_ai.clone(), 
+//                 signer_ai.clone(), 
+//                 dex_signer_ai.clone(), 
+//                 msrm_or_srm_vault_ai.clone(),
+//                 packed_open_orders_ais.clone(),
+//             ],
+//             &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
+//         )?;
 
-    Ok(())
-}
+//     Ok(())
+// }
 
 pub fn mango_withdraw_investor(
     program_id: &Pubkey,
@@ -682,33 +693,33 @@ pub fn mango_withdraw_investor(
         )?;
     }
 
-    let token_quantity:u64 =  U64F64::to_num(investor_data.margin_debt[1]);
-    if token_quantity > 0 {
-        invoke_signed(
-            &withdraw(mango_prog_ai.key, mango_group_ai.key, mango_account_ai.key, fund_pda_ai.key,
-                mango_cache_ai.key, token_root_bank_ai.key, token_node_bank_ai.key, token_vault_ai.key, token_investor_token_ai.key,
-                signer_ai.key, &open_orders_accs, token_quantity, false)?,
-            &[
-                mango_prog_ai.clone(),
-                mango_group_ai.clone(),
-                mango_account_ai.clone(),
-                fund_pda_ai.clone(),
-                mango_cache_ai.clone(),
-                token_root_bank_ai.clone(),
-                token_node_bank_ai.clone(),
-                token_vault_ai.clone(),
-                token_investor_token_ai.clone(),
-                signer_ai.clone(),
-                default_ai.clone(),
-                token_prog_ai.clone()
-            ],
-            &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
-        )?;
-    }
+    // let token_quantity:u64 =  U64F64::to_num(investor_data.margin_debt[1]);
+    // if token_quantity > 0 {
+    //     invoke_signed(
+    //         &withdraw(mango_prog_ai.key, mango_group_ai.key, mango_account_ai.key, fund_pda_ai.key,
+    //             mango_cache_ai.key, token_root_bank_ai.key, token_node_bank_ai.key, token_vault_ai.key, token_investor_token_ai.key,
+    //             signer_ai.key, &open_orders_accs, token_quantity, false)?,
+    //         &[
+    //             mango_prog_ai.clone(),
+    //             mango_group_ai.clone(),
+    //             mango_account_ai.clone(),
+    //             fund_pda_ai.clone(),
+    //             mango_cache_ai.clone(),
+    //             token_root_bank_ai.clone(),
+    //             token_node_bank_ai.clone(),
+    //             token_vault_ai.clone(),
+    //             token_investor_token_ai.clone(),
+    //             signer_ai.clone(),
+    //             default_ai.clone(),
+    //             token_prog_ai.clone()
+    //         ],
+    //         &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
+    //     )?;
+    // }
     
     msg!("invoke done");
     fund_data.mango_positions.investor_debts[0] = fund_data.mango_positions.investor_debts[0].checked_sub(U64F64::to_num(investor_data.margin_debt[0])).unwrap();
-    fund_data.mango_positions.investor_debts[1] = fund_data.mango_positions.investor_debts[1].checked_sub(U64F64::to_num(investor_data.margin_debt[1])).unwrap();
+    // fund_data.mango_positions.investor_debts[1] = fund_data.mango_positions.investor_debts[1].checked_sub(U64F64::to_num(investor_data.margin_debt[1])).unwrap();
     investor_data.margin_debt = [ZERO_U64F64; 2];
     investor_data.withdrawn_from_margin = true;
     if investor_data.has_withdrawn_from_fund == true {
