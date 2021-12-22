@@ -13,6 +13,8 @@ export const DisplayInfo = (props) => {
 
   const [fundData, setFundData] = useState("");
   const [fundTokens, setFundTokens] = useState([]);
+  const [managerAddress, setManagerAddress] = useState('')
+  const [fundStateAccount, setFundStateAccount] = useState('')
 
 //   const walletProvider = GlobalState.useState(s => s.walletProvider);
 const walletProvider = GlobalState.useState(s => s.walletProvider);
@@ -21,6 +23,25 @@ const programIdX = programId.toBase58();
 const adminAccountX = adminAccount.toBase58();
 const platformStateAccountX = platformStateAccount.toBase58();
 const priceStateAccountX = priceStateAccount.toBase58();
+
+  useEffect(  ()=> {
+    (async () => {
+      if(!walletProvider) {
+        // walletProvider?.publicKey
+        // alert("connect wallet ")
+        return;
+      }
+
+      const fundStateAcc = await PublicKey.createWithSeed(
+        walletProvider?.publicKey,
+        FUND_ACCOUNT_KEY,
+        programId,
+      );
+      console.log("FUND fundStateAcc:: ", fundStateAcc.toBase58())
+      setFundStateAccount(fundStateAcc.toBase58())
+    })()
+    
+  },[walletProvider])
 
 const handleGetFundData = async () => {
 
@@ -34,9 +55,15 @@ const handleGetFundData = async () => {
   // baigan : B9YVBghroTdohKoTQb7SofHh2U6FxAybuF6UwZEw7c1x
   // aak : 5Arakn7JSt3sPkXdWvy1887Bjd2d755b57BTEwBR7cW3
   // the Moon (lucio) :FRaWwEyKTwFgcU7tZa3xbSCxkEH61rdpCWqVV7z1Zj7S
+  let key;
+  if(managerAddress){
+     key = new PublicKey(managerAddress);
+  } else {
+    //  key = new PublicKey('FFcfJ3QqPHReUkdhnqCws7dDDhHPuwZyiCDiYVr49NEb');
+    key = walletProvider?.publicKey;
+  }
   
-  // const key = new PublicKey('zRzdC1b2zJte4rMjfaSFZwbnBfL1kNYaTAF4UC4bqpx');
-  const key = walletProvider?.publicKey;  
+  // const key = walletProvider?.publicKey;  
   if (!key ) {
     alert("connect wallet ")
     return;
@@ -48,7 +75,7 @@ const handleGetFundData = async () => {
       programId,
     );
     console.log("FUND fundStateAcc:: ", fundStateAcc.toBase58())
-    // setFundStateAccount(fundStateAcc.toBase58())
+    setFundStateAccount(fundStateAcc.toBase58())
 
     const fundDataAcc = await connection.getAccountInfo(fundStateAcc);
     console.log("fundDataAcc::",fundDataAcc);
@@ -114,6 +141,11 @@ const handleGetFundData = async () => {
       <p> adminAccount : {adminAccountX}</p>
       <p> platformStateAccount : {platformStateAccountX}</p>
       <p> priceStateAccount : {priceStateAccountX}</p>
+      
+      <p> fundStateAccount : {fundStateAccount}</p>
+
+      <br/>
+      Manager Address :: <input type="text" style={{width :"500px"}} value={managerAddress} onChange={(event) => setManagerAddress(event.target.value)} />
       <button onClick={handleGetFundData}>GET FUND STATE</button>
    
 
@@ -121,13 +153,14 @@ const handleGetFundData = async () => {
         fundData &&
           <>
             <h4>FUND STATE</h4>
+            <p> **version  : {fundData.version}</p>
+
             <p> number_of_active_investments : {fundData.number_of_active_investments}</p>
             <p> no_of_investments : {fundData.no_of_investments}</p>
 
             <p> no_of_margin_positions : {fundData.no_of_margin_positions}</p>
             <p> no_of_assets (active tokens) : {fundData.no_of_assets}</p>
             <p> position_count  : {fundData.position_count}</p>
-            <p> version  : {fundData.version}</p>
             <p> padding   : u8,7</p>
 
             <p> min_amount  : {fundData.min_amount.toString()}</p>
@@ -142,8 +175,6 @@ const handleGetFundData = async () => {
             <p> fund_pda  : {fundData.fund_pda.toBase58()}</p>
             <p> signer_nonce  : {fundData.signer_nonce}</p>
 
-            <p> mango_positions  state== 0: inactive, 1: deposited, 2: position_open, </p>
-            <p> 3: settled_open, 4: position_closed, 5: settled_close, 6: stale </p>
 
             {
                  fundData.mango_positions.length &&

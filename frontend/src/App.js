@@ -12,6 +12,8 @@ import { Deposit } from './components/Deposit';
 import { InitialisedFund } from './components/InitialisedFund';
 import { DisplayInfo } from './components/DisplayInfo';
 
+import { MangoMigration } from './components/MangoMigration';
+
 import { Swap } from './components/Swap';
 import { OrcaSwap } from './components/OrcaSwap';
 
@@ -57,6 +59,7 @@ function App() {
         } */}
         <SendGreating />
         <DisplayInfo/>
+        <MangoMigration/>
         <InitialisedFund />
         <Deposit />
 	      <Transfer />
