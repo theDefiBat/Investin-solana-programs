@@ -189,27 +189,30 @@ impl Fund {
         let investin_admin_acc = next_account_info(accounts_iter)?;
         check!(investin_admin_acc.is_signer, FundError::IncorrectSignature);
         check_eq!(investin_admin::ID, *investin_admin_acc.key);
-        let fund_state_acc = next_account_info(accounts_iter)?;
-        let mut fund_data_old = FundData::load_mut_checked(fund_state_acc, program_id)?;
-
-        for i in 0..2{
-            fund_data_old.mango_positions[i].margin_account = Pubkey::default();
-            fund_data_old.mango_positions[i].state = 0;
-            fund_data_old.mango_positions[i].margin_index = 0;
-            fund_data_old.mango_positions[i].position_side = 0;
-            fund_data_old.mango_positions[i].position_id = 0;
-            fund_data_old.mango_positions[i].trade_amount = 0;
-            fund_data_old.mango_positions[i].fund_share = U64F64!(0);
-            fund_data_old.mango_positions[i].share_ratio = U64F64!(0);
+        
+        for a in 1..accounts.len(){
+            let fund_state_acc = next_account_info(accounts_iter)?;
+            let mut fund_data_old = FundData::load_mut_checked(fund_state_acc, program_id)?;
+    
+            for i in 0..2{
+                fund_data_old.mango_positions[i].margin_account = Pubkey::default();
+                fund_data_old.mango_positions[i].state = 0;
+                fund_data_old.mango_positions[i].margin_index = 0;
+                fund_data_old.mango_positions[i].position_side = 0;
+                fund_data_old.mango_positions[i].position_id = 0;
+                fund_data_old.mango_positions[i].trade_amount = 0;
+                fund_data_old.mango_positions[i].fund_share = U64F64!(0);
+                fund_data_old.mango_positions[i].share_ratio = U64F64!(0);
+            }
+    
+            let mut fund_data = FundDataNew::load_mut_checked(fund_state_acc, program_id)?;
+            fund_data.version = 2;
+            fund_data.mango_positions.mango_account = Pubkey::default();
+            fund_data.mango_positions.perp_markets = [u8::MAX; 3];
+            fund_data.mango_positions.perp_padding = u8::MAX;
+            fund_data.mango_positions.deposit_index = u8::MAX;
         }
 
-        let mut fund_data = FundDataNew::load_mut_checked(fund_state_acc, program_id)?;
-        fund_data.version = 2;
-        fund_data.mango_positions.mango_account = Pubkey::default();
-        fund_data.mango_positions.perp_markets = [u8::MAX; 3];
-        fund_data.mango_positions.perp_padding = u8::MAX;
-        fund_data.mango_positions.deposit_index = u8::MAX;
-        
         Ok(())
     }
 
