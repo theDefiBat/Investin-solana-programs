@@ -750,7 +750,6 @@ export async function mangoWithdrawInvestor(
   let marginAccount = await client.getMarginAccount(connection, marginAcc, SERUM_PROGRAM_ID_V3)
   let mangoGroup = await client.getMangoGroup(connection, MANGO_GROUP_ACCOUNT)
   console.log("mango group::", mangoGroup)
-
   console.log("margin acc::", marginAccount)
   
 

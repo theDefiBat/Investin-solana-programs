@@ -17,12 +17,12 @@ export const AllFundsInvestors = () => {
 
   const handleGetAllInvestments = async () => {
 
-     const userkey = new PublicKey('FFcfJ3QqPHReUkdhnqCws7dDDhHPuwZyiCDiYVr49NEb');
+    //  const userkey = new PublicKey('FFcfJ3QqPHReUkdhnqCws7dDDhHPuwZyiCDiYVr49NEb');
     let investments = await connection.getProgramAccounts(programId, { filters: [
       { dataSize: INVESTOR_DATA.span },
-      {
-        memcmp: { offset: INVESTOR_DATA.offsetOf('owner'), bytes: userkey.toBase58() }
-      }
+      // {
+      //   memcmp: { offset: INVESTOR_DATA.offsetOf('owner'), bytes: userkey.toBase58() }
+      // }
     ] });
     // console.log("investments::",investments)
     const newInvestors = []
@@ -76,6 +76,7 @@ export const AllFundsInvestors = () => {
         // if (decodedData.is_initialized) {
             // const { updatedPerformance, currentAum } = await getPerformance(mapTokens(platformData.token_list, decodedData.tokens), prices, (decodedData.prev_performance), decodedData.total_amount, (await fundMarginData(decodedData))?.balance ?? 0)
             managers.push({
+                version : decodedData.version.toString(),
                 fundState : decodedData,
                 fundPDA: decodedData.fund_pda.toBase58(),
                 fundManager: decodedData.manager_account.toBase58(),
@@ -143,6 +144,10 @@ export const AllFundsInvestors = () => {
             investments && 
 
             investments.map((i,x)=>{
+              if(i?.margin_debt[0]==0 && i?.margin_debt[1]==0){
+                return <></>
+              }
+
                return <tr key={i?.ivnStatePubKey?.toBase58()}>
                  <td >{x}</td>
                  <td >{i?.ivnStatePubKey?.toBase58()}</td>
@@ -187,6 +192,8 @@ export const AllFundsInvestors = () => {
             <thead className="text-primary">
                             <tr>
                               <th style={{ width: "15%" }}>index</th>
+                              <th style={{ width: "15%" }}>version</th>
+
                               <th style={{ width: "15%" }}>fundManager</th>
                               <th style={{ width: "15%" }}>fundAddress</th>
                               <th style={{ width: "15%" }}>fundStateAccount</th>
@@ -212,6 +219,7 @@ export const AllFundsInvestors = () => {
               // }
                return <tr key={x}>
                  <td >{x}</td>
+                 <td >{i?.version}</td>
                  <td >{i?.fundManager}</td>
                  <td >{i?.fundPDA}</td>
                  <td >{i?.fundStateAccount}</td>
