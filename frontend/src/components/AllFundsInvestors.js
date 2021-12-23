@@ -178,7 +178,7 @@ export const AllFundsInvestors = () => {
       </Col>
       </Row>
       <Row className="justify-content-between">
-      <Col lg="10" xs="10">
+      <Col lg="12" xs="12">
       <h4>Funds</h4>
       
       <button onClick={handleGetAllFunds}> get All Funds</button>
@@ -197,14 +197,54 @@ export const AllFundsInvestors = () => {
                               <th style={{ width: "15%" }}>fundManager</th>
                               <th style={{ width: "15%" }}>fundAddress</th>
                               <th style={{ width: "15%" }}>fundStateAccount</th>
-                              {/* <th style={{ width: "15%" }}>amount</th>
-                              <th style={{ width: "15%" }}>amount_in_router</th> */}
+
+
+                              <th style={{ width: "15%" }}>is_initialized</th>
+                              <th style={{ width: "15%" }}>number_of_active_investments</th>
+                              <th style={{ width: "15%" }}>no_of_investments</th>
+                              <th style={{ width: "15%" }}>signer_nonce</th>
+                              <th style={{ width: "15%" }}>no_of_margin_positions</th>
+                              <th style={{ width: "15%" }}>no_of_assets</th>
+                              <th style={{ width: "15%" }}>position_count</th>
+
+
+                              <th style={{ width: "15%" }}>min_amount</th>
+                              <th style={{ width: "15%" }}>min_return</th>
+                              <th style={{ width: "15%" }}>performance_fee_percentage</th>
+                              <th style={{ width: "15%" }}>total_amount</th>
+                              <th style={{ width: "15%" }}>prev_performance</th>
+
+
+                              <th style={{ width: "15%" }}>amount_in_router</th>
+                              <th style={{ width: "15%" }}>performance_fee</th>
+                              {/* <th style={{ width: "15%" }}>manager_account</th>
+                              <th style={{ width: "15%" }}>fund_pda</th> */}
+
+                              <th style={{ width: "15%" }}>TOKENS-0</th>
+                              <th style={{ width: "15%" }}>TOKENS-1</th>
+                              <th style={{ width: "15%" }}>TOKENS-2</th>
+                              <th style={{ width: "15%" }}>TOKENS-3</th>
+                              <th style={{ width: "15%" }}>TOKENS-4</th>
+                              <th style={{ width: "15%" }}>TOKENS-5</th>
+                              <th style={{ width: "15%" }}>TOKENS-6</th>
+                              <th style={{ width: "15%" }}>TOKENS-7</th>
+
+
+
                               <th style={{ width: "15%" }}>mango_acc1</th>
+                              <th style={{ width: "15%" }}>state | margin_index |position_side</th>
+                              <th style={{ width: "15%" }}>debtors| position_id</th>
                               <th style={{ width: "15%" }}>trade_amount1</th>
-                              <th style={{ width: "15%" }}>debtors1</th>
+                              <th style={{ width: "15%" }}>fund_share</th>
+                              <th style={{ width: "15%" }}>share_ratio</th>
+
                               <th style={{ width: "15%" }}>mango_acc2</th>
-                              <th style={{ width: "15%" }}>trade_amount2</th>
-                              <th style={{ width: "15%" }}>debtors2</th>
+                              <th style={{ width: "15%" }}>state | margin_index |position_side</th>
+                              <th style={{ width: "15%" }}>debtors| position_id</th>
+                              <th style={{ width: "15%" }}>trade_amount1</th>
+                              <th style={{ width: "15%" }}>fund_share</th>
+                              <th style={{ width: "15%" }}>share_ratio</th>
+
                             </tr>
                           </thead>
 
@@ -220,17 +260,128 @@ export const AllFundsInvestors = () => {
                return <tr key={x}>
                  <td >{x}</td>
                  <td >{i?.version}</td>
+
                  <td >{i?.fundManager}</td>
                  <td >{i?.fundPDA}</td>
                  <td >{i?.fundStateAccount}</td>
-                 {/* <td>{i?.amount?.toString()/10**6}</td>
-                 <td>{i?.amount_in_router?.toString()/10**6}</td> */}
-                <td >{i?.mango_acc1}</td>
+
+
+                 <td >{i?.fundState.is_initialized}</td>
+                 <td >{i?.fundState.number_of_active_investments}</td>
+                 <td >{i?.fundState.no_of_investments}</td>
+                 <td >{i?.fundState.signer_nonce}</td>
+                 <td >{i?.fundState.no_of_margin_positions}</td>
+                 <td >{i?.fundState.no_of_assets}</td>
+                 <td >{i?.fundState.position_count}</td>
+
+
+                 <td >{i?.fundState.min_amount.toString()}</td>
+                 <td >{i?.fundState.min_return.toString()}</td>
+                 <td >{i?.fundState.performance_fee_percentage.toString()}</td>
+                 <td>{i?.fundState.total_amount?.toString()/10**6}</td>
+                 <td >{i?.fundState.prev_performance.toString()}</td>
+
+
+                 <td>{i?.fundState.amount_in_router?.toString()/10**6}</td>
+                 <td >{i?.fundState.performance_fee.toString()}</td>
+
+                 <td >
+                     {
+                          i?.fundState.tokens[0].is_initialized 
+                        } || { i?.fundState.tokens[0].index.toString() 
+                      } || { i?.fundState.tokens[0].mux 
+                      } || { i?.fundState.tokens[0].balance.toString() 
+                      } || { i?.fundState.tokens[0].debt.toString() 
+                      } || { i?.fundState.tokens[0].vault.toBase58()
+                     }
+                 </td>
+                 <td >
+                     {
+                          i?.fundState.tokens[1].is_initialized 
+                        } || { i?.fundState.tokens[1].index.toString() 
+                      } || { i?.fundState.tokens[1].mux 
+                      } || { i?.fundState.tokens[1].balance.toString() 
+                      } || { i?.fundState.tokens[1].debt.toString() 
+                      } || { i?.fundState.tokens[1].vault.toBase58()
+                     }
+                 </td>
+                 <td >
+                     {
+                          i?.fundState.tokens[2].is_initialized 
+                        } || { i?.fundState.tokens[2].index.toString() 
+                      } || { i?.fundState.tokens[2].mux 
+                      } || { i?.fundState.tokens[2].balance.toString() 
+                      } || { i?.fundState.tokens[2].debt.toString() 
+                      } || { i?.fundState.tokens[2].vault.toBase58()
+                     }
+                 </td>
+                 <td >
+                     {
+                          i?.fundState.tokens[3].is_initialized 
+                        } || { i?.fundState.tokens[3].index.toString() 
+                      } || { i?.fundState.tokens[3].mux 
+                      } || { i?.fundState.tokens[3].balance.toString() 
+                      } || { i?.fundState.tokens[3].debt.toString() 
+                      } || { i?.fundState.tokens[3].vault.toBase58()
+                     }
+                 </td>
+                 <td >
+                     {
+                          i?.fundState.tokens[4].is_initialized 
+                        } || { i?.fundState.tokens[4].index.toString() 
+                      } || { i?.fundState.tokens[4].mux 
+                      } || { i?.fundState.tokens[4].balance.toString() 
+                      } || { i?.fundState.tokens[4].debt.toString() 
+                      } || { i?.fundState.tokens[4].vault.toBase58()
+                     }
+                 </td>
+                 <td >
+                     {
+                          i?.fundState.tokens[5].is_initialized 
+                        } || { i?.fundState.tokens[5].index.toString() 
+                        } || { i?.fundState.tokens[5].mux 
+                        } || { i?.fundState.tokens[5].balance.toString() 
+                        } || { i?.fundState.tokens[5].debt.toString() 
+                        } || { i?.fundState.tokens[5].vault.toBase58()
+                     }
+                 </td>
+                 <td >
+                     {
+                          i?.fundState.tokens[6].is_initialized 
+                        } || { i?.fundState.tokens[6].index.toString() 
+                      } || { i?.fundState.tokens[6].mux 
+                      } || { i?.fundState.tokens[6].balance.toString() 
+                      } || { i?.fundState.tokens[6].debt.toString() 
+                      } || { i?.fundState.tokens[6].vault.toBase58()
+                     }
+                 </td>
+                 <td >
+                     {
+                          i?.fundState.tokens[7].is_initialized 
+                        } || { i?.fundState.tokens[7].index.toString() 
+                        } || { i?.fundState.tokens[7].mux 
+                        } || { i?.fundState.tokens[7].balance.toString() 
+                        } || { i?.fundState.tokens[7].debt.toString() 
+                        } || { i?.fundState.tokens[7].vault.toBase58()
+                     }
+                 </td>
+
+                 <td >{i?.mango_acc1}</td>
+                 <td >{i?.fundState.mango_positions[0].state} || { i?.fundState.mango_positions[0].margin_index } || { i?.fundState.mango_positions[0].position_side}</td>
+                 <td >{i?.fundState.mango_positions[0].debtors } || { i?.fundState.mango_positions[0].position_id }</td>
                  <td >{i?.trade_amount1}</td>
-                 <td >{i?.debtors1}</td>
+                 <td >{i?.fundState.mango_positions[0].fund_share.toString()}</td>
+                 <td >{i?.fundState.mango_positions[0].share_ratio.toString()}</td>
+
+
+
                  <td >{i?.mango_acc2}</td>
+                 <td >{i?.fundState.mango_positions[1].state } || { i?.fundState.mango_positions[1].margin_index } || {i?.fundState.mango_positions[1].position_side}</td>
+                 <td >{i?.fundState.mango_positions[1].debtors } || { i?.fundState.mango_positions[1].position_id }</td>
                  <td >{i?.trade_amount2}</td>
-                 <td >{i?.debtors2}</td>
+                 <td >{i?.fundState.mango_positions[1].fund_share.toString()}</td>
+                 <td >{i?.fundState.mango_positions[1].share_ratio.toString()}</td>
+
                </tr>
             })
           }
