@@ -669,7 +669,7 @@ impl Fund {
                 
             }
             // msg!("usdc {:?}, tok {:?}", usdc_deposits_before, token_deposits_before);
-            let (perp_pnl_after, mut usdc_deposits_after) = get_mango_valuation(
+            let (perp_pnl_after, usdc_deposits_after) = get_mango_valuation(
                 &fund_data,
                 &mango_account_ai,
                 &mango_group_ai,
@@ -678,35 +678,41 @@ impl Fund {
             )?;
             // let mut mango_val_after = U64F64::from_fixed(usdc_deposits_after.checked_add(token_deposits_val_after).unwrap().checked_add(perp_pnl_after).unwrap());
             let mut mango_val_after = U64F64::from_fixed(usdc_deposits_after.checked_add(perp_pnl_after).unwrap());
-            let investor_mango_value = mango_val_after.checked_mul(share).unwrap();
+            let mut investor_mango_value = mango_val_after.checked_mul(share).unwrap();
+            mango_val_after = mango_val_after.checked_sub(investor_mango_value).unwrap();
             // msg!("usdc* {:?}, tok* {:?}", usdc_deposits_after, token_deposits_after);
             
-            if perp_pnl_after < 0 {
-                let pnl_ratio:U64F64 = mango_val_after.checked_div(U64F64::from_num(
-                    usdc_deposits_after
-                    //.checked_add(token_deposits_val_after).unwrap()
-                )).unwrap();
-                // msg!("pnl -ve {:?}", pnl_ratio);
-                usdc_deposits_after = usdc_deposits_after.checked_mul(I80F48::from_fixed(pnl_ratio)).unwrap();
-                // token_deposits_after = token_deposits_after.checked_mul(I80F48::from_fixed(pnl_ratio)).unwrap();
-            } else {
-                usdc_deposits_after = usdc_deposits_after.checked_add(perp_pnl_after).unwrap();
-            }
+            // if perp_pnl_after < 0 {
+            //     // let pnl_ratio:U64F64 = mango_val_after.checked_div(U64F64::from_num(
+            //     //     usdc_deposits_after
+            //     //     //.checked_add(token_deposits_val_after).unwrap()
+            //     // )).unwrap();
+            //     // msg!("pnl -ve {:?}", pnl_ratio);
+            //     usdc_deposits_after = usdc_deposits_after.checked_sub(perp_pnl_after).unwrap();
+            //     // usdc_deposits_after = usdc_deposits_after.checked_mul(I80F48::from_fixed(pnl_ratio)).unwrap();
+            //     // token_deposits_after = token_deposits_after.checked_mul(I80F48::from_fixed(pnl_ratio)).unwrap();
+            // } else {
+            //     usdc_deposits_after = usdc_deposits_after.checked_add(perp_pnl_after).unwrap();
+            // }
             // msg!("*pnl: {:?}, mango_val {:?}", perp_pnl_after, mango_val_after);
             let pnl_diff = perp_pnl_before.checked_sub(perp_pnl_after).unwrap();
             // msg!("pnl_diff {:?}", pnl_diff);
-            let mut pnl_diff_ratio = U64F64!(1);
+            // let mut pnl_diff_ratio = U64F64!(1);
             if pnl_diff > 0 {
-                pnl_diff_ratio = pnl_diff_ratio.checked_sub(U64F64::from_fixed(pnl_diff).checked_div(investor_mango_value).unwrap()).unwrap();
-                mango_val_after = mango_val_after.checked_add(U64F64::from_num(pnl_diff)).unwrap();
+                // pnl_diff_ratio = pnl_diff_ratio.checked_sub(U64F64::from_fixed(pnl_diff).checked_div(investor_mango_value).unwrap()).unwrap();
+                let comp = U64F64::from_num(pnl_diff);
+                mango_val_after = mango_val_after.checked_add(comp).unwrap();
+                investor_mango_value = investor_mango_value.checked_sub(comp).unwrap();
             }
-            mango_val_after = mango_val_after.checked_sub(investor_mango_value).unwrap();
+            
             investor_data.margin_position_id[0] = QUOTE_INDEX as u64;
             // investor_data.margin_position_id[1] = fund_data.mango_positions.deposit_index as u64;
-            investor_data.margin_debt[0] = U64F64::from_fixed(usdc_deposits_after.checked_mul(I80F48::from_fixed(share)).unwrap()).checked_mul(pnl_diff_ratio).unwrap();
+            // investor_data.margin_debt[0] = U64F64::from_fixed(investor_mango_value.checked_mul(I80F48::from_fixed(share)).unwrap()).checked_mul(pnl_diff_ratio).unwrap();
+            investor_data.margin_debt[0] = investor_mango_value;
+            
             // investor_data.margin_debt[1] = U64F64::from_fixed(token_deposits_after.checked_mul(I80F48::from_fixed(share)).unwrap()).checked_mul(pnl_diff_ratio).unwrap();
             // msg!("investor debts: {:?}", investor_data.margin_debt);
-            fund_data.mango_positions.investor_debts[0] = fund_data.mango_positions.investor_debts[0].checked_add(U64F64::to_num(investor_data.margin_debt[0])).unwrap();
+            fund_data.mango_positions.investor_debts[0] = fund_data.mango_positions.investor_debts[0].checked_add(U64F64::to_num(investor_mango_value)).unwrap();
             // fund_data.mango_positions.investor_debts[1] = fund_data.mango_positions.investor_debts[1].checked_add(U64F64::to_num(investor_data.margin_debt[1])).unwrap();
             fund_data.number_of_active_investments -= 1;
             fund_data.no_of_investments -= 1;
@@ -1126,10 +1132,10 @@ impl Fund {
                 msg!("FundInstruction::MangoPlacePerpOrder");
                 return mango_place_perp_order(program_id, accounts, perp_market_id , side, quantity);
             }
-            // FundInstruction::MangoSettlePnL {perp_market_id} => {
-            //     msg!("FundInstruction::MangoSettlePnL");
-            //     return mango_settle_pnl(program_id, accounts, perp_market_id);
-            // }
+            FundInstruction::MangoRemovePerpIndex {perp_market_id} => {
+                msg!("FundInstruction::MangoRemovePerpIndex");
+                return mango_remove_perp_index(program_id, accounts, perp_market_id);
+            }
             // FundInstruction::MangoPlaceSpotOrder { side, price,trade_size } => {
             //     msg!("FundInstruction::MangoPlaceSpotOrder");
             //     return mango_place_spot_order2(program_id, accounts, side, price, trade_size);

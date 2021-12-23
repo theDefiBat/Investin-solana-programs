@@ -193,9 +193,9 @@ pub enum FundInstruction {
     /// 11. `[writable]` quote_vault_acc - MangoGroup quote vault acc
     /// 12. `[]` dex_signer_acc - dex Market signer account
     /// 13. `[]` spl token program
-    // MangoSettlePnL {
-    //     perp_market_id: u8,
-    // },
+    MangoRemovePerpIndex {
+        perp_market_id: u8
+    },
 
     /// Withdraw funds that were deposited earlier.
     ///
@@ -496,12 +496,12 @@ impl FundInstruction {
                     quantity: i64::from_le_bytes(*quantity)
                 }
             },
-            // 11 => {
-            //     let perp_market_id = array_ref![data, 0, 1];
-            //     FundInstruction::MangoSettlePnL {
-            //         perp_market_id: u8::from_le_bytes(*perp_market_id)
-            //     }
-            // },
+            11 => {
+                let perp_market_id = array_ref![data, 0, 1];
+                FundInstruction::MangoRemovePerpIndex {
+                    perp_market_id: u8::from_le_bytes(*perp_market_id)
+                }
+            },
             // 12 => {
             //     let data_arr = array_ref![data, 0, 17];
             //     let (

@@ -1,6 +1,7 @@
 use bytemuck::bytes_of;
 use fixed::types::I80F48;
 use fixed::types::U64F64;
+use fixed_macro::types::I80F48;
 use solana_program::{
     account_info::AccountInfo,
     msg,
@@ -166,6 +167,8 @@ pub fn mango_init_mango_account(
     //Check for Mango v3 ID 
     check_eq!(*mango_prog_ai.key, mango_v3_id::ID);
     check!(manager_ai.is_signer, ProgramError::MissingRequiredSignature);
+    check_eq!(*mango_account_ai.owner, *fund_pda_ai.key);
+
     check_eq!(fund_data.manager_account, *manager_ai.key);
     check_eq!(fund_data.mango_positions.mango_account, Pubkey::default());
     invoke_signed(
@@ -213,6 +216,7 @@ pub fn mango_deposit(
     check_eq!(fund_data.tokens[token_slot_index as usize].vault, *owner_token_account_ai.key); 
     check_eq!(*mango_prog_ai.key, mango_v3_id::ID);
     check!(fund_data.mango_positions.mango_account != Pubkey::default(), FundError::MangoNotInitialized);
+    check_eq!(*mango_account_ai.key, fund_data.mango_positions.mango_account);
     // check_eq!(mango_group.tokens[mango_token_index].root_bank, )   
     check_eq!(mango_token_index as usize, QUOTE_INDEX);
     // if(mango_token_index as usize != QUOTE_INDEX){
@@ -318,18 +322,58 @@ pub fn mango_place_perp_order(
     
 
     let fund_perp_makret_index = fund_data.get_mango_perp_index(perp_market_id);
-    if(fund_perp_makret_index == None){
+    if fund_perp_makret_index == None {
         let new_fund_perp_makret_index = fund_data.get_mango_perp_index(u8::MAX).unwrap();
         fund_data.mango_positions.perp_markets[new_fund_perp_makret_index] = perp_market_id;
     }
-    else{
-        let mango_account_data = MangoAccount::load_checked(mango_account_ai, mango_prog_ai.key, mango_group_ai.key)?;
-        let base_pos = mango_account_data.perp_accounts[perp_market_id as usize].base_position;
-        if((side == Side::Bid && quantity.checked_add(base_pos).unwrap() == 0) || (side == Side::Ask && quantity == base_pos)){
-            msg!("Clearing Perp market on Fund");
-            fund_data.mango_positions.perp_markets[fund_perp_makret_index.unwrap() as usize] = u8::MAX;
-        }
-    }
+    //Settle PnL to be executed right after place_perp_order...
+
+    Ok(())
+
+}
+
+pub fn mango_remove_perp_index(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    perp_market_id: u8
+) -> Result<(), ProgramError> {
+    const NUM_FIXED: usize = 7;
+    let accounts = array_ref![accounts, 0, NUM_FIXED];
+
+    let [
+        fund_state_ai,
+        manager_ai,
+        mango_prog_ai,
+        mango_group_ai,     // read
+        mango_account_ai,   // write
+        fund_pda_ai,           // read, signer
+        mango_cache_ai,     // write
+    ] = accounts;
+
+    let mut fund_data = FundData::load_mut_checked(fund_state_ai, program_id)?;
+    //Check for Mango v3 ID 
+    check_eq!(*mango_prog_ai.key, mango_v3_id::ID);
+    check!(manager_ai.is_signer, ProgramError::MissingRequiredSignature);
+    check_eq!(*mango_account_ai.key, fund_data.mango_positions.mango_account); //Add this chreck elsewhere
+    // check_eq!(fund_data.manager_account, *manager_ai.key);
+    check!((fund_data.manager_account == *manager_ai.key), FundError::ManagerMismatch);
+
+    let mango_group = MangoGroup::load_checked(mango_group_ai, mango_prog_ai.key)?;
+    let mango_account = MangoAccount::load_checked(mango_account_ai, mango_prog_ai.key, mango_group_ai.key)?;
+    let mango_cache = MangoCache::load_checked(mango_cache_ai, mango_prog_ai.key, &mango_group)?;
+    
+    let (base_val, quote_val) = mango_account.perp_accounts[perp_market_id as usize].get_val(&mango_group.perp_markets[perp_market_id as usize],
+        &mango_cache.perp_market_cache[perp_market_id as usize], mango_cache.price_cache[perp_market_id as usize].price)?;
+
+    let perp_pnl = base_val.checked_add(quote_val).unwrap();
+    
+    let base_pos = mango_account.perp_accounts[perp_market_id as usize].base_position;
+
+    check!(perp_pnl == I80F48!(0) && base_pos == I80F48!(0), ProgramError::InsufficientFunds);
+    
+    let fund_perp_makret_index = fund_data.get_mango_perp_index(perp_market_id).unwrap();
+    fund_data.mango_positions.perp_markets[fund_perp_makret_index as usize] = u8::MAX;
+    
     //Settle PnL to be executed right after place_perp_order...
 
     Ok(())
