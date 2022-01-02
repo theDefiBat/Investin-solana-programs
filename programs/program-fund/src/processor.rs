@@ -53,7 +53,8 @@ pub mod investin_admin {
     // #[cfg(feature = "devnet")]
     // declare_id!("E3Zhv46FWGLDKFM24Ft2tgoqX5NCU49CT8NwH3rDHbsA");
     // #[cfg(not(feature = "devnet"))]
-    declare_id!("HcikBBJaAUTZXyqHQYHv46NkvwXVigkk2CuQgGuNQEnX");
+    declare_id!("owZmWQkqtY3Kqnxfua1KTHtR2S6DgBTP75JKbh15VWG");
+    // declare_id!("HcikBBJaAUTZXyqHQYHv46NkvwXVigkk2CuQgGuNQEnX");
 }
 
 pub mod usdc_mint {
@@ -147,8 +148,6 @@ impl Fund {
 
         // whitelisted tokens
         for index in 1..no_of_tokens {
-
-
             let mint_ai = next_account_info(accounts_iter)?;
             let vault_ai = next_account_info(accounts_iter)?;
 
@@ -345,7 +344,7 @@ impl Fund {
         )?;
 
         let mut transferable_amount: u64 = 0;
-        let mut fee: u64 = 0;
+        // let mut fee: u64 = 0;
 
         for investor_state_ai in investor_state_accs.iter() {
             let index = fund_data.get_investor_index(investor_state_ai.key).unwrap();
@@ -356,13 +355,14 @@ impl Fund {
             check!(investor_data.amount_in_router > 0, ProgramError::InvalidAccountData);
             check_eq!(investor_data.manager, *manager_ai.key);
 
-            investor_data.amount = U64F64::to_num(U64F64::from_num(investor_data.amount_in_router).checked_mul(U64F64!(0.98)).unwrap());
+            // investor_data.amount = U64F64::to_num(U64F64::from_num(investor_data.amount_in_router).checked_mul(U64F64!(0.98)).unwrap());
+            investor_data.amount = investor_data.amount_in_router;
 
             // update transfer variables
             transferable_amount = transferable_amount.checked_add(investor_data.amount).unwrap();
-            fee = fee.checked_add(U64F64::to_num(
-                U64F64::from_num(investor_data.amount_in_router).checked_div(U64F64::from_num(100)).unwrap()
-            )).unwrap();
+            // fee = fee.checked_add(U64F64::to_num(
+            //     U64F64::from_num(investor_data.amount_in_router).checked_div(U64F64::from_num(100)).unwrap()
+            // )).unwrap();
 
             // update fund amount in router
             fund_data.amount_in_router = fund_data.amount_in_router.checked_sub(investor_data.amount_in_router).unwrap();
@@ -395,42 +395,44 @@ impl Fund {
             &[&["router".as_ref(), bytes_of(&platform_data.router_nonce)]]
         )?;
 
-        invoke_signed(
-            &(spl_token::instruction::transfer(
-                token_prog_ai.key,
-                router_btoken_ai.key,
-                manager_btoken_ai.key,
-                pda_router_ai.key,
-                &[pda_router_ai.key],
-                fee
-            ))?,
-            &[
-                router_btoken_ai.clone(),
-                manager_btoken_ai.clone(),
-                pda_router_ai.clone(),
-                token_prog_ai.clone()
-            ],
-            &[&["router".as_ref(), bytes_of(&platform_data.router_nonce)]]
-        )?;
+        // Depricated Managment and Platform fees on Investments
+        //
+        // invoke_signed(
+        //     &(spl_token::instruction::transfer(
+        //         token_prog_ai.key,
+        //         router_btoken_ai.key,
+        //         manager_btoken_ai.key,
+        //         pda_router_ai.key,
+        //         &[pda_router_ai.key],
+        //         fee
+        //     ))?,
+        //     &[
+        //         router_btoken_ai.clone(),
+        //         manager_btoken_ai.clone(),
+        //         pda_router_ai.clone(),
+        //         token_prog_ai.clone()
+        //     ],
+        //     &[&["router".as_ref(), bytes_of(&platform_data.router_nonce)]]
+        // )?;
 
-        check_eq!(platform_data.investin_vault, *investin_btoken_ai.key);
-        invoke_signed(
-            &(spl_token::instruction::transfer(
-                token_prog_ai.key,
-                router_btoken_ai.key,
-                investin_btoken_ai.key,
-                pda_router_ai.key,
-                &[pda_router_ai.key],
-                fee
-            ))?,
-            &[
-                router_btoken_ai.clone(),
-                investin_btoken_ai.clone(),
-                pda_router_ai.clone(),
-                token_prog_ai.clone()
-            ],
-            &[&["router".as_ref(), bytes_of(&platform_data.router_nonce)]]
-        )?;
+        // check_eq!(platform_data.investin_vault, *investin_btoken_ai.key);
+        // invoke_signed(
+        //     &(spl_token::instruction::transfer(
+        //         token_prog_ai.key,
+        //         router_btoken_ai.key,
+        //         investin_btoken_ai.key,
+        //         pda_router_ai.key,
+        //         &[pda_router_ai.key],
+        //         fee
+        //     ))?,
+        //     &[
+        //         router_btoken_ai.clone(),
+        //         investin_btoken_ai.clone(),
+        //         pda_router_ai.clone(),
+        //         token_prog_ai.clone()
+        //     ],
+        //     &[&["router".as_ref(), bytes_of(&platform_data.router_nonce)]]
+        // )?;
 
 
         fund_data.tokens[0].balance = parse_token_account(&fund_btoken_ai)?.amount;
@@ -444,6 +446,7 @@ impl Fund {
         
         Ok(())
     }
+
     // investor withdraw
     pub fn withdraw_from_fund(
         program_id: &Pubkey,

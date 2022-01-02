@@ -50,9 +50,9 @@ pub fn add_token_to_whitelist (
     check_eq!(investin_admin_acc.is_signer, true); // signer check
     check_eq!(platform_data.investin_admin, *investin_admin_acc.key); // only admin is allowed to add token
 
-    // token id check
+    // token id check => 0 for Raydium and 1 for Orca for now!
     check!(token_id < 2, ProgramError::InvalidArgument);
-    //check that only USDC and WSOL are base pairs for now 
+    
     //later can keep if else condition 
     // check!(pc_index < 2, ProgramError::InvalidArgument);
 
