@@ -12,9 +12,10 @@ pub enum FundInstruction {
     /// 1. [SIGNER] Manager Wallet Account
     /// 2. []       Fund PDA Account
     /// 3. []       Fund Vault Account
-    /// 4. []       Mango Group Account
-    /// 5. []       Mango Account
-    /// 6. []       Mango Prog Account
+    /// 4. []       Fund Vault MNGO Account
+    /// 5. []       Mango Group Account
+    /// 6. []       Mango Account
+    /// 7. []       Mango Prog Account
 
     Initialize {
         min_amount: u64,

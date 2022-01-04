@@ -361,7 +361,7 @@ impl Fund {
                     &place_perp_order(mango_prog_ai.key,
                         mango_group_ai.key, mango_account_ai.key, fund_pda_ai.key,
                         mango_cache_ai.key,perp_market_ai.key, bids_ai.key, asks_ai.key, event_queue_ai.key, &open_orders_accs,
-                        side, price, quantity, 0, OrderType::ImmediateOrCancel)?,
+                        side, price, quantity, 0, OrderType::ImmediateOrCancel, true)?,
                     &[
                         mango_prog_ai.clone(),
                         mango_group_ai.clone(),
@@ -919,7 +919,7 @@ impl Fund {
             }
             FundInstruction::MangoCancelPerpById { client_order_id, invalid_id_ok: _ } => {
                 msg!("FundInstruction::MangoCancelPerpById");
-                return mango_cancel_perp_by_id(program_id, accounts, client_order_id);
+                return mango_cancel_perp_by_id(program_id, accounts, client_order_id, invalid_id_ok);
             }
             FundInstruction::RedeemMngo => {
                 msg!("FundInstruction::RedeemMngo");
