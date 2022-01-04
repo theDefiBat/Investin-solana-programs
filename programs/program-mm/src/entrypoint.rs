@@ -1,9 +1,8 @@
 use solana_program::{
-    msg, account_info::AccountInfo, entrypoint::ProgramResult, entrypoint, pubkey::Pubkey,
+    account_info::AccountInfo, entrypoint, entrypoint::ProgramResult, msg, pubkey::Pubkey,
 };
 
 use crate::processor::Fund;
-
 
 entrypoint!(process_instruction);
 pub fn process_instruction(
@@ -11,10 +10,8 @@ pub fn process_instruction(
     accounts: &[AccountInfo],
     instruction_data: &[u8],
 ) -> ProgramResult {
-    Fund::process(program_id, accounts, instruction_data).map_err(
-        |e| {
-            msg!("{}", e);  // log the error
-            e.into()  // convert MangoError to generic ProgramError
-        }
-    )
+    Fund::process(program_id, accounts, instruction_data).map_err(|e| {
+        msg!("{}", e); // log the error
+        e.into() // convert MangoError to generic ProgramError
+    })
 }

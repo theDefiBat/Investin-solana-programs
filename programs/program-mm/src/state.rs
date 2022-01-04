@@ -1,19 +1,23 @@
-use std::cell::{Ref, RefMut};
-use std::mem::size_of;
-use solana_program::pubkey::Pubkey;
-use solana_program::account_info::AccountInfo;
-use solana_program::program_pack::{IsInitialized, Sealed};
-use solana_program::program_error::ProgramError;
+use crate::error::FundError;
 use bytemuck::{from_bytes, from_bytes_mut, Pod, Zeroable};
 use fixed::types::U64F64;
-use crate::error::FundError;
+use solana_program::account_info::AccountInfo;
+use solana_program::program_error::ProgramError;
+use solana_program::program_pack::{IsInitialized, Sealed};
+use solana_program::pubkey::Pubkey;
+use std::cell::{Ref, RefMut};
+use std::mem::size_of;
 
 pub trait Loadable: Pod {
     fn load_mut<'a>(account: &'a AccountInfo) -> Result<RefMut<'a, Self>, ProgramError> {
-        Ok(RefMut::map(account.try_borrow_mut_data()?, |data| from_bytes_mut(data)))
+        Ok(RefMut::map(account.try_borrow_mut_data()?, |data| {
+            from_bytes_mut(data)
+        }))
     }
     fn load<'a>(account: &'a AccountInfo) -> Result<Ref<'a, Self>, ProgramError> {
-        Ok(Ref::map(account.try_borrow_data()?, |data| from_bytes(data)))
+        Ok(Ref::map(account.try_borrow_data()?, |data| {
+            from_bytes(data)
+        }))
     }
     fn load_from_bytes(data: &[u8]) -> Result<&Self, ProgramError> {
         Ok(from_bytes(data))
@@ -25,22 +29,20 @@ macro_rules! impl_loadable {
         unsafe impl Zeroable for $type_name {}
         unsafe impl Pod for $type_name {}
         impl Loadable for $type_name {}
-    }
+    };
 }
 
 macro_rules! check_eq {
     ($x:expr, $y:expr) => {
         if ($x != $y) {
-            return Err(FundError::Default.into())
+            return Err(FundError::Default.into());
         }
-    }
+    };
 }
-
 
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct FundData {
-
     pub is_initialized: bool,
     pub signer_nonce: u8,
     pub perp_market_index: u8,
@@ -99,15 +101,13 @@ pub struct FundData {
     pub delegate: Pubkey,
 
     // all time Mngo accrual
-    pub total_mngo_accrued: u64
+    pub total_mngo_accrued: u64,
 }
 impl_loadable!(FundData);
-
 
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct InvestorData {
-
     pub is_initialized: bool,
     pub has_withdrawn: bool,
     pub withdrawn_from_margin: bool,
@@ -126,10 +126,9 @@ pub struct InvestorData {
     pub owner: Pubkey,
 
     // Fund manager wallet key
-    pub manager: Pubkey
+    pub manager: Pubkey,
 }
 impl_loadable!(InvestorData);
-
 
 impl Sealed for InvestorData {}
 impl IsInitialized for InvestorData {
@@ -148,9 +147,8 @@ impl IsInitialized for FundData {
 impl FundData {
     pub fn load_mut_checked<'a>(
         account: &'a AccountInfo,
-        program_id: &Pubkey
+        program_id: &Pubkey,
     ) -> Result<RefMut<'a, Self>, ProgramError> {
-
         check_eq!(account.data_len(), size_of::<Self>());
         check_eq!(account.owner, program_id);
 
@@ -159,7 +157,7 @@ impl FundData {
     }
     pub fn load_checked<'a>(
         account: &'a AccountInfo,
-        program_id: &Pubkey
+        program_id: &Pubkey,
     ) -> Result<Ref<'a, Self>, ProgramError> {
         check_eq!(account.data_len(), size_of::<Self>());
         check_eq!(account.owner, program_id);
@@ -172,9 +170,8 @@ impl FundData {
 impl InvestorData {
     pub fn load_mut_checked<'a>(
         account: &'a AccountInfo,
-        program_id: &Pubkey
+        program_id: &Pubkey,
     ) -> Result<RefMut<'a, Self>, ProgramError> {
-
         check_eq!(account.data_len(), size_of::<Self>());
         check_eq!(account.owner, program_id);
 
@@ -183,7 +180,7 @@ impl InvestorData {
     }
     pub fn load_checked<'a>(
         account: &'a AccountInfo,
-        program_id: &Pubkey
+        program_id: &Pubkey,
     ) -> Result<Ref<'a, Self>, ProgramError> {
         check_eq!(account.data_len(), size_of::<Self>());
         check_eq!(account.owner, program_id);
