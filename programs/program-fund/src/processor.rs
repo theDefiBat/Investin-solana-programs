@@ -91,7 +91,8 @@ impl Fund {
         min_amount: u64,
         min_return: u64,
         performance_fee_percentage: u64,
-        no_of_tokens: u8
+        no_of_tokens: u8,
+        is_private: bool
     ) -> Result<(), ProgramError> {
 
         let accounts_iter = &mut accounts.iter();
@@ -200,6 +201,7 @@ impl Fund {
         fund_data.mango_positions.investor_debts = [0; 2];
         fund_data.is_initialized = true;
         fund_data.version = 1; // v1 funds
+        fund_data.is_private = is_private; //set from params
 
         // update platform_data
         platform_data.no_of_active_funds += 1;
@@ -228,9 +230,10 @@ impl Fund {
 
         let mut fund_data = FundData::load_mut_checked(fund_state_ai, program_id)?;
         let mut investor_data = InvestorData::load_mut_checked(investor_state_ai, program_id)?;
-
+        msg!("Is Fund Private: {:?}", fund_data.is_private);
         // check if fund state acc passed is initialised
         check!(fund_data.is_initialized(), FundError::InvalidStateAccount);
+        check!(!(fund_data.is_private) || fund_data.manager_account == *investor_ai.key, FundError::PrivateFund);
 
         // let depositors: u64 = U64F64::to_num(U64F64::from_num(fund_data.no_of_investments).checked_sub(U64F64::from_num(fund_data.number_of_active_investments)).unwrap());
 
@@ -808,6 +811,20 @@ impl Fund {
         Ok(())
     }
 
+    pub fn change_fund_privacy(
+        program_id: &Pubkey,
+        accounts: &[AccountInfo],
+    ) -> Result<(), ProgramError> {
+        let accounts_iter = &mut accounts.iter();
+        let fund_state_ai = next_account_info(accounts_iter)?;
+        let manager_ai = next_account_info(accounts_iter)?;
+        let mut fund_data = FundData::load_mut_checked(fund_state_ai, program_id)?;
+        check!(manager_ai.is_signer, FundError::IncorrectSignature);
+        check_eq!(fund_data.manager_account, *manager_ai.key);
+        fund_data.is_private = !(fund_data.is_private);
+        Ok(())
+    }
+
     // manager Performance Fee Claim
     pub fn claim (
         program_id: &Pubkey,
@@ -1077,9 +1094,9 @@ impl Fund {
     ) -> Result<(), ProgramError> {
         let instruction = FundInstruction::unpack(data).ok_or(ProgramError::InvalidInstructionData)?;
         match instruction {
-            FundInstruction::Initialize { min_amount, min_return, performance_fee_percentage, no_of_tokens } => {
+            FundInstruction::Initialize { min_amount, min_return, performance_fee_percentage, no_of_tokens, is_private } => {
                 msg!("FundInstruction::Initialize");
-                return Self::initialize(program_id, accounts, min_amount, min_return, performance_fee_percentage, no_of_tokens);
+                return Self::initialize(program_id, accounts, min_amount, min_return, performance_fee_percentage, no_of_tokens, is_private);
             }
             FundInstruction::InvestorDeposit { amount, index } => {
                 msg!("FundInstruction::InvestorDeposit");
@@ -1155,10 +1172,10 @@ impl Fund {
             //     msg!("FundInstruction::MangoWithdrawInvestorPlaceOrder");
             //     return mango_withdraw_investor_place_order(program_id, accounts, price);
             // }
-            // FundInstruction::MangoWithdrawInvestorSettle => {
-            //     msg!("FundInstruction::MangoWithdrawInvestorSettle");
-            //     return mango_withdraw_investor_settle(program_id, accounts);
-            // }
+            FundInstruction::ChangeFundPrivacy => {
+                msg!("FundInstruction::ChangeFundPrivacy");
+                return Self::change_fund_privacy(program_id, accounts);
+            }
             FundInstruction::AddTokenToWhitelist { token_id, pc_index} => {
                 msg!("FundInstruction::AddTokenToWhitelist");
                 return add_token_to_whitelist(program_id, accounts, token_id, pc_index);

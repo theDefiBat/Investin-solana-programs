@@ -167,8 +167,7 @@ pub fn mango_init_mango_account(
     //Check for Mango v3 ID 
     check_eq!(*mango_prog_ai.key, mango_v3_id::ID);
     check!(manager_ai.is_signer, ProgramError::MissingRequiredSignature);
-    check_eq!(*mango_account_ai.owner, *fund_pda_ai.key);
-
+    check_eq!(*mango_account_ai.owner, mango_v3_id::ID);
     check_eq!(fund_data.manager_account, *manager_ai.key);
     check_eq!(fund_data.mango_positions.mango_account, Pubkey::default());
     invoke_signed(
@@ -701,7 +700,6 @@ pub fn mango_withdraw_investor(
         token_prog_ai,      // read
         default_ai
     ] = accounts;
-
     let mut fund_data = FundData::load_mut_checked(fund_state_ai, program_id)?;
     let mut investor_data = InvestorData::load_mut_checked(investor_state_ai, program_id)?;
 

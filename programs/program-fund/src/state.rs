@@ -96,7 +96,8 @@ pub struct FundData {
 
     /// version info
     pub version: u8,
-    pub padding: [u8; 7],
+    pub is_private: bool,
+    pub padding: [u8; 6],
 
     /// Minimum Amount
     pub min_amount: u64,

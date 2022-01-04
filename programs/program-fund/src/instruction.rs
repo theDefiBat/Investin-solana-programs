@@ -18,7 +18,8 @@ pub enum FundInstruction {
         min_amount: u64,
         min_return: u64,
         performance_fee_percentage: u64,
-        no_of_tokens: u8
+        no_of_tokens: u8,
+        is_private: bool
     },
 
     /// 0. [WRITE]  Fund State Account (derived from FA)
@@ -336,6 +337,10 @@ pub enum FundInstruction {
     /// 5. []   Pool Base Token Account
     /// ............
     /// N. 
+    /// 
+    
+    ChangeFundPrivacy,
+
     AddTokenToWhitelist {
         token_id: u8,
         pc_index: u8
@@ -385,19 +390,25 @@ impl FundInstruction {
         let op = u8::from_le_bytes(op);
         Some(match op {
             0 => {
-                let data = array_ref![data, 0, 8 + 8 + 8 + 1];
+                let data = array_ref![data, 0, 8 + 8 + 8 + 1 + 1];
                 let (
                     min_amount,
                     min_return,
                     performance_fee_percentage,
-                    no_of_tokens
-                ) = array_refs![data, 8, 8, 8, 1];
-
+                    no_of_tokens,
+                    is_private
+                ) = array_refs![data, 8, 8, 8, 1, 1];
+                let is_private = match is_private {
+                    [0] => false,
+                    [1] => true,
+                    _ => return None,
+                };
                 FundInstruction::Initialize {
                     min_amount: u64::from_le_bytes(*min_amount),
                     min_return: u64::from_le_bytes(*min_return),
                     performance_fee_percentage: u64::from_le_bytes(*performance_fee_percentage),
                     no_of_tokens: u8::from_le_bytes(*no_of_tokens),
+                    is_private
                 }
             },
             1 => {
@@ -533,9 +544,9 @@ impl FundInstruction {
             //         price: u64::from_le_bytes(*price),
             //     }
             // },
-            // 16 => {
-            //     FundInstruction::MangoWithdrawInvestorSettle
-            // },
+            16 => {
+                FundInstruction::ChangeFundPrivacy
+            },
             17 => {
                 let data = array_ref![data, 0, 2];
                 let (
