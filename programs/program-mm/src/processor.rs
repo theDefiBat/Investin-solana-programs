@@ -1076,7 +1076,7 @@ impl Fund {
             }
             FundInstruction::MangoCancelPerpById {
                 client_order_id,
-                invalid_id_ok: _,
+                invalid_id_ok,
             } => {
                 msg!("FundInstruction::MangoCancelPerpById");
                 return mango_cancel_perp_by_id(
