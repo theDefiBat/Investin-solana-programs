@@ -221,6 +221,16 @@ pub enum FundInstruction {
     /// 1. []   manager_ai - Manager Account
     /// 2. []   delegate_ai - Delegate account
     AddDelegate,
+
+    // Set Delegate for Mango Account
+    /// fund_state_ai, 
+    /// manager_ai, 
+    /// mango_prog_ai, 
+    /// mango_group_ai, 
+    /// mango_account_ai, 
+    /// fund_pda_ai, 
+    /// delegate_ai
+    AddMangoDelegate
 }
 
 impl FundInstruction {
@@ -285,6 +295,7 @@ impl FundInstruction {
             }
             10 => FundInstruction::RedeemMngo,
             11 => FundInstruction::AddDelegate,
+            12 => FundInstruction::AddMangoDelegate,
             _ => {
                 return None;
             }

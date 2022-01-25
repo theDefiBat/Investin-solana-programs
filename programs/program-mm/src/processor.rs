@@ -25,7 +25,7 @@ use crate::mango_utils::*;
 use crate::state::{FundData, InvestorData};
 
 use mango::ids::mngo_token;
-use mango::instruction::{cancel_all_perp_orders, consume_events, place_perp_order, withdraw};
+use mango::instruction::{cancel_all_perp_orders, consume_events, place_perp_order, withdraw, set_delegate};
 use mango::matching::{Book, OrderType, Side};
 use mango::state::{MangoAccount, MangoCache, MangoGroup, PerpMarket, MAX_PAIRS, QUOTE_INDEX};
 
@@ -1012,6 +1012,40 @@ impl Fund {
         Ok(())
     }
 
+    pub fn mango_set_delegate(program_id: &Pubkey, accounts: &[AccountInfo]) -> Result<(), ProgramError> {
+        const NUM_FIXED: usize = 7;
+        let accounts = array_ref![accounts, 0, NUM_FIXED];
+
+        let [fund_state_ai, manager_ai, mango_prog_ai, mango_group_ai, mango_account_ai, fund_pda_ai, delegate_ai] = accounts;
+
+        let mut fund_data = FundData::load_mut_checked(fund_state_ai, program_id)?;
+
+        check!(manager_ai.is_signer, FundError::IncorrectSignature);
+        check_eq!(fund_data.manager_account, *manager_ai.key);
+
+        invoke_signed(
+            &set_delegate(
+                mango_prog_ai.key,
+                mango_group_ai.key,
+                mango_account_ai.key,
+                fund_pda_ai.key,
+                delegate_ai.key,
+            )?,
+            &[
+                mango_prog_ai.clone(),
+                mango_group_ai.clone(),
+                mango_account_ai.clone(),
+                fund_pda_ai.clone(),
+                delegate_ai.clone(),
+            ],
+            &[&[
+                fund_data.manager_account.as_ref(),
+                bytes_of(&fund_data.signer_nonce),
+            ]],
+        )?;
+        Ok(())
+    }
+
     // instruction processor
     pub fn process(
         program_id: &Pubkey,
@@ -1102,6 +1136,10 @@ impl Fund {
             FundInstruction::AddDelegate => {
                 msg!("FundInstruction::AddDelegate");
                 return Self::add_delegate(program_id, accounts);
+            }
+            FundInstruction::AddMangoDelegate => {
+                msg!("FundInstruction::AddMangoDelegate");
+                return Self::mango_set_delegate(program_id, accounts);
             }
         }
     }
