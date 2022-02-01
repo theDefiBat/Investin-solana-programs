@@ -18,7 +18,8 @@ pub enum FundInstruction {
         min_amount: u64,
         min_return: u64,
         performance_fee_percentage: u64,
-        no_of_tokens: u8
+        no_of_tokens: u8,
+        is_private: bool
     },
 
     /// 0. [WRITE]  Fund State Account (derived from FA)
@@ -194,8 +195,8 @@ pub enum FundInstruction {
     /// 11. `[writable]` quote_vault_acc - MangoGroup quote vault acc
     /// 12. `[]` dex_signer_acc - dex Market signer account
     /// 13. `[]` spl token program
-    MangoSettlePnL {
-        perp_market_id: u8,
+    MangoRemovePerpIndex {
+        perp_market_id: u8
     },
 
     /// Withdraw funds that were deposited earlier.
@@ -270,37 +271,39 @@ pub enum FundInstruction {
     MangoWithdrawInvestor,
 
     /// Place an order on the Serum Dex and settle funds from the open orders account
+    ///fund_state_ai,
+    // fund_pda_ai,
+    // manager_ai,
+    // mango_prog_ai,
+    // mango_group_ai,         // read
+    // mango_account_ai,       // write
+    // mango_cache_ai,         // read
+    // dex_prog_ai,            // read
+    // spot_market_ai,         // write
+    // bids_ai,                // write
+    // asks_ai,                // write
+    // dex_request_queue_ai,   // write
+    // dex_event_queue_ai,     // write
+    // dex_base_ai,            // write
+    // dex_quote_ai,           // write
+    // base_root_bank_ai,      // read
+    // base_node_bank_ai,      // write
+    // base_vault_ai,          // write
+    // quote_root_bank_ai,     // read
+    // quote_node_bank_ai,     // write
+    // quote_vault_ai,         // write
+    // token_prog_ai,          // read
+    // signer_ai,              // read
+    // dex_signer_ai,          // read
+    // msrm_or_srm_vault_ai,   // read
+    /// +NUM_MARKETS `[writable]` open_orders_accs - open orders for each of the spot market
     ///
-    /// Accounts expected by this instruction (19 + 2 * NUM_MARKETS):
-    ///
-    /// 0.  [writable]  fund_state_acc - Fund State Account
-    /// 1.  []          inv_state_acc - Investor State Account
-    /// 1.  [signer]    investor_acc - Manager Account to sign
-    /// 2.  []          fund_pda_acc - Fund PDA Account
-    /// 3.  []          mango_prog_acc - Mango Program Account
-    /// 
-    /// 0. `[writable]` mango_group_acc - MangoGroup that this margin account is for
-    /// 2. `[writable]` margin_account_acc - MarginAccount
-    /// 3. `[]` clock_acc - Clock sysvar account
-    /// 4. `[]` dex_prog_acc - program id of serum dex
-    /// 5. `[writable]` spot_market_acc - serum dex MarketState
-    /// 6. `[writable]` dex_request_queue_acc - serum dex request queue for this market
-    /// 7. `[writable]` dex_event_queue - serum dex event queue for this market
-    /// 8. `[writable]` bids_acc - serum dex bids for this market
-    /// 9. `[writable]` asks_acc - serum dex asks for this market
-    /// 10. `[writable]` vault_acc - mango's vault for this currency (quote if buying, base if selling)
-    /// 11. `[]` signer_acc - mango signer key
-    /// 12. `[writable]` dex_base_acc - serum dex market's vault for base (coin) currency
-    /// 13. `[writable]` dex_quote_acc - serum dex market's vault for quote (pc) currency
-    /// 14. `[]` spl token program
-    /// 15. `[]` the rent sysvar
-    /// 16. `[writable]` srm_vault_acc - MangoGroup's srm_vault used for fee reduction
-    /// 17..17+NUM_MARKETS `[writable]` open_orders_accs - open orders for each of the spot market
-    /// 17+NUM_MARKETS..17+2*NUM_MARKETS `[]`
-    ///     oracle_accs - flux aggregator feed accounts
-    // MangoWithdrawInvestorPlaceOrder {
-    //     price: u64
+    // MangoPlaceSpotOrder {
+    //     side: u8, // 1 for sell, 0 for buy
+    //     price: u64, // remove later
+    //     trade_size: u64 // trade amount
     // },
+    
 
     /// Settle all funds from serum dex open orders into MarginAccount positions
     ///
@@ -335,6 +338,10 @@ pub enum FundInstruction {
     /// 5. []   Pool Base Token Account
     /// ............
     /// N. 
+    /// 
+    
+    ChangeFundPrivacy,
+
     AddTokenToWhitelist {
         token_id: u8,
         pc_index: u8
@@ -384,19 +391,25 @@ impl FundInstruction {
         let op = u8::from_le_bytes(op);
         Some(match op {
             0 => {
-                let data = array_ref![data, 0, 8 + 8 + 8 + 1];
+                let data = array_ref![data, 0, 8 + 8 + 8 + 1 + 1];
                 let (
                     min_amount,
                     min_return,
                     performance_fee_percentage,
-                    no_of_tokens
-                ) = array_refs![data, 8, 8, 8, 1];
-
+                    no_of_tokens,
+                    is_private
+                ) = array_refs![data, 8, 8, 8, 1, 1];
+                let is_private = match is_private {
+                    [0] => false,
+                    [1] => true,
+                    _ => return None,
+                };
                 FundInstruction::Initialize {
                     min_amount: u64::from_le_bytes(*min_amount),
                     min_return: u64::from_le_bytes(*min_return),
                     performance_fee_percentage: u64::from_le_bytes(*performance_fee_percentage),
                     no_of_tokens: u8::from_le_bytes(*no_of_tokens),
+                    is_private
                 }
             },
             1 => {
@@ -498,14 +511,21 @@ impl FundInstruction {
             },
             11 => {
                 let perp_market_id = array_ref![data, 0, 1];
-                FundInstruction::MangoSettlePnL {
+                FundInstruction::MangoRemovePerpIndex {
                     perp_market_id: u8::from_le_bytes(*perp_market_id)
                 }
             },
             // 12 => {
-            //     let price = array_ref![data, 0, 8];
-            //     FundInstruction::MangoClosePosition {
+            //     let data_arr = array_ref![data, 0, 17];
+            //     let (
+            //         side,
+            //         price,
+            //         trade_size
+            //     ) = array_refs![data_arr, 1, 8, 8];
+            //     FundInstruction::MangoPlaceSpotOrder {
+            //         side: u8::from_le_bytes(*side),
             //         price: u64::from_le_bytes(*price),
+            //         trade_size: u64::from_le_bytes(*trade_size),
             //     }
             // },
             13 => {
@@ -526,9 +546,9 @@ impl FundInstruction {
             //         price: u64::from_le_bytes(*price),
             //     }
             // },
-            // 16 => {
-            //     FundInstruction::MangoWithdrawInvestorSettle
-            // },
+            16 => {
+                FundInstruction::ChangeFundPrivacy
+            },
             17 => {
                 let data = array_ref![data, 0, 2];
                 let (

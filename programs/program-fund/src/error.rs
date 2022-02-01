@@ -45,29 +45,33 @@ pub enum FundError {
     #[error("Investor Mismatch")]
     InvestorMismatch,
 
-    ///10 Manager Mismatch
+    ///a Manager Mismatch
     #[error("Manager Mismatch")]
     ManagerMismatch,
 
-    ///11 Maximum Number of Depositors at a time reached
+    ///b Maximum Number of Depositors at a time reached
     #[error("Wait for Manager Transfer")]
     DepositLimitReached,
 
-    //12
+    //c
     #[error("Stale price in account")]
     PriceStaleInAccount,
 
-    //13
+    //d
     #[error("Invalid Mango Instruction State")]
     InvalidMangoState,
 
-    //14
+    //e
     #[error("Mango Account Not Initialized")]
     MangoNotInitialized,
 
-    //15
+    //f
     #[error("Default Error")]
-    Default
+    Default,
+
+    //10
+    #[error("Fund is Private")]
+    PrivateFund
 }
 
 impl From<FundError> for ProgramError {

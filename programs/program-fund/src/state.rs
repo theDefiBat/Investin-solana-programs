@@ -16,7 +16,7 @@ pub const MAX_TOKENS:usize = 50;
 pub const MAX_INVESTORS:usize = 10;
 pub const MAX_INVESTORS_WITHDRAW: usize = 2;
 pub const NUM_MARGIN: usize = 2;
-pub const NUM_PERP: usize = 4;
+pub const NUM_PERP: usize = 3;
 
 pub trait Loadable: Pod {
     fn load_mut<'a>(account: &'a AccountInfo) -> Result<RefMut<'a, Self>, ProgramError> {
@@ -96,7 +96,8 @@ pub struct FundData {
 
     /// version info
     pub version: u8,
-    pub padding: [u8; 7],
+    pub is_private: bool,
+    pub padding: [u8; 6],
 
     /// Minimum Amount
     pub min_amount: u64,
@@ -148,8 +149,7 @@ pub struct TokenSlot {
     pub is_active: bool,
     pub index: [u8; 3],
     pub mux: u8,
-    pub is_on_mango: u8,
-    pub padding: [u8; 2],
+    pub padding: [u8; 3],
 
     // token balances & debts
     pub balance: u64,
@@ -194,10 +194,8 @@ pub struct InvestorData {
     // investor assets in tokens
     pub token_indexes: [u8; NUM_TOKENS],
     pub token_debts: [u64; NUM_TOKENS],
-
-    pub has_withdrawn_from_fund: bool,
     // padding for future use
-    pub xpadding: [u8; 31] 
+    pub xpadding: [u8; 32] 
 }
 impl_loadable!(InvestorData);
 
@@ -206,7 +204,8 @@ impl_loadable!(InvestorData);
 pub struct MangoInfo {
     // margin account pubkey to check if the passed acc is correct
     pub mango_account: Pubkey, 
-    pub perp_markets: [u8; 4],
+    pub perp_markets: [u8; 3],
+    pub perp_padding: u8,
     pub deposit_index: u8,
     pub markets_active: u8,
     pub deposits_active: u8,
@@ -217,7 +216,11 @@ pub struct MangoInfo {
 }
 impl_loadable!(MangoInfo);
 
-
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct MangoAccountValue {
+    pub pnl: I80F48
+}
 impl Sealed for InvestorData {}
 impl IsInitialized for InvestorData {
     fn is_initialized(&self) -> bool {

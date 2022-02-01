@@ -18,7 +18,6 @@ use solana_program::{
 };
 
 use arrayref::{array_ref, array_refs};
-
 use spl_token::state::{Account, Mint};
 
 use crate::error::FundError;
@@ -46,38 +45,40 @@ macro_rules! check_eq {
 }
 
 pub const ZERO_I80F48: I80F48 = I80F48!(0);
-
+pub const ONE_I80F48: I80F48 = I80F48!(1);
+pub const NegONE_I80F48: I80F48 = I80F48!(-1);
 pub mod investin_admin {
     use solana_program::declare_id;
     // set investin admin
     // #[cfg(feature = "devnet")]
-    declare_id!("E3Zhv46FWGLDKFM24Ft2tgoqX5NCU49CT8NwH3rDHbsA");
+    // declare_id!("E3Zhv46FWGLDKFM24Ft2tgoqX5NCU49CT8NwH3rDHbsA");
     // #[cfg(not(feature = "devnet"))]
-    // declare_id!("owZmWQkqtY3Kqnxfua1KTHtR2S6DgBTP75JKbh15VWG");
+    declare_id!("owZmWQkqtY3Kqnxfua1KTHtR2S6DgBTP75JKbh15VWG");
+    // declare_id!("HcikBBJaAUTZXyqHQYHv46NkvwXVigkk2CuQgGuNQEnX");
 }
 
 pub mod usdc_mint {
     use solana_program::declare_id;
     // #[cfg(feature = "devnet")]
-    declare_id!("8FRFC6MoGGkMFQwngccyu69VnYbzykGeez7ignHVAFSN");
+    // declare_id!("8FRFC6MoGGkMFQwngccyu69VnYbzykGeez7ignHVAFSN");
     // #[cfg(not(feature = "devnet"))]
-    // declare_id!("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+    declare_id!("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
 }
 
 pub mod raydium_id {
     use solana_program::declare_id;
     // #[cfg(feature = "devnet")]
-    declare_id!("9rpQHSyFVM1dkkHFQ2TtTzPEW7DVmEyPmN8wVniqJtuC");
+    // declare_id!("9rpQHSyFVM1dkkHFQ2TtTzPEW7DVmEyPmN8wVniqJtuC");
     // #[cfg(not(feature = "devnet"))]
-    // declare_id!("675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8");
+    declare_id!("675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8");
 }
 
 pub mod orca_id {
     use solana_program::declare_id;
     // #[cfg(feature = "devnet")]
-    declare_id!("9rpQHSyFVM1dkkHFQ2TtTzPEW7DVmEyPmN8wVniqJtuC"); //Same as Devnet Raydium for now
+    // declare_id!("9rpQHSyFVM1dkkHFQ2TtTzPEW7DVmEyPmN8wVniqJtuC"); //Same as Devnet Raydium for now
     // #[cfg(not(feature = "devnet"))]
-    // declare_id!("9W959DqEETiGZocYWCQPaJ6sBmUzgfxXfqGeTEdp3aQP");
+    declare_id!("9W959DqEETiGZocYWCQPaJ6sBmUzgfxXfqGeTEdp3aQP");
 }
 
 pub struct Fund {}
@@ -90,7 +91,8 @@ impl Fund {
         min_amount: u64,
         min_return: u64,
         performance_fee_percentage: u64,
-        no_of_tokens: u8
+        no_of_tokens: u8,
+        is_private: bool
     ) -> Result<(), ProgramError> {
 
         let accounts_iter = &mut accounts.iter();
@@ -98,7 +100,7 @@ impl Fund {
         let platform_ai = next_account_info(accounts_iter)?;
         let fund_state_ai = next_account_info(accounts_iter)?;
         let manager_ai = next_account_info(accounts_iter)?;
-    
+
 
         let mut platform_data = PlatformData::load_mut_checked(platform_ai, program_id)?;
 
@@ -147,8 +149,6 @@ impl Fund {
 
         // whitelisted tokens
         for index in 1..no_of_tokens {
-
-
             let mint_ai = next_account_info(accounts_iter)?;
             let vault_ai = next_account_info(accounts_iter)?;
 
@@ -158,10 +158,10 @@ impl Fund {
 
             let token_index_1 = platform_data.get_token_index(mint_ai.key, 0);
             let token_index_2 = platform_data.get_token_index(mint_ai.key, 1);
-            
+
             // both indexes cant be None
             check!(((token_index_1 != None) || (token_index_2 != None)), ProgramError::InvalidAccountData);
-        
+
             if token_index_1 != None {
                 fund_data.tokens[index as usize].mux = 0;
                 fund_data.tokens[index as usize].index[0] = token_index_1.unwrap() as u8;
@@ -169,7 +169,7 @@ impl Fund {
             else {
                 fund_data.tokens[index as usize].index[0] = 255; // Max u8
             }
-        
+
             if token_index_2 != None {
                 fund_data.tokens[index as usize].mux = 1;
                 fund_data.tokens[index as usize].index[1] = token_index_2.unwrap() as u8;
@@ -177,8 +177,8 @@ impl Fund {
             else {
                 fund_data.tokens[index as usize].index[1] = 255;
             }
-        
-            fund_data.tokens[index as usize].is_active = true;    
+
+            fund_data.tokens[index as usize].is_active = true;
             fund_data.tokens[index as usize].balance = 0;
             fund_data.tokens[index as usize].debt = 0;
             fund_data.tokens[index as usize].vault = *vault_ai.key;
@@ -189,18 +189,19 @@ impl Fund {
         fund_data.min_return = U64F64::from_num(min_return / 100);
         fund_data.performance_fee_percentage = U64F64::from_num(performance_fee_percentage / 100);
 
-        fund_data.total_amount = U64F64!(0); 
+        fund_data.total_amount = U64F64!(0);
         fund_data.prev_performance = U64F64!(1.00);
         fund_data.number_of_active_investments = 0;
         fund_data.no_of_investments = 0;
         fund_data.mango_positions.mango_account = Pubkey::default();
-        fund_data.mango_positions.perp_markets = [u8::MAX; 4];
+        fund_data.mango_positions.perp_markets = [u8::MAX; 3];
         fund_data.mango_positions.deposit_index = u8::MAX;
         fund_data.mango_positions.markets_active = 0;
         fund_data.mango_positions.deposits_active = 0;
         fund_data.mango_positions.investor_debts = [0; 2];
         fund_data.is_initialized = true;
         fund_data.version = 1; // v1 funds
+        fund_data.is_private = is_private; //set from params
 
         // update platform_data
         platform_data.no_of_active_funds += 1;
@@ -229,9 +230,10 @@ impl Fund {
 
         let mut fund_data = FundData::load_mut_checked(fund_state_ai, program_id)?;
         let mut investor_data = InvestorData::load_mut_checked(investor_state_ai, program_id)?;
-
+        msg!("Is Fund Private: {:?}", fund_data.is_private);
         // check if fund state acc passed is initialised
         check!(fund_data.is_initialized(), FundError::InvalidStateAccount);
+        check!(!(fund_data.is_private) || fund_data.manager_account == *investor_ai.key, FundError::PrivateFund);
 
         // let depositors: u64 = U64F64::to_num(U64F64::from_num(fund_data.no_of_investments).checked_sub(U64F64::from_num(fund_data.number_of_active_investments)).unwrap());
 
@@ -243,7 +245,7 @@ impl Fund {
 
         // check if investor_state_account is already initialised
         check!(!investor_data.is_initialized(), FundError::InvestorAccountAlreadyInit);
-        
+
         investor_data.is_initialized = true;
         investor_data.owner = *investor_ai.key;
         // Store manager's address
@@ -280,10 +282,10 @@ impl Fund {
         ];
         invoke(&deposit_instruction, &deposit_accs)?;
 
-        
+
         investor_data.amount_in_router += amount;
         fund_data.amount_in_router += amount;
-    
+
         Ok(())
     }
 
@@ -294,7 +296,7 @@ impl Fund {
     ) -> Result<(), ProgramError> {
 
         const NUM_FIXED:usize = 13;
-        
+
         let(fixed_accs, investor_state_accs) = array_refs![accounts, NUM_FIXED; ..;];
 
         let [
@@ -315,8 +317,8 @@ impl Fund {
 
         let platform_data = PlatformData::load_checked(platform_ai, program_id)?;
         let mut fund_data = FundData::load_mut_checked(fund_state_ai, program_id)?;
-
         
+
 
         // check if manager signed the tx
         check!(manager_ai.is_signer, FundError::IncorrectProgramId);
@@ -327,39 +329,47 @@ impl Fund {
         check!(*pda_router_ai.key == platform_data.router, FundError::IncorrectPDA);
 
         // update start performance for investors
-        update_amount_and_performance(
-            &platform_data, 
-            &mut fund_data, 
+        let (perp_pnl, usdc_deposits) = get_mango_valuation(
+            &fund_data,
             &mango_account_ai,
             &mango_group_ai,
             &mango_cache_ai,
-            &mango_prog_ai, 
+            &mango_prog_ai
+        )?;
+        // let mango_val = U64F64::from_fixed(usdc_deposits.checked_add(token_deposits_val).unwrap().checked_add(perp_pnl).unwrap());
+        let mango_val = U64F64::from_fixed(usdc_deposits.checked_add(perp_pnl).unwrap());
+        
+        update_amount_and_performance(
+            &platform_data,
+            &mut fund_data,
+            mango_val,
             true
         )?;
 
         let mut transferable_amount: u64 = 0;
-        let mut fee: u64 = 0;
+        // let mut fee: u64 = 0;
 
         for investor_state_ai in investor_state_accs.iter() {
             let index = fund_data.get_investor_index(investor_state_ai.key).unwrap();
             let mut investor_data = InvestorData::load_mut_checked(investor_state_ai, program_id)?;
 
             // validation checks
-            check_eq!(fund_data.investors[index], *investor_state_ai.key);            
+            check_eq!(fund_data.investors[index], *investor_state_ai.key);
             check!(investor_data.amount_in_router > 0, ProgramError::InvalidAccountData);
             check_eq!(investor_data.manager, *manager_ai.key);
 
-            investor_data.amount = U64F64::to_num(U64F64::from_num(investor_data.amount_in_router).checked_mul(U64F64!(0.98)).unwrap());
+            // investor_data.amount = U64F64::to_num(U64F64::from_num(investor_data.amount_in_router).checked_mul(U64F64!(0.98)).unwrap());
+            investor_data.amount = investor_data.amount_in_router;
 
             // update transfer variables
             transferable_amount = transferable_amount.checked_add(investor_data.amount).unwrap();
-            fee = fee.checked_add(U64F64::to_num(
-                U64F64::from_num(investor_data.amount_in_router).checked_div(U64F64::from_num(100)).unwrap()
-            )).unwrap();
+            // fee = fee.checked_add(U64F64::to_num(
+            //     U64F64::from_num(investor_data.amount_in_router).checked_div(U64F64::from_num(100)).unwrap()
+            // )).unwrap();
 
             // update fund amount in router
             fund_data.amount_in_router = fund_data.amount_in_router.checked_sub(investor_data.amount_in_router).unwrap();
-            
+
             // update investor variables
             investor_data.amount_in_router = 0;
             investor_data.start_performance = fund_data.prev_performance;
@@ -388,58 +398,58 @@ impl Fund {
             &[&["router".as_ref(), bytes_of(&platform_data.router_nonce)]]
         )?;
 
-        invoke_signed(
-            &(spl_token::instruction::transfer(
-                token_prog_ai.key,
-                router_btoken_ai.key,
-                manager_btoken_ai.key,
-                pda_router_ai.key,
-                &[pda_router_ai.key],
-                fee
-            ))?,
-            &[
-                router_btoken_ai.clone(),
-                manager_btoken_ai.clone(),
-                pda_router_ai.clone(),
-                token_prog_ai.clone()
-            ],
-            &[&["router".as_ref(), bytes_of(&platform_data.router_nonce)]]
-        )?;
+        // Depricated Managment and Platform fees on Investments
+        //
+        // invoke_signed(
+        //     &(spl_token::instruction::transfer(
+        //         token_prog_ai.key,
+        //         router_btoken_ai.key,
+        //         manager_btoken_ai.key,
+        //         pda_router_ai.key,
+        //         &[pda_router_ai.key],
+        //         fee
+        //     ))?,
+        //     &[
+        //         router_btoken_ai.clone(),
+        //         manager_btoken_ai.clone(),
+        //         pda_router_ai.clone(),
+        //         token_prog_ai.clone()
+        //     ],
+        //     &[&["router".as_ref(), bytes_of(&platform_data.router_nonce)]]
+        // )?;
 
-        check_eq!(platform_data.investin_vault, *investin_btoken_ai.key);
-        invoke_signed(
-            &(spl_token::instruction::transfer(
-                token_prog_ai.key,
-                router_btoken_ai.key,
-                investin_btoken_ai.key,
-                pda_router_ai.key,
-                &[pda_router_ai.key],
-                fee
-            ))?,
-            &[
-                router_btoken_ai.clone(),
-                investin_btoken_ai.clone(),
-                pda_router_ai.clone(),
-                token_prog_ai.clone()
-            ],
-            &[&["router".as_ref(), bytes_of(&platform_data.router_nonce)]]
-        )?;
-        
+        // check_eq!(platform_data.investin_vault, *investin_btoken_ai.key);
+        // invoke_signed(
+        //     &(spl_token::instruction::transfer(
+        //         token_prog_ai.key,
+        //         router_btoken_ai.key,
+        //         investin_btoken_ai.key,
+        //         pda_router_ai.key,
+        //         &[pda_router_ai.key],
+        //         fee
+        //     ))?,
+        //     &[
+        //         router_btoken_ai.clone(),
+        //         investin_btoken_ai.clone(),
+        //         pda_router_ai.clone(),
+        //         token_prog_ai.clone()
+        //     ],
+        //     &[&["router".as_ref(), bytes_of(&platform_data.router_nonce)]]
+        // )?;
+
 
         fund_data.tokens[0].balance = parse_token_account(&fund_btoken_ai)?.amount;
         // dont update performance now
         update_amount_and_performance(
-            &platform_data, 
-            &mut fund_data, 
-            &mango_account_ai,
-            &mango_group_ai,
-            &mango_cache_ai,
-            &mango_prog_ai, 
+            &platform_data,
+            &mut fund_data,
+            mango_val,
             false
         )?;
-
+        
         Ok(())
     }
+
     // investor withdraw
     pub fn withdraw_from_fund(
         program_id: &Pubkey,
@@ -501,7 +511,7 @@ impl Fund {
             fund_data.investors[index] = Pubkey::default();
             // close investor account
             close_investor_account(investor_ai, investor_state_ai)?;
-        } 
+        }
 
         if investor_data.has_withdrawn == true {//&& investor_data.withdrawn_from_margin == false {
             for i in 0..NUM_TOKENS {
@@ -534,20 +544,21 @@ impl Fund {
                 investor_data.token_debts[i] = 0;
                 investor_data.token_indexes[i] = 0;
             }
-            investor_data.has_withdrawn_from_fund = true;
             // check if there are no margin debts
             // check_eq!(investor_data.margin_debt[0], 0);
             // check_eq!(investor_data.margin_debt[1], 0);
             // close investor account
-            if investor_data.margin_debt[0] == 0 && investor_data.margin_debt[1] == 0 {
-                investor_data.amount = 0;
-                investor_data.start_performance = U64F64!(0);
-                investor_data.amount_in_router = 0;
-                investor_data.has_withdrawn = false;
-                investor_data.is_initialized = false;
-                close_investor_account(investor_ai, investor_state_ai)?;
+            //&& investor_data.margin_debt[1] == 0
+            if investor_data.margin_debt[0] != 0  {
+                fund_data.mango_positions.investor_debts[0] = fund_data.mango_positions.investor_debts[0].checked_sub(U64F64::to_num(investor_data.margin_debt[0])).unwrap();
             }
-                
+            investor_data.amount = 0;
+            investor_data.start_performance = U64F64!(0);
+            investor_data.amount_in_router = 0;
+            investor_data.has_withdrawn = false;
+            investor_data.is_initialized = false;
+            close_investor_account(investor_ai, investor_state_ai)?;
+
         }
         Ok(())
     }
@@ -556,10 +567,10 @@ impl Fund {
         program_id: &Pubkey,
         accounts: &[AccountInfo],
     ) -> Result<(), ProgramError> {
-
+        msg!("Invoked Withdraw Settle");
         const NUM_FIXED:usize = 10;
         let accounts = array_ref![accounts, 0, NUM_FIXED + 4*NUM_PERP];
-        let ( 
+        let (
             fixed_accs,
             perp_accs,
         ) = array_refs![accounts, NUM_FIXED, 4*NUM_PERP];
@@ -580,27 +591,32 @@ impl Fund {
         let platform_data = PlatformData::load_mut_checked(platform_ai, program_id)?;
         let mut fund_data = FundData::load_mut_checked(fund_state_ai, program_id)?;
         let mut investor_data = InvestorData::load_mut_checked(investor_state_ai, program_id)?;
-
+        check_eq!(*mango_prog_ai.key, mango_v3_id::ID);
         check!(investor_data.owner == *investor_ai.key, ProgramError::MissingRequiredSignature);
         check!(investor_ai.is_signer, ProgramError::MissingRequiredSignature);
         check_eq!(investor_data.manager, fund_data.manager_account);
         check_eq!(investor_data.has_withdrawn, false);
-
-
+        
 
         if investor_data.amount != 0 && investor_data.start_performance != 0 {
-            let (perp_pnls_before, usdc_deposits_before, token_deposits_before)
-             = update_amount_and_performance(
-                &platform_data, 
-                &mut fund_data, 
+            let (perp_pnl_before, usdc_deposits_before) = get_mango_valuation(
+                &fund_data,
                 &mango_account_ai,
                 &mango_group_ai,
                 &mango_cache_ai,
-                &mango_prog_ai, 
+                &mango_prog_ai
+            )?;
+            // let mango_val_before = U64F64::from_fixed(usdc_deposits_before.checked_add(token_deposits_val_before).unwrap().checked_add(perp_pnl_before).unwrap());
+            let mango_val_before = U64F64::from_fixed(usdc_deposits_before.checked_add(perp_pnl_before).unwrap());
+            // msg!("pnl: {:?}, val: {:?}", perp_pnl_before, mango_val_before);
+            update_amount_and_performance(
+                &platform_data,
+                &mut fund_data,
+                mango_val_before,
                 true
             )?;
             let share = get_share(&mut fund_data, &mut investor_data)?;
-            
+            msg!("share {:?}", share);
             for i in 0..NUM_TOKENS {
                 let mut withdraw_amount: u64 = U64F64::to_num(
                     U64F64::from_num(fund_data.tokens[i].balance-fund_data.tokens[i].debt)
@@ -616,73 +632,106 @@ impl Fund {
                 fund_data.tokens[i].debt += withdraw_amount;
                 check!(fund_data.tokens[i].balance >= fund_data.tokens[i].debt, ProgramError::InvalidAccountData);
             }
-            // TODO Close Active Perp trades on mango and compute Dep Token Debt
-            investor_data.margin_debt[0] = U64F64::from_fixed(usdc_deposits_before.checked_mul(I80F48::from_fixed(share)).unwrap());
-            investor_data.margin_debt[1] = U64F64::from_fixed(token_deposits_before.checked_mul(I80F48::from_fixed(share)).unwrap());
-            investor_data.margin_position_id[0] = QUOTE_INDEX as u64;
-            investor_data.margin_position_id[1] = fund_data.mango_positions.deposit_index as u64;
-            let perp_vals: [i64; 4] = get_perp_vals(&fund_data, &mango_account_ai, &mango_prog_ai, &mango_group_ai).unwrap();
-            for i in 0..4 {
-                let mango_perp_index = fund_data.mango_positions.perp_markets[i];
-                if(mango_perp_index != u8::MAX){
-                    let perp_close_amount: i64 = U64F64::to_num(U64F64::from_num(perp_vals[i]).checked_mul(share).unwrap());
-                    let mut side:Side = Side::Bid;
-                    if(perp_vals[i] > 0){
-                        side = Side::Ask;
+            if mango_val_before > 0 {
+                let mut perp_vals: [i64; 4] = get_perp_vals(&fund_data, &mango_account_ai, &mango_prog_ai, &mango_group_ai).unwrap();
+                // msg!("closing perps: {:?}", perp_vals);
+                for i in 0..3 {
+                    if perp_vals[i] != 0 {
+                        let mut side:Side = Side::Ask;
+                        if perp_vals[i] < 0 {
+                            side = Side::Bid;
+                            perp_vals[i] = perp_vals[i].checked_mul(-1).unwrap();
+                        }
+                        let mut perp_close_amount: i64 = U64F64::to_num(U64F64::from_num(perp_vals[i]).checked_mul(share).unwrap());
+                        // msg!("side: {:?}, qty: {:?}", side, perp_close_amount);
+                        if perp_vals[i] > perp_close_amount {
+                            perp_close_amount = perp_close_amount.checked_add(1).unwrap();
+                        }
+                        let open_orders_accs = [Pubkey::default(); MAX_PAIRS];
+                        invoke_signed(
+                            &place_perp_order(mango_prog_ai.key,
+                                mango_group_ai.key, mango_account_ai.key, fund_pda_ai.key,
+                                mango_cache_ai.key, perp_accs[i*4].key, perp_accs[(i*4) + 1].key, perp_accs[(i*4) + 2].key, perp_accs[(i*4) + 3].key, &open_orders_accs,
+                                side, i64::MAX, perp_close_amount, 0, OrderType::Market, false)?,
+                            &[
+                                mango_prog_ai.clone(),
+                                mango_group_ai.clone(),
+                                mango_account_ai.clone(),
+                                fund_pda_ai.clone(),
+                                mango_cache_ai.clone(),
+                                perp_accs[i*4].clone(),
+                                perp_accs[i*4 + 1].clone(),
+                                perp_accs[i*4 + 2].clone(),
+                                perp_accs[i*4 + 3].clone(),
+                                default_ai.clone(),
+                            ],
+                            &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
+                        )?;
+    
+                        // mango_place_perp_order_investor(&fund_data, instruction_accounts, mango_perp_index, side, perp_close_amount);
+                        // pub fn mango_place_perp_order_investor(fund_data: &FundData,accounts: &[AccountInfo],perp_market_id: u8,side: Side,quantity: i64
                     }
-                    check_eq!(*mango_prog_ai.key, mango_v3_id::ID);
-                    // check!(manager_ai.is_signer, ProgramError::MissingRequiredSignature);
-
-                    // check_eq!(fund_data.manager_account, *manager_ai.key);
-                    // check!((fund_data.manager_account == *manager_ai.key), FundError::ManagerMismatch);
-                    
-                    let open_orders_accs = [Pubkey::default(); MAX_PAIRS];
-                    invoke_signed(
-                        &place_perp_order(mango_prog_ai.key,
-                            mango_group_ai.key, mango_account_ai.key, fund_pda_ai.key,
-                            mango_cache_ai.key, perp_accs[i*4].key, perp_accs[i*4 + 1].key, perp_accs[i*4 + 2].key, perp_accs[i*4 + 3].key, &open_orders_accs,
-                            side, i64::MAX, perp_close_amount, 0, OrderType::Market, false)?,
-                        &[
-                            mango_prog_ai.clone(),
-                            mango_group_ai.clone(),
-                            mango_account_ai.clone(),
-                            fund_pda_ai.clone(),
-                            mango_cache_ai.clone(),
-                            perp_accs[i*4].clone(),
-                            perp_accs[i*4 + 1].clone(),
-                            perp_accs[i*4 + 2].clone(),
-                            perp_accs[i*4 + 3].clone(),
-                            default_ai.clone(),
-                        ],
-                        &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
-                    )?;
-                    
-                    // mango_place_perp_order_investor(&fund_data, instruction_accounts, mango_perp_index, side, perp_close_amount);
-                    // pub fn mango_place_perp_order_investor(fund_data: &FundData,accounts: &[AccountInfo],perp_market_id: u8,side: Side,quantity: i64
                 }
+                
             }
-            
-
-            fund_data.number_of_active_investments -= 1;
-            fund_data.no_of_investments -= 1;
-            investor_data.has_withdrawn = true;
-            let (perp_pnls_after, usdc_deposits_after, token_deposits_after) = update_amount_and_performance(
-                &platform_data, 
-                &mut fund_data, 
+            // msg!("usdc {:?}, tok {:?}", usdc_deposits_before, token_deposits_before);
+            let (perp_pnl_after, usdc_deposits_after) = get_mango_valuation(
+                &fund_data,
                 &mango_account_ai,
                 &mango_group_ai,
                 &mango_cache_ai,
-                &mango_prog_ai, 
+                &mango_prog_ai
+            )?;
+            // let mut mango_val_after = U64F64::from_fixed(usdc_deposits_after.checked_add(token_deposits_val_after).unwrap().checked_add(perp_pnl_after).unwrap());
+            let mut mango_val_after = U64F64::from_fixed(usdc_deposits_after.checked_add(perp_pnl_after).unwrap());
+            let mut investor_mango_value = mango_val_after.checked_mul(share).unwrap();
+            mango_val_after = mango_val_after.checked_sub(investor_mango_value).unwrap();
+            // msg!("usdc* {:?}, tok* {:?}", usdc_deposits_after, token_deposits_after);
+            
+            // if perp_pnl_after < 0 {
+            //     // let pnl_ratio:U64F64 = mango_val_after.checked_div(U64F64::from_num(
+            //     //     usdc_deposits_after
+            //     //     //.checked_add(token_deposits_val_after).unwrap()
+            //     // )).unwrap();
+            //     // msg!("pnl -ve {:?}", pnl_ratio);
+            //     usdc_deposits_after = usdc_deposits_after.checked_sub(perp_pnl_after).unwrap();
+            //     // usdc_deposits_after = usdc_deposits_after.checked_mul(I80F48::from_fixed(pnl_ratio)).unwrap();
+            //     // token_deposits_after = token_deposits_after.checked_mul(I80F48::from_fixed(pnl_ratio)).unwrap();
+            // } else {
+            //     usdc_deposits_after = usdc_deposits_after.checked_add(perp_pnl_after).unwrap();
+            // }
+            // msg!("*pnl: {:?}, mango_val {:?}", perp_pnl_after, mango_val_after);
+            let pnl_diff = perp_pnl_before.checked_sub(perp_pnl_after).unwrap();
+            // msg!("pnl_diff {:?}", pnl_diff);
+            // let mut pnl_diff_ratio = U64F64!(1);
+            if pnl_diff > 0 {
+                // pnl_diff_ratio = pnl_diff_ratio.checked_sub(U64F64::from_fixed(pnl_diff).checked_div(investor_mango_value).unwrap()).unwrap();
+                let comp = U64F64::from_num(pnl_diff);
+                mango_val_after = mango_val_after.checked_add(comp).unwrap();
+                investor_mango_value = investor_mango_value.checked_sub(comp).unwrap();
+            }
+            
+            investor_data.margin_position_id[0] = QUOTE_INDEX as u64;
+            // investor_data.margin_position_id[1] = fund_data.mango_positions.deposit_index as u64;
+            // investor_data.margin_debt[0] = U64F64::from_fixed(investor_mango_value.checked_mul(I80F48::from_fixed(share)).unwrap()).checked_mul(pnl_diff_ratio).unwrap();
+            investor_data.margin_debt[0] = investor_mango_value;
+            
+            // investor_data.margin_debt[1] = U64F64::from_fixed(token_deposits_after.checked_mul(I80F48::from_fixed(share)).unwrap()).checked_mul(pnl_diff_ratio).unwrap();
+            // msg!("investor debts: {:?}", investor_data.margin_debt);
+            fund_data.mango_positions.investor_debts[0] = fund_data.mango_positions.investor_debts[0].checked_add(U64F64::to_num(investor_mango_value)).unwrap();
+            // fund_data.mango_positions.investor_debts[1] = fund_data.mango_positions.investor_debts[1].checked_add(U64F64::to_num(investor_data.margin_debt[1])).unwrap();
+            fund_data.number_of_active_investments -= 1;
+            fund_data.no_of_investments -= 1;
+            investor_data.has_withdrawn = true;
+            // let mut mango_val_after = U64F64::from_fixed(usdc_deposits_after.checked_add(token_deposits_val_after).unwrap().checked_add(perp_pnl_after).unwrap());
+
+            
+            update_amount_and_performance(
+                &platform_data,
+                &mut fund_data,
+                mango_val_after,
                 false
             )?;
-            for i in 0..4{
-                let mut pnl_dif = perp_pnls_before[i].checked_sub(perp_pnls_after[i]).unwrap();
-                if pnl_dif > 0 {
-                    investor_data.margin_debt[0] =  investor_data.margin_debt[0].checked_sub(U64F64::from_fixed(pnl_dif)).unwrap();
-                }
-            }
-            fund_data.mango_positions.investor_debts[0] = fund_data.mango_positions.investor_debts[0].checked_add(U64F64::to_num(investor_data.margin_debt[0])).unwrap();
-            fund_data.mango_positions.investor_debts[1] = fund_data.mango_positions.investor_debts[1].checked_add(U64F64::to_num(investor_data.margin_debt[1])).unwrap();
             //investor_data.margin_debt[0] = investor_data.margin_debt[0].checked_add(usdc_deposits_after.checked_sub(usdc_deposits_before).unwrap()).unwrap();
         }
         Ok(())
@@ -694,7 +743,7 @@ impl Fund {
         swap_index: u8,
         data: Data
     ) -> Result<(), ProgramError> {
-                
+
         let accounts_iter = &mut accounts.iter();
         let platform_state_ai = next_account_info(accounts_iter)?;
 
@@ -762,6 +811,20 @@ impl Fund {
         Ok(())
     }
 
+    pub fn change_fund_privacy(
+        program_id: &Pubkey,
+        accounts: &[AccountInfo],
+    ) -> Result<(), ProgramError> {
+        let accounts_iter = &mut accounts.iter();
+        let fund_state_ai = next_account_info(accounts_iter)?;
+        let manager_ai = next_account_info(accounts_iter)?;
+        let mut fund_data = FundData::load_mut_checked(fund_state_ai, program_id)?;
+        check!(manager_ai.is_signer, FundError::IncorrectSignature);
+        check_eq!(fund_data.manager_account, *manager_ai.key);
+        fund_data.is_private = !(fund_data.is_private);
+        Ok(())
+    }
+
     // manager Performance Fee Claim
     pub fn claim (
         program_id: &Pubkey,
@@ -787,18 +850,21 @@ impl Fund {
 
         let mut fund_data = FundData::load_mut_checked(fund_state_ai, program_id)?;
         let platform_data = PlatformData::load_checked(platform_ai, program_id)?;
-
         // check if manager signed the tx
         check!(manager_ai.is_signer, FundError::IncorrectSignature);
         check_eq!(fund_data.manager_account, *manager_ai.key);
-
-        update_amount_and_performance(
-            &platform_data, 
-            &mut fund_data, 
+        let (perp_pnl, usdc_deposits) = get_mango_valuation(
+            &fund_data,
             &mango_account_ai,
             &mango_group_ai,
             &mango_cache_ai,
-            &mango_prog_ai, 
+            &mango_prog_ai
+        )?;
+        let mango_val = U64F64::from_fixed(usdc_deposits.checked_add(perp_pnl).unwrap());
+        update_amount_and_performance(
+            &platform_data,
+            &mut fund_data,
+            mango_val,
             true
         )?;
 
@@ -847,22 +913,19 @@ impl Fund {
 
         fund_data.tokens[0].balance = parse_token_account(&fund_btoken_ai)?.amount;
         fund_data.performance_fee = U64F64!(0);
-
+        
         update_amount_and_performance(
-            &platform_data, 
-            &mut fund_data, 
-            &mango_account_ai,
-            &mango_group_ai,
-            &mango_cache_ai,
-            &mango_prog_ai, 
+            &platform_data,
+            &mut fund_data,
+            mango_val,
             false
         )?;
-        
+
         Ok(())
 
     }
 
-   
+
 
     pub fn flush_debts (
         program_id: &Pubkey,
@@ -923,14 +986,14 @@ impl Fund {
             fund_data.tokens[index as usize].debt -= investor_data.token_debts[index as usize];
             investor_data.token_debts[index as usize] = 0;
             investor_data.token_indexes[index as usize] = 0;
-            
+
         }
         fund_data.tokens[index as usize].balance = parse_token_account(vault_ai)?.amount;
 
         Ok(())
     }
 
-    pub fn admin_control (
+    pub fn admin_control(
         program_id: &Pubkey,
         accounts: &[AccountInfo],
         intialize_platform: u8,
@@ -952,7 +1015,7 @@ impl Fund {
 
         let mut platform_data = PlatformData::load_mut_checked(platform_state_ai, program_id)?;
         check!(investin_admin_ai.is_signer, FundError::IncorrectSignature);
-        
+
         //check_eq!(investin_admin::ID, *investin_admin_ai.key); REVERT-MAINNET
 
         if intialize_platform == 1 {
@@ -963,7 +1026,7 @@ impl Fund {
             platform_data.no_of_active_funds = 0;
 
             // add router pda
-            let (router_pda, nonce) = 
+            let (router_pda, nonce) =
                 Pubkey::find_program_address(&["router".as_ref()], program_id
             );
             platform_data.router = router_pda;
@@ -1031,9 +1094,9 @@ impl Fund {
     ) -> Result<(), ProgramError> {
         let instruction = FundInstruction::unpack(data).ok_or(ProgramError::InvalidInstructionData)?;
         match instruction {
-            FundInstruction::Initialize { min_amount, min_return, performance_fee_percentage, no_of_tokens } => {
+            FundInstruction::Initialize { min_amount, min_return, performance_fee_percentage, no_of_tokens, is_private } => {
                 msg!("FundInstruction::Initialize");
-                return Self::initialize(program_id, accounts, min_amount, min_return, performance_fee_percentage, no_of_tokens);
+                return Self::initialize(program_id, accounts, min_amount, min_return, performance_fee_percentage, no_of_tokens, is_private);
             }
             FundInstruction::InvestorDeposit { amount, index } => {
                 msg!("FundInstruction::InvestorDeposit");
@@ -1044,11 +1107,11 @@ impl Fund {
                 return Self::transfer(program_id, accounts);
             }
             FundInstruction::InvestorWithdrawFromFund => {
-                msg!("FundInstruction::InvestorWithdraw");
+                msg!("FundInstruction::InvestorWithdrawFromFund");
                 return Self::withdraw_from_fund(program_id, accounts);
             }
             FundInstruction::InvestorWithdrawSettleFunds => {
-                msg!("FundInstruction::InvestorWithdraw");
+                msg!("FundInstruction::InvestorWithdrawSettle");
                 return Self::withdraw_settle(program_id, accounts);
             }
             FundInstruction::Swap { swap_index, data } => {
@@ -1089,13 +1152,13 @@ impl Fund {
                 msg!("FundInstruction::MangoPlacePerpOrder");
                 return mango_place_perp_order(program_id, accounts, perp_market_id , side, price, quantity);
             }
-            FundInstruction::MangoSettlePnL {perp_market_id} => {
-                msg!("FundInstruction::MangoSettlePnL");
-                return mango_settle_pnl(program_id, accounts, perp_market_id);
+            FundInstruction::MangoRemovePerpIndex {perp_market_id} => {
+                msg!("FundInstruction::MangoRemovePerpIndex");
+                return mango_remove_perp_index(program_id, accounts, perp_market_id);
             }
-            // FundInstruction::MangoClosePosition { price } => {
-            //     msg!("FundInstruction::MangoClosePosition");
-            //     return mango_close_position(program_id, accounts, price);
+            // FundInstruction::MangoPlaceSpotOrder { side, price,trade_size } => {
+            //     msg!("FundInstruction::MangoPlaceSpotOrder");
+            //     return mango_place_spot_order2(program_id, accounts, side, price, trade_size);
             // }
             FundInstruction::MangoWithdraw { token_slot_index, mango_token_index, quantity } => {
                 msg!("FundInstruction::MangoWithdraw");
@@ -1109,10 +1172,10 @@ impl Fund {
             //     msg!("FundInstruction::MangoWithdrawInvestorPlaceOrder");
             //     return mango_withdraw_investor_place_order(program_id, accounts, price);
             // }
-            // FundInstruction::MangoWithdrawInvestorSettle => {
-            //     msg!("FundInstruction::MangoWithdrawInvestorSettle");
-            //     return mango_withdraw_investor_settle(program_id, accounts);
-            // }
+            FundInstruction::ChangeFundPrivacy => {
+                msg!("FundInstruction::ChangeFundPrivacy");
+                return Self::change_fund_privacy(program_id, accounts);
+            }
             FundInstruction::AddTokenToWhitelist { token_id, pc_index} => {
                 msg!("FundInstruction::AddTokenToWhitelist");
                 return add_token_to_whitelist(program_id, accounts, token_id, pc_index);
@@ -1141,34 +1204,28 @@ impl Fund {
 pub fn update_amount_and_performance(
     platform_data: &PlatformData,
     fund_data: &mut FundData,
-    mango_account_ai: &AccountInfo,
-    mango_group_ai: &AccountInfo,
-    mango_cache_ai: &AccountInfo,
-    mango_prog_ai: &AccountInfo,
+    mango_val: U64F64,
     update_perf: bool
-) -> Result<([I80F48; 4], I80F48, I80F48), ProgramError> {
+) -> Result<(), ProgramError> {
+    // let mut usdc_deposits: I80F48 = ZERO_I80F48;
+    // let mut token_deposits: I80F48 = ZERO_I80F48;
+    // msg!("UA&P");
+    let mut fund_val = mango_val;
     
-    msg!("called update_amount_and_performance");
-    let mut pnl: [I80F48; 4] = [ZERO_I80F48; 4];
-    let mut usdc_deposits: I80F48 = ZERO_I80F48;
-    let mut token_deposits: I80F48 = ZERO_I80F48;
-    // let mut fund_val = I80F48::from_num(fund_data.vault_balance); // add balance in fund vault
-    // add USDT balance (not decimal adjusted)
-    let mut fund_val = I80F48::from_num(fund_data.tokens[0].balance - fund_data.tokens[0].debt);
-
-    let clock = Clock::get()?;
+    // add USDC balance (not decimal adjusted)
+    fund_val = fund_val.checked_add(U64F64::from_num(fund_data.tokens[0].balance - fund_data.tokens[0].debt)).unwrap();
+    // msg!("USDC: {:?}", U64F64::from_num(fund_data.tokens[0].balance - fund_data.tokens[0].debt));
     // Calculate prices for all tokens with balances
     for i in 1..NUM_TOKENS {
 
         // dont update if token balance == 0
         if (fund_data.tokens[i].balance - fund_data.tokens[i].debt) == 0 { continue; }
-
+        
         // get last mux
-        let mux = fund_data.tokens[i].mux as usize;
         // get index of token
-        let token_info = platform_data.token_list[fund_data.tokens[i].index[mux] as usize];
-
-        if clock.unix_timestamp - token_info.last_updated > 100 {
+        let token_info = platform_data.token_list[fund_data.tokens[i].index[fund_data.tokens[i].mux as usize] as usize];
+        
+        if Clock::get()?.unix_timestamp - token_info.last_updated > 100 {
             msg!("price not up-to-date.. aborting");
             return Err(FundError::PriceStaleInAccount.into())
         }
@@ -1180,31 +1237,63 @@ pub fn update_amount_and_performance(
              val = val.checked_mul(platform_data.token_list[token_info.pc_index as usize].pool_price).unwrap();
          }
 
-        fund_val = fund_val.checked_add(I80F48::from_fixed(val)).unwrap();
+        fund_val = fund_val.checked_add(val).unwrap();
     }
+    
+    if update_perf {
+        let mut perf = U64F64::from_num(fund_data.prev_performance);
+        // only case where performance is not updated:
+        // when no investments and no performance fee for manager
+        if fund_data.number_of_active_investments != 0 || fund_data.performance_fee != 0 {
+            perf = fund_val.checked_div(fund_data.total_amount).unwrap()
+            .checked_mul(U64F64::from_num(fund_data.prev_performance)).unwrap();
+        }
+        // adjust for manager performance fee
+        fund_data.performance_fee = U64F64::to_num(U64F64::from_num(perf)
+            .checked_div(U64F64::from_num(fund_data.prev_performance)).unwrap()
+            .checked_mul(U64F64::from_num(fund_data.performance_fee)).unwrap());
+        fund_data.prev_performance = U64F64::to_num(perf);
+    }
+    fund_data.total_amount = fund_val;
+    Ok(())
+}
 
+pub fn get_mango_valuation(
+    fund_data: &FundData,
+    mango_account_ai: &AccountInfo,
+    mango_group_ai: &AccountInfo,
+    mango_cache_ai: &AccountInfo,
+    mango_prog_ai: &AccountInfo,
+) -> Result<(I80F48, I80F48), ProgramError> {
+    let mut perp_pnl: I80F48 = ZERO_I80F48;
+    let mut usdc_deposits: I80F48 = ZERO_I80F48;
+    // let mut token_deposits: I80F48 = ZERO_I80F48;
+    // let mut token_deposits_val: I80F48 = ZERO_I80F48;
+    // msg!("GMV");
     if(fund_data.mango_positions.mango_account != Pubkey::default()){
+        
         let mango_group = MangoGroup::load_checked(mango_group_ai, mango_prog_ai.key)?;
         let mango_account = MangoAccount::load_checked(mango_account_ai, mango_prog_ai.key, mango_group_ai.key)?;
         let mango_cache = MangoCache::load_checked(mango_cache_ai, mango_prog_ai.key, &mango_group)?;
-        
-        let mut root_bank_cache = &mango_cache.root_bank_cache[QUOTE_INDEX];
-
         // account for native USDC deposits
-        usdc_deposits  = mango_account.get_native_deposit(root_bank_cache, QUOTE_INDEX)?.checked_sub(I80F48::from_num(fund_data.mango_positions.investor_debts[0])).unwrap();
-        fund_val = fund_val.checked_add(usdc_deposits).unwrap();
-        let dti = fund_data.mango_positions.deposit_index as usize;
-        //Check if deposit_index is valid
-        if(dti < QUOTE_INDEX){
-            root_bank_cache = &mango_cache.root_bank_cache[dti];
-            token_deposits = mango_account.deposits[dti];
-            fund_val = fund_val.checked_add(mango_account.get_native_deposit(root_bank_cache, dti)?.checked_sub(I80F48::from_num(fund_data.mango_positions.investor_debts[0])).unwrap()).unwrap();
-        }
-        // Get for USDC and the deposit_index on funds
-        
+        usdc_deposits  = mango_account.get_native_deposit(&mango_cache.root_bank_cache[QUOTE_INDEX], QUOTE_INDEX)?
+        .checked_sub(mango_account.get_native_borrow(&mango_cache.root_bank_cache[QUOTE_INDEX], QUOTE_INDEX)?).unwrap()
+        .checked_sub(I80F48::from_num(fund_data.mango_positions.investor_debts[0])).unwrap();
+        // let fund_debts = I80F48::from_num(fund_data.mango_positions.investor_debts[0]);
+        // if usdc_deposits > fund_debts {
+        //     usdc_deposits = usdc_deposits.checked_sub(fund_debts).unwrap();
+        // } else {
+        //     fund_data.mango_positions.investor_debts[0] = 0;
+        // }
 
-        
-        for i in 0..4 {
+        // let dti = fund_data.mango_positions.deposit_index as usize;
+        // //Check if deposit_index is valid
+        // if(dti < QUOTE_INDEX){
+        //     token_deposits = mango_account.get_native_deposit(&mango_cache.root_bank_cache[dti], dti)?.checked_sub(I80F48::from_num(fund_data.mango_positions.investor_debts[1])).unwrap();
+        //     token_deposits_val = token_deposits.checked_mul(mango_cache.price_cache[dti].price).unwrap();
+        //     // msg!("rootbank.di {:?}", mango_cache.root_bank_cache[dti].deposit_index);
+        // }
+        for i in 0..3 {
             let market_index = fund_data.mango_positions.perp_markets[i] as usize;
             if(market_index == u8::MAX as usize){
                 continue;
@@ -1213,40 +1302,29 @@ pub fn update_amount_and_performance(
             let (base_val, quote_val) = mango_account.perp_accounts[market_index].get_val(&mango_group.perp_markets[market_index],
                 &mango_cache.perp_market_cache[market_index], mango_cache.price_cache[market_index].price)?;
 
-            pnl[i] = base_val.checked_add(quote_val).unwrap();
+            perp_pnl = perp_pnl.checked_add(base_val.checked_add(quote_val).unwrap()).unwrap();
             // fund_val = fund_val.checked_add(U64F64::from_num(0)).unwrap();
-            fund_val = fund_val.checked_add(pnl[i]).unwrap();
-            
         }
+    } else {
+    msg!("NO MANGO ACCOUNT");
     }
-    else{
-        msg!("NO MANGO ACCOUNT");
-    }
-    
-    let updated_fund_val = U64F64::from_fixed(fund_val);
-    
-   
-    if update_perf {
-        let mut perf = U64F64::from_num(fund_data.prev_performance);
-        // only case where performance is not updated:
-        // when no investments and no performance fee for manager
-        if fund_data.number_of_active_investments != 0 || fund_data.performance_fee != 0 {
-            perf = updated_fund_val.checked_div(fund_data.total_amount).unwrap()
-            .checked_mul(U64F64::from_num(fund_data.prev_performance)).unwrap();
-        }
-        // adjust for manager performance fee
-        fund_data.performance_fee = U64F64::to_num(U64F64::from_num(perf)
-            .checked_div(U64F64::from_num(fund_data.prev_performance)).unwrap()
-            .checked_mul(U64F64::from_num(fund_data.performance_fee)).unwrap());
-            fund_data.prev_performance = U64F64::to_num(perf);
-    }
-    
-    fund_data.total_amount = updated_fund_val;
-    
-    
-    
-    Ok((pnl, usdc_deposits, token_deposits))
+    // msg!("mango_val done");
+    Ok((perp_pnl, usdc_deposits))
 }
+
+// pub fn adjust_mango_pnl(usdc: &mut I80F48, token: &mut I80F48, token_val: &mut I80F48, perp_pnl: I80F48) -> Result<(), ProgramError> {
+//     if perp_pnl < ZERO_I80F48 {
+//             let mut pnl_adj_ratio = ONE_I80F48.checked_add(perp_pnl.checked_div((*usdc).checked_add(*token_val).unwrap()).unwrap()).unwrap();
+//             msg!("pnl_adj: {:?} ", pnl_adj_ratio);
+//             *usdc = (*usdc).checked_mul(pnl_adj_ratio).unwrap();
+//             *token = (*token).checked_mul(pnl_adj_ratio).unwrap();
+//             *token_val = (*token_val).checked_mul(pnl_adj_ratio).unwrap();
+//             msg!("usdc {:?}, tok {:?}, tv {:?}", *usdc, *token, *token_val);
+//         } else {
+//             *usdc = (*usdc).checked_add(perp_pnl).unwrap();
+//         }
+//     Ok(())
+// }
 
 pub fn parse_token_account (account_info: &AccountInfo) -> Result<Account, ProgramError> {
     if account_info.owner != &spl_token::ID {
@@ -1491,20 +1569,39 @@ pub fn get_perp_vals(
     mango_group_ai: &AccountInfo,
 )-> Result<[i64; 4], ProgramError> {
     let mut perp_vals: [i64; 4] = [0; 4];
-    let mango_account_data = MangoAccount::load_checked(mango_account_ai, mango_prog_ai.key, mango_group_ai.key)?;
-    for i in 0..4 {
+    let mango_account = MangoAccount::load_checked(mango_account_ai, mango_prog_ai.key, mango_group_ai.key)?;
+    for i in 0..3 {
         let fpi = fund_data.mango_positions.perp_markets[i];
         if fpi != u8::MAX {
-            perp_vals[i] = mango_account_data.perp_accounts[fpi as usize].base_position;
-            if perp_vals[i] < 0{
-                perp_vals[i] = perp_vals[i].checked_mul(-1).unwrap();
-            } 
+            perp_vals[i] = mango_account.perp_accounts[fpi as usize].base_position;
         }
-        
-    } 
+    }
     Ok(perp_vals)
 }
-    
+
+
+// pub fn update_settle_amounts(
+//     fund_data: &mut FundData,
+//     investor_data: &mut InvestorData,
+//     usdc_before: I80F48,
+//     usdc_after: I80F48,
+//     tokens_before: I80F48,
+//     tokens_after: I80F48
+// )-> Result<(), ProgramError> {
+//     msg!("USA");
+//     let usdc_diff = (usdc_before.checked_sub(I80F48::from_fixed(investor_data.margin_debt[0])).unwrap()).checked_sub(usdc_after).unwrap();
+//     if usdc_diff > 0 {
+//         investor_data.margin_debt[0] = investor_data.margin_debt[0].checked_sub(U64F64::from_fixed(usdc_diff)).unwrap();
+//         fund_data.mango_positions.investor_debts[0] = fund_data.mango_positions.investor_debts[0].checked_sub(I80F48::to_num(usdc_diff)).unwrap();
+//     }
+//     let token_diff = (tokens_before.checked_sub(I80F48::from_fixed(investor_data.margin_debt[1])).unwrap()).checked_sub(tokens_after).unwrap();
+//     if token_diff > 0 {
+//         investor_data.margin_debt[1] = investor_data.margin_debt[1].checked_sub(U64F64::from_fixed(token_diff)).unwrap();
+//         fund_data.mango_positions.investor_debts[1] = fund_data.mango_positions.investor_debts[1].checked_sub(I80F48::to_num(token_diff)).unwrap();
+//     }
+//     Ok(())
+// }
+
 
 pub fn close_investor_account (
     investor_ai: &AccountInfo,
