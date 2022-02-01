@@ -1085,9 +1085,9 @@ impl Fund {
                 msg!("FundInstruction::MangoDeposit");
                 return mango_deposit(program_id, accounts, token_slot_index, mango_token_index, quantity);
             }
-            FundInstruction::MangoPlacePerpOrder { perp_market_id, side, quantity } => {
+            FundInstruction::MangoPlacePerpOrder { perp_market_id, side, price, quantity } => {
                 msg!("FundInstruction::MangoPlacePerpOrder");
-                return mango_place_perp_order(program_id, accounts, perp_market_id , side, quantity);
+                return mango_place_perp_order(program_id, accounts, perp_market_id , side, price, quantity);
             }
             FundInstruction::MangoSettlePnL {perp_market_id} => {
                 msg!("FundInstruction::MangoSettlePnL");

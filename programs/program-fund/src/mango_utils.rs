@@ -193,6 +193,7 @@ pub fn mango_place_perp_order(
     accounts: &[AccountInfo],
     perp_market_id: u8,
     side: Side,
+    price: i64,
     quantity: i64
 ) -> Result<(), ProgramError> {
     const NUM_FIXED: usize = 12;
@@ -232,7 +233,7 @@ pub fn mango_place_perp_order(
         &place_perp_order(mango_prog_ai.key,
             mango_group_ai.key, mango_account_ai.key, fund_pda_ai.key,
             mango_cache_ai.key,perp_market_ai.key, bids_ai.key, asks_ai.key, event_queue_ai.key, &open_orders_accs,
-            side, i64::MAX, quantity, 0, OrderType::Market, false)?,
+            side, price, quantity, 0, OrderType::ImmediateOrCancel, false)?,
         &[
             mango_prog_ai.clone(),
             mango_group_ai.clone(),
