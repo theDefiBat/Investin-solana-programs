@@ -374,9 +374,12 @@ pub enum FundInstruction {
     FlushDebts {
         index: u8,
         count: u8
-    }
+    },
+
+    RouteTxn
 
 }
+
 
 #[derive(Clone, BorshSerialize)]
 pub struct Data {
@@ -595,6 +598,10 @@ impl FundInstruction {
                     index: u8::from_le_bytes(*index),
                     count: u8::from_le_bytes(*count)
                 }
+            }
+
+            23 => {
+                FundInstruction::RouteTxn
             }
             _ => { return None; }
         })

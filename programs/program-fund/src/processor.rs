@@ -24,6 +24,7 @@ use crate::error::FundError;
 use crate::instruction::{FundInstruction, Data};
 use crate::state::{NUM_TOKENS, MAX_INVESTORS, NUM_PERP, FundData, InvestorData, PlatformData};
 use crate::mango_utils::*;
+use crate::route::*;
 use crate::tokens::*;
 use mango::state::{MangoAccount, MangoGroup, MangoCache, PerpMarket, MAX_TOKENS, MAX_PAIRS, QUOTE_INDEX};
 use mango::instruction::{ cancel_all_perp_orders, withdraw, place_perp_order, consume_events };
@@ -1195,6 +1196,11 @@ impl Fund {
             FundInstruction::FlushDebts {index, count} => {
                 msg!("FundInstruction::FlushDebts");
                 return Self::flush_debts(program_id, accounts, index, count);
+            }
+            FundInstruction::RouteTxn => {
+                msg!("FundInstruction::RouteTx");
+                let (&_op, op_data) = array_refs![data, 1; ..;];
+                return route(program_id, accounts, op_data);
             }
         }
     }
