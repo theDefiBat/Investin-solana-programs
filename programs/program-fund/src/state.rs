@@ -135,10 +135,12 @@ pub struct FundData {
      // mango position info
      pub mango_positions: MangoInfo,
 
-     pub margin_update_padding: [u8; 80], //80 Bytes for Depr. MarginInfo Size
+     pub guard: SwapGuard,
+
+    //  pub margin_update_padding: [u8; 72], //80 Bytes for Depr. MarginInfo Size
  
      // padding for future use
-     pub xpadding: [u8; 32]
+     pub xpadding: [u8; 8] //32
 }
 impl_loadable!(FundData);
 
@@ -160,6 +162,22 @@ pub struct TokenSlot {
 }
 impl_loadable!(TokenSlot);
 
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct SwapGuard {
+    
+    pub is_active: bool,
+    pub hop: u8,
+    pub count: u8,
+    pub token_in: Pubkey,
+    pub token_out: Pubkey,
+    pub token_hop: Pubkey,
+    pub token_in_slot: u8,
+    pub token_out_slot: u8,
+    pub padding: [u8; 3], 
+
+}
+impl_loadable!(SwapGuard);
 
 #[repr(C)]
 #[derive(Clone, Copy)]

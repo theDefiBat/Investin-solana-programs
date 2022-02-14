@@ -994,6 +994,51 @@ impl Fund {
         Ok(())
     }
 
+    pub fn set_swap_guard(
+        program_id: &Pubkey,
+        accounts: &[AccountInfo],
+        token_in_fund_slot: u8,
+        token_out_fund_slot: u8
+    ) -> Result<(), ProgramError> {
+        let accounts_iter = &mut accounts.iter();
+        let platform_ai = next_account_info(accounts_iter)?;
+        let fund_state_ai = next_account_info(accounts_iter)?;
+        let manager_ai = next_account_info(accounts_iter)?;
+        let fund_pda = next_account_info(accounts_iter)?;
+        let source_token_ai = next_account_info(accounts_iter)?;
+        let dest_token_ai = next_account_info(accounts_iter)?;
+        let hop_token_ai = next_account_info(accounts_iter)?;
+        let mut fund_data = FundData::load_mut_checked(fund_state_ai, program_id)?;
+        check_eq!(fund_data.is_initialized(), true);
+        check_eq!(fund_data.manager_account, *manager_ai.key);
+        check_eq!(manager_ai.is_signer, true);
+        let platform_data = PlatformData::load_checked(platform_ai, program_id)?;
+        
+        let source_token_data = parse_token_account(source_token_ai)?;
+        check_eq!(source_token_data.owner, *fund_pda.key);
+        check_eq!(source_token_data.mint, platform_data.token_list[fund_data.tokens[token_in_fund_slot as usize].index[0] as usize].mint);
+        
+        let dest_token_data = parse_token_account(dest_token_ai)?;
+        check_eq!(dest_token_data.owner, *fund_pda.key);
+        check_eq!(source_token_data.mint, platform_data.token_list[fund_data.tokens[token_out_fund_slot as usize].index[0] as usize].mint);
+
+        if *hop_token_ai.key != Pubkey::default() {
+            fund_data.guard.hop = 1;
+            fund_data.guard.count = 0;
+            let hop_token_data = parse_token_account(hop_token_ai)?;
+            check_eq!(hop_token_data.owner, *fund_pda.key);
+        }
+
+        fund_data.guard.is_active = true;
+        fund_data.guard.token_in = *source_token_ai.key; 
+        fund_data.guard.token_out = *dest_token_ai.key;
+        fund_data.guard.token_hop = *hop_token_ai.key;
+        fund_data.guard.token_in_slot = token_in_fund_slot;
+        fund_data.guard.token_out_slot = token_out_fund_slot;
+        
+        Ok(())
+    }
+
     pub fn admin_control(
         program_id: &Pubkey,
         accounts: &[AccountInfo],
@@ -1086,6 +1131,8 @@ impl Fund {
 
         Ok(())
     }
+
+    
 
     // instruction processor
     pub fn process(
@@ -1201,6 +1248,15 @@ impl Fund {
                 msg!("FundInstruction::RouteTx");
                 let (&_op, op_data) = array_refs![data, 1; ..;];
                 return route(program_id, accounts, op_data);
+            }
+            FundInstruction::Route2Txn => {
+                msg!("FundInstruction::Route2dTx");
+                let (&_op, op_data) = array_refs![data, 1; ..;];
+                return route2(program_id, accounts, op_data);
+            }
+            FundInstruction::SetSwapGuard {token_in_fund_slot, token_out_fund_slot} => {
+                msg!("FundInstruction::SwapGuard");
+                return Self::set_swap_guard(program_id, accounts, token_in_fund_slot, token_out_fund_slot);
             }
         }
     }

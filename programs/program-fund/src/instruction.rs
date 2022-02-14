@@ -376,7 +376,13 @@ pub enum FundInstruction {
         count: u8
     },
 
-    RouteTxn
+    SetSwapGuard {
+        token_in_fund_slot: u8, 
+        token_out_fund_slot: u8
+    },
+
+    RouteTxn,
+    Route2Txn
 
 }
 
@@ -602,6 +608,21 @@ impl FundInstruction {
 
             23 => {
                 FundInstruction::RouteTxn
+            }
+            24 => {
+                FundInstruction::Route2Txn
+            }
+
+            22 => {
+                let data = array_ref![data, 0, 2];
+                let (
+                    token_in_fund_slot,
+                    token_out_fund_slot
+                ) = array_refs![data, 1, 1]; 
+                FundInstruction::SetSwapGuard{
+                    token_in_fund_slot: u8::from_le_bytes(*token_in_fund_slot),
+                    token_out_fund_slot: u8::from_le_bytes(*token_out_fund_slot)
+                }
             }
             _ => { return None; }
         })
