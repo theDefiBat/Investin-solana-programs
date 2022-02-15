@@ -11,7 +11,7 @@ use solana_program::{
     program::invoke_signed,
     sysvar::Sysvar,
 };
-use crate::state::FundData;
+use crate::state::{FundData, PlatformData};
 use crate::error::FundError;
 use crate::processor::{raydium_id, orca_id, parse_token_account};
 pub use switchboard_aggregator::AggregatorAccountData;
@@ -87,7 +87,7 @@ pub fn route (
     invoke_signed(
         &relay_instruction,
         accounts.clone(),
-        &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
+        &[&[fund_data.npm.as_ref(), bytes_of(&fund_data.signer_nonce)]]
     )?;
 
     if fun_sec == 21988 { //SetTokenLedger
@@ -223,8 +223,9 @@ pub fn set_swap_guard(
 
     let hop_token_ai = next_account_info(accounts_iter)?;
     let mut fund_data = FundData::load_mut_checked(fund_state_ai, program_id)?;
-    check_eq!(fund_data.is_initialized(), true);
+    check_eq!(fund_data.is_initialized, true);
     check_eq!(fund_data.manager_account, *manager_ai.key);
+    check_eq!(fund_data.fund_pda, *fund_pda.key);
     check_eq!(manager_ai.is_signer, true);
     let platform_data = PlatformData::load_checked(platform_ai, program_id)?;
     
@@ -253,7 +254,7 @@ pub fn set_swap_guard(
     fund_data.guard.is_active = true;
     fund_data.guard.token_in = *source_token_ai.key; 
     fund_data.guard.token_out = *dest_token_ai.key;
-    fund_data.guard.token_hop = *hop_token_ai.key;
+    // fund_data.guard.token_hop = *hop_token_ai.key;
     fund_data.guard.token_in_slot = token_in_fund_slot;
     fund_data.guard.token_out_slot = token_out_fund_slot;
     
@@ -296,13 +297,14 @@ pub fn check_swap_guard (
             fund_data.guard.is_active = false;
             fund_data.guard.token_in = Pubkey::default();
             fund_data.guard.token_out = Pubkey::default();
-            fund_data.guard.token_hop = Pubkey::default();
+            // fund_data.guard.token_hop = Pubkey::default();
             fund_data.guard.token_in_slot = u8::MAX;
             fund_data.guard.token_out_slot = u8::MAX;
-    }
-    else {
+            Ok(())
+    } else {
         return Err(ProgramError::InvalidAccountData);
     }
+
 }
 
 pub fn route2 (

@@ -378,7 +378,8 @@ pub enum FundInstruction {
 
     SetSwapGuard {
         token_in_fund_slot: u8, 
-        token_out_fund_slot: u8
+        token_out_fund_slot: u8,
+        amount_in: u64
     },
 
     RouteTxn,
@@ -615,14 +616,16 @@ impl FundInstruction {
             }
 
             25 => {
-                let data = array_ref![data, 0, 2];
+                let data = array_ref![data, 0, 1 + 1 + 8];
                 let (
                     token_in_fund_slot,
-                    token_out_fund_slot
-                ) = array_refs![data, 1, 1]; 
+                    token_out_fund_slot,
+                    amount_in
+                ) = array_refs![data, 1, 1, 8]; 
                 FundInstruction::SetSwapGuard{
                     token_in_fund_slot: u8::from_le_bytes(*token_in_fund_slot),
-                    token_out_fund_slot: u8::from_le_bytes(*token_out_fund_slot)
+                    token_out_fund_slot: u8::from_le_bytes(*token_out_fund_slot),
+                    amount_in: u64::from_le_bytes(*amount_in)
                 }
             }
 

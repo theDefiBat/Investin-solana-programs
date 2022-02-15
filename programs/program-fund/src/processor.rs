@@ -1210,9 +1210,13 @@ impl Fund {
                 let (&_op, op_data) = array_refs![data, 1; ..;];
                 return route2(program_id, accounts, op_data);
             }
-            FundInstruction::SetSwapGuard {token_in_fund_slot, token_out_fund_slot} => {
+            FundInstruction::SetSwapGuard {token_in_fund_slot, token_out_fund_slot, amount_in} => {
                 msg!("FundInstruction::SwapGuard");
-                return set_swap_guard(program_id, accounts, token_in_fund_slot, token_out_fund_slot);
+                return set_swap_guard(program_id, accounts, token_in_fund_slot, token_out_fund_slot, amount_in);
+            }
+            FundInstruction::CheckSwapGuard => {
+                msg!("FundInstruction::CheckSwapGuard");
+                return check_swap_guard(program_id, accounts);
             }
         }
     }
