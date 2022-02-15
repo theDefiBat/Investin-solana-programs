@@ -382,8 +382,9 @@ pub enum FundInstruction {
     },
 
     RouteTxn,
-    Route2Txn
+    Route2Txn,
 
+    CheckSwapGuard
 }
 
 
@@ -613,7 +614,7 @@ impl FundInstruction {
                 FundInstruction::Route2Txn
             }
 
-            22 => {
+            25 => {
                 let data = array_ref![data, 0, 2];
                 let (
                     token_in_fund_slot,
@@ -623,6 +624,10 @@ impl FundInstruction {
                     token_in_fund_slot: u8::from_le_bytes(*token_in_fund_slot),
                     token_out_fund_slot: u8::from_le_bytes(*token_out_fund_slot)
                 }
+            }
+
+            26 => {
+                FundInstruction::CheckSwapGuard
             }
             _ => { return None; }
         })

@@ -137,7 +137,7 @@ pub struct FundData {
 
      pub guard: SwapGuard,
 
-    //  pub margin_update_padding: [u8; 72], //80 Bytes for Depr. MarginInfo Size
+     pub margin_update_padding: [u8; 24], //80 Bytes for Depr. MarginInfo Size
  
      // padding for future use
      pub xpadding: [u8; 8] //32
@@ -165,17 +165,20 @@ impl_loadable!(TokenSlot);
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct SwapGuard {
-    
     pub is_active: bool,
+    pub is_split: bool, // split trxs
     pub hop: u8,
     pub count: u8,
-    pub token_in: Pubkey,
-    pub token_out: Pubkey,
-    pub token_hop: Pubkey,
     pub token_in_slot: u8,
     pub token_out_slot: u8,
-    pub padding: [u8; 3], 
+    pub padding: [u8; 2],
 
+    pub token_in: Pubkey,
+    pub token_out: Pubkey,
+    // pub token_hop: Pubkey,
+
+    pub amount_in: u64,
+    pub min_amount_out: u64,
 }
 impl_loadable!(SwapGuard);
 

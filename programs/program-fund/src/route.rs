@@ -14,6 +14,8 @@ use solana_program::{
 use crate::state::FundData;
 use crate::error::FundError;
 use crate::processor::{raydium_id, orca_id, parse_token_account};
+pub use switchboard_aggregator::AggregatorAccountData;
+
 
 
 macro_rules! check {
@@ -52,7 +54,7 @@ pub fn route (
     let fund_state_ai = next_account_info(accounts_iter)?;
     let mut fund_data = FundData::load_mut_checked(fund_state_ai, program_id)?;
     check_eq!(fund_data.manager_account, *manager_ai.key);
-    // check_eq!(fund_data.guard.is_active, true);
+    check_eq!(fund_data.guard.is_active, true);
     let whitelisted_prog_ai = next_account_info(accounts_iter)?;
     // let ix_id = solana_program::sysvar::instructions::load_current_index_checked(sysvar_ix_ai);
     // let ix_pos = solana_program::sysvar::instructions::get_instruction_relative(0, sysvar_ix_ai);
@@ -93,56 +95,56 @@ pub fn route (
     }
     
 
-    let (source_index, dest_index) = match fun_sec {
+    // let (source_index, dest_index) = match fun_sec {
 
-        46936 => {
-            //Check for Serum
-            if *accounts[13].key == *accounts[14].key {
-                (14, 15)
-            } else {
-                (15, 14)
-            }
-        },
+    //     46936 => {
+    //         //Check for Serum
+    //         if *accounts[13].key == *accounts[14].key {
+    //             (14, 15)
+    //         } else {
+    //             (15, 14)
+    //         }
+    //     },
 
-        58181 => {
-            (18, 19) //Raydium
-        },
+    //     58181 => {
+    //         (18, 19) //Raydium
+    //     },
 
-        49339 => {
-            (8, 11) //Orca
-        },
+    //     49339 => {
+    //         (8, 11) //Orca
+    //     },
 
-        25655 => { //Step
-            (8, 11)
-        },
+    //     25655 => { //Step
+    //         (8, 11)
+    //     },
 
-        59643 => { //Aldrin
-            let check = array_ref![data, 24, 1];
-            let x = u8::from_le_bytes(*check);
-            if x == 1{
-                (11, 12)
-            } else {
-                (12, 11)
-            }
-        },
+    //     59643 => { //Aldrin
+    //         let check = array_ref![data, 24, 1];
+    //         let x = u8::from_le_bytes(*check);
+    //         if x == 1{
+    //             (11, 12)
+    //         } else {
+    //             (12, 11)
+    //         }
+    //     },
 
-        9895 => { //Cropper
-            (9, 12)
-        },
+    //     9895 => { //Cropper
+    //         (9, 12)
+    //     },
 
-        63519 => { //Mercurial
-            (8, 9)
-        },
+    //     63519 => { //Mercurial
+    //         (8, 9)
+    //     },
 
-        40593 => { //Saber
-            (9, 11)
-        },
+    //     40593 => { //Saber
+    //         (9, 11)
+    //     },
 
-        _ => { return Err(FundError::InvalidTokenAccount) }
+    //     _ => { return Err(FundError::InvalidTokenAccount) }
 
-    };
+    // };
 
-    msg!("SI: {:?}, DI: {:?}", source_index, dest_index);
+    // msg!("SI: {:?}, DI: {:?}", source_index, dest_index);
 
 
     //  01
@@ -199,6 +201,108 @@ pub fn route (
     
 
     Ok(())
+}
+
+pub fn set_swap_guard(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    token_in_fund_slot: u8,
+    token_out_fund_slot: u8,
+    amount_in: u64
+) -> Result<(), ProgramError> {
+    let accounts_iter = &mut accounts.iter();
+    let platform_ai = next_account_info(accounts_iter)?;
+    let fund_state_ai = next_account_info(accounts_iter)?;
+    let manager_ai = next_account_info(accounts_iter)?;
+    let fund_pda = next_account_info(accounts_iter)?;
+    let source_token_ai = next_account_info(accounts_iter)?;
+    let dest_token_ai = next_account_info(accounts_iter)?;
+
+    let oracle_ai = next_account_info(accounts_iter)?;
+    let oracle_ai_opt = next_account_info(accounts_iter)?;
+
+    let hop_token_ai = next_account_info(accounts_iter)?;
+    let mut fund_data = FundData::load_mut_checked(fund_state_ai, program_id)?;
+    check_eq!(fund_data.is_initialized(), true);
+    check_eq!(fund_data.manager_account, *manager_ai.key);
+    check_eq!(manager_ai.is_signer, true);
+    let platform_data = PlatformData::load_checked(platform_ai, program_id)?;
+    
+    let source_token_data = parse_token_account(source_token_ai)?;
+    check_eq!(source_token_data.owner, *fund_pda.key);
+    check_eq!(source_token_data.mint, platform_data.token_list[fund_data.tokens[token_in_fund_slot as usize].index[0] as usize].mint);
+    
+    let dest_token_data = parse_token_account(dest_token_ai)?;
+    check_eq!(dest_token_data.owner, *fund_pda.key);
+    check_eq!(source_token_data.mint, platform_data.token_list[fund_data.tokens[token_out_fund_slot as usize].index[0] as usize].mint);
+
+    if *hop_token_ai.key != Pubkey::default() {
+        fund_data.guard.hop = 1;
+        fund_data.guard.count = 0;
+        let hop_token_data = parse_token_account(hop_token_ai)?;
+        check_eq!(hop_token_data.owner, *fund_pda.key);
+    }
+
+    // TODO: add oracle decoding to get minAmountOut
+    // let feed_result_1 = AggregatorAccountData::new(oracle_ai)?.get_result()?;
+
+    // TODO
+    fund_data.guard.amount_in = amount_in;
+    fund_data.guard.min_amount_out = 0;
+
+    fund_data.guard.is_active = true;
+    fund_data.guard.token_in = *source_token_ai.key; 
+    fund_data.guard.token_out = *dest_token_ai.key;
+    fund_data.guard.token_hop = *hop_token_ai.key;
+    fund_data.guard.token_in_slot = token_in_fund_slot;
+    fund_data.guard.token_out_slot = token_out_fund_slot;
+    
+    Ok(())
+}
+
+
+pub fn check_swap_guard (
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+) -> Result<(), ProgramError> {
+    let accounts_iter = &mut accounts.iter();
+
+    // let manager_ai = next_account_info(accounts_iter)?;
+    // check_eq!(manager_ai.is_signer, true);
+    let fund_state_ai = next_account_info(accounts_iter)?;
+    let mut fund_data = FundData::load_mut_checked(fund_state_ai, program_id)?;
+    // check_eq!(fund_data.manager_account, *manager_ai.key);
+
+    let source_token_ai = next_account_info(accounts_iter)?;
+    let dest_token_ai = next_account_info(accounts_iter)?;
+
+    let source_amount = parse_token_account(source_token_ai)?.amount;
+    let dest_amount = parse_token_account(dest_token_ai)?.amount;
+
+    let prev_amount =  fund_data.tokens[fund_data.guard.token_out_slot as usize].balance;
+    
+    let swap_amount_in = source_amount - fund_data.tokens[fund_data.guard.token_in_slot as usize].balance;
+    let swap_amount_out = dest_amount - fund_data.tokens[fund_data.guard.token_out_slot as usize].balance;
+
+    check_eq!(swap_amount_in, fund_data.guard.amount_in);
+    check!(swap_amount_out > fund_data.guard.min_amount_out, ProgramError::InvalidAccountData); // minAmountOut guard check
+
+    check!(fund_data.tokens[fund_data.guard.token_out_slot as usize].balance > fund_data.tokens[fund_data.guard.token_out_slot as usize].debt, ProgramError::InvalidAccountData);
+
+    // check in_slot debt is valid
+    check!(fund_data.tokens[fund_data.guard.token_in_slot as usize].balance > fund_data.tokens[fund_data.guard.token_in_slot as usize].debt, ProgramError::InvalidAccountData);
+
+    if fund_data.guard.hop == fund_data.guard.count {
+            fund_data.guard.is_active = false;
+            fund_data.guard.token_in = Pubkey::default();
+            fund_data.guard.token_out = Pubkey::default();
+            fund_data.guard.token_hop = Pubkey::default();
+            fund_data.guard.token_in_slot = u8::MAX;
+            fund_data.guard.token_out_slot = u8::MAX;
+    }
+    else {
+        return Err(ProgramError::InvalidAccountData);
+    }
 }
 
 pub fn route2 (
