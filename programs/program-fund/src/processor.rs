@@ -1,4 +1,5 @@
 use bytemuck::bytes_of;
+use std::mem::size_of;
 use fixed::types::U64F64;
 use fixed_macro::types::U64F64;
 use fixed::types::I80F48;
@@ -8,13 +9,14 @@ use num_enum::TryFromPrimitive;
 use solana_program::{
     account_info::{AccountInfo, next_account_info},
     msg,
+    log::sol_log_compute_units,    
+    system_instruction::create_account,
     instruction:: {AccountMeta, Instruction},
     program_error::ProgramError,
     program_pack::{Pack, IsInitialized},
     pubkey::Pubkey,
     program::{invoke, invoke_signed},
-    clock::Clock,
-    sysvar::Sysvar
+    sysvar::{clock::Clock, rent::Rent, Sysvar}
 };
 
 use arrayref::{array_ref, array_refs};
@@ -22,7 +24,7 @@ use spl_token::state::{Account, Mint};
 
 use crate::error::FundError;
 use crate::instruction::{FundInstruction, Data};
-use crate::state::{NUM_TOKENS, MAX_INVESTORS, NUM_PERP, FundData, InvestorData, PlatformData};
+use crate::state::{NUM_TOKENS, MAX_INVESTORS, NUM_PERP, FundData, FundAccount, InvestorData, PlatformData};
 use crate::mango_utils::*;
 use crate::route::*;
 use crate::tokens::*;
@@ -209,6 +211,66 @@ impl Fund {
 
         Ok(())
     }
+
+    pub fn migrate_fs(
+        program_id: &Pubkey,
+        accounts: &[AccountInfo],
+    ) -> Result<(), ProgramError> {
+        
+        let accounts_iter = &mut accounts.iter();
+        let manager_ai = next_account_info(accounts_iter)?;
+        let pda_ai = next_account_info(accounts_iter)?;
+        let fund_state_ai = next_account_info(accounts_iter)?;
+        let system_program_ai = next_account_info(accounts_iter)?;
+        let fund_data = FundData::load_mut_checked(&fund_state_ai, &program_id)?;
+        // msg!("FundState Data: {:?}", fund_data);
+        // let (pda, nonce) = Pubkey::find_program_address(&[&*manager_ai.key.as_ref()], program_id);
+        check_eq!(fund_data.fund_pda, *pda_ai.key);
+        let rent = Rent::get()?;        
+        let fund_pda_size = size_of::<FundAccount>();
+
+        sol_log_compute_units();
+        invoke_signed(
+            &create_account(
+                &manager_ai.key,
+                &pda_ai.key,
+                rent.minimum_balance(fund_pda_size).max(1),
+                fund_pda_size as u64,
+                &program_id,
+            ),
+            &[manager_ai.clone(), pda_ai.clone(), system_program_ai.clone()],
+            &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
+        )?;
+        sol_log_compute_units();
+        let mut fund_pda_data = FundAccount::load_mut_checked(&pda_ai, &program_id)?;
+        fund_pda_data.amount_in_router = fund_data.amount_in_router;
+        fund_pda_data.fund_pda = fund_data.fund_pda;
+        fund_pda_data.guard = fund_data.guard;
+        fund_pda_data.investors = fund_data.investors;
+        fund_pda_data.is_initialized = fund_data.is_initialized;
+        fund_pda_data.is_private = fund_data.is_private;
+        fund_pda_data.manager_account = fund_data.manager_account;
+        fund_pda_data.mango_positions = fund_data.mango_positions;
+        fund_pda_data.min_amount = fund_data.min_amount;
+        fund_pda_data.min_return = fund_data.min_return;
+        fund_pda_data.no_of_assets = fund_data.no_of_assets;
+        fund_pda_data.no_of_investments = fund_data.no_of_investments;
+        fund_pda_data.no_of_margin_positions = fund_data.no_of_margin_positions;
+        fund_pda_data.number_of_active_investments = fund_data.number_of_active_investments;
+        fund_pda_data.performance_fee = fund_data.performance_fee;
+        fund_pda_data.performance_fee_percentage = fund_data.performance_fee_percentage;
+        fund_pda_data.position_count = fund_data.position_count;
+        fund_pda_data.prev_performance = fund_data.prev_performance;
+        fund_pda_data.signer_nonce = fund_data.signer_nonce;
+        fund_pda_data.tokens = fund_data.tokens;
+        fund_pda_data.total_amount = fund_data.total_amount;
+        fund_pda_data.version = fund_data.version;
+        
+    
+        Ok(())
+    }
+
+
 
     // investor deposit
     pub fn deposit(
@@ -1217,6 +1279,10 @@ impl Fund {
             FundInstruction::CheckSwapGuard => {
                 msg!("FundInstruction::CheckSwapGuard");
                 return check_swap_guard(program_id, accounts);
+            }
+            FundInstruction::MigrateFundState => {
+                msg!("FundInstruction::MigrateFundState");
+                return Self::migrate_fs(program_id, accounts)
             }
         }
     }

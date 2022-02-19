@@ -47,23 +47,31 @@ pub fn route (
     data: &[u8]
 ) -> Result<(), ProgramError> {
     let accounts_iter = &mut accounts.iter();
-    // let sysvar_ix_ai = next_account_info(accounts_iter)?;
-    // check_eq!(*sysvar_ix_ai.key, solana_program::sysvar::instructions::id());
+    let sysvar_ix_ai = next_account_info(accounts_iter)?;
+    check_eq!(*sysvar_ix_ai.key, solana_program::sysvar::instructions::id());
     let manager_ai = next_account_info(accounts_iter)?;
     check_eq!(manager_ai.is_signer, true);
-    let fund_state_ai = next_account_info(accounts_iter)?;
-    let mut fund_data = FundData::load_mut_checked(fund_state_ai, program_id)?;
-    check_eq!(fund_data.manager_account, *manager_ai.key);
-    check_eq!(fund_data.guard.is_active, true);
+    let fund_pda_ai = next_account_info(accounts_iter)?;
+    let mut fund_data = FundData::load_mut_checked(fund_pda_ai, program_id)?;
+    let pda_signer_nonce = fund_data.signer_nonce;
+    // let check_for_hop = fund_data.guard.hop;
+
+    // check_eq!(fund_data.manager_account, *manager_ai.key);
+    // check_eq!(fund_data.guard.is_active, true);
     let whitelisted_prog_ai = next_account_info(accounts_iter)?;
     // let ix_id = solana_program::sysvar::instructions::load_current_index_checked(sysvar_ix_ai);
     // let ix_pos = solana_program::sysvar::instructions::get_instruction_relative(0, sysvar_ix_ai);
-    // msg!("Ix ID: {:?}, Ix Data: {:?} ", ix_id, ix_pos);
+    let ix = solana_program::sysvar::instructions::load_instruction_at_checked((fund_data.guard.hop + 1) as usize, sysvar_ix_ai)?;
+    let ix_data = ix.data;
+    let ix_pid = ix.program_id;
+    msg!(" Ix Data: {:?} PID: {:?}", ix_data, ix_pid);
+   
+    
     let mut first_two_bytes = array_ref![data, 0, 2];
     let fun_sec = u16::from_le_bytes(*first_two_bytes);
     msg!("selector: {:?} ", fun_sec);
     msg!("data: {:?}", data.to_vec());
-
+    
     let mut meta_accounts = vec![];
     
     meta_accounts.extend(accounts_iter.map(|a| {
@@ -75,24 +83,28 @@ pub fn route (
             AccountMeta::new_readonly(*a.key, a.is_signer)
         }
     }));
+    drop(fund_data);
     let relay_instruction = Instruction {
         program_id: *whitelisted_prog_ai.key,
         accounts: meta_accounts,
         data: data.to_vec(),
     };
-
-    // msg!("relay instruction:: {:?}", relay_instruction);
-    // check margin account
-
+    msg!("Firing CPI");
     invoke_signed(
         &relay_instruction,
         accounts.clone(),
-        &[&[fund_data.npm.as_ref(), bytes_of(&fund_data.signer_nonce)]]
+        &[&[&*manager_ai.key.as_ref(), bytes_of(&pda_signer_nonce)]]
     )?;
 
+    let mut fund_data2 = FundData::load_mut_checked(fund_pda_ai, program_id)?;
+    let token_in_fund_slot = fund_data2.guard.token_in_slot as usize;
+    let token_out_fund_slot = fund_data2.guard.token_out_slot as usize;
     if fun_sec == 21988 { //SetTokenLedger
         return Ok(());
+    } else {
+        fund_data2.guard.count += 1;
     }
+    
     
 
     // let (source_index, dest_index) = match fun_sec {
@@ -158,9 +170,7 @@ pub fn route (
     //Cropper: a7263b25843c5f44002e0476330000000000 = 9895 7, 10
     //Mercurial: 1ff83ce2d7a837c70100e40b5402000000000000000000000000 = 63519 6, 7
     //Saber: 919eb8d4034a9c76003a98f83f0000000000 = 40593 7, 9
-
-    let token_in_fund_slot = fund_data.guard.token_in_slot as usize;
-    let token_out_fund_slot = fund_data.guard.token_out_slot as usize;
+    
 
     // if fund_data.guard.hop == 0 {
     //     check_eq!(fund_data.guard.token_in, *accounts[source_index].key);
@@ -203,6 +213,7 @@ pub fn route (
     Ok(())
 }
 
+
 pub fn set_swap_guard(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
@@ -212,9 +223,9 @@ pub fn set_swap_guard(
 ) -> Result<(), ProgramError> {
     let accounts_iter = &mut accounts.iter();
     let platform_ai = next_account_info(accounts_iter)?;
-    let fund_state_ai = next_account_info(accounts_iter)?;
+    // let fund_state_ai = next_account_info(accounts_iter)?;
     let manager_ai = next_account_info(accounts_iter)?;
-    let fund_pda = next_account_info(accounts_iter)?;
+    let fund_pda_ai = next_account_info(accounts_iter)?;
     let source_token_ai = next_account_info(accounts_iter)?;
     let dest_token_ai = next_account_info(accounts_iter)?;
 
@@ -222,27 +233,30 @@ pub fn set_swap_guard(
     let oracle_ai_opt = next_account_info(accounts_iter)?;
 
     let hop_token_ai = next_account_info(accounts_iter)?;
-    let mut fund_data = FundData::load_mut_checked(fund_state_ai, program_id)?;
+    let mut fund_data = FundData::load_mut_checked(fund_pda_ai, program_id)?;
+    msg!("Accounts Loaded");
     check_eq!(fund_data.is_initialized, true);
     check_eq!(fund_data.manager_account, *manager_ai.key);
-    check_eq!(fund_data.fund_pda, *fund_pda.key);
+    // check_eq!(fund_data.fund_pda_ai, *fund_pda_ai.key);
     check_eq!(manager_ai.is_signer, true);
     let platform_data = PlatformData::load_checked(platform_ai, program_id)?;
-    
     let source_token_data = parse_token_account(source_token_ai)?;
-    check_eq!(source_token_data.owner, *fund_pda.key);
+    check_eq!(source_token_data.owner, *fund_pda_ai.key);
     check_eq!(source_token_data.mint, platform_data.token_list[fund_data.tokens[token_in_fund_slot as usize].index[0] as usize].mint);
-    
     let dest_token_data = parse_token_account(dest_token_ai)?;
-    check_eq!(dest_token_data.owner, *fund_pda.key);
-    check_eq!(source_token_data.mint, platform_data.token_list[fund_data.tokens[token_out_fund_slot as usize].index[0] as usize].mint);
-
+    check_eq!(dest_token_data.owner, *fund_pda_ai.key);
+    check_eq!(dest_token_data.mint, platform_data.token_list[fund_data.tokens[token_out_fund_slot as usize].index[0] as usize].mint);
+    msg!("TA checked");
     if *hop_token_ai.key != Pubkey::default() {
-        fund_data.guard.hop = 1;
+        fund_data.guard.hop = 2;
         fund_data.guard.count = 0;
         let hop_token_data = parse_token_account(hop_token_ai)?;
-        check_eq!(hop_token_data.owner, *fund_pda.key);
+        check_eq!(hop_token_data.owner, *fund_pda_ai.key);
+    } else {
+        fund_data.guard.hop = 1;
+        fund_data.guard.count = 0;
     }
+    msg!("HTA checked");
 
     // TODO: add oracle decoding to get minAmountOut
     // let feed_result_1 = AggregatorAccountData::new(oracle_ai)?.get_result()?;
@@ -257,6 +271,8 @@ pub fn set_swap_guard(
     // fund_data.guard.token_hop = *hop_token_ai.key;
     fund_data.guard.token_in_slot = token_in_fund_slot;
     fund_data.guard.token_out_slot = token_out_fund_slot;
+    msg!("Done guard_amount_in {:?}", fund_data.guard.amount_in);
+
     
     Ok(())
 }
@@ -270,8 +286,8 @@ pub fn check_swap_guard (
 
     // let manager_ai = next_account_info(accounts_iter)?;
     // check_eq!(manager_ai.is_signer, true);
-    let fund_state_ai = next_account_info(accounts_iter)?;
-    let mut fund_data = FundData::load_mut_checked(fund_state_ai, program_id)?;
+    let fund_pda_ai = next_account_info(accounts_iter)?;
+    let mut fund_data = FundData::load_mut_checked(fund_pda_ai, program_id)?;
     // check_eq!(fund_data.manager_account, *manager_ai.key);
 
     let source_token_ai = next_account_info(accounts_iter)?;
@@ -279,22 +295,31 @@ pub fn check_swap_guard (
 
     let source_amount = parse_token_account(source_token_ai)?.amount;
     let dest_amount = parse_token_account(dest_token_ai)?.amount;
-
-    let prev_amount =  fund_data.tokens[fund_data.guard.token_out_slot as usize].balance;
+    let si = fund_data.guard.token_in_slot as usize;
+    let di = fund_data.guard.token_out_slot as usize;
+    // let prev_amount =  fund_data.tokens[di].balance;
     
-    let swap_amount_in = source_amount - fund_data.tokens[fund_data.guard.token_in_slot as usize].balance;
-    let swap_amount_out = dest_amount - fund_data.tokens[fund_data.guard.token_out_slot as usize].balance;
+    let swap_amount_in = fund_data.tokens[si].balance - source_amount;
+    let swap_amount_out = dest_amount - fund_data.tokens[di].balance;
 
+    msg!("Checking amount_in {:?}, guard_amount_in {:?}", swap_amount_in, fund_data.guard.amount_in);
     check_eq!(swap_amount_in, fund_data.guard.amount_in);
+    msg!("Checking amount_out");
     check!(swap_amount_out > fund_data.guard.min_amount_out, ProgramError::InvalidAccountData); // minAmountOut guard check
+    msg!("checking debts");
 
-    check!(fund_data.tokens[fund_data.guard.token_out_slot as usize].balance > fund_data.tokens[fund_data.guard.token_out_slot as usize].debt, ProgramError::InvalidAccountData);
+    fund_data.tokens[si].balance = source_amount;
+    fund_data.tokens[di].balance = dest_amount;
+
+    check!(fund_data.tokens[di].balance > fund_data.tokens[di].debt, ProgramError::InsufficientFunds);
 
     // check in_slot debt is valid
-    check!(fund_data.tokens[fund_data.guard.token_in_slot as usize].balance > fund_data.tokens[fund_data.guard.token_in_slot as usize].debt, ProgramError::InvalidAccountData);
-
+    check!(fund_data.tokens[si].balance > fund_data.tokens[si].debt, ProgramError::InsufficientFunds);
+    msg!("reseting swap guard");
     if fund_data.guard.hop == fund_data.guard.count {
             fund_data.guard.is_active = false;
+            fund_data.guard.amount_in = 0;
+            fund_data.guard.min_amount_out = 0;
             fund_data.guard.token_in = Pubkey::default();
             fund_data.guard.token_out = Pubkey::default();
             // fund_data.guard.token_hop = Pubkey::default();

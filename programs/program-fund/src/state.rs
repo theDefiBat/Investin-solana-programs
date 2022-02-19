@@ -77,7 +77,7 @@ pub struct PlatformData {
 impl_loadable!(PlatformData);
 
 #[repr(C)]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct FundData {
 
     pub is_initialized: bool,
@@ -140,12 +140,82 @@ pub struct FundData {
      pub margin_update_padding: [u8; 24], //80 Bytes for Depr. MarginInfo Size
  
      // padding for future use
-     pub xpadding: [u8; 8] //32
+    //  pub xpadding: [u8; 8] //32
 }
 impl_loadable!(FundData);
 
 #[repr(C)]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
+pub struct FundAccount {
+
+    pub is_initialized: bool,
+    /// Number of Active Investments in fund
+    pub number_of_active_investments: u8,
+    /// Total Number of investments in fund
+    pub no_of_investments: u8,
+    // nonce to sign transactions
+    pub signer_nonce: u8,
+    /// Number of open margin positions
+    pub no_of_margin_positions: u8,
+    /// Number of active tokens
+    pub no_of_assets: u8,
+    /// Position count
+    pub position_count: u16,
+
+    /// version info
+    pub version: u8,
+    pub is_private: bool,
+    pub padding: [u8; 6],
+
+    /// Minimum Amount
+    pub min_amount: u64,
+
+    /// Minimum Return
+    pub min_return: U64F64,
+
+    /// Performance Fee Percentage
+    pub performance_fee_percentage: U64F64,
+
+    /// Total Amount in fund (in USDC)
+    pub total_amount: U64F64,
+
+    /// Preformance in fund
+    pub prev_performance: U64F64,
+
+    /// Amount in Router (in USDC)
+    pub amount_in_router: u64,
+
+    /// Performance Fee
+    pub performance_fee: U64F64,
+
+    /// Wallet Address of the Manager
+    pub manager_account: Pubkey,
+
+    /// Fund PDA
+    pub fund_pda: Pubkey,
+
+     /// Tokens owned
+     pub tokens: [TokenSlot; NUM_TOKENS],
+
+     // Store investor state account addresses
+     pub investors: [Pubkey; MAX_INVESTORS],
+ 
+     // mango position info
+     pub mango_positions: MangoInfo,
+
+     pub guard: SwapGuard,
+
+     pub margin_update_padding: [u8; 24], //80 Bytes for Depr. MarginInfo Size
+ 
+     // padding for future use
+    //  pub xpadding: [u8; 8] //32
+
+    pub migration_additonal_padding: [u8; 2024]
+}
+impl_loadable!(FundAccount);
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
 pub struct TokenSlot {
     // state vars
     pub is_active: bool,
@@ -163,7 +233,7 @@ pub struct TokenSlot {
 impl_loadable!(TokenSlot);
 
 #[repr(C)]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct SwapGuard {
     pub is_active: bool,
     pub is_split: bool, // split trxs
@@ -183,7 +253,7 @@ pub struct SwapGuard {
 impl_loadable!(SwapGuard);
 
 #[repr(C)]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct InvestorData {
 
     pub is_initialized: bool,
@@ -221,7 +291,7 @@ pub struct InvestorData {
 impl_loadable!(InvestorData);
 
 #[repr(C)]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct MangoInfo {
     // margin account pubkey to check if the passed acc is correct
     pub mango_account: Pubkey, 
@@ -237,11 +307,6 @@ pub struct MangoInfo {
 }
 impl_loadable!(MangoInfo);
 
-#[repr(C)]
-#[derive(Clone, Copy)]
-pub struct MangoAccountValue {
-    pub pnl: I80F48
-}
 impl Sealed for InvestorData {}
 impl IsInitialized for InvestorData {
     fn is_initialized(&self) -> bool {
@@ -251,6 +316,13 @@ impl IsInitialized for InvestorData {
 
 impl Sealed for FundData {}
 impl IsInitialized for FundData {
+    fn is_initialized(&self) -> bool {
+        self.is_initialized
+    }
+}
+
+impl Sealed for FundAccount {}
+impl IsInitialized for FundAccount {
     fn is_initialized(&self) -> bool {
         self.is_initialized
     }
@@ -322,6 +394,39 @@ impl PlatformData {
 }
 
 impl FundData {
+    pub fn load_mut_checked<'a>(
+        account: &'a AccountInfo,
+        program_id: &Pubkey
+    ) -> Result<RefMut<'a, Self>, ProgramError> {
+
+        check_eq!(account.data_len(), size_of::<Self>());
+        check_eq!(account.owner, program_id);
+
+        let data = Self::load_mut(account)?;
+        Ok(data)
+    }
+    pub fn load_checked<'a>(
+        account: &'a AccountInfo,
+        program_id: &Pubkey
+    ) -> Result<Ref<'a, Self>, ProgramError> {
+        check_eq!(account.data_len(), size_of::<Self>());  // TODO not necessary check
+        check_eq!(account.owner, program_id);
+
+        let data = Self::load(account)?;
+        Ok(data)
+    }
+    pub fn get_token_slot(&self, index: usize, mux: usize) -> Option<usize> {
+        self.tokens.iter().position(|token| token.index[mux] as usize == index)
+    }
+    pub fn get_mango_perp_index(&self, mango_perp_index: u8) -> Option<usize> {
+        self.mango_positions.perp_markets.iter().position(|pmid| *pmid == mango_perp_index)
+    }
+    pub fn get_investor_index(&self, inv_state_pk: &Pubkey) -> Option<usize> {
+        self.investors.iter().position(|pos| *pos == *inv_state_pk)
+    }
+}
+
+impl FundAccount {
     pub fn load_mut_checked<'a>(
         account: &'a AccountInfo,
         program_id: &Pubkey
