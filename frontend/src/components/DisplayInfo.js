@@ -87,7 +87,7 @@ const handleGetFundData = async () => {
       return;
     }
     const fundData = FUND_DATA.decode(fundDataAcc.data)
-    console.error("fundData::",fundData);
+    console.error("fundData ::",fundData);
     setFundData(fundData);
 
     // display fundState
@@ -114,7 +114,7 @@ const handleGetFundData = async () => {
       //   }
       
       const obj =  {
-        balance : i.balance.toString(),
+        balance : i.balance.toNumber(),
         debt : i.debt.toString(),
         vault : i.vault.toBase58(),
         mint_authority: data?.mint_authority?.toBase58(),
@@ -398,7 +398,7 @@ const getMangoAccountData = async () => {
                         <td >{i?.vault}</td>
                         <td >{i?.mint_authority} || { ((ids.tokens).find(j => j.mintKey === i?.mint_authority))?.symbol}</td>
                         <td >{i?.is_on_mango}</td>
-                        <td >{i?.balance / 10**((ids.tokens).find(j => j.mintKey === i?.mint_authority))?.decimals}</td>
+                        <td >{i?.balance}</td>
                         <td >{i?.debt}</td>
                         <td >{i?.index[0]} ||  {i?.index[1]} || {i?.index[2]}</td>
                         <td >{i?.mux}</td>

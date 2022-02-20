@@ -87,6 +87,9 @@ export const AllFundsInvestors = () => {
 
     for (const data of allFunds) {
         const decodedData = FUND_DATA.decode(data.account.data);
+
+        const PDA_balance  = await connection.getBalance(decodedData.fund_pda, "max");
+        console.log("PDA_balance:",PDA_balance)
         
         //to get funds with non-zero IVN holdings
         // for (let j =0 ; j<decodedData?.tokens.length; j++){
@@ -122,6 +125,7 @@ export const AllFundsInvestors = () => {
                 fundPDA: decodedData.fund_pda.toBase58(),
                 fundManager: decodedData.manager_account.toBase58(),
                 fundStateAccount: data.pubkey.toBase58(),
+                PDA_balance : PDA_balance,
                 // fundName: decodedData.fund_pda.toBase58(),
                 // totalAmount: (new TokenAmount(decodedData.total_amount, ids.tokens[0].decimals)).toEther().toNumber(),
                 // currentPerformance: decodedData.number_of_active_investments == 0 ?
@@ -223,6 +227,7 @@ export const AllFundsInvestors = () => {
                               <th style={{ width: "15%" }}>fundManager</th>
                               <th style={{ width: "15%" }}>fundPDA</th>
                               <th style={{ width: "15%" }}>fundStateAccount</th>
+                              <th style={{ width: "15%" }}>PDA_balance</th>
                               {/* <th style={{ width: "15%" }}>amount</th>
                               <th style={{ width: "15%" }}>amount_in_router</th> */}
                             </tr>
@@ -239,6 +244,7 @@ export const AllFundsInvestors = () => {
                  <td >{i?.fundManager}</td>
                  <td >{i?.fundPDA}</td>
                  <td >{i?.fundStateAccount}</td>
+                 <td>{i?.PDA_balance}</td>
                  {/* <td>{i?.amount?.toString()/10**6}</td>
                  <td>{i?.amount_in_router?.toString()/10**6}</td> */}
                

@@ -4,7 +4,7 @@ import { nu64, struct, u8 } from 'buffer-layout'
 import React, { useState , useEffect} from 'react'
 import { GlobalState } from '../store/globalState'
 import { connection, programId, TOKEN_PROGRAM_ID, FUND_ACCOUNT_KEY, LIQUIDITY_POOL_PROGRAM_ID_V4, platformStateAccount, idsIndex } from '../utils/constants'
-import { devnet_pools } from '../utils/pools'
+import { devnet_pools, orcaPools, raydiumPools } from '../utils/pools'
 import { AMM_INFO_LAYOUT_V4, FUND_DATA, PLATFORM_DATA } from '../utils/programLayouts'
 import { TokenAmount } from '../utils/safe-math'
 import {  NATIVE_SOL, TEST_TOKENS, TOKENS } from '../utils/tokens'
@@ -335,17 +335,20 @@ const swapInstructionOrca = async () => {
 
          //this is will break in case of selling WSOL-> USDC
         // const poolName =  isBuy ? `${selectedSecondToken}-${selectedFirstToken}` : `${selectedFirstToken}-${selectedSecondToken}`;
-        const poolName1 = `${selectedSecondToken}-${selectedFirstToken}`
+        const poolName1 = 'IVN-USDC' // `${selectedSecondToken}-${selectedFirstToken}`
         const poolName2 = `${selectedFirstToken}-${selectedSecondToken}`
         console.log("poolName1, poolName2 , isBuy::: ",poolName1,poolName2, isBuy);
 
         let poolInfo;
         if (selectedSwapProtocol == 0) {
-            poolInfo  = devnet_pools.find(p => (p.name===poolName1 ||  p.name===poolName2) );
+            poolInfo  = raydiumPools.find(p => (p.name===poolName1 ||  p.name===poolName2) );
         } else {
-            alert('pool not found')
-            return;
+          poolInfo  = orcaPools.find(p => (p.name===poolName1 ||  p.name===poolName2) );
             // poolInfo  = devnet_pools.find(p => (p.name===poolName1 ||  p.name===poolName2) );
+        }
+        if(!poolInfo){
+          alert("poolinfo undefined")
+          return;
         }
         console.log("poolInfo:",poolInfo)
         const fromCoin = isBuy ? poolInfo.pc : poolInfo.coin;
@@ -353,14 +356,14 @@ const swapInstructionOrca = async () => {
         const fundPDA = await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId);
         console.log("fundPDA-tobase:",fundPDA[0].toBase58())
 
-        const fromTokenAccount = await findAssociatedTokenAddress(fundPDA[0], new PublicKey(fromCoin.mintKey));
-        const toTokenAccount = await findAssociatedTokenAddress(fundPDA[0], new PublicKey(toCoin.mintKey));
+        const fromTokenAccount = await findAssociatedTokenAddress(fundPDA[0], new PublicKey(fromCoin.mintAddress));
+        const toTokenAccount = await findAssociatedTokenAddress(fundPDA[0], new PublicKey(toCoin.mintAddress));
 
         console.log("fromCoin,toCoin :",fromCoin,toCoin)
         console.log("fromTokenAccount,toTokenAccount :",fromTokenAccount.toBase58(),toTokenAccount.toBase58())
 
         try {
-            const txId = await swapTokens(connection, walletProvider, fundPDA[0], poolInfo, fromCoin?.mintKey,
+            const txId = await swapTokens(connection, walletProvider, fundPDA[0], poolInfo, fromCoin?.mintAddress,
                 toCoin?.mintKey, fromTokenAccount, toTokenAccount, firstTokenAmount, 1, isBuy ? "buy" : "sell",
                 selectedSwapProtocol
             );
@@ -387,7 +390,7 @@ const swapInstructionOrca = async () => {
       <select name="tokens" onChange={handleFirstTokenSelect}>
          {
           tokenList.map((i,index) => {
-            return (<option key={index} value={i.symbol}>{i.symbol}</option>)
+            return (<option key={index} value={i.mintAddress}>{i.mintAddress}</option>)
           })
         }
       </select>
@@ -395,7 +398,7 @@ const swapInstructionOrca = async () => {
       <select name="tokens" onChange={handleSecondTokenSelect}>
          {
           tokenList.map((i,index) => {
-            return (<option key={index} value={i.symbol}>{i.symbol}</option>)
+            return (<option key={index} value={i.mintAddress}>{i.mintAddress}</option>)
           })
         }
       </select>

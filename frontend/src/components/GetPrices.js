@@ -6,7 +6,7 @@ import { connection, programId, priceStateAccount, platformStateAccount, idsInde
 import { struct, u8 } from 'buffer-layout';
 import { TOKENS } from '../utils/tokens'
 import { FUND_DATA, PLATFORM_DATA, PRICE_DATA } from '../utils/programLayouts';
-import { devnet_pools, DEV_TOKENS, pools } from '../utils/pools';
+import { devnet_pools, DEV_TOKENS, pools, raydiumPools } from '../utils/pools';
 import { IDS } from '@blockworks-foundation/mango-client';
 
 const priceProgramId = new PublicKey('CB6oEYpfSsrF3oWG41KQxwfg4onZ38JMj1hk17UNe1Fn')
@@ -141,7 +141,7 @@ export const GetPrices = () => {
             alert("no token pool found")
             return
         }
-        const poolInfo = devnet_pools.find(p => p.name === poolName);
+        const poolInfo = raydiumPools.find(p => p.name === poolName);
         console.log(poolInfo)
         const dataLayout = struct([u8('instruction'), u8('count')])
 

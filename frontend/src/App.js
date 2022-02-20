@@ -24,6 +24,7 @@ import { MangoInitialize } from './components/MangoInitialize';
 import { MangoPlaceOrder } from './components/MangoPlaceOrder';
 import { AdminControl } from './components/AdminControl';
 import { AllFundsInvestors } from './components/AllFundsInvestors';
+import { MigrateState } from './components/MigrateFundState';
 
 
 
@@ -57,6 +58,7 @@ function App() {
         } */}
         <SendGreating />
         <DisplayInfo/>
+        <MigrateState/>
         <InitialisedFund />
         <Deposit />
 	      <Transfer />

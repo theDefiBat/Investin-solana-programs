@@ -5,7 +5,7 @@ import { adminAccount, SOL_USDC_MARKET, connection,  platformStateAccount, price
 
 import { nu64, struct, u8 } from 'buffer-layout';
 import { createKeyIfNotExists, findAssociatedTokenAddress, setWalletTransaction, signAndSendTransaction, createAssociatedTokenAccount, createAssociatedTokenAccountIfNotExist } from '../utils/web3';
-import { devnet_pools, DEV_TOKENS } from '../utils/pools';
+import { devnet_pools, DEV_TOKENS, raydiumPools } from '../utils/pools';
 import { keyBy } from 'lodash';
 import { INVESTOR_DATA, PLATFORM_DATA, FUND_DATA } from '../utils/programLayouts';
 
@@ -19,7 +19,7 @@ import { IDS, MangoClient, NodeBankLayout } from '@blockworks-foundation/mango-c
 import { closeAccount } from '@project-serum/serum/lib/token-instructions'
 
 const getPoolAccounts = () => {
-  return devnet_pools.map((p) => {
+  return raydiumPools.map((p) => {
     return [
       { pubkey: new PublicKey(p.poolCoinTokenAccount), isSigner: false, isWritable: true },
       { pubkey: new PublicKey(p.poolPcTokenAccount), isSigner: false, isWritable: true }

@@ -4,7 +4,7 @@ import { nu64, struct, u8 } from 'buffer-layout'
 import React, { useState , useEffect} from 'react'
 import { GlobalState } from '../store/globalState'
 import { connection, programId, TOKEN_PROGRAM_ID, FUND_ACCOUNT_KEY, LIQUIDITY_POOL_PROGRAM_ID_V4, platformStateAccount, idsIndex } from '../utils/constants'
-import { devnet_pools } from '../utils/pools'
+import { devnet_pools, raydiumPools } from '../utils/pools'
 import { AMM_INFO_LAYOUT_V4, FUND_DATA, PLATFORM_DATA } from '../utils/programLayouts'
 import { TokenAmount } from '../utils/safe-math'
 import { NATIVE_SOL, TEST_TOKENS, TOKENS } from '../utils/tokens'
@@ -272,7 +272,11 @@ export const OrcaSwap = () => {
     // console.log("amm info:: ", ammData)
 
 
-    const poolInfo = devnet_pools.find(p => p.name === selectedFirstToken);
+    const poolInfo = raydiumPools.find(p => p.name === selectedFirstToken);
+    if(!poolInfo){
+      alert("poolInfo not found")
+      return;
+    }
     const fromCoinMint = poolInfo.pc.mintAddress;
     const toCoinMint = poolInfo.coin.mintAddress;
     const fundPDA = await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId);
@@ -293,7 +297,12 @@ export const OrcaSwap = () => {
   }
 
   const handleSell = async () => {
-    const poolInfo = devnet_pools.find(p => p.name === selectedFirstToken);
+
+    const poolInfo = raydiumPools.find(p => p.name === selectedFirstToken);
+    if(!poolInfo){
+      alert("poolInfo not found")
+      return;
+    }
 
     console.log("pool info:: ", poolInfo)
     const toCoinMint = poolInfo.pc.mintAddress;
