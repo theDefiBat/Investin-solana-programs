@@ -287,14 +287,14 @@ export const Withdraw = () => {
     )
       
     const keys = [
-      { pubkey: fundStateAccount, isSigner: false, isWritable: true },
+      { pubkey: fundPDA[0], isSigner: false, isWritable: true },
       { pubkey: new PublicKey(investorStateAcc), isSigner: false, isWritable: true },
       { pubkey: key, isSigner: true, isWritable: true },
 
       { pubkey: new PublicKey(ids.mangoProgramId), isSigner: false, isWritable: false },
       { pubkey: new PublicKey(ids.publicKey), isSigner: false, isWritable: true },
       { pubkey: fundState.mango_positions.mango_account , isSigner: false, isWritable: true },
-      { pubkey: fundPDA[0], isSigner: false, isWritable: false },
+      // { pubkey: fundPDA[0], isSigner: false, isWritable: false },
       { pubkey: mangoGroup.mangoCache, isSigner: false, isWritable: false },
 
       { pubkey: new PublicKey(MANGO_TOKENS[0].rootKey), isSigner: false, isWritable: false },
@@ -411,12 +411,12 @@ export const Withdraw = () => {
     )
       const keys = [
         { pubkey: platformStateAccount, isSigner: false, isWritable: true }, //fund State Account
-        { pubkey: fundStateAccount, isSigner: false, isWritable: true },
+        { pubkey: fundPDA[0], isSigner: false, isWritable: true },
         { pubkey: investerStateAccount, isSigner: false, isWritable: true }, //fund State Account
         { pubkey: key, isSigner: true, isWritable: true },
   
         { pubkey: routerAssociatedTokenAddress, isSigner: false, isWritable: true }, // Router Base Token Account
-        { pubkey: fundPDA[0], isSigner: false, isWritable: false },
+        // { pubkey: fundPDA[0], isSigner: false, isWritable: false },
         { pubkey: RPDA[0], isSigner: false, isWritable: false },
         { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
 

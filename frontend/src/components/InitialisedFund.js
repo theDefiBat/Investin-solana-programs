@@ -34,14 +34,14 @@ export const InitialisedFund = () => {
     console.log(`fundPDA :::: `, fundPDA, fundPDA[0].toBase58()) 
 
 
-    const fundAccount = await createKeyIfNotExists(
-      walletProvider,
-      "",
-      programId,
-      FUND_ACCOUNT_KEY,
-      FUND_DATA.span,
-      transaction,
-    );
+    // const fundAccount = await createKeyIfNotExists(
+    //   walletProvider,
+    //   "",
+    //   programId,
+    //   FUND_ACCOUNT_KEY,
+    //   FUND_DATA.span,
+    //   transaction,
+    // );
 
     if (1) {
       const dataLayout = struct([u8('instruction'), nu64('min_amount'),
@@ -79,7 +79,7 @@ export const InitialisedFund = () => {
       const instruction = new TransactionInstruction({
         keys: [
           { pubkey: platformAccount, isSigner: false, isWritable: true },
-          { pubkey: fundAccount, isSigner: false, isWritable: true },
+          { pubkey: fundPDA[0], isSigner: false, isWritable: true },
           { pubkey: walletProvider?.publicKey, isSigner: true, isWritable: true },
 
           { pubkey: new PublicKey(ids.tokens[0].mintKey), isSigner: false, isWritable: true },
@@ -104,9 +104,6 @@ export const InitialisedFund = () => {
 
     }
 
-    GlobalState.update(s => {
-      s.createFundPublicKey = fundAccount;
-    })
   }
 
   const [min_amount, setMin_amount] = useState(0);

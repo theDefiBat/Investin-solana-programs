@@ -629,6 +629,7 @@ dependencies = [
  "solana-program",
  "spl-associated-token-account",
  "spl-token",
+ "switchboard-aggregator",
  "thiserror",
 ]
 
@@ -1416,6 +1417,19 @@ name = "subtle"
 version = "2.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6bdef32e8150c2a081110b42772ffe7d7c9032b606bc226c8260fd97e0976601"
+
+[[package]]
+name = "switchboard-aggregator"
+version = "0.1.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "67f66b2efcea979d8486b6e7a69e2407ddb33e116dddfcd21c812e9ec17a1324"
+dependencies = [
+ "anchor-lang",
+ "borsh 0.9.1",
+ "bytemuck",
+ "rust_decimal",
+ "solana-program",
+]
 
 [[package]]
 name = "switchboard-program"

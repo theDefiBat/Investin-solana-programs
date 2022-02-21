@@ -4,7 +4,7 @@ import { GlobalState } from '../store/globalState';
 
 import { adminAccount, connection, FUND_ACCOUNT_KEY, idsIndex, platformStateAccount, priceStateAccount, programId } from '../utils/constants';
 import { blob, nu64, struct, u32, u8 } from 'buffer-layout';
-import { AMM_INFO_LAYOUT_V4, FUND_DATA, SPL_TOKEN_MINT_DATA } from '../utils/programLayouts';
+import { AMM_INFO_LAYOUT_V4, FUND_DATA, FUND_PDA_DATA, SPL_TOKEN_MINT_DATA } from '../utils/programLayouts';
 import { IDS, MangoClient, I80F48, NodeBankLayout, PerpAccountLayout, PerpMarketLayout ,RootBankCacheLayout, RootBankLayout} from '@blockworks-foundation/mango-client';
 import { Card, Col, Row ,Table} from 'reactstrap';
 import { DEV_TOKENS } from '../utils/pools';
@@ -14,6 +14,8 @@ export const DisplayInfo = (props) => {
   const ids= IDS['groups'][idsIndex];
 
   const [fundData, setFundData] = useState("");
+  const [fundPDAData, setFundPDAData] = useState("");
+
   const [fundTokens, setFundTokens] = useState([]);
   const [mangoGroup, setMangoGroup] = useState({})
   const [mangoAccount, setMangoAccount] = useState('7BLzTNvjNjaCnZ2Nnpu1aFYqTBsL8Lz2FUxknSAZ8tDX')
@@ -29,29 +31,6 @@ const priceStateAccountX = priceStateAccount.toBase58();
 
 const handleGetFundData = async () => {
 
-  
-  // let ammInfo = await connection.getAccountInfo(new PublicKey('384zMi9MbUKVUfkUdrnuMfWBwJR9gadSxYimuXeJ9DaJ'))
-  // let amm = AMM_INFO_LAYOUT_V4.decode(ammInfo.data)
-  // console.log("amm :: ", amm)
-
-  // console.log("amm.poolCoinTokenAccount :: ", amm.poolCoinTokenAccount.toBase58())
-  // console.log("amm.poolPcTokenAccount :: ", amm.poolPcTokenAccount.toBase58())
-
-  // console.log("amm.ammId :: ", amm.ammId)
-  // console.log("amm.ammAuthority :: ", amm.ammAuthority.toBase58())
-  // console.log("amm.ammOpenOrders :: ", amm.ammOpenOrders.toBase58())
-  // console.log("amm.ammTargetOrders :: ", amm.ammTargetOrders.toBase58())
-
-  // console.log("amm.serumProgramId :: ", amm.serumProgramId.toBase58())
-  // console.log("amm.serumMarket :: ", amm.serumMarket.toBase58())
-  // console.log("amm.serumBids :: ", amm.serumBids.toBase58())
-  // console.log("amm.serumAsks :: ", amm.serumAsks.toBase58())
-  // console.log("amm.serumEventQueue :: ", amm.serumEventQueue.toBase58())
-  // console.log("amm.serumCoinVaultAccount :: ", amm.serumCoinVaultAccount.toBase58())
-  // console.log("amm.serumPcVaultAccount :: ", amm.serumPcVaultAccount.toBase58())
-  // console.log("amm.serumVaultSigner :: ", amm.serumVaultSigner.toBase58())
-
-  // const market = marketToLayout[ammInfo.serumMarket]
 
   if(!walletProvider) {
     alert("connect wallet ")
@@ -63,7 +42,6 @@ const handleGetFundData = async () => {
   // baigan : B9YVBghroTdohKoTQb7SofHh2U6FxAybuF6UwZEw7c1x
   // aak : 5Arakn7JSt3sPkXdWvy1887Bjd2d755b57BTEwBR7cW3
   // the Moon (lucio) :FRaWwEyKTwFgcU7tZa3xbSCxkEH61rdpCWqVV7z1Zj7S
-  
   // const key = new PublicKey('zRzdC1b2zJte4rMjfaSFZwbnBfL1kNYaTAF4UC4bqpx');
   const key = walletProvider?.publicKey;  
   if (!key ) {
@@ -100,18 +78,13 @@ const handleGetFundData = async () => {
         continue;
 
        const vault_info = await connection.getAccountInfo(i.vault);
-      //  console.log("vault vault_info ::",vault_info);
+       console.log("vault vault_info ::",vault_info);
        if(!vault_info)
          {
            console.log("vault error ::");
            continue;
          }
-       const data = SPL_TOKEN_MINT_DATA.decode(vault_info.data)
-      //  console.log("tokenData ::",data);
-      //  if(data?.mint_authority?.toBase58()==='iVNcrNE9BRZBC9Aqf753iZiZfbszeAVUoikgT9yvr2a'){
-      //     const ivnBalance = await connection.getTokenAccountBalance(i.vault, "max");
-      //     console.log("balance::",(ivnBalance.value.uiAmount))
-      //   }
+       const data = SPL_TOKEN_MINT_DATA.decode(vault_info.data)   
       
       const obj =  {
         balance : i.balance.toNumber(),
@@ -129,6 +102,26 @@ const handleGetFundData = async () => {
    
     setFundTokens(fundStateTokens);
     console.error("parsed fundState tokens: ",fundStateTokens);
+
+
+    // =============================
+    const fundPDA = await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId);
+
+    const fundPDADataAcc = await connection.getAccountInfo(fundPDA[0]);
+    console.log("fundPDADataAcc::",fundPDADataAcc);
+    if (fundPDADataAcc)
+    {
+       alert("fundPDADataAcc info not found")
+      return;
+    }
+    try {
+      const fundPDAData = FUND_PDA_DATA.decode(fundPDADataAcc.data)
+      console.error("fundPDAData ::",fundPDAData);
+      setFundPDAData(fundPDAData);
+    } catch (error) {
+      console.error("error :: cannot read from fundPDAData", error)
+    }
+    
 }
 
 const getAllDecodeMangoData = async () => {
@@ -255,9 +248,12 @@ const getMangoAccountData = async () => {
       <p> priceStateAccount : {priceStateAccountX}</p>
       <button onClick={handleGetFundData}>GET FUND STATE</button>
    
+      <Row className="justify-content-between">
+            <Col lg="6" xs="6">
       {
         fundData &&
           <>
+           
             <h4>FUND STATE</h4>
             <p> number_of_active_investments : {fundData.number_of_active_investments}</p>
             <p> no_of_investments : {fundData.no_of_investments}</p>
@@ -300,18 +296,7 @@ const getMangoAccountData = async () => {
             <p> investor_debts[]  : {fundData.mango_positions.investor_debts[0].toString()} {' || '}
                    {fundData.mango_positions.investor_debts[1].toString()} 
             </p>
-           
-
-            
-            {/* <p> investor_debts  : 
-                            {fundData.mango_positions.investor_debts[0].toString()} ||
-                            {fundData.mango_positions.investor_debts[1].toString()} </p>
-            <p> perp_markets  : 
-                            {fundData.mango_positions.perp_markets[0]} ||
-                            {fundData.mango_positions.perp_markets[1]} || 
-                            {fundData.mango_positions.perp_markets[2]} || 
-                            {fundData.mango_positions.perp_markets[3]} 
-                </p> */}
+          
 
             {
                  fundData.mango_positions.length &&
@@ -363,12 +348,66 @@ const getMangoAccountData = async () => {
                       <option key={index} value={i.toBase58()}> {index} - {i.toBase58()}</option>
                   )
                 }
-            </select>
+              </select>
             }
             <p> xpadding: [u8; 32]</p>
-
+           
           </>
       }
+        </Col>
+
+        <Col lg="6" xs="6">
+          {
+            fundPDAData && 
+            <>
+            <h4>FUND PDA STATE</h4>
+            <p> number_of_active_investments : {fundPDAData.number_of_active_investments}</p>
+            <p> no_of_investments : {fundPDAData.no_of_investments}</p>
+
+            <p> no_of_margin_positions : {fundPDAData.no_of_margin_positions}</p>
+            <p> no_of_assets (active tokens) : {fundPDAData.no_of_assets}</p>
+            <p> position_count  : {fundPDAData.position_count}</p>
+            <p> version  : {fundPDAData.version}</p>
+            <p> padding   : u8,7</p>
+
+            <p> min_amount  : {fundPDAData.min_amount.toString()}</p>
+            <p> min_return  : {fundPDAData.min_return.toString()}</p>
+            <p> performance_fee_percentage  : {fundPDAData.performance_fee_percentage}</p>
+            <p> total_amount in fund USDC  : {fundPDAData.total_amount.toString()}</p>
+            <p> prev_performance  : {fundPDAData.prev_performance}</p>
+            <p> amount_in_router  : {fundPDAData.amount_in_router.toString()}</p>
+            <p> performance_fee  : {fundPDAData.performance_fee}</p>
+
+            <p> manager_account  : {fundPDAData.manager_account.toBase58()}</p>
+            <p> fund_pda  : {fundPDAData.fund_pda.toBase58()}</p>
+            <p> signer_nonce  : {fundPDAData.signer_nonce}</p>
+
+            <p> mango_positions  state== 0: inactive, 1: deposited, 2: position_open, </p>
+            <p> 3: settled_open, 4: position_closed, 5: settled_close, 6: stale </p>
+            <hr/>
+
+            <h5>----Mango-positions</h5>
+            <p> mango_account  : {fundPDAData.mango_positions.mango_account.toBase58()}</p>
+            <p> deposit_index  : {fundPDAData.mango_positions.deposit_index}</p>
+            <p> markets_active  : {fundPDAData.mango_positions.markets_active}</p>
+            <p> deposits_active  : {fundPDAData.mango_positions.deposits_active}</p>
+            <br/>
+            <p> perp_markets[]  : {fundPDAData.mango_positions.perp_markets[0]} {' || '}
+            {fundPDAData.mango_positions.perp_markets[1]} {' || '}
+            {fundPDAData.mango_positions.perp_markets[2]}{' || '}
+            {fundPDAData.mango_positions.perp_markets[3]}
+            </p>
+            
+
+            <p> investor_debts[]  : {fundPDAData.mango_positions.investor_debts[0].toString()} {' || '}
+                   {fundPDAData.mango_positions.investor_debts[1].toString()} 
+            </p>
+          
+            </>
+          }
+            
+        </Col>
+           </Row>
 
 
      

@@ -59,13 +59,6 @@ export const MigrateState = () => {
             {pubkey: key, isSigner: true, isWritable: true },
             {pubkey: fundPDA[0], isSigner: false, isWritable:true},
             {pubkey: fundStateAccount, isSigner: false, isWritable: true},
-
-            // {pubkey: priceStateAccount, isSigner: false, isWritable:true},
-            // {pubkey: SYSVAR_CLOCK_PUBKEY, isSigner: false, isWritable:true},
-
-            // {pubkey: fundBaseTokenAccount, isSigner: false, isWritable:true},
-            // {pubkey: managerBaseTokenAccount, isSigner: false, isWritable:true},
-            // {pubkey: investinBaseTokenAccount, isSigner: false, isWritable:true},
             {pubkey: SYSTEM_PROGRAM_ID, isSigner: false, isWritable: true},
           ],
           programId,

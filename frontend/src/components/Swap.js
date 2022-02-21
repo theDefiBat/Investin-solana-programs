@@ -16,6 +16,8 @@ export const Swap = () => {
 
   const walletProvider = GlobalState.useState(s => s.walletProvider);
 
+  const tokensStatic = Object.entries(TOKENS).map( i => i[1])
+
   const [firstTokenAmount, setFirstTokenAmount] = useState(0);
   const [selectedFirstToken, setSelectedFirstToken] = useState('USDC');
   const [selectedSecondToken, setSelectedSecondToken] = useState('BTC');
@@ -46,7 +48,7 @@ export const Swap = () => {
       if(platformTokens?.length) {
         platformTokensList = platformTokens.map( (i) => {
           return {
-            symbol: ids.tokens?.find( k => k.mintKey ===i.mint.toBase58())?.symbol,
+            symbol: tokensStatic?.find( k => k.mintAddress ===i.mint.toBase58())?.symbol,
             mintAddress: i.mint.toBase58(),
             decimals: i.decimals?.toString()
           }
@@ -60,6 +62,8 @@ export const Swap = () => {
           // alert("connect wallet")
           return;
         }
+        const fundPDA = await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId);
+
         const fundStateAcc = await PublicKey.createWithSeed(
           key,
           FUND_ACCOUNT_KEY,
@@ -82,8 +86,10 @@ export const Swap = () => {
          console.log("fundTokens ::",fundTokens);
 
          let fundTokensList = []; 
-         if(fundTokens?.length){
-          fundTokensList = fundTokens.map( (i) => platformTokensList[i.index[i.mux]] )
+         if(fundTokens?.length) {
+          fundTokensList = fundTokens.map((i) => {
+            return tokensStatic.find(x => x.mintAddress === platformTokensList[i.index[i.mux]].mintAddress )
+          })
          } 
          console.log("fundTokensList ::",fundTokensList);
 
@@ -335,7 +341,7 @@ const swapInstructionOrca = async () => {
 
          //this is will break in case of selling WSOL-> USDC
         // const poolName =  isBuy ? `${selectedSecondToken}-${selectedFirstToken}` : `${selectedFirstToken}-${selectedSecondToken}`;
-        const poolName1 = 'IVN-USDC' // `${selectedSecondToken}-${selectedFirstToken}`
+        const poolName1 = `${selectedSecondToken}-${selectedFirstToken}`
         const poolName2 = `${selectedFirstToken}-${selectedSecondToken}`
         console.log("poolName1, poolName2 , isBuy::: ",poolName1,poolName2, isBuy);
 
@@ -390,7 +396,7 @@ const swapInstructionOrca = async () => {
       <select name="tokens" onChange={handleFirstTokenSelect}>
          {
           tokenList.map((i,index) => {
-            return (<option key={index} value={i.mintAddress}>{i.mintAddress}</option>)
+            return (<option key={index} value={i.symbol}>{i.symbol}</option>)
           })
         }
       </select>
@@ -398,7 +404,7 @@ const swapInstructionOrca = async () => {
       <select name="tokens" onChange={handleSecondTokenSelect}>
          {
           tokenList.map((i,index) => {
-            return (<option key={index} value={i.mintAddress}>{i.mintAddress}</option>)
+            return (<option key={index} value={i.symbol}>{i.symbol}</option>)
           })
         }
       </select>

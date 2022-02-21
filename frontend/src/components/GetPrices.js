@@ -15,9 +15,11 @@ const priceProgramId = new PublicKey('CB6oEYpfSsrF3oWG41KQxwfg4onZ38JMj1hk17UNe1
 export const GetPrices = () => {
   
   const ids= IDS['groups'][idsIndex];
+  const tokensStatic = Object.entries(TOKENS).map( i => i[1])
+  
 
   const walletProvider = GlobalState.useState(s => s.walletProvider);
-  const [tokenList, setTokenList] = useState([ids.tokens[0]]) // SOL-4 SRM-5
+  const [tokenList, setTokenList] = useState([]) // SOL-4 SRM-5
     const [priceAccount, setPriceAccount] = useState('');
     const [poolName, setPoolName] = useState('');
     const [platformData, setPlatformData] = useState(0)
@@ -42,7 +44,7 @@ export const GetPrices = () => {
           if(platformTokens?.length){
             t = platformTokens.map( (i) => {
               return {
-                symbol: ids.tokens.find( k => k.mintKey ===i.mint.toBase58())?.symbol ?? 'NONE',
+                symbol: tokensStatic.find( k => k.mintAddress ===i.mint.toBase58())?.symbol ?? 'NONE',
                 mintAddress: i.mint.toBase58(),
                 decimals: i.decimals?.toString(),
                 pool_coin_account: i.pool_coin_account.toBase58(),

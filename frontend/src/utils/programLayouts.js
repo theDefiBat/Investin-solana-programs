@@ -357,18 +357,22 @@ export const FUND_PDA_DATA = struct([
       seq(u8('padding'), 24),
     ],'mango_positions'),
 
+  
   struct([
+      u8('is_active'),
       u8('is_split'),
       u8('hop'),
       u8('count'),
       u8('token_in_slot'),
       u8('token_out_slot'),
       seq(u8('padding'), 2),
-      seq(u8(), 24, 'margin_update_padding'),
-      seq(u8(), 2024, 'migration_additonal_padding'),
+   
       publicKeyLayout('token_in'),
       publicKeyLayout('token_out'),
       u64('amount_in'),
       u64('min_amount_out'),
-  ],'guard')
+  ],'guard'),
+  
+  seq(u8(), 24, 'margin_update_padding'),
+  seq(u8(), 2024, 'migration_additonal_padding'),
 ])

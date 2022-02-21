@@ -92,7 +92,7 @@ export const Deposit = () => {
     // HW18fiAHKzs7ZSaT5ibAhnSWVde25sazTSbMzss4Fcty
     const instruction = new TransactionInstruction({
       keys: [
-        { pubkey: new PublicKey(fundStateAccount), isSigner: false, isWritable: true }, //fund State Account
+        { pubkey: FPDA, isSigner: false, isWritable: true }, //fund State Account
         { pubkey: investerStateAccount, isSigner: false, isWritable: true },
         { pubkey: key, isSigner: true, isWritable: true },
         { pubkey: baseTokenAccount, isSigner: false, isWritable: true }, // Investor Base Token Account

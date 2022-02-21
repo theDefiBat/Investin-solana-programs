@@ -102,7 +102,7 @@ export const Transfer = () => {
     const transfer_instruction = new TransactionInstruction({
       keys: [
         { pubkey: platformStateAccount, isSigner: false, isWritable: true },
-        { pubkey: fundStateAccount, isSigner: false, isWritable: true },
+        { pubkey: fundPDA[0], isSigner: false, isWritable: true },
 
         { pubkey: fund_mango_account, isSigner: false, isWritable: true },
         { pubkey: MANGO_GROUP_ACCOUNT, isSigner: false, isWritable: true },

@@ -10,6 +10,7 @@ import BN from 'bn.js';
 import { Card, Col, Row ,Table} from 'reactstrap';
 import { Blob, seq, struct, u32, u8, u16, ns64 ,nu64} from 'buffer-layout';
 import { IDS } from '@blockworks-foundation/mango-client';
+import { TOKENS } from '../utils/tokens';
 const ids= IDS['groups'][idsIndex];
 
 export const AllFundsInvestors = () => {
@@ -20,7 +21,7 @@ export const AllFundsInvestors = () => {
   const [tokenList, setTokenList] = useState([]) 
 
   const walletProvider = GlobalState.useState(s => s.walletProvider);
-
+  const tokensStatic = Object.entries(TOKENS).map( i => i[1])
 
   useEffect(  ()=> {
     (async () => {
@@ -42,7 +43,7 @@ export const AllFundsInvestors = () => {
         if(platformTokens?.length){
           t = platformTokens.map( (i) => {
             return {
-               symbol: ((ids.tokens).find( k => k.mintKey ===i.mint.toBase58()))?.symbol ?? 'NONE',
+               symbol: ((tokensStatic).find( k => k.mintAddress ===i.mint.toBase58()))?.symbol ?? 'NONE',
                 mintAddress: i.mint.toBase58(),
                 decimals: i.decimals?.toString(),
                pool_coin_account: i.pool_coin_account.toBase58(),
@@ -88,8 +89,8 @@ export const AllFundsInvestors = () => {
     for (const data of allFunds) {
         const decodedData = FUND_DATA.decode(data.account.data);
 
-        const PDA_balance  = await connection.getBalance(decodedData.fund_pda, "max");
-        console.log("PDA_balance:",PDA_balance)
+        // const PDA_balance  = await connection.getBalance(decodedData.fund_pda, "max");
+        // console.log("PDA_balance:",PDA_balance)
         
         //to get funds with non-zero IVN holdings
         // for (let j =0 ; j<decodedData?.tokens.length; j++){
@@ -125,7 +126,7 @@ export const AllFundsInvestors = () => {
                 fundPDA: decodedData.fund_pda.toBase58(),
                 fundManager: decodedData.manager_account.toBase58(),
                 fundStateAccount: data.pubkey.toBase58(),
-                PDA_balance : PDA_balance,
+                // PDA_balance : PDA_balance,
                 // fundName: decodedData.fund_pda.toBase58(),
                 // totalAmount: (new TokenAmount(decodedData.total_amount, ids.tokens[0].decimals)).toEther().toNumber(),
                 // currentPerformance: decodedData.number_of_active_investments == 0 ?
@@ -227,7 +228,7 @@ export const AllFundsInvestors = () => {
                               <th style={{ width: "15%" }}>fundManager</th>
                               <th style={{ width: "15%" }}>fundPDA</th>
                               <th style={{ width: "15%" }}>fundStateAccount</th>
-                              <th style={{ width: "15%" }}>PDA_balance</th>
+                              {/* <th style={{ width: "15%" }}>PDA_balance</th> */}
                               {/* <th style={{ width: "15%" }}>amount</th>
                               <th style={{ width: "15%" }}>amount_in_router</th> */}
                             </tr>
@@ -244,7 +245,7 @@ export const AllFundsInvestors = () => {
                  <td >{i?.fundManager}</td>
                  <td >{i?.fundPDA}</td>
                  <td >{i?.fundStateAccount}</td>
-                 <td>{i?.PDA_balance}</td>
+                 {/* <td>{i?.PDA_balance}</td> */}
                  {/* <td>{i?.amount?.toString()/10**6}</td>
                  <td>{i?.amount_in_router?.toString()/10**6}</td> */}
                
