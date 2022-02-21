@@ -5,7 +5,7 @@ import React, { useState , useEffect} from 'react'
 import { GlobalState } from '../store/globalState'
 import { connection, programId, TOKEN_PROGRAM_ID, FUND_ACCOUNT_KEY, LIQUIDITY_POOL_PROGRAM_ID_V4, platformStateAccount, idsIndex } from '../utils/constants'
 import { devnet_pools, orcaPools, raydiumPools } from '../utils/pools'
-import { AMM_INFO_LAYOUT_V4, FUND_DATA, PLATFORM_DATA } from '../utils/programLayouts'
+import { AMM_INFO_LAYOUT_V4, FUND_DATA, FUND_PDA_DATA, PLATFORM_DATA } from '../utils/programLayouts'
 import { TokenAmount } from '../utils/safe-math'
 import {  NATIVE_SOL, TEST_TOKENS, TOKENS } from '../utils/tokens'
 import { createAssociatedTokenAccountIfNotExist, createTokenAccountIfNotExist, findAssociatedTokenAddress, sendNewTransaction, signAndSendTransaction } from '../utils/web3'
@@ -18,6 +18,8 @@ export const Swap = () => {
 
   const tokensStatic = Object.entries(TOKENS).map( i => i[1])
 
+ const [toggleGetTokens, setToggleGetTokens] = useState(false)
+
   const [firstTokenAmount, setFirstTokenAmount] = useState(0);
   const [selectedFirstToken, setSelectedFirstToken] = useState('USDC');
   const [selectedSecondToken, setSelectedSecondToken] = useState('BTC');
@@ -26,6 +28,7 @@ export const Swap = () => {
   const [selectedSwapProtocol, setSelectedSwapProtocol] = useState(0);
 
    const [fundStateAccount, setFundStateAccount] = useState('');
+   const [fundPDA, setFundPDA] = useState('')
    const [platformData, setPlatformData] = useState(0)
 
   const [fundData, setFundData] = useState(0)
@@ -64,22 +67,22 @@ export const Swap = () => {
         }
         const fundPDA = await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId);
 
-        const fundStateAcc = await PublicKey.createWithSeed(
-          key,
-          FUND_ACCOUNT_KEY,
-          programId,
-        );
-        console.log("FUND fundStateAcc:: ", fundStateAcc.toBase58())
-        setFundStateAccount(fundStateAcc.toBase58())
+        // const fundStateAcc = await PublicKey.createWithSeed(
+        //   key,
+        //   FUND_ACCOUNT_KEY,
+        //   programId,
+        // );
+        // console.log("FUND fundStateAcc:: ", fundStateAcc.toBase58())
+        // setFundStateAccount(fundStateAcc.toBase58())
 
-        const fundDataAcc = await connection.getAccountInfo(fundStateAcc);
+        const fundDataAcc = await connection.getAccountInfo(fundPDA[0]);
         console.log("fundDataAcc::",fundDataAcc);
         if (fundDataAcc == null)
         {
            alert("fundDataAcc info not found")
            return;
         }
-         const fundData = FUND_DATA.decode(fundDataAcc.data)
+         const fundData = FUND_PDA_DATA.decode(fundDataAcc.data)
          console.log("fundData::",fundData);
          setFundData(fundData)
          const fundTokens = fundData?.tokens;
@@ -96,7 +99,7 @@ export const Swap = () => {
          setTokenList(fundTokensList)
      })()
      
-   },[walletProvider])
+   },[walletProvider,toggleGetTokens])
 
 
 
@@ -149,11 +152,14 @@ export const Swap = () => {
         return;
     }
 
-    const fundStateAcc = await PublicKey.createWithSeed(
-        key,
-        FUND_ACCOUNT_KEY,
-        programId,
-    );
+    const fundPDA = await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId);
+    console.log("fundPDA-tobase:",fundPDA[0].toBase58())
+
+    // const fundStateAcc = await PublicKey.createWithSeed(
+    //     key,
+    //     FUND_ACCOUNT_KEY,
+    //     programId,
+    // );
 
     // const dataLayout = struct([u8('instruction1'), u8('instruction'), nu64('amountIn'), nu64('minAmountOut')])
 
@@ -161,7 +167,7 @@ export const Swap = () => {
 
     const keys = [
         { pubkey: platformStateAccount, isSigner: false, isWritable: true },
-        { pubkey: fundStateAcc, isSigner: false, isWritable: true },
+        { pubkey: fundPDA[0], isSigner: false, isWritable: true },
         { pubkey: walletProvider?.publicKey, isSigner: true, isWritable: true },
 
         { pubkey: new PublicKey(poolProgramId) , isSigner: false, isWritable: false },
@@ -214,6 +220,7 @@ export const Swap = () => {
 
 const swapInstructionOrca = async () => {
   console.log("latttter");
+  alert("Noorca swap ")
 }
 
   const swapTokens = async (
@@ -230,6 +237,19 @@ const swapInstructionOrca = async () => {
     tradeSide,
     selectedSwapProtocol
 ) => {
+
+  console.log("swapTokens with params: ",
+     fundPDA,
+    poolInfo,
+    fromCoinMint,
+    toCoinMint,
+    fromTokenAccount,
+    toTokenAccount,
+    amount,
+    slippage,
+    tradeSide,
+    selectedSwapProtocol
+   )
 
     const transaction = new Transaction()
     const signers = []
@@ -385,13 +405,13 @@ const swapInstructionOrca = async () => {
   return (
     <div className="form-div">
       <h4> Swap</h4>
-      fundStateAccount : {fundStateAccount}
+      fundPDA : {fundPDA}
       <br />
       Swaping  ::: {selectedFirstToken} {"=>>"} {selectedSecondToken}  
       <br />
 
       {/* <label htmlFor="tokens">USDC and  Token:</label> */}
-
+      <button onClick={()=> setToggleGetTokens(!toggleGetTokens)}>LOAD FUND TOKENS</button>
       FROM ::
       <select name="tokens" onChange={handleFirstTokenSelect}>
          {

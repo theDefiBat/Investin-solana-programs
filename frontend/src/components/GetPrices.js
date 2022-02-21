@@ -5,7 +5,7 @@ import { createAssociatedTokenAccountIfNotExist, signAndSendTransaction } from '
 import { connection, programId, priceStateAccount, platformStateAccount, idsIndex, FUND_ACCOUNT_KEY } from '../utils/constants';
 import { struct, u8 } from 'buffer-layout';
 import { TOKENS } from '../utils/tokens'
-import { FUND_DATA, PLATFORM_DATA, PRICE_DATA } from '../utils/programLayouts';
+import { FUND_DATA, FUND_PDA_DATA, PLATFORM_DATA, PRICE_DATA } from '../utils/programLayouts';
 import { devnet_pools, DEV_TOKENS, pools, raydiumPools } from '../utils/pools';
 import { IDS } from '@blockworks-foundation/mango-client';
 
@@ -68,7 +68,7 @@ export const GetPrices = () => {
     const handleAddToken = async () => {
        
       console.log("**handleAddToken  selectedTokenSymbol::",selectedTokenSymbol)
-      const tokenMintAddr = DEV_TOKENS[selectedTokenSymbol.toUpperCase()]?.mintKey
+      const tokenMintAddr = TOKENS[selectedTokenSymbol.toUpperCase()]?.mintAddress
       console.log(" tokenMintAddr::",tokenMintAddr);
 
       const transaction = new Transaction()
@@ -78,14 +78,14 @@ export const GetPrices = () => {
       const fundPDA = await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId);
       const associatedTokenAddress = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(tokenMintAddr), fundPDA[0], transaction);
   
-      const fundStateAcc = await PublicKey.createWithSeed(
-        walletProvider?.publicKey,
-          FUND_ACCOUNT_KEY,
-          programId,
-      );
+      // const fundStateAcc = await PublicKey.createWithSeed(
+      //   walletProvider?.publicKey,
+      //     FUND_ACCOUNT_KEY,
+      //     programId,
+      // );
   
-      let fund_info = await connection.getAccountInfo(fundStateAcc);
-      const fund_data = FUND_DATA.decode(fund_info.data); 
+      let fund_info = await connection.getAccountInfo(fundPDA[0]);
+      const fund_data = FUND_PDA_DATA.decode(fund_info.data); 
       console.log("fund_data:",fund_data)
   
       let unUsedTokenIndex = 0 ;
@@ -99,7 +99,8 @@ export const GetPrices = () => {
       console.log("unUsedTokenIndex:",unUsedTokenIndex)
   
       if(unUsedTokenIndex === -1) {
-          throw("Cannot add tokens, limit of 8 reached");
+          alert("Cannot add tokens, limit of 8 reached");
+          return
       }
   
       const dataLayout = struct([u8('instruction'), u8('index')])
@@ -115,7 +116,7 @@ export const GetPrices = () => {
       const transfer_instruction = new TransactionInstruction({
           keys: [
               { pubkey: platformStateAccount, isSigner: false, isWritable: true },
-              { pubkey: fundStateAcc, isSigner: false, isWritable: true },
+              { pubkey: fundPDA[0], isSigner: false, isWritable: true },
               { pubkey: new PublicKey(tokenMintAddr), isSigner: false, isWritable: true },
               { pubkey: associatedTokenAddress, isSigner: false, isWritable: true },
           ],
