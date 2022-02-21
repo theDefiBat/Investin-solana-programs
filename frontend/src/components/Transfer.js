@@ -4,14 +4,15 @@ import { GlobalState } from '../store/globalState';
 import { adminAccount, connection, FUND_ACCOUNT_KEY, idsIndex, MANGO_GROUP_ACCOUNT, MANGO_PROGRAM_ID, platformStateAccount, priceStateAccount, programId, TOKEN_PROGRAM_ID } from '../utils/constants';
 import { nu64, struct, u8 } from 'buffer-layout';
 import { createKeyIfNotExists, findAssociatedTokenAddress, setWalletTransaction, signAndSendTransaction, createAssociatedTokenAccountIfNotExist } from '../utils/web3';
-import { FUND_DATA, INVESTOR_DATA, PLATFORM_DATA, PRICE_DATA } from '../utils/programLayouts';
-import { devnet_pools, pools } from '../utils/pools'
+import { FUND_DATA, FUND_PDA_DATA, INVESTOR_DATA, PLATFORM_DATA, PRICE_DATA } from '../utils/programLayouts';
+import { devnet_pools, orcaPools, pools, raydiumPools } from '../utils/pools'
 
 import { updatePoolPrices } from './updatePrices';
 import {
   IDS,
   MangoClient, MangoGroupLayout, MarginAccountLayout
 } from '@blockworks-foundation/mango-client'
+import { TOKENS } from '../utils/tokens';
 
 export const Transfer = () => {
 
@@ -32,23 +33,24 @@ export const Transfer = () => {
 
     const transaction = new Transaction()
     const fundPDA = await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId);
-    const fundStateAccount = await PublicKey.createWithSeed(
-      key,
-      FUND_ACCOUNT_KEY,
-      programId,
-    );
+    // const fundStateAccount = await PublicKey.createWithSeed(
+    //   key,
+    //   FUND_ACCOUNT_KEY,
+    //   programId,
+    // );
 
-    let x = await connection.getAccountInfo(fundStateAccount)
-    if (x == null) {
-      alert("fund account not found")
+    let fundPDAState = await connection.getAccountInfo(fundPDA[0])
+    if (fundPDAState == null) {
+      alert("fundPDAState account not found")
       return
     }
-    console.log(x)
-    let fund_data = FUND_DATA.decode(x.data)
+    console.log("fundPDAState:",fundPDAState)
+    let fund_data = FUND_PDA_DATA.decode(fundPDAState.data)
     if (!fund_data.is_initialized) {
       alert("fund not initialized!")
       return
     }
+    console.log("fund_data::",fund_data)
 
     let fundInvestorAccs = []
     for (let i = 0; i < 10; i++) {
@@ -67,26 +69,60 @@ export const Transfer = () => {
     let fund_mango_account = fund_data.mango_positions.mango_account
 
     let platData = await connection.getAccountInfo(platformStateAccount)
-    let plat_info = PLATFORM_DATA.decode(platData.data)
-    console.log("plat info:: ", plat_info)
+    let platform_data = PLATFORM_DATA.decode(platData.data)
+    console.log("plat info:: ", platform_data)
 
     let client = new MangoClient(connection, new PublicKey(ids.mangoProgramId))
     let mangoGroup = await client.getMangoGroup(new PublicKey(ids.publicKey))
     // let mangoCache = await mangoGroup.loadCache(connection)
     console.log("mangoCache:",mangoGroup.mangoCache.toBase58())
 
-    updatePoolPrices(transaction, devnet_pools)
-    console.log("after updatePoolPrices:: ")
+
+    let filt_pools = []
+    let WSOLWhitelisted = false;
+    let MSOLWhitelisted = false;
+
+    for (let i = 1; i<8; i++) {
+      if (fund_data.tokens[i].balance > 0) {
+        let mint = platform_data.token_list[fund_data.tokens[i].index[fund_data.tokens[i].mux]].mint;
+        if(mint.toBase58() === TOKENS.WSOL.mintAddress){
+          WSOLWhitelisted=true;
+        } else if(mint.toBase58() === TOKENS.MSOL.mintAddress){
+          MSOLWhitelisted=true;
+        }
+        if(fund_data.tokens[i].mux === 0){
+          let x = raydiumPools.find(p => p.coin.mintAddress == mint.toBase58())
+          filt_pools.push(x)
+        } else {
+          let x = orcaPools.find(p => p.coin.mintAddress == mint.toBase58())
+          filt_pools.push(x)
+        }
+      }  
+    }
+    //send WSOL everytime 
+    if(!WSOLWhitelisted){
+      const wsol_usdc_pool = raydiumPools.find(p => p.name == 'WSOL-USDC');
+      console.log("pushing WSOL pool")
+      filt_pools.push(wsol_usdc_pool)
+    }
+    if(!MSOLWhitelisted){
+      const msol_usdc_pool = orcaPools.find(p => p.name == 'MSOL-USDC');
+      console.log("pushing MSOL pool")
+      filt_pools.push(msol_usdc_pool)
+    }
+    console.log("filt_pools:",filt_pools)
+    // updatePoolPrices(transaction, devnet_pools)
+    // console.log("after updatePoolPrices:: ")
 
 
     // -------------
 
     const routerPDA = await PublicKey.findProgramAddress([Buffer.from("router")], programId);
-    const fundBaseTokenAccount = await findAssociatedTokenAddress(fundPDA[0], new PublicKey(ids.tokens[0].mintKey));
-    const routerBaseTokenAccount = await findAssociatedTokenAddress(routerPDA[0], new PublicKey(ids.tokens[0].mintKey));
+    const fundBaseTokenAccount = await findAssociatedTokenAddress(fundPDA[0], new PublicKey(TOKENS.USDC.mintAddress));
+    const routerBaseTokenAccount = await findAssociatedTokenAddress(routerPDA[0], new PublicKey(TOKENS.USDC.mintAddress));
 
-    const managerBaseTokenAccount = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(ids.tokens[0].mintKey), key, transaction);
-    const investinBaseTokenAccount = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(ids.tokens[0].mintKey), adminAccount, transaction);
+    const managerBaseTokenAccount = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TOKENS.USDC.mintAddress), key, transaction);
+    const investinBaseTokenAccount = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TOKENS.USDC.mintAddress), adminAccount, transaction);
 
 
     const dataLayout = struct([u8('instruction')])
@@ -98,7 +134,7 @@ export const Transfer = () => {
       data
     )
 
-    console.log("keys : fund_mango_account,plat_info.investin_vault:: ",fund_mango_account.toBase58() ,plat_info.investin_vault.toBase58())
+    console.log("keys : fund_mango_account,platform_data.investin_vault:: ",fund_mango_account.toBase58() ,platform_data.investin_vault.toBase58())
     const transfer_instruction = new TransactionInstruction({
       keys: [
         { pubkey: platformStateAccount, isSigner: false, isWritable: true },
@@ -114,7 +150,7 @@ export const Transfer = () => {
         { pubkey: routerBaseTokenAccount, isSigner: false, isWritable: true },
         { pubkey: fundBaseTokenAccount, isSigner: false, isWritable: true },
         { pubkey: managerBaseTokenAccount, isSigner: false, isWritable: true },
-        { pubkey: plat_info.investin_vault, isSigner: false, isWritable: true },
+        { pubkey: platform_data.investin_vault, isSigner: false, isWritable: true },
 
         { pubkey: routerPDA[0], isSigner: false, isWritable: true },
 

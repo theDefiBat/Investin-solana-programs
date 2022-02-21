@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { createAssociatedTokenAccount, createAssociatedTokenAccountIfNotExist, createKeyIfNotExists, createTokenAccountIfNotExist, findAssociatedTokenAddress, setWalletTransaction, signAndSendTransaction } from '../utils/web3'
-import { connection, FUND_ACCOUNT_KEY, idsIndex, platformStateAccount, PLATFORM_ACCOUNT_KEY, programId } from '../utils/constants'
+import { connection, FUND_ACCOUNT_KEY, idsIndex, platformStateAccount, PLATFORM_ACCOUNT_KEY, programId, SYSTEM_PROGRAM_ID } from '../utils/constants'
 import { GlobalState } from '../store/globalState';
 import { nu64, struct, u8 } from 'buffer-layout';
 import { PublicKey, Transaction, TransactionInstruction } from '@solana/web3.js';
@@ -44,37 +44,46 @@ export const InitialisedFund = () => {
     // );
 
     if (1) {
-      const dataLayout = struct([u8('instruction'), nu64('min_amount'),
-       nu64('min_return'), nu64('performance_fee_percentage'), u8('no_of_tokens')])
+
+      const dataLayout = struct([
+         u8('instruction'),
+         nu64('min_amount'),
+         nu64('min_return'),
+         nu64('performance_fee_percentage'),
+         u8('count'),
+         u8('is_private')
+      ])
+
 
       const data = Buffer.alloc(dataLayout.span)
       dataLayout.encode(
         {
           instruction: 0,
-          min_amount: min_amount * (10 ** ids.tokens[0].decimals),
+          min_amount: min_amount * (10 ** TOKENS.USDC.decimals),
           min_return: min_return * 100,
           performance_fee_percentage: platform_fee_percentage * 100,
-          no_of_tokens: 1
+          no_of_tokens: 1,
+          is_private : false 
         },
         data
       )
 
       console.log("params data passed :",
-           min_amount * (10 ** ids.tokens[0].decimals),
+           min_amount * (10 ** TOKENS.USDC.decimals),
           min_return * 100,
            platform_fee_percentage * 100,
       )
 
       const associatedTokenAddress1 = await createAssociatedTokenAccountIfNotExist(
         walletProvider,
-        new PublicKey(ids.tokens[0].mintKey),
+        new PublicKey(TOKENS.USDC.mintAddress),
         fundPDA[0],
         transaction,
       );
       // const associatedTokenAddress2 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(ids.tokens[1].mintKey), fundPDA[0], transaction);
 
       console.log("associatedTokenAddress1:",associatedTokenAddress1.toBase58())
-      console.log("ids.tokens[0].mintKey:",ids.tokens[0].mintKey)
+      console.log("TOKENS.USDC.mintAddress:",TOKENS.USDC.mintAddress)
 
       const instruction = new TransactionInstruction({
         keys: [
@@ -82,7 +91,9 @@ export const InitialisedFund = () => {
           { pubkey: fundPDA[0], isSigner: false, isWritable: true },
           { pubkey: walletProvider?.publicKey, isSigner: true, isWritable: true },
 
-          { pubkey: new PublicKey(ids.tokens[0].mintKey), isSigner: false, isWritable: true },
+          { pubkey: SYSTEM_PROGRAM_ID, isSigner: false, isWritable: true },
+
+          { pubkey: new PublicKey(TOKENS.USDC.mintAddress), isSigner: false, isWritable: true },
           { pubkey: associatedTokenAddress1, isSigner: false, isWritable: true },
 
           // { pubkey: new PublicKey(ids.tokens[1].mintKey), isSigner: false, isWritable: true }, 

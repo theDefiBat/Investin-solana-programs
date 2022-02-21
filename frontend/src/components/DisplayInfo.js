@@ -14,9 +14,12 @@ export const DisplayInfo = (props) => {
   const ids= IDS['groups'][idsIndex];
 
   const [fundData, setFundData] = useState("");
+  const [fundPDA, setFundPDA] = useState("");
+
   const [fundPDAData, setFundPDAData] = useState("");
 
   const [fundTokens, setFundTokens] = useState([]);
+  const [fundPDATokens, setFundPDATokens] = useState([])
   const [mangoGroup, setMangoGroup] = useState({})
   const [mangoAccount, setMangoAccount] = useState('7BLzTNvjNjaCnZ2Nnpu1aFYqTBsL8Lz2FUxknSAZ8tDX')
   const [mangoAccountData, setMangoAccountData] = useState({})
@@ -59,67 +62,97 @@ const handleGetFundData = async () => {
 
     const fundDataAcc = await connection.getAccountInfo(fundStateAcc);
     console.log("fundDataAcc::",fundDataAcc);
-    if (fundDataAcc == null)
-    {
-       alert("fundDataAcc info not found")
-      return;
-    }
-    const fundData = FUND_DATA.decode(fundDataAcc.data)
-    console.error("fundData ::",fundData);
-    setFundData(fundData);
-
-    // display fundState
-    
-    let fundStateTokens = [];
-    for (let j =0; j<fundData?.tokens.length; j++) {
-       const i = fundData?.tokens[j];
-      //  console.log("vault vault_info token::",i);
-       if(!i.is_active)
-        continue;
-
-       const vault_info = await connection.getAccountInfo(i.vault);
-       console.log("vault vault_info ::",vault_info);
-       if(!vault_info)
-         {
-           console.log("vault error ::");
-           continue;
-         }
-       const data = SPL_TOKEN_MINT_DATA.decode(vault_info.data)   
-      
-      const obj =  {
-        balance : i.balance.toNumber(),
-        debt : i.debt.toString(),
-        vault : i.vault.toBase58(),
-        mint_authority: data?.mint_authority?.toBase58(),
-        index : i.index,
-        is_on_mango : i.is_on_mango,
-        is_initialized : i.is_initialized,
-        mux : i.mux,
-        padding : i.padding
+    if (fundDataAcc) {
+      const fundData = FUND_DATA.decode(fundDataAcc.data)
+      console.error("fundData ::",fundData);
+      setFundData(fundData);
+      let fundStateTokens = [];
+      for (let j =0; j<fundData?.tokens.length; j++) {
+         const i = fundData?.tokens[j];
+        //  console.log("vault vault_info token::",i);
+         if(!i.is_active)
+          continue;
+  
+         const vault_info = await connection.getAccountInfo(i.vault);
+         console.log("vault vault_info ::",vault_info);
+         if(!vault_info)
+           {
+             console.log("vault error ::");
+             continue;
+           }
+        const data = SPL_TOKEN_MINT_DATA.decode(vault_info.data)   
+        const obj =  {
+          balance : i.balance.toNumber(),
+          debt : i.debt.toString(),
+          vault : i.vault.toBase58(),
+          mint_authority: data?.mint_authority?.toBase58(),
+          index : i.index,
+          is_on_mango : i.is_on_mango,
+          is_initialized : i.is_initialized,
+          mux : i.mux,
+          padding : i.padding
+        }
+        fundStateTokens.push(obj);
       }
-      fundStateTokens.push(obj);
+     
+      setFundTokens(fundStateTokens);
+      console.error("parsed fundState tokens: ",fundStateTokens);
+  
+    } else {
+       alert("Fund State Info Null")
     }
-   
-    setFundTokens(fundStateTokens);
-    console.error("parsed fundState tokens: ",fundStateTokens);
-
+    
+  
 
     // =============================
     const fundPDA = await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId);
-
+    setFundPDA(fundPDA[0].toBase58())
     const fundPDADataAcc = await connection.getAccountInfo(fundPDA[0]);
     console.log("fundPDADataAcc::",fundPDADataAcc);
-    if (fundPDADataAcc)
-    {
+    if (fundPDADataAcc) {
+      try {
+        const fundPDAData = FUND_PDA_DATA.decode(fundPDADataAcc.data)
+        console.error("fundPDAData ::",fundPDAData);
+        setFundPDAData(fundPDAData);
+        
+        let fundPDAStateTokens = [];
+        for (let j =0; j<fundPDAData?.tokens.length; j++) {
+           const i = fundPDAData?.tokens[j];
+          //  console.log("vault vault_info token::",i);
+           if(!i.is_active)
+            continue;
+    
+           const vault_info = await connection.getAccountInfo(i.vault);
+           console.log("vault vault_info ::",vault_info);
+           if(!vault_info)
+             {
+               console.log("vault error ::");
+               continue;
+             }
+          const data = SPL_TOKEN_MINT_DATA.decode(vault_info.data)   
+          const obj =  {
+            balance : i.balance.toNumber(),
+            debt : i.debt.toString(),
+            vault : i.vault.toBase58(),
+            mint_authority: data?.mint_authority?.toBase58(),
+            index : i.index,
+            is_on_mango : i.is_on_mango,
+            is_initialized : i.is_initialized,
+            mux : i.mux,
+            padding : i.padding
+          }
+          fundPDAStateTokens.push(obj);
+        }
+       
+        setFundPDATokens(fundPDAStateTokens);
+        console.error("parsed fundState tokens: ",fundPDAStateTokens);
+    
+
+      } catch (error) {
+        console.error("error :: cannot read from fundPDAData", error)
+      }
+    } else{
        alert("fundPDADataAcc info not found")
-      return;
-    }
-    try {
-      const fundPDAData = FUND_PDA_DATA.decode(fundPDADataAcc.data)
-      console.error("fundPDAData ::",fundPDAData);
-      setFundPDAData(fundPDAData);
-    } catch (error) {
-      console.error("error :: cannot read from fundPDAData", error)
     }
     
 }
@@ -246,6 +279,8 @@ const getMangoAccountData = async () => {
       <p> adminAccount : {adminAccountX}</p>
       <p> platformStateAccount : {platformStateAccountX}</p>
       <p> priceStateAccount : {priceStateAccountX}</p>
+      <p> fundPDA  : {fundPDA}</p>
+
       <button onClick={handleGetFundData}>GET FUND STATE</button>
    
       <Row className="justify-content-between">
@@ -448,6 +483,47 @@ const getMangoAccountData = async () => {
         </Table>
      }
 
+    <hr/>
+    <hr/>
+    <p> FUND PDA TOKENS </p>
+    { true && 
+    
+        <Table className="tablesorter" responsive width="100%" style={{ overflow: 'hidden !important', textAlign: 'center' }} >
+                <thead className="text-primary">
+                                <tr>
+                                <th style={{ width: "15%" }}>index</th>
+                                  <th style={{ width: "15%" }}>vault</th>
+                                  <th style={{ width: "15%" }}>mint_authority</th>
+                                  <th style={{ width: "15%" }}>is_on_mango</th>
+                                  <th style={{ width: "15%" }}>balance</th>
+                                  <th style={{ width: "15%" }}>debt</th>
+                                  <th style={{ width: "25%" }}>index</th>
+                                  <th style={{ width: "15%" }}>mux</th>
+                                </tr>
+                </thead>
+                <tbody>
+                  {
+                    fundPDATokens && 
+
+                    fundPDATokens.map((i,x)=>{
+                      return <tr key={x}>
+                        <td >{x}</td>
+                        <td >{i?.vault}</td>
+                        <td >{i?.mint_authority} || { ((ids.tokens).find(j => j.mintKey === i?.mint_authority))?.symbol}</td>
+                        <td >{i?.is_on_mango}</td>
+                        <td >{i?.balance}</td>
+                        <td >{i?.debt}</td>
+                        <td >{i?.index[0]} ||  {i?.index[1]} || {i?.index[2]}</td>
+                        <td >{i?.mux}</td>
+                      </tr>
+                    })
+                  }
+                </tbody>
+        </Table>
+     }
+
+<hr/>
+<hr/>
 <hr/>
         Mango account  ::: {' '}
         <input type="text" value={mangoAccount} style={{width :"500px"}} onChange={(event) => setMangoAccount(event.target.value)} />
@@ -456,7 +532,7 @@ const getMangoAccountData = async () => {
       {
         mangoAccount && mangoAccountData &&
         <>
-         <h4>MANGO ACC :{mangoAccount} </h4>
+         <b>MANGO ACC :{mangoAccount} </b>
             <p> mangoGroup : {mangoAccountData.admin}</p>
             <b> borrows :</b>
             <p>
@@ -525,7 +601,7 @@ const getMangoAccountData = async () => {
         </>
       }
       <hr/>
-      <h4>MANGO GRP </h4>
+      <b>MANGO GRP </b>
       <button onClick={getAllDecodeMangoData}>GET ALL MANGO DATA </button>
       {
         mangoGroup && mangoGroup?.admin && 
@@ -647,7 +723,7 @@ const getMangoAccountData = async () => {
             }
            </> 
       }
-      <h5>USDC NODE BANK {ids.tokens[0].nodeKeys[0]}</h5>
+      {/* <h5>USDC NODE BANK {ids.tokens[0].nodeKeys[0]}</h5>
       {
       nodeBank && nodeBank?.borrows &&
         <>
@@ -667,7 +743,7 @@ const getMangoAccountData = async () => {
             <p> optimalUtil : {rootBank.optimalUtil}</p>
             <p> optimalRate : {rootBank.optimalRate}</p>
         </>
-      }
+      } */}
 
   </div>
   )

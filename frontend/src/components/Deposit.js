@@ -4,7 +4,7 @@ import { GlobalState } from '../store/globalState';
 import { connection, programId, platformStateAccount, FUND_ACCOUNT_KEY, TOKEN_PROGRAM_ID, idsIndex } from '../utils/constants';
 import { nu64, struct, u8 } from 'buffer-layout';
 import { createKeyIfNotExists, findAssociatedTokenAddress, setWalletTransaction, signAndSendTransaction, createAssociatedTokenAccountIfNotExist, createAccountInstruction } from '../utils/web3';
-import { FUND_DATA, INVESTOR_DATA, PLATFORM_DATA } from '../utils/programLayouts';
+import { FUND_DATA, FUND_PDA_DATA, INVESTOR_DATA, PLATFORM_DATA } from '../utils/programLayouts';
 import { TOKENS } from '../utils/tokens'
 import { devnet_pools } from '../utils/pools'
 import { updatePoolPrices } from './updatePrices';
@@ -18,6 +18,7 @@ export const Deposit = () => {
   const [fundPDA, setFundPDA] = useState('');
   const [fundStateAccount, setFundStateAccount] = useState('');
   const [funds, setFunds] = useState([]);
+  const [newFunds, setNewFunds] = useState([])
 
 
   const walletProvider = GlobalState.useState(s => s.walletProvider);
@@ -54,16 +55,19 @@ export const Deposit = () => {
     
     console.log("RPDA:", RPDA[0].toBase58())
     console.log("FPDA: ", FPDA.toBase58())
-    console.log("fundStateAccountRead:: ", fundStateAccount)
+    // console.log("fundStateAccountRead:: ", fundStateAccount)
     console.log("baseTokenAccount:: ", baseTokenAccount)
     console.log("investorStateAccountRead:: ", investerStateAccount.toBase58())
     console.log("account size::: ", INVESTOR_DATA.span)
     console.log("associatedTokenaccount:: ", associatedTokenAddress1.toBase58())
 
-    const fundStateDataAcc = await connection.getAccountInfo(new PublicKey(fundStateAccount))
-    const fundState = FUND_DATA.decode(fundStateDataAcc.data);
+    // const fundStateDataAcc = await connection.getAccountInfo(new PublicKey(fundStateAccount))
+    // const fundState = FUND_DATA.decode(fundStateDataAcc.data);
 
-    const investors = fundState.investors;
+   const fundPDAStateDataAcc = await connection.getAccountInfo(FPDA)
+    const fundPDAState = FUND_PDA_DATA.decode(fundPDAStateDataAcc.data);
+
+    const investors = fundPDAState.investors;
       let index=-1;
         for(let i=0; i< investors.length; i++){
             const y = investors[i].toBase58();
@@ -81,7 +85,7 @@ export const Deposit = () => {
     dataLayout.encode(
       {
         instruction: 1,
-        amount: amount * ( 10 ** ids.tokens[0].decimals),
+        amount: amount * ( 10 ** TOKENS.USDC.decimals),
         index : index
       },
       data
@@ -141,20 +145,48 @@ export const Deposit = () => {
     }
     console.log(managers)
     setFunds(managers);
+    //  =============================
+    const newManagers = [];
+    let newFunds = await connection.getProgramAccounts(programId, { filters: [{ dataSize: FUND_PDA_DATA.span }] });
+    console.log(`newFunds :::: `, newFunds)
+    const fundPDAData = newFunds.map(f => FUND_PDA_DATA.decode(f.account.data))
+
+    console.log(`fundPDAData ::: `, fundPDAData)
+    
+    for(let i=0; i<fundPDAData.length; i++) {
+      let manager = fundPDAData[i].manager_account;
+      let PDA = await PublicKey.findProgramAddress([manager.toBuffer()], programId);
+      let fundState = await PublicKey.createWithSeed(manager, FUND_ACCOUNT_KEY, programId);
+      console.log(`PDA[0]`, PDA)
+      newManagers.push({
+        fundPDA: PDA[0].toBase58(),
+        fundManager: manager.toBase58(),
+        fundStateAccount: fundState.toBase58()
+      });
+    }
+    console.log("newManagers ::",newManagers)
+    setNewFunds(newManagers);
   }
 
   const handleFundSelect = async(event) => {
   
+    console.log("seleecting fund ",event.target.value ,event.target ,event)
+
+    console.log("seleecting fund ",event.target.value )
     setFundPDA(event.target.value);
-    funds.forEach(fund => {
-      if (fund.fundPDA == event.target.value) 
-      {
-        setFundStateAccount(fund.fundStateAccount)
-       console.log("set fundStateAcoount:",fund.fundStateAccount)
-      }
-    });
+    alert("seleecting fund ",event.target.value )
     console.log(`setting fundPDA :::: `, fundPDA)
-    console.log(`setting fundStateAccount :::: `, fundStateAccount)
+
+
+    // funds.forEach(fund => {
+    //   if (fund.fundPDA == event.target.value) 
+    //   {
+    //     setFundStateAccount(fund.fundStateAccount)
+    //    console.log("set fundStateAcoount:",fund.fundStateAccount)
+    //   }
+    // });
+    
+    // console.log(`setting fundStateAccount :::: `, fundStateAccount)
   }
 
   return (
@@ -166,16 +198,26 @@ export const Deposit = () => {
       <label htmlFor="funds">Select Fund Address:</label>
 
 
-      <select name="funds" width = "100px"  onChange={handleFundSelect}>
+      {/* <select name="funds" width = "100px"  onChange={handleFundSelect}>
       <option key={-1} value={0}>NONE</option>
             { funds && 
                 funds.map((fund,index) => {
                     return (<option key={index} value={fund.fundPDA}>{fund.fundPDA}</option>)
                 })
             }
-            </select>
+      </select>
+      <br/> */}
+      <select name="funds" width = "100px"  onChange={handleFundSelect}>
+      <option key={-1} value={0}>NONE</option>
+            { newFunds && 
+                newFunds.map((fund,index) => {
+                    return (<option key={index} value={fund.fundPDA}>{fund.fundPDA}</option>)
+                })
+            }
+      </select>
       <button onClick={handleDeposit}>Deposit</button>
-      <button onClick={handleFunds}>Load Funds</button>
+      <button onClick={handleFunds}>Load  Funds</button>
+      
     </div>
   )
 }
