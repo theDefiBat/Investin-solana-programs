@@ -2,7 +2,7 @@ import { IDS } from "@blockworks-foundation/mango-client";
 import { Connection, PublicKey } from "@solana/web3.js";
 
 // if devnet =2 mainnet=0
-export const idsIndex = 2;
+export const idsIndex = 0;
 const ids = IDS['groups'][idsIndex]
 
 
