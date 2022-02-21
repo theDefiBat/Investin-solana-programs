@@ -147,8 +147,7 @@ export const AllFundsInvestors = () => {
   return (
     <div className="form-div">
        <Card className="justify-content-center">
-      <Row className="justify-content-between">
-       <Col lg="12" xs="12">
+      
       <h4>Investments</h4>
       <button onClick={handleGetAllInvestments}> get All Investments</button>
 
@@ -208,10 +207,8 @@ export const AllFundsInvestors = () => {
           </Table>
 
      
-      </Col>
-      </Row>
-      <Row className="justify-content-between">
-      <Col lg="10" xs="10">
+     
+      
       <h4>Funds</h4>
       
       <button onClick={handleGetAllFunds}> get All Funds</button>
@@ -219,7 +216,7 @@ export const AllFundsInvestors = () => {
       <Table 
         className="tablesorter"
         responsive
-        width="100%"
+        // width="100%"
         style={{ overflow: 'hidden !important', textAlign: 'center' }}
         >
             <thead className="text-primary">
@@ -297,8 +294,7 @@ export const AllFundsInvestors = () => {
             </tbody>
           </Table> 
 
-      </Col>
-            </Row>
+      
       </Card>
     </div>
   )

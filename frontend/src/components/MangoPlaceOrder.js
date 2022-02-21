@@ -4,7 +4,7 @@ import { GlobalState } from '../store/globalState';
 import { adminAccount, connection, FUND_ACCOUNT_KEY, programId, TOKEN_PROGRAM_ID , MANGO_GROUP_ACCOUNT, SOL_USDC_MARKET, SYSTEM_PROGRAM_ID, idsIndex, MARGIN_ACCOUNT_KEY_1, PERP_ACCOUNT_KEY_1, MANGO_PROGRAM_ID, MANGO_TOKENS, PERP_MARKETS, platformStateAccount} from '../utils/constants';
 import { nu64, struct, u8 ,u32, ns64} from 'buffer-layout';
 import { createKeyIfNotExists, findAssociatedTokenAddress, setWalletTransaction, signAndSendTransaction, createAssociatedTokenAccountIfNotExist } from '../utils/web3';
-import { FUND_DATA, INVESTOR_DATA, PLATFORM_DATA } from '../utils/programLayouts';
+import { FUND_DATA, FUND_PDA_DATA, INVESTOR_DATA, PLATFORM_DATA } from '../utils/programLayouts';
 import { MarginAccountLayout, selfTradeBehaviorLayout } from '../utils/MangoLayout';
 import { devnet_pools, pools } from '../utils/pools'
 import { updatePoolPrices } from './updatePrices';
@@ -21,13 +21,14 @@ export const MangoPlaceOrder = () => {
   const ids= IDS['groups'][idsIndex];
 
     const [size, setSize] = useState(0);
+    const [price, setPrice] = useState(0)
     const [lendAmount, setLendAmount] = useState(0)
     const [orderPerpIndex, setOrderPerpIndex] = useState(0);
     const [addRemovePerpIndex, setAddRemovePerpIndex] = useState(0);
     const [addRemoveTokenIndex, setAddRemoveTokenIndex] = useState(0);
 
     const [lendTokenIndex, setLendTokenIndex] = useState(0)
-    const [side, setSide] = useState('');
+    const [side, setSide] = useState(0);
     
 
     const handleMangoOpenOrders = async () => {
@@ -83,6 +84,8 @@ export const MangoPlaceOrder = () => {
 
      }
 
+     
+
      const handlePerpMarketOrder = async () => {
        console.log("---** handleAddPerpMarketselected orderPerpIndex, size, side :", orderPerpIndex, size, side)
         const key = walletProvider?.publicKey;
@@ -97,13 +100,13 @@ export const MangoPlaceOrder = () => {
         // const mango_token_index = 
 
         const fundPDA = await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId);
-        const fundStateAccount = await PublicKey.createWithSeed(
-            key,
-            FUND_ACCOUNT_KEY,
-            programId,
-        );
-        let fundStateInfo = await connection.getAccountInfo((fundStateAccount))
-        let fundState = FUND_DATA.decode(fundStateInfo.data) 
+        // const fundStateAccount = await PublicKey.createWithSeed(
+        //     key,
+        //     FUND_ACCOUNT_KEY,
+        //     programId,
+        // );
+        let fundStateInfo = await connection.getAccountInfo((fundPDA[0]))
+        let fundState = FUND_PDA_DATA.decode(fundStateInfo.data) 
     
         let client = new MangoClient(connection, new PublicKey(ids.mangoProgramId))
         let mangoGroup = await client.getMangoGroup(new PublicKey(ids.publicKey))
@@ -113,28 +116,47 @@ export const MangoPlaceOrder = () => {
         
         const BTCBaseLotSize = 2 // baseLotSize / quoteLotSize
         console.log("size::::",size/(PERP_MARKETS[orderPerpIndex].contractSize)  )
-  
-        const dataLayout = struct([u8('instruction'),u8('perp_market_id'),u8('side'), nu64('quantity')])
+
+
+        const maxSlippage = 0.15;
+        // const price = 
+        const priceAfterSlippage = price * (1 + (side === 0 ? 1 : -1) * maxSlippage)
+        const baseUnit = Math.pow(10, PERP_MARKETS[orderPerpIndex].baseDecimals);
+        const quoteUnit = Math.pow(10, PERP_MARKETS[orderPerpIndex].quoteDecimals);
+
+        console.log("PERP_MARKETS[orderPerpIndex]:",PERP_MARKETS[orderPerpIndex])
+
+        console.log("maxSlippage,price,priceAfterSlippage ,baseUnit,quoteUnit ::",maxSlippage,price,priceAfterSlippage ,baseUnit,quoteUnit)
+
+        // const nativePrice = new BN(priceAfterSlippage * quoteUnit)
+        //   .mul(new BN(PERP_MARKETS[orderPerpIndex].baseLotSize))
+        //   .div((new BN(PERP_MARKETS[orderPerpIndex].quoteLotSize)).mul(new BN(baseUnit)));
+
+        const nativePrice = (priceAfterSlippage * quoteUnit *  PERP_MARKETS[orderPerpIndex].baseLotSize )/(PERP_MARKETS[orderPerpIndex].quoteLotSize * baseUnit )
+        console.log("nativePrice::",nativePrice)
+
+        const dataLayout = struct([u8('instruction'), u8('perp_market_id'), u8('side'), nu64('price'), nu64('quantity')])
         const data = Buffer.alloc(dataLayout.span)
         dataLayout.encode(
             {
                 instruction: 10,
                 perp_market_id: orderPerpIndex,
                 side : side,
+                price: price,//nativePrice,
                 quantity: size/(PERP_MARKETS[orderPerpIndex].contractSize) 
             },
             data
         )
           
         const keys = [
-          { pubkey: fundStateAccount, isSigner: false, isWritable: true },
+          { pubkey: fundPDA[0], isSigner: false, isWritable: true },
           { pubkey: key, isSigner: true, isWritable: true },
          
           { pubkey: new PublicKey(ids.mangoProgramId), isSigner: false, isWritable: false },
           { pubkey: new PublicKey(ids.publicKey), isSigner: false, isWritable: true },
           { pubkey: fundState.mango_positions.mango_account , isSigner: false, isWritable: true },
          
-          { pubkey: fundPDA[0], isSigner: false, isWritable: false },
+          // { pubkey: fundPDA[0], isSigner: false, isWritable: false },
           { pubkey: mangoGroup.mangoCache, isSigner: false, isWritable: false },
           
           { pubkey: new PublicKey(ids.perpMarkets[orderPerpIndex].publicKey), isSigner: false, isWritable: true },
@@ -194,13 +216,14 @@ export const MangoPlaceOrder = () => {
           return;
       };
       const transaction = new Transaction()
-      const fundStateAccount = await PublicKey.createWithSeed(
-          key,
-          FUND_ACCOUNT_KEY,
-          programId,
-      );
-      let fundStateInfo = await connection.getAccountInfo((fundStateAccount))
-      let fundState = FUND_DATA.decode(fundStateInfo.data)
+      // const fundStateAccount = await PublicKey.createWithSeed(
+      //     key,
+      //     FUND_ACCOUNT_KEY,
+      //     programId,
+      // );
+      const fundPDA = await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId);
+      let fundStateInfo = await connection.getAccountInfo(fundPDA[0])
+      let fundState = FUND_PDA_DATA.decode(fundStateInfo.data)
   
       let client = new MangoClient(connection, new PublicKey(ids.mangoProgramId))
       let mangoGroup = await client.getMangoGroup(new PublicKey(ids.publicKey))
@@ -210,7 +233,7 @@ export const MangoPlaceOrder = () => {
       let nodeBank = NodeBankLayout.decode(nodeBankInfo.data)
   
       console.log("lendAmount::::",lendTokenIndex, lendAmount,ids.tokens[lendTokenIndex])
-      console.log("fundStateAccount::::",fundStateAccount.toBase58())
+      // console.log("fundStateAccount::::",fundStateAccount.toBase58())
       console.log("fundState.fund_pda::::",fundState.fund_pda.toBase58())
 
       console.log("nodeBank.vault::::",nodeBank.vault.toBase58())
@@ -313,13 +336,13 @@ export const MangoPlaceOrder = () => {
         return;
     };
     const fundPDA = await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId);
-    const fundStateAccount = await PublicKey.createWithSeed(
-        key,
-        FUND_ACCOUNT_KEY,
-        programId,
-    );
-    let fundStateInfo = await connection.getAccountInfo((fundStateAccount))
-    let fundState = FUND_DATA.decode(fundStateInfo.data) 
+    // const fundStateAccount = await PublicKey.createWithSeed(
+    //     key,
+    //     FUND_ACCOUNT_KEY,
+    //     programId,
+    // );
+    let fundStateInfo = await connection.getAccountInfo(fundPDA[0])
+    let fundState = FUND_PDA_DATA.decode(fundStateInfo.data) 
 
     let client = new MangoClient(connection, new PublicKey(ids.mangoProgramId))
     let mangoGroup = await client.getMangoGroup(new PublicKey(ids.publicKey))
@@ -510,8 +533,12 @@ export const MangoPlaceOrder = () => {
 
           <br/><hr/><br/>
 
-            <h4>Mango Place</h4> Size ::: {' '}
+            <h4>Mango Place</h4> 
+            Size ::: {' '}
             <input type="number" value={size} onChange={(event) => setSize(event.target.value)} />
+            <br />
+            Price ::: {' '}
+            <input type="number" value={price} onChange={(event) => setPrice(event.target.value)} />
             <br />
             <label htmlFor="side">Buy/Sell</label><br/>
 

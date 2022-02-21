@@ -26,12 +26,12 @@ export const MangoInitialize = () => {
       };
       const transaction = new Transaction()
 
-      const fundStateAccount = await PublicKey.createWithSeed(
-        key,
-        FUND_ACCOUNT_KEY,
-        programId,
-      );
-      console.log("fundStateAccount:: ", fundStateAccount.toBase58())
+      // const fundStateAccount = await PublicKey.createWithSeed(
+      //   key,
+      //   FUND_ACCOUNT_KEY,
+      //   programId,
+      // );
+      // console.log("fundStateAccount:: ", fundStateAccount.toBase58())
       const fundPDA = await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId);
    
       const mangoAccount = await createKeyIfNotExists(walletProvider, "", MANGO_PROGRAM_ID, MARGIN_ACCOUNT_KEY_1, MangoAccountLayout.span, transaction)
