@@ -14,7 +14,7 @@ use spl_token::state::Mint;
 
 use crate::error::FundError;
 use crate::processor::parse_token_account;
-use crate::state::{FundData, PlatformData};
+use crate::state::{FundAccount, FundData, PlatformData};
 
 macro_rules! check_eq {
     ($x:expr, $y:expr) => {
@@ -127,12 +127,12 @@ pub fn add_token_to_fund (
 
     let accounts_iter = &mut accounts.iter();
     let platform_acc = next_account_info(accounts_iter)?;
-    let fund_state_acc = next_account_info(accounts_iter)?;
+    let fund_account_acc = next_account_info(accounts_iter)?;
     let mint_acc = next_account_info(accounts_iter)?;
     let vault_acc = next_account_info(accounts_iter)?;
 
     let platform_data = PlatformData::load_checked(platform_acc, program_id)?;
-    let mut fund_data = FundData::load_mut_checked(fund_state_acc, program_id)?;
+    let mut fund_data = FundAccount::load_mut_checked(fund_account_acc, program_id)?;
 
     // if invalid fund_state_acc
     // although other signers cannot chnage some others fundState so error will be thrown
@@ -188,7 +188,7 @@ pub fn remove_token_from_fund (
     let mint_acc = next_account_info(accounts_iter)?;
 
     let platform_data = PlatformData::load_checked(platform_acc, program_id)?;
-    let mut fund_data = FundData::load_mut_checked(fund_state_acc, program_id)?;
+    let mut fund_data = FundAccount::load_mut_checked(fund_state_acc, program_id)?;
 
     // if invalid fund_state_acc
     // although other signers cannot chnage some others fundState so error will be thrown

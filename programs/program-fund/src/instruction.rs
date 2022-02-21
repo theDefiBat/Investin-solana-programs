@@ -63,8 +63,7 @@ pub enum FundInstruction {
     InvestorWithdrawFromFund,
 
             // platform_ai,
-            // fund_state_ai, [write]
-            // fund_pda_ai,
+            // fund_account_ai, [write]
             // investor_state_ai, [write]
             // investor_ai,
             // mango_account_ai,
@@ -133,9 +132,8 @@ pub enum FundInstruction {
 
     /// Proxy to Deposit instruction on Mango
     /// 
-    /// fund_state_ai,
+    /// fund_account_ai,
     /// manager_ai,  
-    /// fund_pda_ai, 
     /// mango_prog_ai,
     /// mango_group_ai,         // read
     /// mango_account_ai,       // write
@@ -160,7 +158,6 @@ pub enum FundInstruction {
     /// mango_prog_ai,
     /// mango_group_ai,     // read
     /// mango_account_ai,   // write
-    /// fund_pda_acc,           // read, signer
     /// mango_cache_ai,     // read
     /// perp_market_ai,     // write
     /// bids_ai,            // write
@@ -177,9 +174,8 @@ pub enum FundInstruction {
     /// Settle all funds from serum dex open orders into MarginAccount positions
     ///
     /// Accounts expected by this instruction (14):
-    /// 0.  [writable]  fund_state_acc - Fund State Account
+    /// 0.  [writable]  fund_Account_acc - Fund State Account
     /// 1.  [signer]    manager_acc - Manager Account to sign
-    /// 2.  []          fund_pda_acc - Fund PDA Account
     /// 3.  []          mango_prog_acc - Mango Program Account
     /// 
     /// 0. `[writable]` mango_group_acc - MangoGroup that this margin account is for
@@ -203,10 +199,9 @@ pub enum FundInstruction {
     ///
     /// Accounts expected by this instruction (8 + 2 * NUM_MARKETS):
     ///
-    /// 0.  [writable]  fund_state_acc - Fund State Account
+    /// 0.  [writable]  fund_account_acc - Fund State Account
     /// 1.  []          price_acc - Aggregator Price Account
     /// 1.  [signer]    manager_acc - Manager Account to sign
-    /// 2.  []          fund_pda_acc - Fund PDA Account
     /// 3.  []          mango_prog_acc - Mango Program Account
     /// 
     /// 0. `[writable]` mango_group_acc - MangoGroup that this margin account is for
@@ -227,13 +222,12 @@ pub enum FundInstruction {
     ///
     /// Accounts expected by this instruction: 
     ///
-    /// fund_state_ai,
+    /// fund_account_ai,
     // manager_ai,
     // mango_prog_ai,
 
     // mango_group_ai,     // read
     // mango_account_ai,   // write
-    // fund_pda_ai,           // read
     // mango_cache_ai,     // read
     // root_bank_ai,       // read
     // node_bank_ai,       // write
@@ -249,13 +243,12 @@ pub enum FundInstruction {
     },
 
     /// Withdraw funds that were deposited earlier.
-    // fund_state_ai,      //write
+    // fund_account_ai,      //write
     // investor_state_ai,  //write
     // investor_ai,        //signer
     // mango_prog_ai,      //
     // mango_group_ai,     // read
     // mango_account_ai,   // write
-    // fund_pda_ai,           // read
     // mango_cache_ai,     // read
     // usdc_root_bank_ai,       // read
     // usdc_node_bank_ai,       // write
@@ -271,8 +264,7 @@ pub enum FundInstruction {
     MangoWithdrawInvestor,
 
     /// Place an order on the Serum Dex and settle funds from the open orders account
-    ///fund_state_ai,
-    // fund_pda_ai,
+    ///fund_account_ai,
     // manager_ai,
     // mango_prog_ai,
     // mango_group_ai,         // read
@@ -308,10 +300,9 @@ pub enum FundInstruction {
     /// Settle all funds from serum dex open orders into MarginAccount positions
     ///
     /// Accounts expected by this instruction (14):
-    /// 0.  [writable]  fund_state_acc - Fund State Account
+    /// 0.  [writable]  fund_account_acc - Fund State Account
     /// 1.              investor_state_acc
     /// 1.  [signer]    investor_acc - Investor Account to sign
-    /// 2.  []          fund_pda_acc - Fund PDA Account
     /// 3.  []          mango_prog_acc - Mango Program Account
     /// 
     /// 0. `[writable]` mango_group_acc - MangoGroup that this margin account is for

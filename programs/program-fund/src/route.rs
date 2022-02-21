@@ -11,7 +11,7 @@ use solana_program::{
     program::invoke_signed,
     sysvar::Sysvar,
 };
-use crate::state::{FundData, PlatformData};
+use crate::state::{FundData, FundAccount, PlatformData};
 use crate::error::FundError;
 use crate::processor::{raydium_id, orca_id, parse_token_account};
 pub use switchboard_aggregator::AggregatorAccountData;
@@ -50,9 +50,10 @@ pub fn route (
     let sysvar_ix_ai = next_account_info(accounts_iter)?;
     check_eq!(*sysvar_ix_ai.key, solana_program::sysvar::instructions::id());
     let manager_ai = next_account_info(accounts_iter)?;
-    check_eq!(manager_ai.is_signer, true);
+    check!(manager_ai.is_signer, ProgramError::MissingRequiredSignature);
     let fund_pda_ai = next_account_info(accounts_iter)?;
-    let mut fund_data = FundData::load_mut_checked(fund_pda_ai, program_id)?;
+    let mut fund_data = FundAccount::load_mut_checked(fund_pda_ai, program_id)?;
+    check_eq!(fund_data.manager_account, *manager_ai.key);
     let pda_signer_nonce = fund_data.signer_nonce;
     // let check_for_hop = fund_data.guard.hop;
 
@@ -83,12 +84,12 @@ pub fn route (
             AccountMeta::new_readonly(*a.key, a.is_signer)
         }
     }));
-    drop(fund_data);
     let relay_instruction = Instruction {
         program_id: *whitelisted_prog_ai.key,
         accounts: meta_accounts,
         data: data.to_vec(),
     };
+    drop(fund_data);
     msg!("Firing CPI");
     invoke_signed(
         &relay_instruction,
@@ -96,7 +97,7 @@ pub fn route (
         &[&[&*manager_ai.key.as_ref(), bytes_of(&pda_signer_nonce)]]
     )?;
 
-    let mut fund_data2 = FundData::load_mut_checked(fund_pda_ai, program_id)?;
+    let mut fund_data2 = FundAccount::load_mut_checked(fund_pda_ai, program_id)?;
     let token_in_fund_slot = fund_data2.guard.token_in_slot as usize;
     let token_out_fund_slot = fund_data2.guard.token_out_slot as usize;
     if fun_sec == 21988 { //SetTokenLedger
@@ -233,7 +234,7 @@ pub fn set_swap_guard(
     let oracle_ai_opt = next_account_info(accounts_iter)?;
 
     let hop_token_ai = next_account_info(accounts_iter)?;
-    let mut fund_data = FundData::load_mut_checked(fund_pda_ai, program_id)?;
+    let mut fund_data = FundAccount::load_mut_checked(fund_pda_ai, program_id)?;
     msg!("Accounts Loaded");
     check_eq!(fund_data.is_initialized, true);
     check_eq!(fund_data.manager_account, *manager_ai.key);
@@ -287,7 +288,7 @@ pub fn check_swap_guard (
     // let manager_ai = next_account_info(accounts_iter)?;
     // check_eq!(manager_ai.is_signer, true);
     let fund_pda_ai = next_account_info(accounts_iter)?;
-    let mut fund_data = FundData::load_mut_checked(fund_pda_ai, program_id)?;
+    let mut fund_data = FundAccount::load_mut_checked(fund_pda_ai, program_id)?;
     // check_eq!(fund_data.manager_account, *manager_ai.key);
 
     let source_token_ai = next_account_info(accounts_iter)?;
@@ -342,7 +343,7 @@ pub fn route2 (
     let manager_ai = next_account_info(accounts_iter)?;
     check_eq!(manager_ai.is_signer, true);
     let fund_state_ai = next_account_info(accounts_iter)?;
-    let mut fund_data = FundData::load_mut_checked(fund_state_ai, program_id)?;
+    let mut fund_data = FundAccount::load_mut_checked(fund_state_ai, program_id)?;
     check_eq!(fund_data.manager_account, *manager_ai.key);
 
     let whitelisted_prog_ai = next_account_info(accounts_iter)?;

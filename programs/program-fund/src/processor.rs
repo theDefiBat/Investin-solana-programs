@@ -101,13 +101,13 @@ impl Fund {
         let accounts_iter = &mut accounts.iter();
 
         let platform_ai = next_account_info(accounts_iter)?;
-        let fund_state_ai = next_account_info(accounts_iter)?;
+        let fund_account_ai = next_account_info(accounts_iter)?;
         let manager_ai = next_account_info(accounts_iter)?;
 
 
         let mut platform_data = PlatformData::load_mut_checked(platform_ai, program_id)?;
 
-        let mut fund_data = FundData::load_mut_checked(fund_state_ai, program_id)?;
+        let mut fund_data = FundAccount::load_mut_checked(fund_account_ai, program_id)?;
 
         //  check if already init
         check!(!fund_data.is_initialized(), FundError::FundAccountAlreadyInit);
@@ -129,6 +129,7 @@ impl Fund {
 
         // get nonce for signing later
         let (pda, nonce) = Pubkey::find_program_address(&[&*manager_ai.key.as_ref()], program_id);
+        check!(*fund_account_ai.key == pda, FundError::IncorrectPDA);
         fund_data.fund_pda = pda;
         fund_data.signer_nonce = nonce;
 
@@ -222,7 +223,7 @@ impl Fund {
         let pda_ai = next_account_info(accounts_iter)?;
         let fund_state_ai = next_account_info(accounts_iter)?;
         let system_program_ai = next_account_info(accounts_iter)?;
-        let fund_data = FundData::load_mut_checked(&fund_state_ai, &program_id)?;
+        let mut fund_data = FundData::load_mut_checked(&fund_state_ai, &program_id)?;
         // msg!("FundState Data: {:?}", fund_data);
         // let (pda, nonce) = Pubkey::find_program_address(&[&*manager_ai.key.as_ref()], program_id);
         check_eq!(fund_data.fund_pda, *pda_ai.key);
@@ -242,6 +243,7 @@ impl Fund {
             &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
         )?;
         sol_log_compute_units();
+        fund_data.version = 3;
         let mut fund_pda_data = FundAccount::load_mut_checked(&pda_ai, &program_id)?;
         fund_pda_data.amount_in_router = fund_data.amount_in_router;
         fund_pda_data.fund_pda = fund_data.fund_pda;
@@ -283,7 +285,7 @@ impl Fund {
         let accounts = array_ref![accounts, 0, NUM_FIXED];
 
         let [
-            fund_state_ai,
+            fund_account_ai,
             investor_state_ai,
             investor_ai,
             investor_btoken_ai,
@@ -291,7 +293,7 @@ impl Fund {
             token_prog_ai
         ] = accounts;
 
-        let mut fund_data = FundData::load_mut_checked(fund_state_ai, program_id)?;
+        let mut fund_data = FundAccount::load_mut_checked(fund_account_ai, program_id)?;
         let mut investor_data = InvestorData::load_mut_checked(investor_state_ai, program_id)?;
         msg!("Is Fund Private: {:?}", fund_data.is_private);
         // check if fund state acc passed is initialised
@@ -364,7 +366,7 @@ impl Fund {
 
         let [
             platform_ai,
-            fund_state_ai,
+            fund_account_ai,
             mango_account_ai,
             mango_group_ai,
             mango_cache_ai,
@@ -379,7 +381,7 @@ impl Fund {
         ] = fixed_accs;
 
         let platform_data = PlatformData::load_checked(platform_ai, program_id)?;
-        let mut fund_data = FundData::load_mut_checked(fund_state_ai, program_id)?;
+        let mut fund_data = FundAccount::load_mut_checked(fund_account_ai, program_id)?;
         
 
 
@@ -530,7 +532,7 @@ impl Fund {
 
         let [
             platform_ai,
-            fund_state_ai,
+            fund_account_ai,
             investor_state_ai,
             investor_ai,
             router_btoken_ai,
@@ -540,7 +542,7 @@ impl Fund {
         ] = fixed_accs;
 
         let platform_data = PlatformData::load_checked(platform_ai, program_id)?;
-        let mut fund_data = FundData::load_mut_checked(fund_state_ai, program_id)?;
+        let mut fund_data = FundAccount::load_mut_checked(fund_account_ai, program_id)?;
         let mut investor_data = InvestorData::load_mut_checked(investor_state_ai, program_id)?;
 
         check!(investor_ai.is_signer, FundError::IncorrectSignature);
@@ -631,7 +633,7 @@ impl Fund {
         accounts: &[AccountInfo],
     ) -> Result<(), ProgramError> {
         msg!("Invoked Withdraw Settle");
-        const NUM_FIXED:usize = 10;
+        const NUM_FIXED:usize = 9;
         let accounts = array_ref![accounts, 0, NUM_FIXED + 4*NUM_PERP];
         let (
             fixed_accs,
@@ -640,8 +642,7 @@ impl Fund {
 
         let [
             platform_ai,
-            fund_state_ai,
-            fund_pda_ai,
+            fund_account_ai,
             investor_state_ai,
             investor_ai,
             mango_account_ai,
@@ -652,7 +653,7 @@ impl Fund {
         ] = fixed_accs;
 
         let platform_data = PlatformData::load_mut_checked(platform_ai, program_id)?;
-        let mut fund_data = FundData::load_mut_checked(fund_state_ai, program_id)?;
+        let mut fund_data = FundAccount::load_mut_checked(fund_account_ai, program_id)?;
         let mut investor_data = InvestorData::load_mut_checked(investor_state_ai, program_id)?;
         check_eq!(*mango_prog_ai.key, mango_v3_id::ID);
         check!(investor_data.owner == *investor_ai.key, ProgramError::MissingRequiredSignature);
@@ -698,6 +699,11 @@ impl Fund {
             if mango_val_before > 0 {
                 let mut perp_vals: [i64; 4] = get_perp_vals(&fund_data, &mango_account_ai, &mango_prog_ai, &mango_group_ai).unwrap();
                 // msg!("closing perps: {:?}", perp_vals);
+                let manager_account = fund_data.manager_account;
+                let nonce = fund_data.signer_nonce;
+                
+                drop(fund_data);
+                
                 for i in 0..3 {
                     if perp_vals[i] != 0 {
                         let mut side:Side = Side::Ask;
@@ -713,14 +719,14 @@ impl Fund {
                         let open_orders_accs = [Pubkey::default(); MAX_PAIRS];
                         invoke_signed(
                             &place_perp_order(mango_prog_ai.key,
-                                mango_group_ai.key, mango_account_ai.key, fund_pda_ai.key,
+                                mango_group_ai.key, mango_account_ai.key, fund_account_ai.key,
                                 mango_cache_ai.key, perp_accs[i*4].key, perp_accs[(i*4) + 1].key, perp_accs[(i*4) + 2].key, perp_accs[(i*4) + 3].key, &open_orders_accs,
                                 side, i64::MAX, perp_close_amount, 0, OrderType::Market, false)?,
                             &[
                                 mango_prog_ai.clone(),
                                 mango_group_ai.clone(),
                                 mango_account_ai.clone(),
-                                fund_pda_ai.clone(),
+                                fund_account_ai.clone(),
                                 mango_cache_ai.clone(),
                                 perp_accs[i*4].clone(),
                                 perp_accs[i*4 + 1].clone(),
@@ -728,15 +734,17 @@ impl Fund {
                                 perp_accs[i*4 + 3].clone(),
                                 default_ai.clone(),
                             ],
-                            &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
+                            &[&[&manager_account.as_ref(), bytes_of(&nonce)]]
                         )?;
     
                         // mango_place_perp_order_investor(&fund_data, instruction_accounts, mango_perp_index, side, perp_close_amount);
-                        // pub fn mango_place_perp_order_investor(fund_data: &FundData,accounts: &[AccountInfo],perp_market_id: u8,side: Side,quantity: i64
+                        // pub fn mango_place_perp_order_investor(fund_data: &FundAccount,accounts: &[AccountInfo],perp_market_id: u8,side: Side,quantity: i64
                     }
                 }
                 
             }
+
+            fund_data = FundAccount::load_mut_checked(fund_account_ai, program_id)?;
             // msg!("usdc {:?}, tok {:?}", usdc_deposits_before, token_deposits_before);
             let (perp_pnl_after, usdc_deposits_after) = get_mango_valuation(
                 &fund_data,
@@ -810,15 +818,15 @@ impl Fund {
         let accounts_iter = &mut accounts.iter();
         let platform_state_ai = next_account_info(accounts_iter)?;
 
-        let fund_state_ai = next_account_info(accounts_iter)?;
+        let fund_account_ai = next_account_info(accounts_iter)?;
         let platform_data = PlatformData::load_checked(platform_state_ai, program_id)?;
-        let mut fund_data = FundData::load_mut_checked(fund_state_ai, program_id)?;
-
+        let mut fund_data = FundAccount::load_mut_checked(fund_account_ai, program_id)?;
+        let manager_ai = next_account_info(accounts_iter)?;
         // if invalid fund_state_acc
         // although other signers cannot chnage some others fundState so error will be thrown
         // still be better if we add checks (will need to pass manager acc)
-        // check!(manager_ai.is_signer, ProgramError::MissingRequiredSignature);
-        // check_eq!(fund_data.manager_account, *manager_ai.key);
+        check!(manager_ai.is_signer, ProgramError::MissingRequiredSignature);
+        check_eq!(fund_data.manager_account, *manager_ai.key);
 
         check!(platform_data.is_initialized(), ProgramError::InvalidAccountData);
         check!(fund_data.is_initialized(), ProgramError::InvalidAccountData);
@@ -837,6 +845,8 @@ impl Fund {
 
         msg!("source mint:: {:?}", source_info.mint);
         msg!("dest mint:: {:?}", dest_info.mint);
+
+        fund_data = FundAccount::load_mut_checked(fund_account_ai, program_id)?;
 
         if source_info.mint == usdc_mint::ID {
             let di = fund_data.get_token_slot(dest_index.unwrap(), swap_index as usize).unwrap();
@@ -879,9 +889,9 @@ impl Fund {
         accounts: &[AccountInfo],
     ) -> Result<(), ProgramError> {
         let accounts_iter = &mut accounts.iter();
-        let fund_state_ai = next_account_info(accounts_iter)?;
+        let fund_account_ai = next_account_info(accounts_iter)?;
         let manager_ai = next_account_info(accounts_iter)?;
-        let mut fund_data = FundData::load_mut_checked(fund_state_ai, program_id)?;
+        let mut fund_data = FundAccount::load_mut_checked(fund_account_ai, program_id)?;
         check!(manager_ai.is_signer, FundError::IncorrectSignature);
         check_eq!(fund_data.manager_account, *manager_ai.key);
         fund_data.is_private = !(fund_data.is_private);
@@ -898,7 +908,7 @@ impl Fund {
 
         let [
             platform_ai,
-            fund_state_ai,
+            fund_account_ai,
             mango_account_ai,
             mango_group_ai,
             mango_cache_ai,
@@ -911,7 +921,7 @@ impl Fund {
             token_prog_ai
         ] = accounts;
 
-        let mut fund_data = FundData::load_mut_checked(fund_state_ai, program_id)?;
+        let mut fund_data = FundAccount::load_mut_checked(fund_account_ai, program_id)?;
         let platform_data = PlatformData::load_checked(platform_ai, program_id)?;
         // check if manager signed the tx
         check!(manager_ai.is_signer, FundError::IncorrectSignature);
@@ -999,24 +1009,27 @@ impl Fund {
 
         let accounts_iter = &mut accounts.iter();
         let platform_state_ai = next_account_info(accounts_iter)?;
-        let fund_state_ai = next_account_info(accounts_iter)?;
+        let fund_account_ai = next_account_info(accounts_iter)?;
         let manager_ai = next_account_info(accounts_iter)?;
         let vault_ai = next_account_info(accounts_iter)?;
-        let pda_man_ai = next_account_info(accounts_iter)?;
+        // let pda_man_ai = next_account_info(accounts_iter)?;
         let token_prog_ai = next_account_info(accounts_iter)?;
 
         let platform_data = PlatformData::load_checked(platform_state_ai, program_id)?;
-        let mut fund_data = FundData::load_mut_checked(fund_state_ai, program_id)?;
+        let mut fund_data = FundAccount::load_mut_checked(fund_account_ai, program_id)?;
 
         check_eq!(manager_ai.is_signer, true);
         check_eq!(fund_data.manager_account, *manager_ai.key);
-        check_eq!(fund_data.fund_pda, *pda_man_ai.key);
 
         check_eq!(fund_data.tokens[index as usize].is_active, true);
         check_eq!(fund_data.tokens[index as usize].vault, *vault_ai.key);
 
         let token_mint = platform_data.token_list[fund_data.tokens[index as usize].index[fund_data.tokens[index as usize].mux as usize] as usize].mint;
-
+        
+        let nonce = fund_data.signer_nonce;
+        
+        let mut cumulative_debt = 0u64;
+        drop(fund_data); 
         for i in 0..count {
             let investor_state_ai = next_account_info(accounts_iter)?;
             let investor_token_ai = next_account_info(accounts_iter)?;
@@ -1034,23 +1047,25 @@ impl Fund {
                     token_prog_ai.key,
                     vault_ai.key,
                     investor_token_ai.key,
-                    pda_man_ai.key,
-                    &[pda_man_ai.key],
+                    fund_account_ai.key,
+                    &[fund_account_ai.key],
                     investor_data.token_debts[index as usize]
                 ))?,
                 &[
                     vault_ai.clone(),
                     investor_token_ai.clone(),
-                    pda_man_ai.clone(),
+                    fund_account_ai.clone(),
                     token_prog_ai.clone()
                 ],
-                &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
+                &[&[&*manager_ai.key.as_ref(), bytes_of(&nonce)]]
             )?;
-            fund_data.tokens[index as usize].debt -= investor_data.token_debts[index as usize];
+            cumulative_debt += investor_data.token_debts[index as usize];
             investor_data.token_debts[index as usize] = 0;
             investor_data.token_indexes[index as usize] = 0;
 
         }
+        fund_data = FundAccount::load_mut_checked(fund_account_ai, program_id)?;
+        fund_data.tokens[index as usize].debt -= cumulative_debt;
         fund_data.tokens[index as usize].balance = parse_token_account(vault_ai)?.amount;
 
         Ok(())
@@ -1122,28 +1137,28 @@ impl Fund {
             platform_data.investin_vault = *investin_vault_ai.key;
         }
         if freeze_fund == 1 {
-            let fund_state_ai = next_account_info(accounts_iter)?;
-            let mut fund_data = FundData::load_mut_checked(fund_state_ai, program_id)?;
+            let fund_account_ai = next_account_info(accounts_iter)?;
+            let mut fund_data = FundAccount::load_mut_checked(fund_account_ai, program_id)?;
             fund_data.is_initialized = false;
         }
         if unfreeze_fund == 1 {
-            let fund_state_ai = next_account_info(accounts_iter)?;
-            let mut fund_data = FundData::load_mut_checked(fund_state_ai, program_id)?;
+            let fund_account_ai = next_account_info(accounts_iter)?;
+            let mut fund_data = FundAccount::load_mut_checked(fund_account_ai, program_id)?;
             fund_data.is_initialized = true;
         }
         if change_min_amount > 0 {
-            let fund_state_ai = next_account_info(accounts_iter)?;
-            let mut fund_data = FundData::load_mut_checked(fund_state_ai, program_id)?;
+            let fund_account_ai = next_account_info(accounts_iter)?;
+            let mut fund_data = FundAccount::load_mut_checked(fund_account_ai, program_id)?;
             fund_data.min_amount = change_min_amount;
         }
         if change_min_return > 0 {
-            let fund_state_ai = next_account_info(accounts_iter)?;
-            let mut fund_data = FundData::load_mut_checked(fund_state_ai, program_id)?;
+            let fund_account_ai = next_account_info(accounts_iter)?;
+            let mut fund_data = FundAccount::load_mut_checked(fund_account_ai, program_id)?;
             fund_data.min_return = U64F64::from_num(change_min_return / 100);
         }
         if change_perf_fee > 0 {
-            let fund_state_ai = next_account_info(accounts_iter)?;
-            let mut fund_data = FundData::load_mut_checked(fund_state_ai, program_id)?;
+            let fund_account_ai = next_account_info(accounts_iter)?;
+            let mut fund_data = FundAccount::load_mut_checked(fund_account_ai, program_id)?;
             fund_data.performance_fee_percentage = U64F64::from_num(change_perf_fee / 100);
         }
 
@@ -1291,7 +1306,7 @@ impl Fund {
 // calculate prices, get fund valuation and performance
 pub fn update_amount_and_performance(
     platform_data: &PlatformData,
-    fund_data: &mut FundData,
+    fund_data: &mut FundAccount,
     mango_val: U64F64,
     update_perf: bool
 ) -> Result<(), ProgramError> {
@@ -1347,7 +1362,7 @@ pub fn update_amount_and_performance(
 }
 
 pub fn get_mango_valuation(
-    fund_data: &FundData,
+    fund_data: &FundAccount,
     mango_account_ai: &AccountInfo,
     mango_group_ai: &AccountInfo,
     mango_cache_ai: &AccountInfo,
@@ -1435,13 +1450,13 @@ pub fn check_owner(account_info: &AccountInfo, key: &Pubkey) -> Result<(), Progr
 
 pub fn swap_instruction_raydium(
     data: &Data,
-    fund_data: &FundData,
+    fund_data: &FundAccount,
     accounts: &[AccountInfo]
 ) -> Result<(Account, Account), ProgramError>{
     let accounts = array_ref![accounts, 0, 22];
     let [
         _platform_state_ai,
-        _fund_state_ai,
+        fund_account_ai,
         manager_ai,
         pool_prog_ai,
         token_prog_ai,
@@ -1463,6 +1478,22 @@ pub fn swap_instruction_raydium(
         dest_token_ai,
         owner_token_ai
     ] = accounts;
+
+    let source_info = parse_token_account(source_token_ai)?;
+    let dest_info = parse_token_account(dest_token_ai)?;
+
+    // owner checks
+    check_eq!(source_info.owner, fund_data.fund_pda);
+    check_eq!(dest_info.owner, fund_data.fund_pda);
+
+    // check program id
+    check_eq!(*pool_prog_ai.key, raydium_id::ID);
+
+    check_eq!(fund_data.manager_account, *manager_ai.key);
+    check_eq!(manager_ai.is_signer, true);
+
+    let signer_seeds = [fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)];
+    drop(fund_data);
 
     invoke_signed(
         &(Instruction::new_with_borsh(
@@ -1509,41 +1540,27 @@ pub fn swap_instruction_raydium(
             dest_token_ai.clone(),
             owner_token_ai.clone(),
         ],
-        &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
+        &[&signer_seeds]
     )?;
     msg!("swap instruction done");
-
-    let source_info = parse_token_account(source_token_ai)?;
-    let dest_info = parse_token_account(dest_token_ai)?;
-
-    // owner checks
-    check_eq!(source_info.owner, fund_data.fund_pda);
-    check_eq!(dest_info.owner, fund_data.fund_pda);
-
-    // check program id
-    check_eq!(*pool_prog_ai.key, raydium_id::ID);
-
-    check_eq!(fund_data.manager_account, *manager_ai.key);
-    check_eq!(manager_ai.is_signer, true);
 
     Ok((source_info, dest_info))
 }
 
 pub fn swap_instruction_orca(
     data: &Data,
-    fund_data: &FundData,
+    fund_data: &FundAccount,
     accounts: &[AccountInfo]
 ) -> Result<(Account, Account), ProgramError>{
 
-    let accounts = array_ref![accounts, 0, 14];
+    let accounts = array_ref![accounts, 0, 13];
     let [
         _platform_state_ai,
-        _fund_state_ai,
+        fund_account_ai,
         manager_ai,
         orca_prog_id,
         swap_ai,
         swap_authority,
-        fund_pda_ai, // take this as transfer authority
         user_source,
         pool_source,
         pool_dest,
@@ -1552,40 +1569,7 @@ pub fn swap_instruction_orca(
         fee_account,
         token_prog_ai
     ] = accounts;
-
-    invoke_signed(
-        &(Instruction::new_with_borsh(
-            *orca_prog_id.key,
-            &data,
-            vec![
-                AccountMeta::new_readonly(*swap_ai.key, false),
-                AccountMeta::new_readonly(*swap_authority.key, false),
-                AccountMeta::new_readonly(*fund_pda_ai.key, true),
-                AccountMeta::new(*user_source.key, false),
-                AccountMeta::new(*pool_source.key, false),
-                AccountMeta::new(*pool_dest.key, false),
-                AccountMeta::new(*user_dest.key, false),
-                AccountMeta::new(*pool_mint.key, false),
-                AccountMeta::new(*fee_account.key, false),
-                AccountMeta::new_readonly(*token_prog_ai.key, false)
-            ],
-        )),
-        &[
-            swap_ai.clone(),
-            swap_authority.clone(),
-            fund_pda_ai.clone(),
-            user_source.clone(),
-            pool_source.clone(),
-            pool_dest.clone(),
-            user_dest.clone(),
-            pool_mint.clone(),
-            fee_account.clone(),
-            token_prog_ai.clone(),
-        ],
-        &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
-    )?;
-    msg!("swap instruction done");
-
+    
     let source_info = parse_token_account(user_source)?;
     let dest_info = parse_token_account(user_dest)?;
 
@@ -1598,11 +1582,45 @@ pub fn swap_instruction_orca(
 
     check_eq!(fund_data.manager_account, *manager_ai.key);
     check_eq!(manager_ai.is_signer, true);
+    let nonce = fund_data.signer_nonce;
+    drop(fund_data);
+    invoke_signed(
+        &(Instruction::new_with_borsh(
+            *orca_prog_id.key,
+            &data,
+            vec![
+                AccountMeta::new_readonly(*swap_ai.key, false),
+                AccountMeta::new_readonly(*swap_authority.key, false),
+                AccountMeta::new_readonly(*fund_account_ai.key, true),
+                AccountMeta::new(*user_source.key, false),
+                AccountMeta::new(*pool_source.key, false),
+                AccountMeta::new(*pool_dest.key, false),
+                AccountMeta::new(*user_dest.key, false),
+                AccountMeta::new(*pool_mint.key, false),
+                AccountMeta::new(*fee_account.key, false),
+                AccountMeta::new_readonly(*token_prog_ai.key, false)
+            ],
+        )),
+        &[
+            swap_ai.clone(),
+            swap_authority.clone(),
+            fund_account_ai.clone(),
+            user_source.clone(),
+            pool_source.clone(),
+            pool_dest.clone(),
+            user_dest.clone(),
+            pool_mint.clone(),
+            fee_account.clone(),
+            token_prog_ai.clone(),
+        ],
+        &[&[&*manager_ai.key.as_ref(), bytes_of(&nonce)]]
+    )?;
+    msg!("swap instruction done");
 
     Ok((source_info, dest_info))
 }
 pub fn get_share(
-    fund_data: &mut FundData,
+    fund_data: &mut FundAccount,
     investor_data: &mut InvestorData,
 ) -> Result<U64F64, ProgramError> {
     let perf_share = U64F64::from_num(fund_data.prev_performance)
@@ -1651,7 +1669,7 @@ pub fn get_share(
     Ok(share)
 }
 pub fn get_perp_vals(
-    fund_data: &FundData,
+    fund_data: &FundAccount,
     mango_account_ai: &AccountInfo,
     mango_prog_ai: &AccountInfo,
     mango_group_ai: &AccountInfo,
@@ -1669,7 +1687,7 @@ pub fn get_perp_vals(
 
 
 // pub fn update_settle_amounts(
-//     fund_data: &mut FundData,
+//     fund_data: &mut FundAccount,
 //     investor_data: &mut InvestorData,
 //     usdc_before: I80F48,
 //     usdc_after: I80F48,
