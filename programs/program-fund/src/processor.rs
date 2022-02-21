@@ -103,7 +103,23 @@ impl Fund {
         let platform_ai = next_account_info(accounts_iter)?;
         let fund_account_ai = next_account_info(accounts_iter)?;
         let manager_ai = next_account_info(accounts_iter)?;
-
+        let system_program_ai = next_account_info(accounts_iter)?;
+        
+        let rent = Rent::get()?;        
+        let fund_pda_size = size_of::<FundAccount>();
+        let (pda, nonce) = Pubkey::find_program_address(&[&*manager_ai.key.as_ref()], program_id);
+        check!(*fund_account_ai.key == pda, FundError::IncorrectPDA);
+        invoke_signed(
+            &create_account(
+                &manager_ai.key,
+                &fund_account_ai.key,
+                rent.minimum_balance(fund_pda_size).max(1),
+                fund_pda_size as u64,
+                &program_id,
+            ),
+            &[manager_ai.clone(), fund_account_ai.clone(), system_program_ai.clone()],
+            &[&[&*manager_ai.key.as_ref(), bytes_of(&nonce)]]
+        )?;
 
         let mut platform_data = PlatformData::load_mut_checked(platform_ai, program_id)?;
 
@@ -126,10 +142,7 @@ impl Fund {
         // save manager's wallet address
         fund_data.manager_account = *manager_ai.key;
         check!(manager_ai.is_signer, ProgramError::MissingRequiredSignature);
-
-        // get nonce for signing later
-        let (pda, nonce) = Pubkey::find_program_address(&[&*manager_ai.key.as_ref()], program_id);
-        check!(*fund_account_ai.key == pda, FundError::IncorrectPDA);
+        
         fund_data.fund_pda = pda;
         fund_data.signer_nonce = nonce;
 
