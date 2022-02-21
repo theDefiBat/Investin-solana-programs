@@ -1505,7 +1505,9 @@ pub fn swap_instruction_raydium(
     check_eq!(fund_data.manager_account, *manager_ai.key);
     check_eq!(manager_ai.is_signer, true);
 
-    let signer_seeds = [fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)];
+   
+    // let signer_seeds = [fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)];
+    let nonce = fund_data.signer_nonce;
     drop(fund_data);
 
     invoke_signed(
@@ -1553,7 +1555,7 @@ pub fn swap_instruction_raydium(
             dest_token_ai.clone(),
             owner_token_ai.clone(),
         ],
-        &[&signer_seeds]
+        &[&[&*manager_ai.key.as_ref(), bytes_of(&nonce)]]
     )?;
     msg!("swap instruction done");
 
