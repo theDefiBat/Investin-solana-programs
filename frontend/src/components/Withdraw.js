@@ -1,13 +1,13 @@
 import { PublicKey, SYSVAR_CLOCK_PUBKEY, Transaction, TransactionInstruction } from '@solana/web3.js';
 import React, { useState } from 'react'
 import { GlobalState } from '../store/globalState';
-import { adminAccount, SOL_USDC_MARKET, connection,  platformStateAccount, priceStateAccount, FUND_ACCOUNT_KEY, programId, TOKEN_PROGRAM_ID , CLOCK_PROGRAM_ID, MANGO_PROGRAM_ID_V2, MANGO_GROUP_ACCOUNT, MARGIN_ACCOUNT_KEY, ORACLE_BTC_DEVNET, ORACLE_ETH_DEVNET, ORACLE_SOL_DEVNET, ORACLE_SRM_DEVNET, idsIndex, MANGO_TOKENS} from '../utils/constants';
+import { adminAccount, SOL_USDC_MARKET, connection,  platformStateAccount, priceStateAccount, FUND_ACCOUNT_KEY, programId, TOKEN_PROGRAM_ID , CLOCK_PROGRAM_ID, MANGO_PROGRAM_ID_V2, MANGO_GROUP_ACCOUNT, MARGIN_ACCOUNT_KEY, ORACLE_BTC_DEVNET, ORACLE_ETH_DEVNET, ORACLE_SOL_DEVNET, ORACLE_SRM_DEVNET, idsIndex, MANGO_TOKENS, PERP_MARKETS} from '../utils/constants';
 
 import { nu64, struct, u8 } from 'buffer-layout';
 import { createKeyIfNotExists, findAssociatedTokenAddress, setWalletTransaction, signAndSendTransaction, createAssociatedTokenAccount, createAssociatedTokenAccountIfNotExist } from '../utils/web3';
-import { devnet_pools, DEV_TOKENS, raydiumPools } from '../utils/pools';
+import { devnet_pools, DEV_TOKENS, orcaPools, raydiumPools } from '../utils/pools';
 import { keyBy } from 'lodash';
-import { INVESTOR_DATA, PLATFORM_DATA, FUND_DATA } from '../utils/programLayouts';
+import { INVESTOR_DATA, PLATFORM_DATA, FUND_DATA, FUND_PDA_DATA } from '../utils/programLayouts';
 
 import { updatePoolPrices } from './updatePrices';
 import { MarginAccountLayout, NUM_MARKETS, MangoGroupLayout } from '../utils/MangoLayout';
@@ -67,7 +67,7 @@ export const Withdraw = () => {
     const investorStateAcc = investments[investmentIndex].ivnStatePubKey?.toBase58()
     const investorAddr = investments[investmentIndex].owner?.toBase58()
 
-    console.log("**----handleWithdrawSettle investorStateAcc,investorAddr::",investorStateAcc,investorAddr)
+    console.log("**----handleWithdrawSettle investorStateAcc, investorAddr::",investorStateAcc,investorAddr)
 
     const key = walletProvider?.publicKey;
     if (!key) {
@@ -80,21 +80,58 @@ export const Withdraw = () => {
       return;
     }
     const fundPDA = await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId);
-    const fundStateAccount = await PublicKey.createWithSeed(
-        key,
-        FUND_ACCOUNT_KEY,
-        programId,
-    );
-    console.log("fundStateAccount:",fundStateAccount.toBase58())
-    let fundStateInfo = await connection.getAccountInfo((fundStateAccount))
-    let fund_data = FUND_DATA.decode(fundStateInfo.data) 
+    // const fundStateAccount = await PublicKey.createWithSeed(
+    //     key,
+    //     FUND_ACCOUNT_KEY,
+    //     programId,
+    // );
+    // console.log("fundStateAccount:",fundStateAccount.toBase58())
+    let fundStateInfo = await connection.getAccountInfo(fundPDA[0])
+    let fund_data = FUND_PDA_DATA.decode(fundStateInfo.data) 
   
    
     console.log("fund_data:",fund_data)
   
     const transaction = new Transaction()
   
-    updatePoolPrices(transaction, devnet_pools)
+    let filt_pools = []
+    let WSOLWhitelisted = false;
+    let MSOLWhitelisted = false;
+    let platData = await connection.getAccountInfo(platformStateAccount)
+    let platform_data = PLATFORM_DATA.decode(platData.data)
+    console.log("plat info:: ", platform_data)
+
+    for (let i = 1; i<8; i++) {
+      if (fund_data.tokens[i].balance > 0) {
+        let mint = platform_data.token_list[fund_data.tokens[i].index[fund_data.tokens[i].mux]].mint;
+        // if(mint.toBase58() === TOKENS.WSOL.mintAddress){
+        //   WSOLWhitelisted=true;
+        // } 
+        // else if(mint.toBase58() === TOKENS.MSOL.mintAddress){
+        //   MSOLWhitelisted=true;
+        // }
+        if(fund_data.tokens[i].mux === 0){
+          let x = raydiumPools.find(p => p.coin.mintAddress == mint.toBase58())
+          filt_pools.push(x)
+        } else {
+          let x = orcaPools.find(p => p.coin.mintAddress == mint.toBase58())
+          filt_pools.push(x)
+        }
+      }  
+    }
+    //send WSOL everytime 
+    // if(!WSOLWhitelisted){
+    //   const wsol_usdc_pool = raydiumPools.find(p => p.name == 'WSOL-USDC');
+    //   console.log("pushing WSOL pool")
+    //   filt_pools.push(wsol_usdc_pool)
+    // }
+    // if(!MSOLWhitelisted){
+    //   const msol_usdc_pool = orcaPools.find(p => p.name == 'MSOL-USDC');
+    //   console.log("pushing MSOL pool")
+    //   filt_pools.push(msol_usdc_pool)
+    // }
+    console.log("filt_pools:",filt_pools)
+    updatePoolPrices(transaction, filt_pools)
 
     console.log("ids.mangoProgramId:: ", ids.mangoProgramId)
     let client = new MangoClient(connection, new PublicKey(ids.mangoProgramId))
@@ -107,23 +144,26 @@ export const Withdraw = () => {
     //        asks_ai,            // write default_ai if no perp market for i^th index
     //        event_queue_ai,]   //write default_ai if no perp market for i^th index
     let perpKeys = []
-    for(let i=0; i<4;i++){
+    for(let i=0; i<3;i++){
           const marketIndex = fund_data.mango_positions.perp_markets[i];
           console.log("marketIndex:",marketIndex,i)
+          const perpMaketInfo = PERP_MARKETS.find((i) => i.perpMarketId==marketIndex )
+          console.log("found  perpMaketInfo::",perpMaketInfo)
+          
           if(marketIndex!=255){
              console.log("pusing:",marketIndex,i)
 
             perpKeys.push(
-              { pubkey:  new PublicKey(ids.perpMarkets[marketIndex].publicKey), isSigner: false, isWritable: true },
+              { pubkey:  new PublicKey(perpMaketInfo.publicKey), isSigner: false, isWritable: true },
              )
              perpKeys.push(
-              { pubkey:  new PublicKey(ids.perpMarkets[marketIndex].bidsKey), isSigner: false, isWritable: true },
+              { pubkey:  new PublicKey(perpMaketInfo.bidsKey), isSigner: false, isWritable: true },
              )
              perpKeys.push(
-              { pubkey:  new PublicKey(ids.perpMarkets[marketIndex].asksKey), isSigner: false, isWritable: true },
+              { pubkey:  new PublicKey(perpMaketInfo.asksKey), isSigner: false, isWritable: true },
              )
              perpKeys.push(
-              { pubkey:  new PublicKey(ids.perpMarkets[marketIndex].eventsKey), isSigner: false, isWritable: true },
+              { pubkey:  new PublicKey(perpMaketInfo.eventsKey), isSigner: false, isWritable: true },
              )
           
           } else {
@@ -155,7 +195,7 @@ export const Withdraw = () => {
 
     const keys = [
       { pubkey: platformStateAccount, isSigner: false, isWritable: true }, //fund State Account
-      { pubkey: fundStateAccount, isSigner: false, isWritable: true },
+      // { pubkey: fundStateAccount, isSigner: false, isWritable: true },
       { pubkey: fundPDA[0], isSigner: false, isWritable: true },
 
       { pubkey: new PublicKey(investorStateAcc), isSigner: false, isWritable: true }, //fund State Account
@@ -224,13 +264,13 @@ export const Withdraw = () => {
         return;
     }
     const fundPDA = await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId);
-    const fundStateAccount = await PublicKey.createWithSeed(
-        key,
-        FUND_ACCOUNT_KEY,
-        programId,
-    );
-    let fundStateInfo = await connection.getAccountInfo((fundStateAccount))
-    let fundState = FUND_DATA.decode(fundStateInfo.data) 
+    // const fundStateAccount = await PublicKey.createWithSeed(
+    //     key,
+    //     FUND_ACCOUNT_KEY,
+    //     programId,
+    // );
+    let fundStateInfo = await connection.getAccountInfo((fundPDA[0]))
+    let fundState = FUND_PDA_DATA.decode(fundStateInfo.data) 
     console.log("fundState:",fundState)
 
     // let investorStateData = await connection.getAccountInfo(investorStateAcc);
@@ -239,7 +279,8 @@ export const Withdraw = () => {
     let client = new MangoClient(connection, new PublicKey(ids.mangoProgramId))
     let mangoGroup = await client.getMangoGroup(new PublicKey(ids.publicKey))
 
-    let usdcnodeBankInfo = await connection.getAccountInfo(new PublicKey(MANGO_TOKENS[0].nodeKeys[0]))
+    let usdcnodeBankInfo = await connection.getAccountInfo(new PublicKey("BGcwkj1WudQwUUjFk78hAjwd1uAm8trh1N4CJSa51euh"))
+    console.log("usdcnodeBankInfo:",usdcnodeBankInfo)
     let usdcnodeBank = NodeBankLayout.decode(usdcnodeBankInfo.data)
 
       const deposit_index = parseInt(investments[investmentIndex]?.margin_position_id[1].toString());
@@ -249,7 +290,7 @@ export const Withdraw = () => {
 
       const transaction = new Transaction()
 
-      const usdcInvestorTokenAcc = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(MANGO_TOKENS[0].mintKey), walletProvider.publicKey, transaction)
+      const usdcInvestorTokenAcc = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(MANGO_TOKENS.USDC.mintAddress), walletProvider.publicKey, transaction)
       console.log("usdcInvestorTokenAcc::::",usdcInvestorTokenAcc.toBase58())
 
 
@@ -257,7 +298,7 @@ export const Withdraw = () => {
     if (user_other_token_deposit_debt != 0) {
 
       //getting token info if the deposit_index token at mango
-      const deposit_index_token_info = MANGO_TOKENS.find( t => t.mangoTokenIndex==deposit_index )
+      const deposit_index_token_info = Object.values(MANGO_TOKENS).find( t => t.mangoTokenIndex==deposit_index )
       console.log("deposit_index_token_info:",deposit_index_token_info)
 
       const despositTokenInvestortokenAcc =  await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(deposit_index_token_info.mintKey), walletProvider.publicKey, transaction)
@@ -297,8 +338,8 @@ export const Withdraw = () => {
       // { pubkey: fundPDA[0], isSigner: false, isWritable: false },
       { pubkey: mangoGroup.mangoCache, isSigner: false, isWritable: false },
 
-      { pubkey: new PublicKey(MANGO_TOKENS[0].rootKey), isSigner: false, isWritable: false },
-      { pubkey: new PublicKey(MANGO_TOKENS[0].nodeKeys[0]), isSigner: false, isWritable: true },
+      { pubkey: new PublicKey(MANGO_TOKENS.USDC.rootKey), isSigner: false, isWritable: false },
+      { pubkey: new PublicKey(MANGO_TOKENS.USDC.nodeKeys[0]), isSigner: false, isWritable: true },
       { pubkey: usdcnodeBank.vault, isSigner: false, isWritable: true },
       { pubkey: usdcInvestorTokenAcc, isSigner: false, isWritable: true }, 
 
@@ -329,7 +370,7 @@ export const Withdraw = () => {
     console.log("tx::: ", sign)
     console.log("signature tx url:: ", `https://solscan.io/tx/${sign}`) 
 
-    }
+  }
 
   const handleWithdrawFromFund =  async () => {
 
@@ -345,15 +386,15 @@ export const Withdraw = () => {
       return;
     };
      const fundPDA = await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId);
-     const fundStateAccount = await PublicKey.createWithSeed(
-            key,
-            FUND_ACCOUNT_KEY,
-            programId,
-        );
-    if (!fundStateAccount) {
-      console.log("no funds found")
-      return
-    }
+    //  const fundStateAccount = await PublicKey.createWithSeed(
+    //         key,
+    //         FUND_ACCOUNT_KEY,
+    //         programId,
+    //     );
+    // if (!fundStateAccount) {
+    //   console.log("no funds found")
+    //   return
+    // }
     const transaction = new Transaction()
 
   
@@ -362,7 +403,7 @@ export const Withdraw = () => {
   
     const RPDA = await PublicKey.findProgramAddress([Buffer.from("router")], programId);
     const investerStateAccount = new PublicKey(investorStateAcc);
-    const routerAssociatedTokenAddress = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(DEV_TOKENS['USDC'].mintKey), RPDA[0], transaction);
+    const routerAssociatedTokenAddress = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TOKENS.USDC.mintAddress), RPDA[0], transaction);
   
     const investorBaseTokenAccounts = [];
     const fundAssociatedTokenAddresses = []
@@ -383,8 +424,8 @@ export const Withdraw = () => {
     for (let i = 0; i < investments[investmentIndex].token_indexes.length; i++) {
   
       // if wsol then save to close account
-      if (platformState.token_list[investorTokens[i]]?.mint.toBase58() === DEV_TOKENS.SOL.mintKey && investorTokenDebts[i] > 0) {
-        wsolTokenAccount = await findAssociatedTokenAddress(key, new PublicKey(DEV_TOKENS.SOL.mintKey))
+      if (platformState.token_list[investorTokens[i]]?.mint.toBase58() === TOKENS.WSOL.mintAddress && investorTokenDebts[i] > 0) {
+        wsolTokenAccount = await findAssociatedTokenAddress(key, new PublicKey(TOKENS.WSOL.mintAddress))
       }
   
       // const invAccount = await createAssociatedTokenAccountIfNotExist(walletProvider, platformState.token_list[investorTokens[i]].mint, key, transaction);
@@ -489,7 +530,7 @@ export const Withdraw = () => {
       }
 
                
-     
+      {/* <button onClick={handleUpdateTokenPrices}>updatePoolPrices</button> */}
       <button onClick={handleWithdrawSettle}>withdraw_settle_1</button>
       <button onClick={handleWithdrawFromMango}>withdraw_from_margin_2</button>
       <button onClick={handleWithdrawFromFund}>withdraw_from_fund_3</button>

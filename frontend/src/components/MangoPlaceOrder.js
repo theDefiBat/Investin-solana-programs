@@ -55,7 +55,7 @@ export const MangoPlaceOrder = () => {
     console.log("pos_index", pos_index)
     console.log("orderPerpIndex:: ", orderPerpIndex)
   
-    const client = new MangoClient()
+    let client = new MangoClient(connection, new PublicKey(ids.mangoProgramId))
     let mangoGroup = await client.getMangoGroup(connection, MANGO_GROUP_ACCOUNT)
 
         // open orders missing for this market; create a new one now
@@ -203,7 +203,7 @@ export const MangoPlaceOrder = () => {
 
      const sign =  await client.cacheRootBanks(new PublicKey(ids.publicKey),
           mangoGroup.mangoCache,
-          [new PublicKey(MANGO_TOKENS[0].rootKey),new PublicKey(MANGO_TOKENS[2].rootKey)],
+          [new PublicKey(MANGO_TOKENS.USDC.rootKey),new PublicKey(MANGO_TOKENS.BTC.rootKey)],
           walletProvider
        )
      }
@@ -500,6 +500,71 @@ export const MangoPlaceOrder = () => {
     //   console.log("signature tx url:: ", `https://solscan.io/tx/${sign}`) 
     }
 
+   const handleRemovePerpMarket = async () => {
+
+
+      const perpMarketId = addRemovePerpIndex;
+      console.log("handleRemovePerpMarket::",addRemovePerpIndex)
+
+      const key = walletProvider?.publicKey;
+      if (!key) {
+          alert("connect wallet")
+          return;
+      };
+
+      const fundPDA = await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId);
+      let fundStateInfo = await connection.getAccountInfo((fundPDA[0]))
+      let fundState = FUND_PDA_DATA.decode(fundStateInfo.data) 
+      console.log("fundState:",fundState)
+
+      const transaction = new Transaction()
+      
+      
+      let client = new MangoClient(connection, new PublicKey(ids.mangoProgramId))
+      let mangoGroup = await client.getMangoGroup(new PublicKey(ids.publicKey))
+    
+      const dataLayout = struct([u8('instruction'),u8('perp_market_id')])
+      const data = Buffer.alloc(dataLayout.span)
+      dataLayout.encode(
+          {
+              instruction: 11,
+              perp_market_id: perpMarketId
+          },
+          data
+      )
+        
+      const keys = [
+        { pubkey: fundPDA[0] , isSigner: false, isWritable: true },
+        { pubkey: key, isSigner: true, isWritable: true },
+        { pubkey: MANGO_PROGRAM_ID, isSigner: false, isWritable: false },
+        { pubkey: MANGO_GROUP_ACCOUNT, isSigner: false, isWritable: true },
+        { pubkey: fundState.mango_positions.mango_account , isSigner: false, isWritable: true },
+        // { pubkey: new PublicKey(fundsAddress), isSigner: false, isWritable: false },
+        { pubkey: mangoGroup.mangoCache, isSigner: false, isWritable: false },  
+     ]
+    
+    for(let i=0; i<keys.length;i++) {
+      console.log("key:",i, keys[i].pubkey.toBase58())
+    }
+      const instruction = new TransactionInstruction({
+          keys: keys,
+          programId: programId,
+          data
+      });
+    
+      transaction.add(instruction);
+      console.log(`transaction ::: `, transaction)
+      transaction.feePayer = key;
+      let hash = await connection.getRecentBlockhash("finalized");
+      console.log("blockhash", hash);
+      transaction.recentBlockhash = hash.blockhash;
+  
+      const sign = await signAndSendTransaction(walletProvider, transaction);
+      console.log("tx::: ", sign)
+      console.log("signature tx url:: ", `https://solscan.io/tx/${sign}`) 
+      
+    }
+
 
     return (
         <div className="form-div">
@@ -528,8 +593,8 @@ export const MangoPlaceOrder = () => {
               <option value={6}>FTT-PERP</option>
               <option value={7}>ADA-PERP</option>
             </select>
-          {/* <button onClick={handleAddPerpMarket}>ADD</button>
-          <button onClick={handleRemovePerpMarket}>REMOVE</button> */}
+          {/* <button onClick={handleAddPerpMarket}>ADD</button> */}
+          <button onClick={handleRemovePerpMarket}>REMOVE</button>
 
           <br/><hr/><br/>
 

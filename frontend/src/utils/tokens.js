@@ -575,13 +575,21 @@ export const TOKENS = {
     referrer: 'HF7mhT9YgD5CULAFDYQmhnUMi1FnNbKeBFCy9SZDh2XE',
     tags: ['raydium']
   },
-  mSOL: {
-    symbol: 'mSOL',
+  MSOL: {
+    symbol: 'MSOL',
     name: 'Marinade staked SOL (mSOL)',
     mintAddress: 'mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So',
     decimals: 9,
     referrer: '7h5bckf8P29RdviNoKjDyH3Ky3uwdrBiPgYuSCD4asV5',
     tags: ['raydium']
+  },
+  MNDE: {
+    symbol: 'MNDE',
+    name: 'Marinade (MNDE)',
+    mintAddress: 'MNDEFzGvMt87ueuHvVU9VcTqsAP5b3fTGPsHuuPA5ey',
+    decimals: 9,
+    referrer: '7h5bckf8P29RdviNoKjDyH3Ky3uwdrBiPgYuSCD4asV5',
+    tags: ['orca']
   },
   PAI: {
     symbol: 'PAI',
@@ -722,11 +730,32 @@ export const TOKENS = {
     decimals: 9,
     tags: ['raydium']
   },
+  SHDW: {
+    symbol: 'SHDW',
+    name: 'Shadow Token',
+    mintAddress: 'SHDWyBxihqiCj6YekG2GUr7wqKLeLAMK1gHZck9pL6y',
+    decimals: 9,
+    tags: ['orca']
+  },
   SBR: {
     symbol: 'SBR',
     name: 'SBR',
     mintAddress: 'Saber2gLauYim4Mvftnrasomsv6NvAuncvMEZwcLpD1',
     decimals: 6,
+    tags: ['raydium']
+  },
+  SUNNY: {
+    symbol: 'SUNNY',
+    name: 'SUNNY',
+    mintAddress: 'SUNNYWgPQmFxe9wTZzNK7iPnJ3vYDrkgnxJRJm1s3ag',
+    decimals: 6,
+    tags: ['orca']
+  },
+  DFL: {
+    symbol: 'DFL',
+    name: 'DeFi Land',
+    mintAddress: 'DFL1zNkaGPWm1BqAVqRjCZvHmwTFrEaJtbzJWgseoNJh',
+    decimals: 9,
     tags: ['raydium']
   },
   SAMO: {
@@ -756,7 +785,63 @@ export const TOKENS = {
     mintAddress: 'iVNcrNE9BRZBC9Aqf753iZiZfbszeAVUoikgT9yvr2a',
     decimals: 6,
     tags: ['raydium']
-  }
+  },
+  SLND: {
+    symbol: 'SLND',
+    name: 'SLND',
+    mintAddress: 'SLNDpmoWTVADgEdndyvWzroNL7zSi1dF9PC3xHGtPwp',
+    decimals: 6,
+    tags: ['raydium']
+  },
+  FAB: {
+    symbol: 'FAB',
+    name: 'FAB',
+    mintAddress: 'EdAhkbj5nF9sRM7XN7ewuW8C9XEUMs8P7cnoQ57SYE96',
+    decimals: 9,
+    tags: ['raydium']
+  },
+  NINJA: {
+    symbol: 'NINJA',
+    name: 'NINJA',
+    mintAddress: 'FgX1WD9WzMU3yLwXaFSarPfkgzjLb2DZCqmkx9ExpuvJ',
+    decimals: 6,
+    tags: ['raydium']
+  },
+  IN: {
+    symbol: 'IN',
+    name: 'IN',
+    mintAddress: 'inL8PMVd6iiW3RCBJnr5AsrRN6nqr4BTrcNuQWQSkvY',
+    decimals: 9,
+    tags: ['raydium']
+  },
+  SONAR: {
+    symbol: 'SONAR',
+    name: 'SONAR',
+    mintAddress: 'sonarX4VtVkQemriJeLm6CKeW3GDMyiBnnAEMw1MRAE',
+    decimals: 9,
+    tags: ['raydium']
+  },
+  ATS: {
+    symbol: 'ATS',
+    name: 'Atlas DEX',
+    mintAddress: 'HJbNXx2YMRxgfUJ6K4qeWtjatMK5KYQT1QnsCdDWywNv',
+    decimals: 9,
+    tags: ['raydium']
+  },
+  PRISM: {
+    symbol: 'PRISM',
+    name: 'PRISM',
+    mintAddress: 'PRSMNsEPqhGVCH1TtWiJqPjJyh2cKrLostPZTNy1o5x',
+    decimals: 6,
+    tags: ['raydium']
+  },
+  UXP: {
+    symbol: 'UXP',
+    name: 'UXP',
+    mintAddress: 'UXPhBoR3qG4UCiGNJfV7MqhHyFqKN68g45GoYvAeL2M',
+    decimals: 9,
+    tags: ['raydium']
+  },
 }
 
 export const LP_TOKENS = {
@@ -1336,7 +1421,7 @@ export const LP_TOKENS = {
     pc: { ...TOKENS.USDC },
 
     mintAddress: '4xTpJ4p76bAeggXoYywpCCNKfJspbuRzZ79R7pRhbqSf',
-    decimals: TOKENS.mSOL.decimals
+    decimals: TOKENS.MSOL.decimals
   },
   'mSOL-SOL-V4': {
     symbol: 'mSOL-SOL',
@@ -1345,7 +1430,7 @@ export const LP_TOKENS = {
     pc: { ...NATIVE_SOL },
 
     mintAddress: '5ijRoAHVgd5T5CNtK5KDRUBZ7Bffb69nktMj5n6ks6m4',
-    decimals: TOKENS.mSOL.decimals
+    decimals: TOKENS.MSOL.decimals
   },
   'MER-PAI-V4': {
     symbol: 'MER-PAI',
