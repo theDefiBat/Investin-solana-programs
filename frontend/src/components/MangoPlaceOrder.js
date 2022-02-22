@@ -142,7 +142,7 @@ export const MangoPlaceOrder = () => {
                 instruction: 10,
                 perp_market_id: orderPerpIndex,
                 side : side,
-                price: price,//nativePrice,
+                price: nativePrice,
                 quantity: size/(PERP_MARKETS[orderPerpIndex].contractSize) 
             },
             data
@@ -276,13 +276,13 @@ export const MangoPlaceOrder = () => {
       const dataLayout = struct([u8('instruction'),u8('token_slot_index'), u8('mango_token_index'), nu64('quantity')])
       const data = Buffer.alloc(dataLayout.span)
       console.log("fundTokenSlot:",fundTokenSlot)
-      console.log("MANGO_TOKENS[lendTokenIndex].mangoTokenIndex:",MANGO_TOKENS[lendTokenIndex].mangoTokenIndex)
+      console.log("MANGO_TOKENS[lendTokenIndex].mangoTokenIndex:",MANGO_TOKENS.USDC.mangoTokenIndex)
 
       dataLayout.encode(
           {
               instruction: 9,
               token_slot_index: fundTokenSlot,
-              mango_token_index: MANGO_TOKENS[lendTokenIndex].mangoTokenIndex,
+              mango_token_index: MANGO_TOKENS.USDC.mangoTokenIndex,
               quantity: lendAmount * 10 ** ids.tokens[lendTokenIndex].decimals
           },
           data

@@ -4,7 +4,7 @@ import { connection, FUND_ACCOUNT_KEY, idsIndex, platformStateAccount, PLATFORM_
 import { GlobalState } from '../store/globalState';
 import { PublicKey, Transaction, TransactionInstruction } from '@solana/web3.js';
 import { TOKEN_PROGRAM_ID } from '@project-serum/serum/lib/token-instructions';
-import { FUND_DATA, INVESTOR_DATA, PLATFORM_DATA, SPL_TOKEN_MINT_DATA, U64F64 } from '../utils/programLayouts';
+import { FUND_DATA, FUND_PDA_DATA, INVESTOR_DATA, PLATFORM_DATA, SPL_TOKEN_MINT_DATA, U64F64 } from '../utils/programLayouts';
 import { Badge } from 'reactstrap';
 import BN from 'bn.js';
 import { Card, Col, Row ,Table} from 'reactstrap';
@@ -26,7 +26,7 @@ export const AllFundsInvestors = () => {
   useEffect(  ()=> {
     (async () => {
       const platformDataAcc = await connection.getAccountInfo(platformStateAccount)
-      if(!platformDataAcc){
+      if(!platformDataAcc) {
         alert('platform state not initilaized');
         return;
       }
@@ -40,7 +40,7 @@ export const AllFundsInvestors = () => {
         //  Object.keys(TOKENS).find(mt => TOKENS[mt]?.mintKey === t.mint.toBase58())
 
         let t = []; 
-        if(platformTokens?.length){
+        if(platformTokens?.length) {
           t = platformTokens.map( (i) => {
             return {
                symbol: ((tokensStatic).find( k => k.mintAddress ===i.mint.toBase58()))?.symbol ?? 'NONE',
@@ -82,7 +82,13 @@ export const AllFundsInvestors = () => {
 
   const handleGetAllFunds = async () => {
     const managers = []
-    const allFunds = await connection.getProgramAccounts(programId, { filters: [{ dataSize: FUND_DATA.span }] });
+    const allFunds = await connection.getProgramAccounts(programId, { filters: [
+      { dataSize: FUND_DATA.span },
+      //  {
+      //   memcmp: { offset: FUND_PDA_DATA.offsetOf('number_of_active_investments'), bytes: '3' }
+      // }
+    ] });
+    console.log("allFunds::",allFunds)
 
     // let fundsWithIVNAmt = [];
 
