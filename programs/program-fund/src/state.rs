@@ -61,7 +61,8 @@ pub struct PlatformData {
     pub no_of_active_funds: u8,
     // running count of tokens in whitelist
     pub token_count: u8,
-    pub padding: [u8; 3],
+    pub padding: u8,
+    pub total_v3_funds: u16,
 
     // PDA of router
     pub router: Pubkey,
@@ -165,7 +166,8 @@ pub struct FundAccount {
     /// version info
     pub version: u8,
     pub is_private: bool,
-    pub padding: [u8; 6],
+    pub fund_v3_index: u16,
+    pub padding: [u8; 4],
 
     /// Minimum Amount
     pub min_amount: u64,
