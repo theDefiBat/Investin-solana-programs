@@ -220,6 +220,8 @@ export const AdminControl = () => {
       <Col lg="6" xs="6">
       <h4>Platform State </h4>
       <p>version : {platformData?.version}</p>
+      <p>total_v3_funds : {platformData?.total_v3_funds}</p>
+
         <p>investin_admin : {platformData?.investin_admin?.toBase58()}</p>
         <p>investin_vault : {platformData?.investin_vault?.toBase58()}</p>
         <p>router : {platformData?.router?.toBase58()}</p>

@@ -126,6 +126,9 @@ export const PLATFORM_DATA = struct([
   u8('token_count'),
   seq(u8(), 3, 'padding'),
 
+  // u16('total_v3_funds'),
+  // u8('padding'),
+
   publicKeyLayout('router'),
   publicKeyLayout('investin_admin'),
   publicKeyLayout('investin_vault'),
@@ -318,7 +321,8 @@ export const FUND_PDA_DATA = struct([
 
   u8('version'),
   u8('is_private'),
-  seq(u8(), 6, 'padding'),
+  u16('fund_v3_index'),
+  seq(u8(), 4, 'padding'),
 
   u64('min_amount'),
   U64F64('min_return'),

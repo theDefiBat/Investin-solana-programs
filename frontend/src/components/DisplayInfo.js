@@ -396,6 +396,9 @@ const getMangoAccountData = async () => {
             fundPDAData && 
             <>
             <h4>FUND PDA STATE</h4>
+            
+            <p> fund_v3_index : {fundPDAData.fund_v3_index}</p>
+            
             <p> number_of_active_investments : {fundPDAData.number_of_active_investments}</p>
             <p> no_of_investments : {fundPDAData.no_of_investments}</p>
 

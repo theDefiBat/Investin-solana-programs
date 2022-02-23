@@ -1,7 +1,7 @@
 import { PublicKey, SYSVAR_CLOCK_PUBKEY, Transaction, TransactionInstruction } from '@solana/web3.js';
 import React, { useState } from 'react'
 import { GlobalState } from '../store/globalState';
-import { adminAccount, priceStateAccount, connection, programId, TOKEN_PROGRAM_ID, FUND_ACCOUNT_KEY, idsIndex, SYSTEM_PROGRAM_ID } from '../utils/constants';
+import { adminAccount, priceStateAccount, connection, programId, TOKEN_PROGRAM_ID, FUND_ACCOUNT_KEY, idsIndex, SYSTEM_PROGRAM_ID, platformStateAccount } from '../utils/constants';
 import { nu64, struct, u8 } from 'buffer-layout';
 import { findAssociatedTokenAddress, signAndSendTransaction, createAssociatedTokenAccountIfNotExist } from '../utils/web3';
 import { TEST_TOKENS } from '../utils/tokens'
@@ -53,14 +53,21 @@ export const MigrateState = () => {
         const dataLayout = struct([u8('instruction')])
         const data = Buffer.alloc(dataLayout.span)
         dataLayout.encode({instruction: 27},data)
+
+        const keys = [
+        {pubkey: platformStateAccount, isSigner: false, isWritable: true },
+        {pubkey: key, isSigner: true, isWritable: true },
+        {pubkey: fundPDA[0], isSigner: false, isWritable:true},
+        {pubkey: fundStateAccount, isSigner: false, isWritable: true},
+        {pubkey: SYSTEM_PROGRAM_ID, isSigner: false, isWritable: true},
+      ]
+
+      for(let i=0; i<keys.length;i++) {
+        console.log("key:",i, keys[i].pubkey.toBase58())
+      }
         
         const migrate_instruction = new TransactionInstruction({
-          keys: [
-            {pubkey: key, isSigner: true, isWritable: true },
-            {pubkey: fundPDA[0], isSigner: false, isWritable:true},
-            {pubkey: fundStateAccount, isSigner: false, isWritable: true},
-            {pubkey: SYSTEM_PROGRAM_ID, isSigner: false, isWritable: true},
-          ],
+          keys,
           programId,
           data
         });
@@ -75,7 +82,7 @@ export const MigrateState = () => {
         console.log("tx perf: ", sign)
         console.log("signature tx url:: ", `https://solscan.io/tx/${sign}`) 
   }
-    
+ 
 
 
     return (
