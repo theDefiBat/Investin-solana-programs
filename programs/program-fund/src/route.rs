@@ -1,5 +1,10 @@
 use bytemuck::bytes_of;
 use arrayref::{array_ref, array_refs};
+use fixed::types::U64F64;
+use fixed_macro::types::U64F64;
+use std::convert::TryInto;
+use std::convert::TryFrom;
+
 
 use solana_program::{
     account_info::{AccountInfo, next_account_info},
@@ -230,8 +235,8 @@ pub fn set_swap_guard(
     let source_token_ai = next_account_info(accounts_iter)?;
     let dest_token_ai = next_account_info(accounts_iter)?;
 
-    let oracle_ai = next_account_info(accounts_iter)?;
-    let oracle_ai_opt = next_account_info(accounts_iter)?;
+    let input_oracle_ai = next_account_info(accounts_iter)?;
+    let output_oracle_ai = next_account_info(accounts_iter)?;
 
     let hop_token_ai = next_account_info(accounts_iter)?;
     let mut fund_data = FundAccount::load_mut_checked(fund_pda_ai, program_id)?;
@@ -243,10 +248,13 @@ pub fn set_swap_guard(
     let platform_data = PlatformData::load_checked(platform_ai, program_id)?;
     let source_token_data = parse_token_account(source_token_ai)?;
     check_eq!(source_token_data.owner, *fund_pda_ai.key);
-    check_eq!(source_token_data.mint, platform_data.token_list[fund_data.tokens[token_in_fund_slot as usize].index[0] as usize].mint);
+    let source_token_info = platform_data.token_list[fund_data.tokens[token_in_fund_slot as usize].index[fund_data.tokens[token_in_fund_slot as usize].mux as usize] as usize];
+    check_eq!(source_token_data.mint, source_token_info.mint);
     let dest_token_data = parse_token_account(dest_token_ai)?;
     check_eq!(dest_token_data.owner, *fund_pda_ai.key);
-    check_eq!(dest_token_data.mint, platform_data.token_list[fund_data.tokens[token_out_fund_slot as usize].index[0] as usize].mint);
+    let dest_token_info = platform_data.token_list[fund_data.tokens[token_out_fund_slot as usize].index[fund_data.tokens[token_in_fund_slot as usize].mux as usize] as usize];
+    check_eq!(dest_token_data.mint, dest_token_info.mint);
+
     msg!("TA checked");
     if *hop_token_ai.key != Pubkey::default() {
         fund_data.guard.hop = 2;
@@ -259,20 +267,41 @@ pub fn set_swap_guard(
     }
     msg!("HTA checked");
 
+
     // TODO: add oracle decoding to get minAmountOut
-    // let feed_result_1 = AggregatorAccountData::new(oracle_ai)?.get_result()?;
+
+    let input_value: U64F64 = if token_in_fund_slot != 0 {
+        let input_feed = AggregatorAccountData::new(input_oracle_ai)?.get_result()?;
+        let input_price = U64F64::from_num(input_feed.mantissa as u64).checked_div(U64F64::from_num(10u64.pow(input_feed.scale))).unwrap();
+        msg!("input price {:?}", input_price);
+        input_price.checked_mul(U64F64::from_num(amount_in)).unwrap()
+            .checked_div(U64F64::from_num(10u64.pow(source_token_info.decimals.try_into().unwrap()))).unwrap()
+    } else {
+        U64F64::from_num(amount_in.checked_div(10u64.pow(6)).unwrap())
+    };
+
+    let output_value: U64F64 = if token_out_fund_slot != 0 {
+        let output_feed = AggregatorAccountData::new(output_oracle_ai)?.get_result()?;
+        let output_price = U64F64::from_num(output_feed.mantissa as u64).checked_div(U64F64::from_num(10u64.pow(output_feed.scale))).unwrap();
+        msg!("output price {:?}", output_price);
+        input_value.checked_div(output_price).unwrap()
+        // output_price.checked_mul(U64F64::from_num(amount_in)).unwrap()
+        //     .checked_div(U64F64::from_num(10u64.pow(dest_token_info.decimals.checked_sub(6).unwrap()))).unwrap()
+    } else {
+        input_value
+    };
 
     // TODO
     fund_data.guard.amount_in = amount_in;
-    fund_data.guard.min_amount_out = 0;
-
+    fund_data.guard.min_amount_out = U64F64::to_num(output_value.checked_mul(U64F64::from_num(10u64.pow(dest_token_info.decimals.try_into().unwrap()))).unwrap().checked_mul(U64F64!(0.95)).unwrap()); // 5% sllipage allowed from oracle price
     fund_data.guard.is_active = true;
     fund_data.guard.token_in = *source_token_ai.key; 
     fund_data.guard.token_out = *dest_token_ai.key;
     // fund_data.guard.token_hop = *hop_token_ai.key;
     fund_data.guard.token_in_slot = token_in_fund_slot;
     fund_data.guard.token_out_slot = token_out_fund_slot;
-    msg!("Done guard_amount_in {:?}", fund_data.guard.amount_in);
+    msg!("amount_in {:?}, min_aount_out {:?}", fund_data.guard.amount_in, fund_data.guard.min_amount_out);
+
 
     
     Ok(())

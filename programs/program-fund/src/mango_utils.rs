@@ -714,7 +714,7 @@ pub fn mango_withdraw_investor(
     let open_orders_accs = [Pubkey::default(); MAX_PAIRS];
     let usdc_quantity:u64 =  U64F64::to_num(investor_data.margin_debt[0]);
     msg!("usdc {:?}", usdc_quantity);
-
+    drop(fund_data);
     if usdc_quantity > 0 {
         invoke_signed(
             &withdraw(mango_prog_ai.key, mango_group_ai.key, mango_account_ai.key, fund_account_ai.key,
@@ -734,7 +734,7 @@ pub fn mango_withdraw_investor(
                 default_ai.clone(),
                 token_prog_ai.clone()
             ],
-            &[&[&manager_account.as_ref(), bytes_of(&nonce)]]
+            &[&[bytes_of(&manager_account), bytes_of(&nonce)]]
         )?;
     }
 
