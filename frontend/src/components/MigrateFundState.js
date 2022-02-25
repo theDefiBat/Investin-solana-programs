@@ -23,14 +23,17 @@ export const MigrateState = () => {
     const handleMigrate = async () => {
     
         const key = walletProvider?.publicKey;
+        const managerPubkey = new PublicKey('Gyj8YbcA1vENNzhYdtGmJCFi4DELeUCEjhhontbmqZQk');
         
-        const fundPDA = await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId);
+        const fundPDA = await PublicKey.findProgramAddress([managerPubkey.toBuffer()], programId);
         const fundStateAccount = await PublicKey.createWithSeed(
-          key,
+          managerPubkey,
           FUND_ACCOUNT_KEY,
           programId,
         );
+        console.log("Manager:: ", managerPubkey.toBase58())
         console.log("FUND fundStateAccount:: ", fundStateAccount.toBase58())
+        console.log("FUND PDA:: ", fundPDA[0].toBase58())
 
         let x = await connection.getAccountInfo(fundStateAccount)
         if (x == null)
