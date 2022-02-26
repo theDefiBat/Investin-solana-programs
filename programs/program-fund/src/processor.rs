@@ -26,7 +26,6 @@ use crate::error::FundError;
 use crate::instruction::{FundInstruction, Data};
 use crate::state::{NUM_TOKENS, MAX_INVESTORS, NUM_PERP, FundData, FundAccount, InvestorData, PlatformData};
 use crate::mango_utils::*;
-use crate::route::*;
 use crate::tokens::*;
 use mango::state::{MangoAccount, MangoGroup, MangoCache, PerpMarket, MAX_TOKENS, MAX_PAIRS, QUOTE_INDEX};
 use mango::instruction::{ cancel_all_perp_orders, withdraw, place_perp_order, consume_events };
@@ -232,61 +231,67 @@ impl Fund {
     pub fn migrate_fs(
         program_id: &Pubkey,
         accounts: &[AccountInfo],
+        count: u8
     ) -> Result<(), ProgramError> {
         
         let accounts_iter = &mut accounts.iter();
         let platform_ai = next_account_info(accounts_iter)?;
-        let manager_ai = next_account_info(accounts_iter)?;
-        let pda_ai = next_account_info(accounts_iter)?;
-        let fund_state_ai = next_account_info(accounts_iter)?;
+        let fee_payer_ai = next_account_info(accounts_iter)?;
         let system_program_ai = next_account_info(accounts_iter)?;
-        let mut fund_data = FundData::load_mut_checked(&fund_state_ai, &program_id)?;
-
         let mut platform_data = PlatformData::load_mut_checked(&platform_ai, &program_id)?;
-        platform_data.total_v3_funds = platform_data.total_v3_funds.checked_add(1).unwrap();
-        // msg!("FundState Data: {:?}", fund_data);
-        // let (pda, nonce) = Pubkey::find_program_address(&[&*manager_ai.key.as_ref()], program_id);
-        check_eq!(fund_data.fund_pda, *pda_ai.key);
-        // check_eq!(*manager_ai.key)
-        let rent = Rent::get()?;        
-        let fund_pda_size = size_of::<FundAccount>();
+        
+        
+        for i in 0..count {
+            let pda_ai = next_account_info(accounts_iter)?;
+            let fund_state_ai = next_account_info(accounts_iter)?;
+            let mut fund_data = FundData::load_mut_checked(&fund_state_ai, &program_id)?;
+    
+            platform_data.total_v3_funds = platform_data.total_v3_funds.checked_add(1).unwrap();
+            
+    
+            check_eq!(fund_data.fund_pda, *pda_ai.key);
+            // check_eq!(*manager_ai.key)
+            let rent = Rent::get()?;        
+            let fund_pda_size = size_of::<FundAccount>();
+    
+            invoke_signed(
+                &create_account(
+                    &fee_payer_ai.key,
+                    &pda_ai.key,
+                    rent.minimum_balance(fund_pda_size).max(1),
+                    fund_pda_size as u64,
+                    &program_id,
+                ),
+                &[fee_payer_ai.clone(), pda_ai.clone(), system_program_ai.clone()],
+                &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
+            )?;
+            fund_data.version = 3;
+            let mut fund_pda_data = FundAccount::load_mut_checked(&pda_ai, &program_id)?;
+            fund_pda_data.amount_in_router = fund_data.amount_in_router;
+            fund_pda_data.fund_pda = fund_data.fund_pda;
+            fund_pda_data.guard = fund_data.guard;
+            fund_pda_data.investors = fund_data.investors;
+            fund_pda_data.is_initialized = fund_data.is_initialized;
+            fund_pda_data.is_private = fund_data.is_private;
+            fund_pda_data.manager_account = fund_data.manager_account;
+            fund_pda_data.mango_positions = fund_data.mango_positions;
+            fund_pda_data.min_amount = fund_data.min_amount;
+            fund_pda_data.min_return = fund_data.min_return;
+            fund_pda_data.no_of_assets = fund_data.no_of_assets;
+            fund_pda_data.no_of_investments = fund_data.no_of_investments;
+            fund_pda_data.no_of_margin_positions = fund_data.no_of_margin_positions;
+            fund_pda_data.number_of_active_investments = fund_data.number_of_active_investments;
+            fund_pda_data.performance_fee = fund_data.performance_fee;
+            fund_pda_data.performance_fee_percentage = fund_data.performance_fee_percentage;
+            fund_pda_data.position_count = fund_data.position_count;
+            fund_pda_data.prev_performance = fund_data.prev_performance;
+            fund_pda_data.signer_nonce = fund_data.signer_nonce;
+            fund_pda_data.tokens = fund_data.tokens;
+            fund_pda_data.total_amount = fund_data.total_amount;
+            fund_pda_data.version = fund_data.version;
+            fund_pda_data.fund_v3_index = platform_data.total_v3_funds;
 
-        invoke_signed(
-            &create_account(
-                &manager_ai.key,
-                &pda_ai.key,
-                rent.minimum_balance(fund_pda_size).max(1),
-                fund_pda_size as u64,
-                &program_id,
-            ),
-            &[manager_ai.clone(), pda_ai.clone(), system_program_ai.clone()],
-            &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
-        )?;
-        fund_data.version = 3;
-        let mut fund_pda_data = FundAccount::load_mut_checked(&pda_ai, &program_id)?;
-        fund_pda_data.amount_in_router = fund_data.amount_in_router;
-        fund_pda_data.fund_pda = fund_data.fund_pda;
-        fund_pda_data.guard = fund_data.guard;
-        fund_pda_data.investors = fund_data.investors;
-        fund_pda_data.is_initialized = fund_data.is_initialized;
-        fund_pda_data.is_private = fund_data.is_private;
-        fund_pda_data.manager_account = fund_data.manager_account;
-        fund_pda_data.mango_positions = fund_data.mango_positions;
-        fund_pda_data.min_amount = fund_data.min_amount;
-        fund_pda_data.min_return = fund_data.min_return;
-        fund_pda_data.no_of_assets = fund_data.no_of_assets;
-        fund_pda_data.no_of_investments = fund_data.no_of_investments;
-        fund_pda_data.no_of_margin_positions = fund_data.no_of_margin_positions;
-        fund_pda_data.number_of_active_investments = fund_data.number_of_active_investments;
-        fund_pda_data.performance_fee = fund_data.performance_fee;
-        fund_pda_data.performance_fee_percentage = fund_data.performance_fee_percentage;
-        fund_pda_data.position_count = fund_data.position_count;
-        fund_pda_data.prev_performance = fund_data.prev_performance;
-        fund_pda_data.signer_nonce = fund_data.signer_nonce;
-        fund_pda_data.tokens = fund_data.tokens;
-        fund_pda_data.total_amount = fund_data.total_amount;
-        fund_pda_data.version = fund_data.version;
-        fund_pda_data.fund_v3_index = platform_data.total_v3_funds;
+        }
     
         Ok(())
     }
@@ -954,7 +959,7 @@ impl Fund {
         let platform_data = PlatformData::load_checked(platform_ai, program_id)?;
         // check if manager signed the tx
         check!(manager_ai.is_signer, FundError::IncorrectSignature);
-        check_eq!(fund_data.manager_account, *manager_ai.key);
+        check!(fund_data.manager_account == *manager_ai.key, FundError::ManagerMismatch);
         let (perp_pnl, usdc_deposits) = get_mango_valuation(
             &fund_data,
             &mango_account_ai,
@@ -976,7 +981,7 @@ impl Fund {
 
         let performance_fee_investin: u64 = U64F64::to_num(U64F64::from_num(fund_data.performance_fee)
         .checked_div(U64F64::from_num(10)).unwrap());
-        check_eq!(platform_data.investin_vault, *investin_btoken_ai.key);
+        check!(platform_data.investin_vault == *investin_btoken_ai.key, FundError::InvalidTokenAccount);
         let nonce = fund_data.signer_nonce;
         let transfer_instruction = spl_token::instruction::transfer(
             token_prog_ai.key,
@@ -1309,27 +1314,9 @@ impl Fund {
                 msg!("FundInstruction::FlushDebts");
                 return Self::flush_debts(program_id, accounts, index, count);
             }
-            FundInstruction::RouteTxn => {
-                msg!("FundInstruction::RouteTx");
-                let (&_op, op_data) = array_refs![data, 1; ..;];
-                return route(program_id, accounts, op_data);
-            }
-            FundInstruction::Route2Txn => {
-                msg!("FundInstruction::Route2dTx");
-                let (&_op, op_data) = array_refs![data, 1; ..;];
-                return route2(program_id, accounts, op_data);
-            }
-            FundInstruction::SetSwapGuard {token_in_fund_slot, token_out_fund_slot, amount_in} => {
-                msg!("FundInstruction::SwapGuard");
-                return set_swap_guard(program_id, accounts, token_in_fund_slot, token_out_fund_slot, amount_in);
-            }
-            FundInstruction::CheckSwapGuard => {
-                msg!("FundInstruction::CheckSwapGuard");
-                return check_swap_guard(program_id, accounts);
-            }
-            FundInstruction::MigrateFundState => {
+            FundInstruction::MigrateFundState {count} => {
                 msg!("FundInstruction::MigrateFundState");
-                return Self::migrate_fs(program_id, accounts)
+                return Self::migrate_fs(program_id, accounts, count);
             }
         }
     }
@@ -1635,11 +1622,12 @@ pub fn swap_instruction_orca(
             let dest_info = parse_token_account(user_dest)?;
             
             Ok((source_info, dest_info))
-        }
-        pub fn get_share(
-            fund_data: &mut FundAccount,
-            investor_data: &mut InvestorData,
-        ) -> Result<U64F64, ProgramError> {
+    }
+
+pub fn get_share(
+    fund_data: &mut FundAccount,
+    investor_data: &mut InvestorData,
+) -> Result<U64F64, ProgramError> {
     let perf_share = U64F64::from_num(fund_data.prev_performance)
     .checked_div(U64F64::from_num(investor_data.start_performance)).unwrap();
 

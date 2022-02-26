@@ -366,18 +366,9 @@ pub enum FundInstruction {
         index: u8,
         count: u8
     },
-
-    SetSwapGuard {
-        token_in_fund_slot: u8, 
-        token_out_fund_slot: u8,
-        amount_in: u64
+    MigrateFundState {
+        count: u8
     },
-
-    RouteTxn,
-    Route2Txn,
-
-    CheckSwapGuard,
-    MigrateFundState,
 }
 
 
@@ -598,35 +589,13 @@ impl FundInstruction {
                     index: u8::from_le_bytes(*index),
                     count: u8::from_le_bytes(*count)
                 }
-            }
-
-            23 => {
-                FundInstruction::RouteTxn
-            }
-            24 => {
-                FundInstruction::Route2Txn
-            }
-
-            25 => {
-                let data = array_ref![data, 0, 1 + 1 + 8];
-                let (
-                    token_in_fund_slot,
-                    token_out_fund_slot,
-                    amount_in
-                ) = array_refs![data, 1, 1, 8]; 
-                FundInstruction::SetSwapGuard{
-                    token_in_fund_slot: u8::from_le_bytes(*token_in_fund_slot),
-                    token_out_fund_slot: u8::from_le_bytes(*token_out_fund_slot),
-                    amount_in: u64::from_le_bytes(*amount_in)
-                }
-            }
-
-            26 => {
-                FundInstruction::CheckSwapGuard
-            }
+            },
             
-            27 => {
-                FundInstruction::MigrateFundState
+            23 => {
+                let count = array_ref![data, 0, 1];
+                FundInstruction::MigrateFundState {
+                    count: u8::from_le_bytes(*count)
+                }
             }
             _ => { return None; }
         })
