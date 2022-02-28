@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { createAssociatedTokenAccount, createAssociatedTokenAccountIfNotExist, createKeyIfNotExists, createTokenAccountIfNotExist, findAssociatedTokenAddress, setWalletTransaction, signAndSendTransaction } from '../utils/web3'
-import { connection, FUND_ACCOUNT_KEY, idsIndex, platformStateAccount, PLATFORM_ACCOUNT_KEY, programId } from '../utils/constants'
+import { connection, FUND_ACCOUNT_KEY, idsIndex, platformStateAccount, PLATFORM_ACCOUNT_KEY, programId, SYSTEM_PROGRAM_ID } from '../utils/constants'
 import { GlobalState } from '../store/globalState';
 import { PublicKey, Transaction, TransactionInstruction } from '@solana/web3.js';
 import { TOKEN_PROGRAM_ID } from '@project-serum/serum/lib/token-instructions';
@@ -9,7 +9,7 @@ import { Badge } from 'reactstrap';
 import BN from 'bn.js';
 import { Card, Col, Row ,Table} from 'reactstrap';
 import { Blob, seq, struct, u32, u8, u16, ns64 ,nu64} from 'buffer-layout';
-import { IDS } from '@blockworks-foundation/mango-client';
+import { IDS, sleep } from '@blockworks-foundation/mango-client';
 import { TOKENS } from '../utils/tokens';
 const ids= IDS['groups'][idsIndex];
 
@@ -18,6 +18,8 @@ export const AllFundsInvestors = () => {
 
   const [investments, setInvestments] = useState([])
   const [funds, setFunds] = useState([])
+  const [oldFunds, setOldFunds] = useState([])
+
   const [tokenList, setTokenList] = useState([]) 
 
   const walletProvider = GlobalState.useState(s => s.walletProvider);
@@ -58,76 +60,25 @@ export const AllFundsInvestors = () => {
     
   },[walletProvider])
 
-  const handleGetAllInvestments = async () => {
+  
 
-    //  const userkey = new PublicKey('zRzdC1b2zJte4rMjfaSFZwbnBfL1kNYaTAF4UC4bqpx');
-    let investments = await connection.getProgramAccounts(programId, { filters: [
-      { dataSize: INVESTOR_DATA.span },
-      // {
-      //   memcmp: { offset: INVESTOR_DATA.offsetOf('owner'), bytes: walletProvider.key.toBase58() }
-      // }
-    ] });
-    // console.log("investments::",investments)
-    const newInvestors = []
-    for (const investment of investments) {
-      const invStateData = INVESTOR_DATA.decode(investment.account.data)
-      invStateData['ivnStatePubKey'] = investment.pubkey;
-    //   if (invStateData.is_initialized && invStateData.owner.toBase58() == key.toBase58()) {
-        newInvestors.push(invStateData)
-    //   }
-    }
-    console.log("newInvestors::",newInvestors)
-    setInvestments(newInvestors);
-  }
-
-  const handleGetAllFunds = async () => {
+  const handleGetAllMigratedFunds = async () => {
     const managers = []
     const allFunds = await connection.getProgramAccounts(programId, { filters: [
-      { dataSize: FUND_DATA.span },
+      { dataSize: FUND_PDA_DATA.span },
       //  {
       //   memcmp: { offset: FUND_PDA_DATA.offsetOf('number_of_active_investments'), bytes: '3' }
       // }
     ] });
-    console.log("allFunds::",allFunds)
-
-    // let fundsWithIVNAmt = [];
-
+    console.log("-------1)-AllMigratedFunds nondecoded::",allFunds)
     for (const data of allFunds) {
-        const decodedData = FUND_DATA.decode(data.account.data);
-
+        const decodedData = FUND_PDA_DATA.decode(data.account.data);
         // const PDA_balance  = await connection.getBalance(decodedData.fund_pda, "max");
         // console.log("PDA_balance:",PDA_balance)
-        
-        //to get funds with non-zero IVN holdings
-        // for (let j =0 ; j<decodedData?.tokens.length; j++){
-        //   let i = decodedData?.tokens[j];
-        //   if(i.vault.toBase58() === '11111111111111111111111111111111')
-        //    continue;
-        //   const vault_info = await connection.getAccountInfo(i.vault);
-        //   if(!vault_info)
-        //    continue;
-        //   const token_data = SPL_TOKEN_MINT_DATA.decode(vault_info?.data);
-         
-        //   if(token_data?.mint_authority?.toBase58()==='iVNcrNE9BRZBC9Aqf753iZiZfbszeAVUoikgT9yvr2a'){
-        //     const ivnBalance = await connection.getTokenAccountBalance(i.vault, "max");
-        //     if(Number(ivnBalance.value.uiAmount) >0){
-        //         console.log("balance::",(ivnBalance.value.uiAmount));
-        //         fundsWithIVNAmt.push({  
-        //           //  fundState : decodedData,
-        //             fundPDA: decodedData.fund_pda.toBase58(),
-        //             fundManager: decodedData.manager_account.toBase58(),
-        //             fundStateAccount: data.pubkey.toBase58(),
-        //             ivnBalance : (ivnBalance.value.uiAmount), 
-        //             ivnVault : i.vault.toBase58()
-        //         })
-        //      }
-        //   }
-        // }
-       
 
-        // if (decodedData.is_initialized) {
-            // const { updatedPerformance, currentAum } = await getPerformance(mapTokens(platformData.token_list, decodedData.tokens), prices, (decodedData.prev_performance), decodedData.total_amount, (await fundMarginData(decodedData))?.balance ?? 0)
+       
             managers.push({
+                fund_v3_index : decodedData.fund_v3_index,
                 fundState : decodedData,
                 fundPDA: decodedData.fund_pda.toBase58(),
                 fundManager: decodedData.manager_account.toBase58(),
@@ -135,91 +86,129 @@ export const AllFundsInvestors = () => {
                 // PDA_balance : PDA_balance,
                 // fundName: decodedData.fund_pda.toBase58(),
                 // totalAmount: (new TokenAmount(decodedData.total_amount, ids.tokens[0].decimals)).toEther().toNumber(),
-                // currentPerformance: decodedData.number_of_active_investments == 0 ?
-                //     (decodedData.prev_performance - 1) * 100
-                //     : updatedPerformance,
-                // currentAum,
-                // minAmount: (new TokenAmount(decodedData.min_amount.toNumber(), ids.tokens[0].decimals)).toEther().toNumber()
             });
-        // }
     }
-    console.log("managers:",managers);
-
-    // console.error("fundsWithIVNAmt:",fundsWithIVNAmt);
+    console.log("-----2) AllMigratedFunds Decoded PDA funds:",managers);
 
     setFunds(managers);
   }
 
+  const handleGetAllNonMigratedFunds = async () => {
+    const managers = []
+    const allFunds = await connection.getProgramAccounts(programId, { filters: [
+      { dataSize: FUND_DATA.span },
+      //  {
+      //   memcmp: { offset: FUND_PDA_DATA.offsetOf('number_of_active_investments'), bytes: '3' }
+      // }
+    ] });
+    console.log("-----1) All OLD FUND_STATE Funds nodecoded::",allFunds)
+  
+    for (const data of allFunds) {
+         const decodedData = FUND_DATA.decode(data.account.data);
+
+        //  const PDA_balance  = await connection.getBalance(decodedData.fund_pda, "max");
+        //  console.log("PDA_balance:",PDA_balance)
+
+        if (decodedData.is_initialized && decodedData.version!==3) {
+            managers.push({
+                fund_v3_index : decodedData.fund_v3_index,
+                fundState : decodedData,
+                fundPDA: decodedData.fund_pda.toBase58(),
+                fundManager: decodedData.manager_account.toBase58(),
+                fundStateAccount: data.pubkey.toBase58(),
+                // PDA_balance : PDA_balance,
+                // fundName: decodedData.fund_pda.toBase58(),
+                // totalAmount: (new TokenAmount(decodedData.total_amount, ids.tokens[0].decimals)).toEther().toNumber(),
+            });
+        } else {
+          // console.log("fund is_initialized false",decodedData?.fundPDA?.toBase58(), decodedData)
+        }
+    }
+    console.log("------2) OLD funds decoded:",managers);  
+    setOldFunds(managers);
+  }
+
+  const handleMigrate = async () => {
+
+  
+
+   console.log("---calling migrate")
+
+    if( oldFunds.length==0){
+      alert("first get funds")
+      return;
+    }
+  
+      const key = walletProvider?.publicKey;
+      if (!key) {
+        alert("connect wallet")
+        return;
+      };
+
+      const fundStateAndPDAS = []
+      for(let i=0;i<2;i++){
+        fundStateAndPDAS.push({pubkey: new PublicKey(oldFunds[i].fundPDA), isSigner: false, isWritable: true })
+        fundStateAndPDAS.push({pubkey: new PublicKey(oldFunds[i].fundStateAccount), isSigner: false, isWritable: true })
+      }
+    
+      
+
+      const transaction = new Transaction()
+      const dataLayout = struct([u8('instruction'),u8('count')])
+      const data = Buffer.alloc(dataLayout.span)
+      dataLayout.encode({
+        instruction: 23,
+        count : 2
+      },data)
+
+      
+      
+      const keys = [
+      {pubkey: platformStateAccount, isSigner: false, isWritable: true },
+      {pubkey: key, isSigner: true, isWritable: true },
+      {pubkey: SYSTEM_PROGRAM_ID, isSigner: false, isWritable: true},
+
+      // {pubkey: fundPDA[0], isSigner: false, isWritable:true},
+      // {pubkey: fundStateAccount, isSigner: false, isWritable: true},
+      ...fundStateAndPDAS
+    ]
+
+    for(let i=0; i<keys.length;i++) {
+      console.log("key:",i, keys[i].pubkey.toBase58())
+    }
+      
+      const migrate_instruction = new TransactionInstruction({
+        keys,
+        programId,
+        data
+      });
+  
+      transaction.add(migrate_instruction);
+      transaction.feePayer = key;
+      let hash = await connection.getRecentBlockhash();
+      console.log("blockhash", hash);
+      transaction.recentBlockhash = hash.blockhash;
+
+      const sign = await signAndSendTransaction(walletProvider, transaction);
+      console.log("tx perf: ", sign)
+      console.log("signature tx url:: ", `https://solscan.io/tx/${sign}`) 
+
+      await sleep(20000)
+      await handleGetAllNonMigratedFunds()
+}
+
   return (
     <div className="form-div">
-       <Card className="justify-content-center">
+       <Card className="justify-content-center" >
       
-      <h4>Investments</h4>
-      <button onClick={handleGetAllInvestments}> get All Investments</button>
-
-      <Table 
-        className="tablesorter"
-        responsive
-        width="100%"
-        style={{ overflow: 'hidden !important', textAlign: 'center' }}
-        >
-            <thead className="text-primary">
-                            <tr>
-                              <th style={{ width: "15%" }}>index</th>
-                              <th style={{ width: "15%" }}>ivnStatePubKey</th>
-                              <th style={{ width: "15%" }}>manager</th>
-                              <th style={{ width: "15%" }}>owner</th>
-                              <th style={{ width: "15%" }}>amount</th>
-                              <th style={{ width: "15%" }}>amount_in_router</th>
-                              <th style={{ width: "15%" }}>start_performance</th>
-                              <th style={{ width: "15%" }}>is_initialized</th>
-                              <th style={{ width: "15%" }}>has_withdrawn</th>
-                              <th style={{ width: "15%" }}>withdrawn_from_margin</th>
-
-                              <th style={{ width: "15%" }}>margin_debt</th>
-                              <th style={{ width: "15%" }}>margin_position_id</th>
-                              <th style={{ width: "15%" }}>8TokensIndexsAndDebts</th>
-
-                            </tr>
-                          </thead>
-
-
-        <tbody>
-          {
-            investments && 
-
-            investments.map((i,x)=>{
-               return <tr key={i?.ivnStatePubKey?.toBase58()}>
-                 <td >{x}</td>
-                 <td >{i?.ivnStatePubKey?.toBase58()}</td>
-                 <td >{i?.manager?.toBase58()}</td>
-                 <td >{i?.owner?.toBase58()}</td>
-                 <td>{i?.amount?.toString()/10**6}</td>
-                 <td>{i?.amount_in_router?.toString()/10**6}</td>
-                 <td>{i?.start_performance?.toString()}</td>
-
-                 <td>{i?.is_initialized}</td>
-                 <td>{i?.has_withdrawn}</td>
-                 <td>{i?.withdrawn_from_margin}</td>
-
-                 <td>{`${i?.margin_debt[0]} <==>  ${i?.margin_debt[1]}`}</td>
-                 <td>{`${i?.margin_position_id[0]} <==>  ${i?.margin_position_id[1]}`}</td>
-
-                 <td>8TokensIndexsAndDebts</td>
-               </tr>
-            })
-          }
-            </tbody>
-          </Table>
-
-     
-     
-      
+       <h4>Migrate State </h4>          <button onClick={handleMigrate}>Migrate</button>
+          <br />
+    
       <h4>Funds</h4>
       
-      <button onClick={handleGetAllFunds}> get All Funds</button>
+      <button onClick={handleGetAllMigratedFunds}> get All Migrated Funds</button>
 
-      <Table 
+         <Table 
         className="tablesorter"
         responsive
         // width="100%"
@@ -228,6 +217,7 @@ export const AllFundsInvestors = () => {
             <thead className="text-primary">
                             <tr>
                               <th style={{ width: "15%" }}>index</th>
+                              <th style={{ width: "15%" }}>fund_v3_index</th>
                               <th style={{ width: "15%" }}>fundManager</th>
                               <th style={{ width: "15%" }}>fundPDA</th>
                               <th style={{ width: "15%" }}>fundStateAccount</th>
@@ -245,6 +235,7 @@ export const AllFundsInvestors = () => {
             funds.map((i,x)=>{
                return <tr key={x}>
                  <td >{x}</td>
+                 <td >{i?.fund_v3_index}</td>
                  <td >{i?.fundManager}</td>
                  <td >{i?.fundPDA}</td>
                  <td >{i?.fundStateAccount}</td>
@@ -258,9 +249,9 @@ export const AllFundsInvestors = () => {
             </tbody>
           </Table>
 
-          <hr/>
-          <h2> PLATFORM TOKENS</h2>
-      <Table 
+          <button onClick={handleGetAllNonMigratedFunds}> get All OLD Funds</button>
+
+        <Table 
         className="tablesorter"
         responsive
         // width="100%"
@@ -269,38 +260,38 @@ export const AllFundsInvestors = () => {
             <thead className="text-primary">
                             <tr>
                               <th style={{ width: "15%" }}>index</th>
-                              <th style={{ width: "15%" }}>symbol</th>
-                              <th style={{ width: "15%" }}>mintAddress</th>
-                              <th style={{ width: "15%" }}>decimals</th>
-                              <th style={{ width: "15%" }}>pool_coin_account</th>
-                              <th style={{ width: "15%" }}>pool_pc_account</th>
-                              <th style={{ width: "15%" }}>pool_price</th>
-
+                              <th style={{ width: "15%" }}>fund_v3_index</th>
+                              <th style={{ width: "15%" }}>fundManager</th>
+                              <th style={{ width: "15%" }}>fundPDA</th>
+                              <th style={{ width: "15%" }}>fundStateAccount</th>
+                              {/* <th style={{ width: "15%" }}>PDA_balance</th> */}
+                              {/* <th style={{ width: "15%" }}>amount</th>
+                              <th style={{ width: "15%" }}>amount_in_router</th> */}
                             </tr>
-                          </thead>
-
-
+            </thead>
         <tbody>
           {
-            tokenList && 
+            oldFunds && 
 
-            tokenList.map((i,x)=>{
-               return <tr key={x}>
-                 <td >{x}</td>
-                 <td >{i?.symbol}</td>
-                 <td >{i?.mintAddress}</td>
-                 <td >{i?.decimals}</td>
-                 <td>{i?.pool_coin_account}</td>
-                 <td>{i?.pool_pc_account}</td>
-                 <td>{i?.pool_price}</td>
-               
-               </tr>
+            oldFunds.map((i,x)=>{
+              return <tr key={x}>
+                <td >{x}</td>
+                <td >{i?.fund_v3_index}</td>
+                <td >{i?.fundManager}</td>
+                <td >{i?.fundPDA}</td>
+                <td >{i?.fundStateAccount}</td>
+                {/* <td>{i?.PDA_balance}</td> */}
+                {/* <td>{i?.amount?.toString()/10**6}</td>
+                <td>{i?.amount_in_router?.toString()/10**6}</td> */}
+              
+              </tr>
             })
           }
             </tbody>
           </Table> 
 
-      
+          <hr/>
+         
       </Card>
     </div>
   )

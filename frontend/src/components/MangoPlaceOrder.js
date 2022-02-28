@@ -384,7 +384,7 @@ export const MangoPlaceOrder = () => {
         {
             instruction: 13,
             token_slot_index: fundTokenSlot,
-            mango_token_index: MANGO_TOKENS[lendTokenIndex].mangoTokenIndex,
+            mango_token_index: MANGO_TOKENS.USDC.mangoTokenIndex,
             quantity: lendAmount * 10 ** ids.tokens[lendTokenIndex].decimals
         },
         data

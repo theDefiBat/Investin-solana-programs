@@ -57,6 +57,17 @@ export const AdminControl = () => {
     
   },[walletProvider])
 
+  const getPlatformState = async () =>{
+    const platformDataAcc = await connection.getAccountInfo(platformStateAccount)
+       if(!platformDataAcc){
+         alert('platform state not initilaized');
+         return;
+       } 
+        const platformData = PLATFORM_DATA.decode(platformDataAcc.data)
+        console.log("platformData::",platformData);
+        setPlatformData(platformData)
+  }
+
   const handleAdminControl = async () => {
     console.log("handle initalise fund clicked")
 
@@ -229,6 +240,8 @@ export const AdminControl = () => {
         <p>is_initialized : {platformData?.is_initialized}</p>
         <p>no_of_active_funds : {platformData?.no_of_active_funds}</p>
         <p>token_count : {platformData?.token_count}</p>
+        <br />
+        <button onClick={getPlatformState}>GET PLATFORM STATE</button>
         {/* <table>
           
            {
