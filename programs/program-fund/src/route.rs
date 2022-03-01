@@ -14,7 +14,7 @@ use solana_program::{
     program_error::ProgramError,
     pubkey::Pubkey,
     program::invoke_signed,
-    sysvar::Sysvar,
+    sysvar::{Sysvar, clock::Clock},
 };
 use crate::state::{FundData, FundAccount, PlatformData};
 use crate::error::FundError;
@@ -60,7 +60,7 @@ pub fn route (
     let fund_pda_ai = next_account_info(accounts_iter)?;
     let mut fund_data = FundAccount::load_mut_checked(fund_pda_ai, program_id)?;
     check_eq!(fund_data.guard.is_active, true);
-    check!(fund_data.manager_account, *manager_ai.key)
+    check!(fund_data.manager_account == *manager_ai.key, FundError::ManagerMismatch);
     let pda_signer_nonce = fund_data.signer_nonce;
     // let check_for_hop = fund_data.guard.hop;
 
@@ -70,7 +70,7 @@ pub fn route (
     // let ix_id = solana_program::sysvar::instructions::load_current_index_checked(sysvar_ix_ai);
     // let ix_pos = solana_program::sysvar::instructions::get_instruction_relative(0, sysvar_ix_ai);
     let mut check_for_guard = false;
-    let mut index = 0;
+    let mut index =0;
     while !check_for_guard {
         let ix = solana_program::sysvar::instructions::get_instruction_relative(index, sysvar_ix_ai)?;
         check_for_guard = if ix.program_id == *program_id && ix.data[0] == 26 {
@@ -237,8 +237,8 @@ pub fn set_swap_guard(
     
 
     //Need to validate oracles
-    let input_oracle_ai = next_account_info(accounts_iter)?;
-    let output_oracle_ai = next_account_info(accounts_iter)?;
+    // let input_oracle_ai = next_account_info(accounts_iter)?;
+    // let output_oracle_ai = next_account_info(accounts_iter)?;
 
     let mut fund_data = FundAccount::load_mut_checked(fund_pda_ai, program_id)?;
     let platform_data = PlatformData::load_checked(platform_ai, program_id)?;
@@ -251,28 +251,58 @@ pub fn set_swap_guard(
 
     msg!("Fetching Oracles");
     // TODO: add oracle validation to get minAmountOut
+    let now_ts = Clock::get()?.unix_timestamp;
+    if now_ts - source_token_info.last_updated > 100 || now_ts - dest_token_info.last_updated > 100 {
+        msg!("price not up-to-date.. aborting");
+        return Err(FundError::PriceStaleInAccount.into())
+    }
+    
+    let mut input_value = U64F64::from_num(amount_in).checked_mul(source_token_info.pool_price).unwrap();
 
-    let input_value: U64F64 = if token_in_fund_slot != 0 {
-        let input_feed = AggregatorAccountData::new(input_oracle_ai)?.get_result()?;
-        let input_price = U64F64::from_num(input_feed.mantissa as u64).checked_div(U64F64::from_num(10u64.pow(input_feed.scale))).unwrap();
-        msg!("input price {:?}", input_price);
-        input_price.checked_mul(U64F64::from_num(amount_in)).unwrap()
-            .checked_div(U64F64::from_num(10u64.pow(source_token_info.decimals.try_into().unwrap()))).unwrap()
-    } else {
-        U64F64::from_num(amount_in.checked_div(10u64.pow(6)).unwrap())
-    };
+    if source_token_info.pc_index != 0 {
+        let underlying_token_info = platform_data.token_list[source_token_info.pc_index as usize];
+        if now_ts - underlying_token_info.last_updated > 100 {
+           msg!("price not up-to-date.. aborting");
+           return Err(FundError::PriceStaleInAccount.into())
+       }
+        input_value = input_value.checked_mul(underlying_token_info.pool_price).unwrap();
+    }
+    
+    let mut output_price = dest_token_info.pool_price;
 
-    let output_value: U64F64 = if token_out_fund_slot != 0 {
-        let output_feed = AggregatorAccountData::new(output_oracle_ai)?.get_result()?;
-        let output_price = U64F64::from_num(output_feed.mantissa as u64).checked_div(U64F64::from_num(10u64.pow(output_feed.scale))).unwrap();
-        msg!("output price {:?}", output_price);
-        input_value.checked_div(output_price).unwrap()
-    } else {
-        input_value
-    };
+    if dest_token_info.pc_index != 0 {
+        let underlying_token_info = platform_data.token_list[dest_token_info.pc_index as usize];
+        if now_ts - underlying_token_info.last_updated > 100 {
+           msg!("price not up-to-date.. aborting");
+           return Err(FundError::PriceStaleInAccount.into())
+       }
+        output_price = output_price.checked_mul(underlying_token_info.pool_price).unwrap();
+    }
+
+    fund_data.guard.min_amount_out = U64F64::to_num(input_value.checked_div(output_price).unwrap().checked_mul(U64F64!(0.95)).unwrap());
+
+    // let input_value: U64F64 = if token_in_fund_slot != 0 {
+    //     let input_feed = AggregatorAccountData::new(input_oracle_ai)?.get_result()?;
+    //     let input_price = U64F64::from_num(input_feed.mantissa as u64).checked_div(U64F64::from_num(10u64.pow(input_feed.scale))).unwrap();
+    //     msg!("input price {:?}", input_price);
+    //     input_price.checked_mul(U64F64::from_num(amount_in)).unwrap()
+    //         .checked_div(U64F64::from_num(10u64.pow(source_token_info.decimals.try_into().unwrap()))).unwrap()
+    // } else {
+    //     U64F64::from_num(amount_in.checked_div(10u64.pow(6)).unwrap())
+    // };
+
+
+    // let output_value: U64F64 = if token_out_fund_slot != 0 {
+    //     let output_feed = AggregatorAccountData::new(output_oracle_ai)?.get_result()?;
+    //     let output_price = U64F64::from_num(output_feed.mantissa as u64).checked_div(U64F64::from_num(10u64.pow(output_feed.scale))).unwrap();
+    //     msg!("output price {:?}", output_price);
+    //     input_value.checked_div(output_price).unwrap()
+    // } else {
+    //     input_value
+    // };
+    // fund_data.guard.min_amount_out = U64F64::to_num(output_value.checked_mul(U64F64::from_num(10u64.pow(dest_token_info.decimals.try_into().unwrap()))).unwrap().checked_mul(U64F64!(0.95)).unwrap()); // 5% sllipage allowed from oracle price
 
     fund_data.guard.amount_in = amount_in;
-    fund_data.guard.min_amount_out = U64F64::to_num(output_value.checked_mul(U64F64::from_num(10u64.pow(dest_token_info.decimals.try_into().unwrap()))).unwrap().checked_mul(U64F64!(0.95)).unwrap()); // 5% sllipage allowed from oracle price
     fund_data.guard.is_active = true;
     fund_data.guard.token_in = fund_data.tokens[token_in_fund_slot as usize].vault; 
     fund_data.guard.token_out = fund_data.tokens[token_out_fund_slot as usize].vault;

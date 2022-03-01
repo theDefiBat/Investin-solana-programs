@@ -1369,7 +1369,12 @@ pub fn update_amount_and_performance(
         .checked_mul(token_info.pool_price).unwrap();
 
          if token_info.pc_index != 0 {
-             val = val.checked_mul(platform_data.token_list[token_info.pc_index as usize].pool_price).unwrap();
+             let underlying_token_info = platform_data.token_list[token_info.pc_index as usize];
+             if Clock::get()?.unix_timestamp - underlying_token_info.last_updated > 100 {
+                msg!("price not up-to-date.. aborting");
+                return Err(FundError::PriceStaleInAccount.into())
+            }
+             val = val.checked_mul(underlying_token_info.pool_price).unwrap();
          }
 
         fund_val = fund_val.checked_add(val).unwrap();
@@ -1613,33 +1618,34 @@ pub fn swap_instruction_orca(
                 AccountMeta::new(*pool_mint.key, false),
                 AccountMeta::new(*fee_account.key, false),
                 AccountMeta::new_readonly(*token_prog_ai.key, false)
-                ],
-            )),
-            &[
-                swap_ai.clone(),
-                swap_authority.clone(),
-                fund_account_ai.clone(),
-                user_source.clone(),
-                pool_source.clone(),
-                pool_dest.clone(),
-                user_dest.clone(),
-                pool_mint.clone(),
-                fee_account.clone(),
-                token_prog_ai.clone(),
-                ],
-                &[&[&*manager_ai.key.as_ref(), bytes_of(&nonce)]]
-            )?;
-            msg!("swap instruction done");
+            ],
+        )),
+        &[
+            swap_ai.clone(),
+            swap_authority.clone(),
+            fund_account_ai.clone(),
+            user_source.clone(),
+            pool_source.clone(),
+            pool_dest.clone(),
+            user_dest.clone(),
+            pool_mint.clone(),
+            fee_account.clone(),
+            token_prog_ai.clone(),
+        ],
+        &[&[&*manager_ai.key.as_ref(), bytes_of(&nonce)]]
+    )?;
+    msg!("swap instruction done");
 
-            let source_info = parse_token_account(user_source)?;
-            let dest_info = parse_token_account(user_dest)?;
-            
-            Ok((source_info, dest_info))
-        }
-        pub fn get_share(
-            fund_data: &mut FundAccount,
-            investor_data: &mut InvestorData,
-        ) -> Result<U64F64, ProgramError> {
+    let source_info = parse_token_account(user_source)?;
+    let dest_info = parse_token_account(user_dest)?;
+    
+    Ok((source_info, dest_info))
+}
+
+pub fn get_share(
+    fund_data: &mut FundAccount,
+    investor_data: &mut InvestorData,
+) -> Result<U64F64, ProgramError> {
     let perf_share = U64F64::from_num(fund_data.prev_performance)
     .checked_div(U64F64::from_num(investor_data.start_performance)).unwrap();
 
