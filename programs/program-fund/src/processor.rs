@@ -1649,6 +1649,7 @@ pub fn get_share(
     let perf_share = U64F64::from_num(fund_data.prev_performance)
     .checked_div(U64F64::from_num(investor_data.start_performance)).unwrap();
 
+    // investor_data.end_performance = perf_share;
     msg!("performance: {:?}", perf_share);
 
     let actual_amount: u64 = investor_data.amount;

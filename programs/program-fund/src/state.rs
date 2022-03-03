@@ -238,15 +238,18 @@ impl_loadable!(TokenSlot);
 #[derive(Clone, Copy, Debug)]
 pub struct SwapGuard {
     pub is_active: bool,
-    pub is_split: bool, // split trxs
+    pub is_split: bool,
     pub hop: u8,
     pub count: u8,
     pub token_in_slot: u8,
     pub token_out_slot: u8,
     pub padding: [u8; 2],
 
-    pub token_in: Pubkey,
-    pub token_out: Pubkey,
+    pub triggered_at: UnixTimestamp,
+    pub ex_padding: [u8; 56],
+
+    // pub token_in: Pubkey,
+    // pub token_out: Pubkey,
     // pub token_hop: Pubkey,
 
     pub amount_in: u64,

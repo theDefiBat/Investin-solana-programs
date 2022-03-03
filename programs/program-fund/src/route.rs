@@ -54,7 +54,6 @@ pub fn route (
     let accounts_iter = &mut accounts.iter();
     let sysvar_ix_ai = next_account_info(accounts_iter)?;
     check_eq!(*sysvar_ix_ai.key, solana_program::sysvar::instructions::id());
-
     let manager_ai = next_account_info(accounts_iter)?;
     check!(manager_ai.is_signer, ProgramError::MissingRequiredSignature);
     let fund_pda_ai = next_account_info(accounts_iter)?;
@@ -67,6 +66,8 @@ pub fn route (
     // check_eq!(fund_data.manager_account, *manager_ai.key);
     // check_eq!(fund_data.guard.is_active, true);
     let whitelisted_prog_ai = next_account_info(accounts_iter)?;
+
+    
     // let ix_id = solana_program::sysvar::instructions::load_current_index_checked(sysvar_ix_ai);
     // let ix_pos = solana_program::sysvar::instructions::get_instruction_relative(0, sysvar_ix_ai);
     let mut check_for_guard = false;
@@ -108,116 +109,6 @@ pub fn route (
     fund_data = FundAccount::load_mut_checked(fund_pda_ai, program_id)?;
     let token_in_fund_slot = fund_data.guard.token_in_slot as usize;
     let token_out_fund_slot = fund_data.guard.token_out_slot as usize;
-    // if fun_sec == 21988 { //SetTokenLedger
-    //     return Ok(());
-    // } else {
-    //     fund_data.guard.count += 1;
-    // }
-    
-    
-
-    // let (source_index, dest_index) = match fun_sec {
-
-    //     46936 => {
-    //         //Check for Serum
-    //         if *accounts[13].key == *accounts[14].key {
-    //             (14, 15)
-    //         } else {
-    //             (15, 14)
-    //         }
-    //     },
-
-    //     58181 => {
-    //         (18, 19) //Raydium
-    //     },
-
-    //     49339 => {
-    //         (8, 11) //Orca
-    //     },
-
-    //     25655 => { //Step
-    //         (8, 11)
-    //     },
-
-    //     59643 => { //Aldrin
-    //         let check = array_ref![data, 24, 1];
-    //         let x = u8::from_le_bytes(*check);
-    //         if x == 1{
-    //             (11, 12)
-    //         } else {
-    //             (12, 11)
-    //         }
-    //     },
-
-    //     9895 => { //Cropper
-    //         (9, 12)
-    //     },
-
-    //     63519 => { //Mercurial
-    //         (8, 9)
-    //     },
-
-    //     40593 => { //Saber
-    //         (9, 11)
-    //     },
-
-    //     _ => { return Err(FundError::InvalidTokenAccount) }
-
-    // };
-
-    // msg!("SI: {:?}, DI: {:?}", source_index, dest_index);
-
-
-    //  01
-    //SetTokenLedger: e455b9704e4f4d02 = 21988 
-    //Serum: 58b746f9d67652d20101c00e160200000000000000000000000000 = 46936 , 11, 12, 13
-    //Rayfium: 45e3625dedcadf8c = 58181 16, 17
-    //Orca: bbc076d43e6d1cd50100e1f50500000000000000000000000000 = 49339 6,9
-    //Step: 376411f3f2b52ba501f37eec3304000000000000000000000000 = 25655 6, 9
-    //Aldrin: fbe877a6e1b9a9a10095051e02000000000100 = 59643 9, 10
-    //Aldrin V2: 
-    //Cropper: a7263b25843c5f44002e0476330000000000 = 9895 7, 10
-    //Mercurial: 1ff83ce2d7a837c70100e40b5402000000000000000000000000 = 63519 6, 7
-    //Saber: 919eb8d4034a9c76003a98f83f0000000000 = 40593 7, 9
-    
-
-    // if fund_data.guard.hop == 0 {
-    //     check_eq!(fund_data.guard.token_in, *accounts[source_index].key);
-    //     check_eq!(fund_data.guard.token_out, *accounts[dest_index].key);
-    //     let source_token_data = parse_token_account(&accounts[source_index])?;
-    //     let dest_token_data = parse_token_account(&accounts[dest_index])?;
-    //     fund_data.tokens[token_in_fund_slot].balance = source_token_data.amount;
-    //     fund_data.tokens[token_out_fund_slot].balance = dest_token_data.amount;
-    //     check!(fund_data.tokens[token_in_fund_slot].balance >= fund_data.tokens[token_in_fund_slot].debt, ProgramError::InsufficientFunds);
-    //     check!(fund_data.tokens[fund_data.guard.token_out_slot as usize].balance >= fund_data.tokens[fund_data.guard.token_out_slot as usize].debt, ProgramError::InsufficientFunds);
-    // } else {
-    //     if fund_data.guard.count == 0 {
-    //         fund_data.guard.count = 1;
-    //         check_eq!(fund_data.guard.token_in, *accounts[source_index].key);
-    //         check_eq!(fund_data.guard.token_hop, *accounts[dest_index].key);
-    //         let source_token_data = parse_token_account(&accounts[source_index])?;
-    //         fund_data.tokens[token_in_fund_slot].balance = source_token_data.amount;
-    //         check!(fund_data.tokens[token_in_fund_slot].balance >= fund_data.tokens[token_in_fund_slot].debt, ProgramError::InsufficientFunds);
-    //     } else {
-    //         check_eq!(fund_data.guard.token_hop, *accounts[source_index].key);
-    //         check_eq!(fund_data.guard.token_out, *accounts[dest_index].key);
-    //         let dest_token_data = parse_token_account(&accounts[dest_index])?;
-    //         fund_data.tokens[token_out_fund_slot].balance = dest_token_data.amount;
-    //         check!(fund_data.tokens[token_out_fund_slot].balance >= fund_data.tokens[token_out_fund_slot].debt, ProgramError::InsufficientFunds);
-    //     }
-    // }
-
-    // if fund_data.guard.hop == fund_data.guard.count {
-    //     fund_data.guard.is_active = false;
-    //     fund_data.guard.token_in = Pubkey::default();
-    //     fund_data.guard.token_out = Pubkey::default();
-    //     fund_data.guard.token_hop = Pubkey::default();
-    //     fund_data.guard.token_in_slot = u8::MAX;
-    //     fund_data.guard.token_out_slot = u8::MAX;
-    // }
-
-    
-    
 
     Ok(())
 }
@@ -236,10 +127,6 @@ pub fn set_swap_guard(
     let fund_pda_ai = next_account_info(accounts_iter)?;
     
 
-    //Need to validate oracles
-    // let input_oracle_ai = next_account_info(accounts_iter)?;
-    // let output_oracle_ai = next_account_info(accounts_iter)?;
-
     let mut fund_data = FundAccount::load_mut_checked(fund_pda_ai, program_id)?;
     let platform_data = PlatformData::load_checked(platform_ai, program_id)?;
     msg!("Accounts Loaded");
@@ -249,27 +136,35 @@ pub fn set_swap_guard(
     let source_token_info = platform_data.token_list[fund_data.tokens[token_in_fund_slot as usize].index[fund_data.tokens[token_in_fund_slot as usize].mux as usize] as usize];
     let dest_token_info = platform_data.token_list[fund_data.tokens[token_out_fund_slot as usize].index[fund_data.tokens[token_out_fund_slot as usize].mux as usize] as usize];
 
-    msg!("Fetching Oracles");
-    // TODO: add oracle validation to get minAmountOut
     let now_ts = Clock::get()?.unix_timestamp;
-    if now_ts - source_token_info.last_updated > 100 || now_ts - dest_token_info.last_updated > 100 {
-        msg!("price not up-to-date.. aborting");
-        return Err(FundError::PriceStaleInAccount.into())
-    }
     
-    let mut input_value = U64F64::from_num(amount_in).checked_mul(source_token_info.pool_price).unwrap();
-
-    if source_token_info.pc_index != 0 {
-        let underlying_token_info = platform_data.token_list[source_token_info.pc_index as usize];
-        if now_ts - underlying_token_info.last_updated > 100 {
-           msg!("price not up-to-date.. aborting");
-           return Err(FundError::PriceStaleInAccount.into())
-       }
-        input_value = input_value.checked_mul(underlying_token_info.pool_price).unwrap();
-    }
     
-    let mut output_price = dest_token_info.pool_price;
+    let mut input_value = U64F64::from_num(amount_in);
+    if token_in_fund_slot != 0 {
+        if now_ts - source_token_info.last_updated > 100 {
+            msg!("price not up-to-date.. aborting");
+            return Err(FundError::PriceStaleInAccount.into())
+        }
+        input_value = input_value.checked_mul(source_token_info.pool_price).unwrap();
+        if source_token_info.pc_index != 0 {
+            let underlying_token_info = platform_data.token_list[source_token_info.pc_index as usize];
+            if now_ts - underlying_token_info.last_updated > 100 {
+               msg!("price not up-to-date.. aborting");
+               return Err(FundError::PriceStaleInAccount.into())
+           }
+            input_value = input_value.checked_mul(underlying_token_info.pool_price).unwrap();
+        }
+    }
+    msg!("inout value: {:?}", input_value);
 
+
+    
+    let mut output_price = if token_out_fund_slot != 0 {
+        dest_token_info.pool_price
+    } else {
+        U64F64!(1)
+    };
+    
     if dest_token_info.pc_index != 0 {
         let underlying_token_info = platform_data.token_list[dest_token_info.pc_index as usize];
         if now_ts - underlying_token_info.last_updated > 100 {
@@ -278,6 +173,7 @@ pub fn set_swap_guard(
        }
         output_price = output_price.checked_mul(underlying_token_info.pool_price).unwrap();
     }
+    msg!("output price: {:?}", output_price);
 
     fund_data.guard.min_amount_out = U64F64::to_num(input_value.checked_div(output_price).unwrap().checked_mul(U64F64!(0.95)).unwrap());
 
@@ -304,9 +200,7 @@ pub fn set_swap_guard(
 
     fund_data.guard.amount_in = amount_in;
     fund_data.guard.is_active = true;
-    fund_data.guard.token_in = fund_data.tokens[token_in_fund_slot as usize].vault; 
-    fund_data.guard.token_out = fund_data.tokens[token_out_fund_slot as usize].vault;
-    // fund_data.guard.token_hop = *hop_token_ai.key;
+    fund_data.guard.triggered_at = now_ts;
     fund_data.guard.token_in_slot = token_in_fund_slot;
     fund_data.guard.token_out_slot = token_out_fund_slot;
     msg!("amount_in {:?}, min_aount_out {:?}", fund_data.guard.amount_in, fund_data.guard.min_amount_out);
@@ -326,14 +220,20 @@ pub fn check_swap_guard(
     let fund_pda_ai = next_account_info(accounts_iter)?;
     let mut fund_data = FundAccount::load_mut_checked(fund_pda_ai, program_id)?;
     // check_eq!(fund_data.manager_account, *manager_ai.key);
+    let si = fund_data.guard.token_in_slot as usize;
+    let di = fund_data.guard.token_out_slot as usize;
+
+    check!(Clock::get()?.unix_timestamp - fund_data.guard.triggered_at < 100, FundError::PriceStaleInAccount);
 
     let source_token_ai = next_account_info(accounts_iter)?;
+    check_eq!(fund_data.tokens[si].vault, *source_token_ai.key);
     let dest_token_ai = next_account_info(accounts_iter)?;
+    check_eq!(fund_data.tokens[di].vault, *dest_token_ai.key);
 
     let source_amount = parse_token_account(source_token_ai)?.amount;
     let dest_amount = parse_token_account(dest_token_ai)?.amount;
-    let si = fund_data.guard.token_in_slot as usize;
-    let di = fund_data.guard.token_out_slot as usize;
+
+    
     // let prev_amount =  fund_data.tokens[di].balance;
     
     let swap_amount_in = fund_data.tokens[si].balance - source_amount;
@@ -341,31 +241,30 @@ pub fn check_swap_guard(
 
     msg!("Checking amount_in {:?}, guard_amount_in {:?}", swap_amount_in, fund_data.guard.amount_in);
     check_eq!(swap_amount_in, fund_data.guard.amount_in);
-    msg!("Checking amount_out");
     check!(swap_amount_out > fund_data.guard.min_amount_out, ProgramError::InsufficientFunds); // minAmountOut guard check
-    msg!("checking debts");
 
     fund_data.tokens[si].balance = source_amount;
     fund_data.tokens[di].balance = dest_amount;
 
-    check!(fund_data.tokens[di].balance > fund_data.tokens[di].debt, ProgramError::InsufficientFunds);
-
+    // check!(fund_data.tokens[di].balance > fund_data.tokens[di].debt, ProgramError::InsufficientFunds);
     // check in_slot debt is valid
-    check!(fund_data.tokens[si].balance > fund_data.tokens[si].debt, ProgramError::InsufficientFunds);
+    // check!(fund_data.tokens[si].balance > fund_data.tokens[si].debt, ProgramError::InsufficientFunds);
+
     msg!("reseting swap guard");
-    if fund_data.guard.hop == fund_data.guard.count {
+    // if fund_data.guard.hop == fund_data.guard.count {
             fund_data.guard.is_active = false;
             fund_data.guard.amount_in = 0;
             fund_data.guard.min_amount_out = 0;
-            fund_data.guard.token_in = Pubkey::default();
-            fund_data.guard.token_out = Pubkey::default();
+            fund_data.guard.triggered_at = 0;
+            // fund_data.guard.token_in = Pubkey::default();
+            // fund_data.guard.token_out = Pubkey::default();
             // fund_data.guard.token_hop = Pubkey::default();
             fund_data.guard.token_in_slot = u8::MAX;
             fund_data.guard.token_out_slot = u8::MAX;
             Ok(())
-    } else {
-        return Err(ProgramError::InvalidAccountData);
-    }
+    // } else {
+    //     return Err(ProgramError::InvalidAccountData);
+    // }
 
 }
 
