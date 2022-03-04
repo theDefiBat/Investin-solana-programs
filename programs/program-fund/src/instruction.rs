@@ -374,8 +374,6 @@ pub enum FundInstruction {
     },
 
     RouteTxn,
-    Route2Txn,
-
     CheckSwapGuard,
     MigrateFundState,
 }
@@ -603,8 +601,9 @@ impl FundInstruction {
             23 => {
                 FundInstruction::RouteTxn
             }
+
             24 => {
-                FundInstruction::Route2Txn
+                FundInstruction::MigrateFundState
             }
 
             25 => {
@@ -625,9 +624,6 @@ impl FundInstruction {
                 FundInstruction::CheckSwapGuard
             }
             
-            27 => {
-                FundInstruction::MigrateFundState
-            }
             _ => { return None; }
         })
     }

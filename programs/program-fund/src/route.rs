@@ -67,11 +67,11 @@ pub fn route (
     // check_eq!(fund_data.guard.is_active, true);
     let whitelisted_prog_ai = next_account_info(accounts_iter)?;
 
-    
+
     // let ix_id = solana_program::sysvar::instructions::load_current_index_checked(sysvar_ix_ai);
     // let ix_pos = solana_program::sysvar::instructions::get_instruction_relative(0, sysvar_ix_ai);
     let mut check_for_guard = false;
-    let mut index =0;
+    let mut index = 1;
     while !check_for_guard {
         let ix = solana_program::sysvar::instructions::get_instruction_relative(index, sysvar_ix_ai)?;
         check_for_guard = if ix.program_id == *program_id && ix.data[0] == 26 {
@@ -215,11 +215,11 @@ pub fn check_swap_guard(
 ) -> Result<(), ProgramError> {
     let accounts_iter = &mut accounts.iter();
 
-    // let manager_ai = next_account_info(accounts_iter)?;
-    // check_eq!(manager_ai.is_signer, true);
+    let manager_ai = next_account_info(accounts_iter)?;
+    check_eq!(manager_ai.is_signer, true);
     let fund_pda_ai = next_account_info(accounts_iter)?;
     let mut fund_data = FundAccount::load_mut_checked(fund_pda_ai, program_id)?;
-    // check_eq!(fund_data.manager_account, *manager_ai.key);
+    check_eq!(fund_data.manager_account, *manager_ai.key);
     let si = fund_data.guard.token_in_slot as usize;
     let di = fund_data.guard.token_out_slot as usize;
 
@@ -245,68 +245,18 @@ pub fn check_swap_guard(
 
     fund_data.tokens[si].balance = source_amount;
     fund_data.tokens[di].balance = dest_amount;
-
+    // *check for debts*
     // check!(fund_data.tokens[di].balance > fund_data.tokens[di].debt, ProgramError::InsufficientFunds);
     // check in_slot debt is valid
     // check!(fund_data.tokens[si].balance > fund_data.tokens[si].debt, ProgramError::InsufficientFunds);
 
     msg!("reseting swap guard");
-    // if fund_data.guard.hop == fund_data.guard.count {
-            fund_data.guard.is_active = false;
-            fund_data.guard.amount_in = 0;
-            fund_data.guard.min_amount_out = 0;
-            fund_data.guard.triggered_at = 0;
-            // fund_data.guard.token_in = Pubkey::default();
-            // fund_data.guard.token_out = Pubkey::default();
-            // fund_data.guard.token_hop = Pubkey::default();
-            fund_data.guard.token_in_slot = u8::MAX;
-            fund_data.guard.token_out_slot = u8::MAX;
-            Ok(())
-    // } else {
-    //     return Err(ProgramError::InvalidAccountData);
-    // }
-
-}
-
-pub fn route2 (
-    program_id: &Pubkey,
-    accounts: &[AccountInfo],
-    data: &[u8]
-) -> Result<(), ProgramError> {
-
-    let accounts_iter = &mut accounts.iter();
-    let manager_ai = next_account_info(accounts_iter)?;
-    check_eq!(manager_ai.is_signer, true);
-    let fund_state_ai = next_account_info(accounts_iter)?;
-    let mut fund_data = FundAccount::load_mut_checked(fund_state_ai, program_id)?;
-    check_eq!(fund_data.manager_account, *manager_ai.key);
-
-    let whitelisted_prog_ai = next_account_info(accounts_iter)?;
-    msg!("data: {:?}", data.to_vec());
-    let mut meta_accounts = vec![];
-    
-    
-    meta_accounts.extend(accounts_iter.map(|a| {
-        if *a.key == fund_data.fund_pda { // pda will sign
-            AccountMeta::new(*a.key, true)
-        }
-        else if a.is_writable {
-            AccountMeta::new(*a.key, a.is_signer)
-        } else {
-            AccountMeta::new_readonly(*a.key, a.is_signer)
-        }
-    }));
-    let relay_instruction = Instruction {
-        program_id: *whitelisted_prog_ai.key,
-        accounts: meta_accounts,
-        data: data.to_vec(),
-    };
-
-    invoke_signed(
-        &relay_instruction,
-        accounts.clone(),
-        &[&[&*manager_ai.key.as_ref(), bytes_of(&fund_data.signer_nonce)]],
-    )?;
-    
+    fund_data.guard.is_active = false;
+    fund_data.guard.amount_in = 0;
+    fund_data.guard.min_amount_out = 0;
+    fund_data.guard.triggered_at = 0;
+    fund_data.guard.token_in_slot = u8::MAX;
+    fund_data.guard.token_out_slot = u8::MAX;
     Ok(())
+
 }
