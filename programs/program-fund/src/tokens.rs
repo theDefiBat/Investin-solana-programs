@@ -9,12 +9,15 @@ use solana_program::{
     clock::Clock,
     sysvar::Sysvar
 };
+use std::cell::{Ref, RefMut};
+use bytemuck::{ from_bytes };
+
 
 use spl_token::state::Mint;
 
 use crate::error::FundError;
 use crate::processor::parse_token_account;
-use crate::state::{FundAccount, FundData, PlatformData};
+use crate::state::{FundAccount, FundData, PlatformData, AmmInfo, Loadable};
 
 macro_rules! check_eq {
     ($x:expr, $y:expr) => {
@@ -99,10 +102,12 @@ pub fn update_token_prices (
 
     let mut platform_data = PlatformData::load_mut_checked(platform_acc, program_id)?;
     let clock = &Clock::from_account_info(clock_sysvar_info)?;
-
+    
     for _i in 0..count {
+
         let pool_coin_account = next_account_info(accounts_iter)?;
         let pool_pc_account = next_account_info(accounts_iter)?;
+        
 
         let pool_coin_data = parse_token_account(pool_coin_account)?;
         let pool_pc_data = parse_token_account(pool_pc_account)?;
@@ -112,10 +117,21 @@ pub fn update_token_prices (
         check_eq!(platform_data.token_list[index].pool_coin_account, *pool_coin_account.key);
         check_eq!(platform_data.token_list[index].pool_pc_account, *pool_pc_account.key);
 
-        platform_data.token_list[index].pool_price = U64F64::from_num(pool_pc_data.amount)
-        .checked_div(U64F64::from_num(pool_coin_data.amount)).unwrap();
+        let mux = platform_data.token_list[index].token_id;
+        msg!("MUX: {:?}", mux);
+        if mux == 0 {
+            let amm_open_orders_account = next_account_info(accounts_iter)?;
+            let amm_info_account = next_account_info(accounts_iter)?;
+            let amm_open_order_data = load_open_orders(amm_open_orders_account)?;
+            let amm_info_data = AmmInfo::load(amm_info_account)?;
+            platform_data.token_list[index].pool_price = U64F64::from_num(pool_pc_data.amount + amm_open_order_data.native_pc_total - amm_info_data.need_take_pnl_pc)
+            .checked_div(U64F64::from_num(pool_coin_data.amount + amm_open_order_data.native_coin_total - amm_info_data.need_take_pnl_coin)).unwrap();
+        } else {
+            platform_data.token_list[index].pool_price = U64F64::from_num(pool_pc_data.amount)
+            .checked_div(U64F64::from_num(pool_coin_data.amount)).unwrap();
+        }
         platform_data.token_list[index].last_updated = clock.unix_timestamp;
-    }
+    }                           
     Ok(())
 }
 
@@ -215,3 +231,25 @@ pub fn remove_token_from_fund (
     fund_data.no_of_assets -= 1;
     Ok(())
 }
+
+
+fn strip_dex_padding<'a>(acc: &'a AccountInfo) -> Result<Ref<'a, [u8]>, ProgramError> {
+    check!(acc.data_len() >= 12, ProgramError::InvalidArgument);
+    let unpadded_data: Ref<[u8]> = Ref::map(acc.try_borrow_data()?, |data| {
+        let data_len = data.len() - 12;
+        let (_, rest) = data.split_at(5);
+        let (mid, _) = rest.split_at(data_len);
+        mid
+    });
+    Ok(unpadded_data)
+}
+
+pub fn load_open_orders<'a>(
+    acc: &'a AccountInfo,
+) -> Result<Ref<'a, serum_dex::state::OpenOrders>, ProgramError> {
+    Ok(Ref::map(strip_dex_padding(acc)?, from_bytes))
+}
+
+
+
+

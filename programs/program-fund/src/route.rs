@@ -45,8 +45,13 @@ pub mod jupiter_pid {
     declare_id!("JUP2jxvXaqu7NQY1GmNF4m1vodw12LVXYxbFL2uJvfo");
 }
 
+pub mod serum_dex {
+    use solana_program::declare_id;
+    declare_id!("9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PusVFin");
+}
 
-pub fn route (
+
+pub fn route(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
     data: &[u8]
@@ -61,17 +66,11 @@ pub fn route (
     check_eq!(fund_data.guard.is_active, true);
     check!(fund_data.manager_account == *manager_ai.key, FundError::ManagerMismatch);
     let pda_signer_nonce = fund_data.signer_nonce;
-    // let check_for_hop = fund_data.guard.hop;
-
-    // check_eq!(fund_data.manager_account, *manager_ai.key);
-    // check_eq!(fund_data.guard.is_active, true);
     let whitelisted_prog_ai = next_account_info(accounts_iter)?;
-
-
-    // let ix_id = solana_program::sysvar::instructions::load_current_index_checked(sysvar_ix_ai);
-    // let ix_pos = solana_program::sysvar::instructions::get_instruction_relative(0, sysvar_ix_ai);
-    let mut check_for_guard = false;
-    let mut index = 1;
+    if *whitelisted_prog_ai.key != jupiter_pid::ID {
+        return Err(ProgramError::InvalidArgument);
+    }
+    let (mut check_for_guard, mut index) = (false, 1);
     while !check_for_guard {
         let ix = solana_program::sysvar::instructions::get_instruction_relative(index, sysvar_ix_ai)?;
         check_for_guard = if ix.program_id == *program_id && ix.data[0] == 26 {
@@ -111,6 +110,52 @@ pub fn route (
     let token_out_fund_slot = fund_data.guard.token_out_slot as usize;
 
     Ok(())
+}
+
+pub fn init_open_order_accs(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    data: &[u8]
+) -> Result<(), ProgramError> {
+    let accounts_iter = &mut accounts.iter();
+    let manager_ai = next_account_info(accounts_iter)?;
+    check!(manager_ai.is_signer, ProgramError::MissingRequiredSignature);
+    let fund_pda_ai = next_account_info(accounts_iter)?;
+    let mut fund_data = FundAccount::load_mut_checked(fund_pda_ai, program_id)?;
+    check!(fund_data.manager_account == *manager_ai.key, FundError::ManagerMismatch);
+    let pda_signer_nonce = fund_data.signer_nonce;
+    let whitelisted_prog_ai = next_account_info(accounts_iter)?;
+    check!(*whitelisted_prog_ai.key == serum_dex::ID, FundError::IncorrectProgramId);
+    let selector = array_ref![data, 1, 4];
+    let discrim = u32::from_le_bytes(*selector);
+    msg!("Serum Discrim:: {:?}", discrim);
+    check!(discrim == 15 || discrim == 14, FundError::InvalidInstruction); //Allow InitOpenOrders and CloseOpenOrders on Serum
+    let mut meta_accounts = vec![];
+    
+    meta_accounts.extend(accounts_iter.map(|a| {
+        if *a.key == fund_data.fund_pda { // pda will sign
+            AccountMeta::new(*a.key, true)
+        } else if a.is_writable {
+            AccountMeta::new(*a.key, a.is_signer)
+        } else {
+            AccountMeta::new_readonly(*a.key, a.is_signer)
+        }
+    }));
+    let relay_instruction = Instruction {
+        program_id: *whitelisted_prog_ai.key,
+        accounts: meta_accounts,
+        data: data.to_vec(),
+    };
+    drop(fund_data);
+    msg!("Firing CPI");
+    invoke_signed(
+        &relay_instruction,
+        accounts.clone(),
+        &[&[&*manager_ai.key.as_ref(), bytes_of(&pda_signer_nonce)]]
+    )?;
+    Ok(())
+
+
 }
 
 
@@ -155,11 +200,15 @@ pub fn set_swap_guard(
             input_value = input_value.checked_mul(underlying_token_info.pool_price).unwrap();
         }
     }
-    msg!("inout value: {:?}", input_value);
+    msg!("input value: {:?}", input_value);
 
 
     
     let mut output_price = if token_out_fund_slot != 0 {
+        if now_ts - dest_token_info.last_updated > 100 {
+            msg!("price not up-to-date.. aborting");
+            return Err(FundError::PriceStaleInAccount.into())
+        }
         dest_token_info.pool_price
     } else {
         U64F64!(1)
@@ -176,28 +225,6 @@ pub fn set_swap_guard(
     msg!("output price: {:?}", output_price);
 
     fund_data.guard.min_amount_out = U64F64::to_num(input_value.checked_div(output_price).unwrap().checked_mul(U64F64!(0.95)).unwrap());
-
-    // let input_value: U64F64 = if token_in_fund_slot != 0 {
-    //     let input_feed = AggregatorAccountData::new(input_oracle_ai)?.get_result()?;
-    //     let input_price = U64F64::from_num(input_feed.mantissa as u64).checked_div(U64F64::from_num(10u64.pow(input_feed.scale))).unwrap();
-    //     msg!("input price {:?}", input_price);
-    //     input_price.checked_mul(U64F64::from_num(amount_in)).unwrap()
-    //         .checked_div(U64F64::from_num(10u64.pow(source_token_info.decimals.try_into().unwrap()))).unwrap()
-    // } else {
-    //     U64F64::from_num(amount_in.checked_div(10u64.pow(6)).unwrap())
-    // };
-
-
-    // let output_value: U64F64 = if token_out_fund_slot != 0 {
-    //     let output_feed = AggregatorAccountData::new(output_oracle_ai)?.get_result()?;
-    //     let output_price = U64F64::from_num(output_feed.mantissa as u64).checked_div(U64F64::from_num(10u64.pow(output_feed.scale))).unwrap();
-    //     msg!("output price {:?}", output_price);
-    //     input_value.checked_div(output_price).unwrap()
-    // } else {
-    //     input_value
-    // };
-    // fund_data.guard.min_amount_out = U64F64::to_num(output_value.checked_mul(U64F64::from_num(10u64.pow(dest_token_info.decimals.try_into().unwrap()))).unwrap().checked_mul(U64F64!(0.95)).unwrap()); // 5% sllipage allowed from oracle price
-
     fund_data.guard.amount_in = amount_in;
     fund_data.guard.is_active = true;
     fund_data.guard.triggered_at = now_ts;
@@ -240,8 +267,8 @@ pub fn check_swap_guard(
     let swap_amount_out = dest_amount - fund_data.tokens[di].balance;
 
     msg!("Checking amount_in {:?}, guard_amount_in {:?}", swap_amount_in, fund_data.guard.amount_in);
-    check_eq!(swap_amount_in, fund_data.guard.amount_in);
-    check!(swap_amount_out > fund_data.guard.min_amount_out, ProgramError::InsufficientFunds); // minAmountOut guard check
+    check!(fund_data.guard.amount_in >= swap_amount_in, ProgramError::InsufficientFunds); //amountIn check
+    check!(swap_amount_out >= fund_data.guard.min_amount_out, ProgramError::InsufficientFunds); // minAmountOut guard check
 
     fund_data.tokens[si].balance = source_amount;
     fund_data.tokens[di].balance = dest_amount;
@@ -249,7 +276,6 @@ pub fn check_swap_guard(
     // check!(fund_data.tokens[di].balance > fund_data.tokens[di].debt, ProgramError::InsufficientFunds);
     // check in_slot debt is valid
     // check!(fund_data.tokens[si].balance > fund_data.tokens[si].debt, ProgramError::InsufficientFunds);
-
     msg!("reseting swap guard");
     fund_data.guard.is_active = false;
     fund_data.guard.amount_in = 0;

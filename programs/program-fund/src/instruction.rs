@@ -376,6 +376,7 @@ pub enum FundInstruction {
     RouteTxn,
     CheckSwapGuard,
     MigrateFundState,
+    InitOpenOrderAccounts,
 }
 
 
@@ -623,7 +624,10 @@ impl FundInstruction {
             26 => {
                 FundInstruction::CheckSwapGuard
             }
-            
+
+            27 => {
+                FundInstruction::InitOpenOrderAccounts
+            }
             _ => { return None; }
         })
     }

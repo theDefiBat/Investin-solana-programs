@@ -2,7 +2,7 @@ import { PublicKey, SYSVAR_CLOCK_PUBKEY, Transaction, TransactionInstruction } f
 import React, { useState , useEffect} from 'react'
 import { GlobalState } from '../store/globalState';
 import { createAssociatedTokenAccountIfNotExist, signAndSendTransaction } from '../utils/web3'
-import { connection, programId, priceStateAccount, platformStateAccount, idsIndex, FUND_ACCOUNT_KEY } from '../utils/constants';
+import { connection, programId, priceStateAccount, platformStateAccount, idsIndex, FUND_ACCOUNT_KEY, LIQUIDITY_POOL_PROGRAM_ID_V4 } from '../utils/constants';
 import { struct, u8 } from 'buffer-layout';
 import { TOKENS } from '../utils/tokens'
 import { FUND_DATA, FUND_PDA_DATA, PLATFORM_DATA, PRICE_DATA } from '../utils/programLayouts';
@@ -50,6 +50,8 @@ export const GetPrices = () => {
                 pool_coin_account: i.pool_coin_account.toBase58(),
                 pool_pc_account: i.pool_pc_account.toBase58(),
                 pool_price : i.pool_price?.toString(),
+                last_updated: i.last_updated?.toString(),
+                token_id: i.token_id?.toString()
               }
             })
           } 
@@ -137,6 +139,22 @@ export const GetPrices = () => {
 
     }
 
+    const getPoolAccounts = (poolInfo) => {
+        if(poolInfo.programId == LIQUIDITY_POOL_PROGRAM_ID_V4) {
+          return [
+            { pubkey: new PublicKey(poolInfo.poolCoinTokenAccount), isSigner: false, isWritable: true },
+            { pubkey: new PublicKey(poolInfo.poolPcTokenAccount), isSigner: false, isWritable: true },
+            { pubkey: new PublicKey(poolInfo.ammOpenOrders), isSigner: false, isWritable: false},
+            { pubkey: new PublicKey(poolInfo.ammId), isSigner: false, isWritable: false}
+          ]
+        } else {
+          return [
+            { pubkey: new PublicKey(poolInfo.poolCoinTokenAccount), isSigner: false, isWritable: true },
+            { pubkey: new PublicKey(poolInfo.poolPcTokenAccount), isSigner: false, isWritable: true }
+          ]
+        }
+    }
+
     const handleUpdatePrices = async () => {
        
         if (!poolName)
@@ -156,17 +174,17 @@ export const GetPrices = () => {
             },
             data
         )
+        let transaction = new Transaction()
+        
         const instruction = new TransactionInstruction({
             keys: [
               { pubkey: platformStateAccount, isSigner: false, isWritable: true },
               { pubkey: SYSVAR_CLOCK_PUBKEY, isSigner: false, isWritable: true },
-              { pubkey: new PublicKey(poolInfo.poolCoinTokenAccount), isSigner: false, isWritable: true },
-              { pubkey: new PublicKey(poolInfo.poolPcTokenAccount), isSigner: false, isWritable: true },
+              ...getPoolAccounts(poolInfo).flat()
             ],
             programId: programId,
             data
         });
-        let transaction = new Transaction()
         transaction.add(instruction)
         transaction.feePayer = walletProvider?.publicKey;
         console.log("trnsaction:: ", transaction)
@@ -194,7 +212,8 @@ export const GetPrices = () => {
           symbol : getMint.symbol,
           price : p.pool_price.toString()
         }
-        console.log("price of selectedToken **:",selectedToken)
+        console.log("Last Updated at:: ", p.last_updated);
+        console.log("price of selectedToken:: ",selectedToken)
 
         setTokenPrice( p.pool_price.toString() );
       } else {

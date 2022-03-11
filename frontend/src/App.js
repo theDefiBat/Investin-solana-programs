@@ -25,6 +25,7 @@ import { MangoPlaceOrder } from './components/MangoPlaceOrder';
 import { AdminControl } from './components/AdminControl';
 import { AllFundsInvestors } from './components/AllFundsInvestors';
 import { MigrateState } from './components/MigrateFundState';
+import { UpdateAllTokenPrices } from './components/UpdateAllFundTokenPrices';
 
 
 
@@ -64,6 +65,7 @@ function App() {
 	      <Transfer />
         <GetPrices />
         <Swap />
+        <UpdateAllTokenPrices/>
         {/* <OrcaSwap /> */}
         {/* <Testing /> */}
         <Withdraw />

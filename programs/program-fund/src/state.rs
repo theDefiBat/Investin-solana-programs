@@ -77,6 +77,23 @@ pub struct PlatformData {
 }
 impl_loadable!(PlatformData);
 
+/// Struct wrapping data and providing metadata
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AmmInfo {
+
+    pub padding: [u64; 24],
+
+    pub need_take_pnl_coin: u64,
+    pub need_take_pnl_pc: u64,
+
+    pub paddingx: [u64; 68],
+
+}
+impl_loadable!(AmmInfo);
+
+
+
 #[repr(C)]
 #[derive(Clone, Copy, Debug)]
 pub struct FundData {
@@ -244,14 +261,8 @@ pub struct SwapGuard {
     pub token_in_slot: u8,
     pub token_out_slot: u8,
     pub padding: [u8; 2],
-
     pub triggered_at: UnixTimestamp,
     pub ex_padding: [u8; 56],
-
-    // pub token_in: Pubkey,
-    // pub token_out: Pubkey,
-    // pub token_hop: Pubkey,
-
     pub amount_in: u64,
     pub min_amount_out: u64,
 }

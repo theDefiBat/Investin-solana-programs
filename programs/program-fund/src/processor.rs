@@ -1326,6 +1326,11 @@ impl Fund {
                 msg!("FundInstruction::MigrateFundState");
                 return Self::migrate_fs(program_id, accounts)
             }
+            FundInstruction::InitOpenOrderAccounts => {
+                msg!("FundInstruction::InitOpenOrders");
+                let (&_op, op_data) = array_refs![data, 1; ..;];
+                return init_open_order_accs(program_id, accounts, op_data);
+            }
         }
     }
 }
