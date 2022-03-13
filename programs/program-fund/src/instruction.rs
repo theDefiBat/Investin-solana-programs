@@ -373,7 +373,7 @@ pub enum FundInstruction {
         amount_in: u64
     },
 
-    RouteTxn,
+    JupiterSwap,
     CheckSwapGuard,
     MigrateFundState,
     InitOpenOrderAccounts,
@@ -600,7 +600,7 @@ impl FundInstruction {
             }
 
             23 => {
-                FundInstruction::RouteTxn
+                FundInstruction::JupiterSwap
             }
 
             24 => {

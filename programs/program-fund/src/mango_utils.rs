@@ -210,7 +210,6 @@ pub fn mango_deposit(
 
     let mut fund_data = FundAccount::load_mut_checked(fund_account_ai, program_id)?;
     
-    msg!("Loaded DATA");
     check_eq!(fund_data.tokens[token_slot_index as usize].vault, *owner_token_account_ai.key); 
     check_eq!(*mango_prog_ai.key, mango_v3_id::ID);
     check!(fund_data.mango_positions.mango_account != Pubkey::default(), FundError::MangoNotInitialized);

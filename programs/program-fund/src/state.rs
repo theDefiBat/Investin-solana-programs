@@ -262,7 +262,8 @@ pub struct SwapGuard {
     pub token_out_slot: u8,
     pub padding: [u8; 2],
     pub triggered_at: UnixTimestamp,
-    pub ex_padding: [u8; 56],
+    pub input_value: U64F64,
+    pub ex_padding: [u8; 40],
     pub amount_in: u64,
     pub min_amount_out: u64,
 }

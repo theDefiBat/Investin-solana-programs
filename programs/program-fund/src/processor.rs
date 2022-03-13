@@ -26,7 +26,7 @@ use crate::error::FundError;
 use crate::instruction::{FundInstruction, Data};
 use crate::state::{NUM_TOKENS, MAX_INVESTORS, NUM_PERP, FundData, FundAccount, InvestorData, PlatformData};
 use crate::mango_utils::*;
-use crate::route::*;
+use crate::jup_utils::*;
 use crate::tokens::*;
 use mango::state::{MangoAccount, MangoGroup, MangoCache, PerpMarket, MAX_TOKENS, MAX_PAIRS, QUOTE_INDEX};
 use mango::instruction::{ cancel_all_perp_orders, withdraw, place_perp_order, consume_events };
@@ -1309,13 +1309,13 @@ impl Fund {
                 msg!("FundInstruction::FlushDebts");
                 return Self::flush_debts(program_id, accounts, index, count);
             }
-            FundInstruction::RouteTxn => {
-                msg!("FundInstruction::RouteTx");
+            FundInstruction::JupiterSwap => {
+                msg!("FundInstruction::JupiterSwap");
                 let (&_op, op_data) = array_refs![data, 1; ..;];
-                return route(program_id, accounts, op_data);
+                return jup_swap(program_id, accounts, op_data);
             }
             FundInstruction::SetSwapGuard {token_in_fund_slot, token_out_fund_slot, amount_in} => {
-                msg!("FundInstruction::SwapGuard");
+                msg!("FundInstruction::SetSwapGuard");
                 return set_swap_guard(program_id, accounts, token_in_fund_slot, token_out_fund_slot, amount_in);
             }
             FundInstruction::CheckSwapGuard => {

@@ -51,7 +51,7 @@ pub mod serum_dex {
 }
 
 
-pub fn route(
+pub fn jup_swap(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
     data: &[u8]
@@ -67,9 +67,7 @@ pub fn route(
     check!(fund_data.manager_account == *manager_ai.key, FundError::ManagerMismatch);
     let pda_signer_nonce = fund_data.signer_nonce;
     let whitelisted_prog_ai = next_account_info(accounts_iter)?;
-    if *whitelisted_prog_ai.key != jupiter_pid::ID {
-        return Err(ProgramError::InvalidArgument);
-    }
+    check!(*whitelisted_prog_ai.key == jupiter_pid::ID, FundError::IncorrectProgramId);
     let (mut check_for_guard, mut index) = (false, 1);
     while !check_for_guard {
         let ix = solana_program::sysvar::instructions::get_instruction_relative(index, sysvar_ix_ai)?;
@@ -174,7 +172,6 @@ pub fn set_swap_guard(
 
     let mut fund_data = FundAccount::load_mut_checked(fund_pda_ai, program_id)?;
     let platform_data = PlatformData::load_checked(platform_ai, program_id)?;
-    msg!("Accounts Loaded");
     check!(fund_data.is_initialized == true, FundError::FundAccountAlreadyInit);
     check!(fund_data.manager_account == *manager_ai.key, FundError::ManagerMismatch);
     check!(manager_ai.is_signer == true, FundError::IncorrectSignature);
@@ -200,6 +197,9 @@ pub fn set_swap_guard(
             input_value = input_value.checked_mul(underlying_token_info.pool_price).unwrap();
         }
     }
+
+    fund_data.guard.input_value = input_value;
+
     msg!("input value: {:?}", input_value);
 
 
@@ -231,6 +231,7 @@ pub fn set_swap_guard(
     fund_data.guard.token_in_slot = token_in_fund_slot;
     fund_data.guard.token_out_slot = token_out_fund_slot;
     msg!("amount_in {:?}, min_aount_out {:?}", fund_data.guard.amount_in, fund_data.guard.min_amount_out);
+
     
     Ok(())
 }
@@ -268,21 +269,20 @@ pub fn check_swap_guard(
 
     msg!("Checking amount_in {:?}, guard_amount_in {:?}", swap_amount_in, fund_data.guard.amount_in);
     check!(fund_data.guard.amount_in >= swap_amount_in, ProgramError::InsufficientFunds); //amountIn check
-    check!(swap_amount_out >= fund_data.guard.min_amount_out, ProgramError::InsufficientFunds); // minAmountOut guard check
+    check!(swap_amount_out >= fund_data.guard.min_amount_out, FundError::MinAmountFailed); // minAmountOut guard check
 
     fund_data.tokens[si].balance = source_amount;
     fund_data.tokens[di].balance = dest_amount;
-    // *check for debts*
-    // check!(fund_data.tokens[di].balance > fund_data.tokens[di].debt, ProgramError::InsufficientFunds);
-    // check in_slot debt is valid
-    // check!(fund_data.tokens[si].balance > fund_data.tokens[si].debt, ProgramError::InsufficientFunds);
-    msg!("reseting swap guard");
+    check!(fund_data.tokens[di].balance >= fund_data.tokens[di].debt, ProgramError::InsufficientFunds);
+    check!(fund_data.tokens[si].balance >= fund_data.tokens[si].debt, ProgramError::InsufficientFunds);
+    msg!("Vol: {:?}", fund_data.guard.input_value);
     fund_data.guard.is_active = false;
     fund_data.guard.amount_in = 0;
     fund_data.guard.min_amount_out = 0;
     fund_data.guard.triggered_at = 0;
     fund_data.guard.token_in_slot = u8::MAX;
     fund_data.guard.token_out_slot = u8::MAX;
+    fund_data.guard.input_value = U64F64!(0);
     Ok(())
 
 }
