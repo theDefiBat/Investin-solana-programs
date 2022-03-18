@@ -1,16 +1,20 @@
 import { PublicKey, SYSVAR_CLOCK_PUBKEY, Transaction, TransactionInstruction } from '@solana/web3.js';
 import React, { useState } from 'react'
 import { GlobalState } from '../store/globalState';
-import { adminAccount, priceStateAccount, connection, programId, TOKEN_PROGRAM_ID, FUND_ACCOUNT_KEY } from '../utils/constants';
+import { adminAccount, priceStateAccount, connection, programId, TOKEN_PROGRAM_ID, FUND_ACCOUNT_KEY, idsIndex } from '../utils/constants';
 import { nu64, struct, u8 } from 'buffer-layout';
 import { findAssociatedTokenAddress, signAndSendTransaction, createAssociatedTokenAccountIfNotExist } from '../utils/web3';
 import { TEST_TOKENS } from '../utils/tokens'
 import { FUND_DATA } from '../utils/programLayouts';
 import { devnet_pools } from '../utils/pools'
 import { updatePoolPrices } from './updatePrices';
+import { IDS } from '@blockworks-foundation/mango-client';
 
 
 export const Claim = () => {
+
+  const ids= IDS['groups'][idsIndex];
+
     const [fundPDA, setFundPDA] = useState('');
     const [fundStateAccount, setFundStateAccount] = useState('');
     const [performanceFee, setPerformanceFee] = useState(0);
@@ -44,9 +48,9 @@ export const Claim = () => {
           return
         }
 
-        const fundBaseTokenAccount = await findAssociatedTokenAddress(fundPDA[0], new PublicKey(TEST_TOKENS['USDR'].mintAddress));
-        const managerBaseTokenAccount = await findAssociatedTokenAddress(key, new PublicKey(TEST_TOKENS['USDR'].mintAddress));
-        const investinBaseTokenAccount = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['USDR'].mintAddress), adminAccount); 
+        const fundBaseTokenAccount = await findAssociatedTokenAddress(fundPDA[0], new PublicKey(ids.tokens[0].mintKey));
+        const managerBaseTokenAccount = await findAssociatedTokenAddress(key, new PublicKey(ids.tokens[0].mintKey));
+        const investinBaseTokenAccount = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(ids.tokens[0].mintKey), adminAccount); 
         
         const transaction = new Transaction()
 
@@ -88,7 +92,7 @@ export const Claim = () => {
 
     const sign = await signAndSendTransaction(walletProvider, transaction);
     console.log("tx perf: ", sign)
-    console.log("signature tx url:: ", `https://solscan.io/tx/{sign}`) 
+    console.log("signature tx url:: ", `https://solscan.io/tx/${sign}`) 
 
   }
     

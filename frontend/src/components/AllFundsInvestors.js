@@ -1,203 +1,229 @@
 import React, { useEffect, useState } from 'react'
 import { createAssociatedTokenAccount, createAssociatedTokenAccountIfNotExist, createKeyIfNotExists, createTokenAccountIfNotExist, findAssociatedTokenAddress, setWalletTransaction, signAndSendTransaction } from '../utils/web3'
-import { connection, FUND_ACCOUNT_KEY, platformStateAccount, PLATFORM_ACCOUNT_KEY, programId } from '../utils/constants'
+import { connection, FUND_ACCOUNT_KEY, idsIndex, platformStateAccount, PLATFORM_ACCOUNT_KEY, programId, SYSTEM_PROGRAM_ID } from '../utils/constants'
 import { GlobalState } from '../store/globalState';
 import { PublicKey, Transaction, TransactionInstruction } from '@solana/web3.js';
 import { TOKEN_PROGRAM_ID } from '@project-serum/serum/lib/token-instructions';
-import { FUND_DATA, INVESTOR_DATA, PLATFORM_DATA, SPL_TOKEN_MINT_DATA, U64F64 } from '../utils/programLayouts';
+import { FUND_DATA, FUND_PDA_DATA, INVESTOR_DATA, PLATFORM_DATA, SPL_TOKEN_MINT_DATA, U64F64 } from '../utils/programLayouts';
 import { Badge } from 'reactstrap';
 import BN from 'bn.js';
 import { Card, Col, Row ,Table} from 'reactstrap';
 import { Blob, seq, struct, u32, u8, u16, ns64 ,nu64} from 'buffer-layout';
+import { IDS, sleep } from '@blockworks-foundation/mango-client';
+import { TOKENS } from '../utils/tokens';
+const ids= IDS['groups'][idsIndex];
 
 export const AllFundsInvestors = () => {
+  
 
   const [investments, setInvestments] = useState([])
   const [funds, setFunds] = useState([])
+  const [oldFunds, setOldFunds] = useState([])
 
-  const handleGetAllInvestments = async () => {
+  const [tokenList, setTokenList] = useState([]) 
 
-     const userkey = new PublicKey('FFcfJ3QqPHReUkdhnqCws7dDDhHPuwZyiCDiYVr49NEb');
-    let investments = await connection.getProgramAccounts(programId, { filters: [
-      { dataSize: INVESTOR_DATA.span },
-      {
-        memcmp: { offset: INVESTOR_DATA.offsetOf('owner'), bytes: userkey.toBase58() }
+  const walletProvider = GlobalState.useState(s => s.walletProvider);
+  const tokensStatic = Object.entries(TOKENS).map( i => i[1])
+
+  useEffect(  ()=> {
+    (async () => {
+      const platformDataAcc = await connection.getAccountInfo(platformStateAccount)
+      if(!platformDataAcc) {
+        alert('platform state not initilaized');
+        return;
       }
-    ] });
-    // console.log("investments::",investments)
-    const newInvestors = []
-    for (const investment of investments) {
-      const invStateData = INVESTOR_DATA.decode(investment.account.data)
-      invStateData['ivnStatePubKey'] = investment.pubkey;
-    //   if (invStateData.is_initialized && invStateData.owner.toBase58() == key.toBase58()) {
-        newInvestors.push(invStateData)
-    //   }
-    }
-    console.log("newInvestors::",newInvestors)
-    setInvestments(newInvestors);
-  }
+        const platformData = PLATFORM_DATA.decode(platformDataAcc.data)
+        // console.log("platformData::",platformData);
+        // setPlatformData(platformData)
+        const platformTokens = platformData?.token_list;
+        console.log("platformTokens::",platformTokens);
+        console.log("ids.tokens::",ids.tokens);
 
-  const handleGetAllFunds = async () => {
+        //  Object.keys(TOKENS).find(mt => TOKENS[mt]?.mintKey === t.mint.toBase58())
+
+        let t = []; 
+        if(platformTokens?.length) {
+          t = platformTokens.map( (i) => {
+            return {
+               symbol: ((tokensStatic).find( k => k.mintAddress ===i.mint.toBase58()))?.symbol ?? 'NONE',
+                mintAddress: i.mint.toBase58(),
+                decimals: i.decimals?.toString(),
+               pool_coin_account: i.pool_coin_account.toBase58(),
+                pool_pc_account: i.pool_pc_account.toBase58(),
+                pool_price : i.pool_price?.toString(),
+            }
+          })
+        } 
+
+        setTokenList(t)
+    })()
+    
+  },[walletProvider])
+
+  
+
+  const handleGetAllMigratedFunds = async () => {
     const managers = []
-    const allFunds = await connection.getProgramAccounts(programId, { filters: [{ dataSize: FUND_DATA.span }] });
-
-    // let fundsWithIVNAmt = [];
-
+    const allFunds = await connection.getProgramAccounts(programId, { filters: [
+      { dataSize: FUND_PDA_DATA.span },
+      //  {
+      //   memcmp: { offset: FUND_PDA_DATA.offsetOf('number_of_active_investments'), bytes: '3' }
+      // }
+    ] });
+    console.log("-------1)-AllMigratedFunds nondecoded::",allFunds)
     for (const data of allFunds) {
-        const decodedData = FUND_DATA.decode(data.account.data);
-        
-        //to get funds with non-zero IVN holdings
-        // for (let j =0 ; j<decodedData?.tokens.length; j++){
-        //   let i = decodedData?.tokens[j];
-        //   if(i.vault.toBase58() === '11111111111111111111111111111111')
-        //    continue;
-        //   const vault_info = await connection.getAccountInfo(i.vault);
-        //   if(!vault_info)
-        //    continue;
-        //   const token_data = SPL_TOKEN_MINT_DATA.decode(vault_info?.data);
-         
-        //   if(token_data?.mint_authority?.toBase58()==='iVNcrNE9BRZBC9Aqf753iZiZfbszeAVUoikgT9yvr2a'){
-        //     const ivnBalance = await connection.getTokenAccountBalance(i.vault, "max");
-        //     if(Number(ivnBalance.value.uiAmount) >0){
-        //         console.log("balance::",(ivnBalance.value.uiAmount));
-        //         fundsWithIVNAmt.push({  
-        //           //  fundState : decodedData,
-        //             fundPDA: decodedData.fund_pda.toBase58(),
-        //             fundManager: decodedData.manager_account.toBase58(),
-        //             fundStateAccount: data.pubkey.toBase58(),
-        //             ivnBalance : (ivnBalance.value.uiAmount), 
-        //             ivnVault : i.vault.toBase58()
-        //         })
-        //      }
-        //   }
-        // }
-       
+        const decodedData = FUND_PDA_DATA.decode(data.account.data);
+        // const PDA_balance  = await connection.getBalance(decodedData.fund_pda, "max");
+        // console.log("PDA_balance:",PDA_balance)
 
-        // if (decodedData.is_initialized) {
-            // const { updatedPerformance, currentAum } = await getPerformance(mapTokens(platformData.token_list, decodedData.tokens), prices, (decodedData.prev_performance), decodedData.total_amount, (await fundMarginData(decodedData))?.balance ?? 0)
+       
             managers.push({
+                fund_v3_index : decodedData.fund_v3_index,
                 fundState : decodedData,
                 fundPDA: decodedData.fund_pda.toBase58(),
                 fundManager: decodedData.manager_account.toBase58(),
                 fundStateAccount: data.pubkey.toBase58(),
-                mango_acc1 : decodedData.mango_positions[0].margin_account.toBase58(),
-                trade_amount1 : decodedData.mango_positions[0].trade_amount.toString(),
-                debtors1 :  decodedData.mango_positions[0].debtors.toString(),
-                mango_acc2 : decodedData.mango_positions[1].margin_account.toBase58(),
-                trade_amount2 : decodedData.mango_positions[1].trade_amount.toString(),
-                debtors2 :  decodedData.mango_positions[1].debtors.toString(),
+                // PDA_balance : PDA_balance,
                 // fundName: decodedData.fund_pda.toBase58(),
-                // totalAmount: (new TokenAmount(decodedData.total_amount, TOKENS.USDC.decimals)).toEther().toNumber(),
-                // currentPerformance: decodedData.number_of_active_investments == 0 ?
-                //     (decodedData.prev_performance - 1) * 100
-                //     : updatedPerformance,
-                // currentAum,
-                // minAmount: (new TokenAmount(decodedData.min_amount.toNumber(), TOKENS.USDC.decimals)).toEther().toNumber()
+                // totalAmount: (new TokenAmount(decodedData.total_amount, ids.tokens[0].decimals)).toEther().toNumber(),
             });
-        // }
     }
-    console.log("managers:",managers);
-
-    // console.error("fundsWithIVNAmt:",fundsWithIVNAmt);
+    console.log("-----2) AllMigratedFunds Decoded PDA funds:",managers);
 
     setFunds(managers);
   }
 
+  const handleGetAllNonMigratedFunds = async () => {
+    const managers = []
+    const allFunds = await connection.getProgramAccounts(programId, { filters: [
+      { dataSize: FUND_DATA.span },
+      //  {
+      //   memcmp: { offset: FUND_PDA_DATA.offsetOf('number_of_active_investments'), bytes: '3' }
+      // }
+    ] });
+    console.log("-----1) All OLD FUND_STATE Funds nodecoded::",allFunds)
+  
+    for (const data of allFunds) {
+         const decodedData = FUND_DATA.decode(data.account.data);
+
+        //  const PDA_balance  = await connection.getBalance(decodedData.fund_pda, "max");
+        //  console.log("PDA_balance:",PDA_balance)
+
+        if (decodedData.is_initialized && decodedData.version!==3) {
+            managers.push({
+                fund_v3_index : decodedData.fund_v3_index,
+                fundState : decodedData,
+                fundPDA: decodedData.fund_pda.toBase58(),
+                fundManager: decodedData.manager_account.toBase58(),
+                fundStateAccount: data.pubkey.toBase58(),
+                // PDA_balance : PDA_balance,
+                // fundName: decodedData.fund_pda.toBase58(),
+                // totalAmount: (new TokenAmount(decodedData.total_amount, ids.tokens[0].decimals)).toEther().toNumber(),
+            });
+        } else {
+          // console.log("fund is_initialized false",decodedData?.fundPDA?.toBase58(), decodedData)
+        }
+    }
+    console.log("------2) OLD funds decoded:",managers);  
+    setOldFunds(managers);
+  }
+
+  const handleMigrate = async () => {
+
+  
+
+   console.log("---calling migrate")
+
+    if( oldFunds.length==0){
+      alert("first get funds")
+      return;
+    }
+  
+      const key = walletProvider?.publicKey;
+      if (!key) {
+        alert("connect wallet")
+        return;
+      };
+
+      const fundStateAndPDAS = []
+      for(let i=0;i<2;i++){
+        fundStateAndPDAS.push({pubkey: new PublicKey(oldFunds[i].fundPDA), isSigner: false, isWritable: true })
+        fundStateAndPDAS.push({pubkey: new PublicKey(oldFunds[i].fundStateAccount), isSigner: false, isWritable: true })
+      }
+    
+      
+
+      const transaction = new Transaction()
+      const dataLayout = struct([u8('instruction'),u8('count')])
+      const data = Buffer.alloc(dataLayout.span)
+      dataLayout.encode({
+        instruction: 23,
+        count : 2
+      },data)
+
+      
+      
+      const keys = [
+      {pubkey: platformStateAccount, isSigner: false, isWritable: true },
+      {pubkey: key, isSigner: true, isWritable: true },
+      {pubkey: SYSTEM_PROGRAM_ID, isSigner: false, isWritable: true},
+
+      // {pubkey: fundPDA[0], isSigner: false, isWritable:true},
+      // {pubkey: fundStateAccount, isSigner: false, isWritable: true},
+      ...fundStateAndPDAS
+    ]
+
+    for(let i=0; i<keys.length;i++) {
+      console.log("key:",i, keys[i].pubkey.toBase58())
+    }
+      
+      const migrate_instruction = new TransactionInstruction({
+        keys,
+        programId,
+        data
+      });
+  
+      transaction.add(migrate_instruction);
+      transaction.feePayer = key;
+      let hash = await connection.getRecentBlockhash();
+      console.log("blockhash", hash);
+      transaction.recentBlockhash = hash.blockhash;
+
+      const sign = await signAndSendTransaction(walletProvider, transaction);
+      console.log("tx perf: ", sign)
+      console.log("signature tx url:: ", `https://solscan.io/tx/${sign}`) 
+
+      await sleep(20000)
+      await handleGetAllNonMigratedFunds()
+}
+
   return (
     <div className="form-div">
-       <Card className="justify-content-center">
-      <Row className="justify-content-between">
-       <Col lg="12" xs="12">
-      <h4>Investments</h4>
-      <button onClick={handleGetAllInvestments}> get All Investments</button>
-
-      <Table 
-        className="tablesorter"
-        responsive
-        width="100%"
-        style={{ overflow: 'hidden !important', textAlign: 'center' }}
-        >
-            <thead className="text-primary">
-                            <tr>
-                              <th style={{ width: "15%" }}>index</th>
-                              <th style={{ width: "15%" }}>ivnStatePubKey</th>
-                              <th style={{ width: "15%" }}>manager</th>
-                              <th style={{ width: "15%" }}>owner</th>
-                              <th style={{ width: "15%" }}>amount</th>
-                              <th style={{ width: "15%" }}>amount_in_router</th>
-                              <th style={{ width: "15%" }}>start_performance</th>
-                              <th style={{ width: "15%" }}>is_initialized</th>
-                              <th style={{ width: "15%" }}>has_withdrawn</th>
-                              <th style={{ width: "15%" }}>withdrawn_from_margin</th>
-                              <th style={{ width: "15%" }}>margin_debt</th>
-                              <th style={{ width: "15%" }}>margin_position_id</th>
-                              <th style={{ width: "15%" }}>token_debts</th> 
-                              <th style={{ width: "15%" }}>token_indexes</th> 
-
-                            </tr>
-                          </thead>
-
-
-        <tbody>
-          {
-            investments && 
-
-            investments.map((i,x)=>{
-               return <tr key={i?.ivnStatePubKey?.toBase58()}>
-                 <td >{x}</td>
-                 <td >{i?.ivnStatePubKey?.toBase58()}</td>
-                 <td >{i?.manager?.toBase58()}</td>
-                 <td >{i?.owner?.toBase58()}</td>
-                 <td>{i?.amount?.toString()/10**6}</td>
-                 <td>{i?.amount_in_router?.toString()/10**6}</td>
-                 <td>{i?.start_performance?.toString()}</td>
-
-                 <td>{i?.is_initialized}</td>
-                 <td>{i?.has_withdrawn}</td>
-                 <td>{i?.withdrawn_from_margin}</td>
-
-                 <td>{`${i?.margin_debt[0]} <==>  ${i?.margin_debt[1]}`}</td>
-                 <td>{`${i?.margin_position_id[0]} <==>  ${i?.margin_position_id[1]}`}</td>
-
-                 <td>{i?.token_debts.toString()}</td>
-                 <td>{i?.token_indexes.toString()}</td>
-
-               </tr>
-            })
-          }
-        
-            </tbody>
-          </Table>
-
-     
-      </Col>
-      </Row>
-      <Row className="justify-content-between">
-      <Col lg="10" xs="10">
+       <Card className="justify-content-center" >
+      
+       <h4>Migrate State </h4>          <button onClick={handleMigrate}>Migrate</button>
+          <br />
+    
       <h4>Funds</h4>
       
-      <button onClick={handleGetAllFunds}> get All Funds</button>
+      <button onClick={handleGetAllMigratedFunds}> get All Migrated Funds</button>
 
-      <Table 
+         <Table 
         className="tablesorter"
         responsive
-        width="100%"
+        // width="100%"
         style={{ overflow: 'hidden !important', textAlign: 'center' }}
         >
             <thead className="text-primary">
                             <tr>
                               <th style={{ width: "15%" }}>index</th>
+                              <th style={{ width: "15%" }}>fund_v3_index</th>
                               <th style={{ width: "15%" }}>fundManager</th>
-                              <th style={{ width: "15%" }}>fundAddress</th>
+                              <th style={{ width: "15%" }}>fundPDA</th>
                               <th style={{ width: "15%" }}>fundStateAccount</th>
+                              {/* <th style={{ width: "15%" }}>PDA_balance</th> */}
                               {/* <th style={{ width: "15%" }}>amount</th>
                               <th style={{ width: "15%" }}>amount_in_router</th> */}
-                              <th style={{ width: "15%" }}>mango_acc1</th>
-                              <th style={{ width: "15%" }}>trade_amount1</th>
-                              <th style={{ width: "15%" }}>debtors1</th>
-                              <th style={{ width: "15%" }}>mango_acc2</th>
-                              <th style={{ width: "15%" }}>trade_amount2</th>
-                              <th style={{ width: "15%" }}>debtors2</th>
                             </tr>
                           </thead>
 
@@ -207,30 +233,65 @@ export const AllFundsInvestors = () => {
             funds && 
 
             funds.map((i,x)=>{
-              // if(i?.trade_amount1==0 && i?.trade_amount2==0){
-              //   return <></>
-              // }
                return <tr key={x}>
                  <td >{x}</td>
+                 <td >{i?.fund_v3_index}</td>
                  <td >{i?.fundManager}</td>
                  <td >{i?.fundPDA}</td>
                  <td >{i?.fundStateAccount}</td>
+                 {/* <td>{i?.PDA_balance}</td> */}
                  {/* <td>{i?.amount?.toString()/10**6}</td>
                  <td>{i?.amount_in_router?.toString()/10**6}</td> */}
-                <td >{i?.mango_acc1}</td>
-                 <td >{i?.trade_amount1}</td>
-                 <td >{i?.debtors1}</td>
-                 <td >{i?.mango_acc2}</td>
-                 <td >{i?.trade_amount2}</td>
-                 <td >{i?.debtors2}</td>
+               
                </tr>
+            })
+          }
+            </tbody>
+          </Table>
+
+          <button onClick={handleGetAllNonMigratedFunds}> get All OLD Funds</button>
+
+        <Table 
+        className="tablesorter"
+        responsive
+        // width="100%"
+        style={{ overflow: 'hidden !important', textAlign: 'center' }}
+        >
+            <thead className="text-primary">
+                            <tr>
+                              <th style={{ width: "15%" }}>index</th>
+                              <th style={{ width: "15%" }}>fund_v3_index</th>
+                              <th style={{ width: "15%" }}>fundManager</th>
+                              <th style={{ width: "15%" }}>fundPDA</th>
+                              <th style={{ width: "15%" }}>fundStateAccount</th>
+                              {/* <th style={{ width: "15%" }}>PDA_balance</th> */}
+                              {/* <th style={{ width: "15%" }}>amount</th>
+                              <th style={{ width: "15%" }}>amount_in_router</th> */}
+                            </tr>
+            </thead>
+        <tbody>
+          {
+            oldFunds && 
+
+            oldFunds.map((i,x)=>{
+              return <tr key={x}>
+                <td >{x}</td>
+                <td >{i?.fund_v3_index}</td>
+                <td >{i?.fundManager}</td>
+                <td >{i?.fundPDA}</td>
+                <td >{i?.fundStateAccount}</td>
+                {/* <td>{i?.PDA_balance}</td> */}
+                {/* <td>{i?.amount?.toString()/10**6}</td>
+                <td>{i?.amount_in_router?.toString()/10**6}</td> */}
+              
+              </tr>
             })
           }
             </tbody>
           </Table> 
 
-      </Col>
-            </Row>
+          <hr/>
+         
       </Card>
     </div>
   )

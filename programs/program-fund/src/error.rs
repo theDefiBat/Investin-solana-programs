@@ -5,56 +5,76 @@ use thiserror::Error;
 
 #[derive(Clone, Debug, Eq, Error, FromPrimitive, PartialEq)]
 pub enum FundError {
-
+    //0
     #[error("FundAccount is Already Initialised")]
     FundAccountAlreadyInit,
 
+    //1
     #[error("InvestorAccount is Already Initialised")]
     InvestorAccountAlreadyInit,
 
+    //2
     #[error("Invorrect signature")]
     IncorrectSignature,
 
+    //3
     #[error("Incorrect program id passed")]
     IncorrectProgramId,
 
+    //4
     #[error("Incorrect PDA passed")]
     IncorrectPDA,
 
+    //5
     #[error("Invalid Token Accounts passed")]
     InvalidTokenAccount,
 
+    //6
     #[error("Invalid State Accounts passed")]
     InvalidStateAccount,
 
-    /// Invalid instruction
+    ///7 Invalid instruction
     #[error("Invalid Instruction")]
     InvalidInstruction,
 
-    /// Amount less than minimum Amount
+    ///8 Amount less than minimum Amount
     #[error("Amount less than minimum amount")]
     InvalidAmount,
 
-    /// Investor Mismatch
+    ///9 Investor Mismatch
     #[error("Investor Mismatch")]
     InvestorMismatch,
 
-    /// Manager Mismatch
+    ///a Manager Mismatch
     #[error("Manager Mismatch")]
     ManagerMismatch,
 
-    /// Maximum Number of Depositors at a time reached
+    ///b Maximum Number of Depositors at a time reached
     #[error("Wait for Manager Transfer")]
     DepositLimitReached,
 
+    //c
     #[error("Stale price in account")]
     PriceStaleInAccount,
 
-    #[error("Invalid Margin Instruction State")]
+    //d
+    #[error("Invalid Mango Instruction State")]
     InvalidMangoState,
 
+    //e
+    #[error("Mango Account Not Initialized")]
+    MangoNotInitialized,
+
+    //f
     #[error("Default Error")]
-    Default
+    Default,
+
+    //10
+    #[error("Fund is Private")]
+    PrivateFund,
+
+    #[error("minAmountOut invalidated")]
+    MinAmountFailed
 }
 
 impl From<FundError> for ProgramError {

@@ -8,6 +8,7 @@ use solana_program::clock::UnixTimestamp;
 use solana_program::msg;
 use bytemuck::{from_bytes, from_bytes_mut, Pod, Zeroable};
 use fixed::types::U64F64;
+use fixed::types::I80F48;
 use crate::error::FundError;
 
 pub const NUM_TOKENS:usize = 8;
@@ -15,6 +16,7 @@ pub const MAX_TOKENS:usize = 50;
 pub const MAX_INVESTORS:usize = 10;
 pub const MAX_INVESTORS_WITHDRAW: usize = 2;
 pub const NUM_MARGIN: usize = 2;
+pub const NUM_PERP: usize = 3;
 
 pub trait Loadable: Pod {
     fn load_mut<'a>(account: &'a AccountInfo) -> Result<RefMut<'a, Self>, ProgramError> {
@@ -44,6 +46,7 @@ macro_rules! check_eq {
     }
 }
 
+
 /// Struct wrapping data and providing metadata
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -58,7 +61,8 @@ pub struct PlatformData {
     pub no_of_active_funds: u8,
     // running count of tokens in whitelist
     pub token_count: u8,
-    pub padding: [u8; 3],
+    pub padding: u8,
+    pub total_v3_funds: u16,
 
     // PDA of router
     pub router: Pubkey,
@@ -73,8 +77,25 @@ pub struct PlatformData {
 }
 impl_loadable!(PlatformData);
 
+/// Struct wrapping data and providing metadata
 #[repr(C)]
 #[derive(Clone, Copy)]
+pub struct AmmInfo {
+
+    pub padding: [u64; 24],
+
+    pub need_take_pnl_coin: u64,
+    pub need_take_pnl_pc: u64,
+
+    pub paddingx: [u64; 68],
+
+}
+impl_loadable!(AmmInfo);
+
+
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
 pub struct FundData {
 
     pub is_initialized: bool,
@@ -93,8 +114,9 @@ pub struct FundData {
 
     /// version info
     pub version: u8,
-    pub padding: [u8; 7],
-  
+    pub is_private: bool,
+    pub padding: [u8; 6],
+
     /// Minimum Amount
     pub min_amount: u64,
 
@@ -122,22 +144,97 @@ pub struct FundData {
     /// Fund PDA
     pub fund_pda: Pubkey,
 
-    /// Tokens owned
-    pub tokens: [TokenSlot; NUM_TOKENS],
+     /// Tokens owned
+     pub tokens: [TokenSlot; NUM_TOKENS],
 
-    // Store investor state account addresses
-    pub investors: [Pubkey; MAX_INVESTORS],
+     // Store investor state account addresses
+     pub investors: [Pubkey; MAX_INVESTORS],
+ 
+     // mango position info
+     pub mango_positions: MangoInfo,
 
-    // margin position info
-    pub mango_positions: [MarginInfo; 2],
+     pub guard: SwapGuard,
 
-    // padding for future use
-    pub xpadding: [u8; 32]
+     pub margin_update_padding: [u8; 24], //80 Bytes for Depr. MarginInfo Size
+ 
+     // padding for future use
+    //  pub xpadding: [u8; 8] //32
 }
 impl_loadable!(FundData);
 
 #[repr(C)]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
+pub struct FundAccount {
+
+    pub is_initialized: bool,
+    /// Number of Active Investments in fund
+    pub number_of_active_investments: u8,
+    /// Total Number of investments in fund
+    pub no_of_investments: u8,
+    // nonce to sign transactions
+    pub signer_nonce: u8,
+    /// Number of open margin positions
+    pub no_of_margin_positions: u8,
+    /// Number of active tokens
+    pub no_of_assets: u8,
+    /// Position count
+    pub position_count: u16,
+
+    /// version info
+    pub version: u8,
+    pub is_private: bool,
+    pub fund_v3_index: u16,
+    pub padding: [u8; 4],
+
+    /// Minimum Amount
+    pub min_amount: u64,
+
+    /// Minimum Return
+    pub min_return: U64F64,
+
+    /// Performance Fee Percentage
+    pub performance_fee_percentage: U64F64,
+
+    /// Total Amount in fund (in USDC)
+    pub total_amount: U64F64,
+
+    /// Preformance in fund
+    pub prev_performance: U64F64,
+
+    /// Amount in Router (in USDC)
+    pub amount_in_router: u64,
+
+    /// Performance Fee
+    pub performance_fee: U64F64,
+
+    /// Wallet Address of the Manager
+    pub manager_account: Pubkey,
+
+    /// Fund PDA
+    pub fund_pda: Pubkey,
+
+     /// Tokens owned
+     pub tokens: [TokenSlot; NUM_TOKENS],
+
+     // Store investor state account addresses
+     pub investors: [Pubkey; MAX_INVESTORS],
+ 
+     // mango position info
+     pub mango_positions: MangoInfo,
+
+     pub guard: SwapGuard,
+
+     pub margin_update_padding: [u8; 24], //80 Bytes for Depr. MarginInfo Size
+ 
+     // padding for future use
+    //  pub xpadding: [u8; 8] //32
+
+    pub migration_additonal_padding: [u8; 2024]
+}
+impl_loadable!(FundAccount);
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
 pub struct TokenSlot {
     // state vars
     pub is_active: bool,
@@ -154,9 +251,26 @@ pub struct TokenSlot {
 }
 impl_loadable!(TokenSlot);
 
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
+pub struct SwapGuard {
+    pub is_active: bool,
+    pub is_split: bool,
+    pub hop: u8,
+    pub count: u8,
+    pub token_in_slot: u8,
+    pub token_out_slot: u8,
+    pub padding: [u8; 2],
+    pub triggered_at: UnixTimestamp,
+    pub input_value: U64F64,
+    pub ex_padding: [u8; 40],
+    pub amount_in: u64,
+    pub min_amount_out: u64,
+}
+impl_loadable!(SwapGuard);
 
 #[repr(C)]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct InvestorData {
 
     pub is_initialized: bool,
@@ -167,7 +281,7 @@ pub struct InvestorData {
     /// Investor wallet address
     pub owner: Pubkey,
 
-    /// The Initial deposit (in USDT tokens)
+    /// The Initial deposit (in USDC tokens)
     pub amount: u64,
 
     // start performance of investor
@@ -179,8 +293,8 @@ pub struct InvestorData {
     // Fund manager wallet key
     pub manager: Pubkey,
 
-    // margin percentage
-    pub margin_debt: [U64F64; NUM_MARGIN],
+    // TODO Debt in Depost Tokens on Mango
+    pub margin_debt: [U64F64; NUM_MARGIN], 
 
     // margin position id
     pub margin_position_id: [u64; NUM_MARGIN],
@@ -188,31 +302,27 @@ pub struct InvestorData {
     // investor assets in tokens
     pub token_indexes: [u8; NUM_TOKENS],
     pub token_debts: [u64; NUM_TOKENS],
-
     // padding for future use
-    pub xpadding: [u8; 32]
+    pub xpadding: [u8; 32] 
 }
 impl_loadable!(InvestorData);
 
 #[repr(C)]
-#[derive(Clone, Copy)]
-pub struct MarginInfo {
+#[derive(Clone, Copy, Debug)]
+pub struct MangoInfo {
     // margin account pubkey to check if the passed acc is correct
-    pub margin_account: Pubkey,
+    pub mango_account: Pubkey, 
+    pub perp_markets: [u8; 3],
+    pub perp_padding: u8,
+    pub deposit_index: u8,
+    pub markets_active: u8,
+    pub deposits_active: u8,
+    pub xpadding: u8,
 
-    // 0: inactive, 1: deposited, 2: position_open, 3: settled_open, 4: position_closed, 5: settled_close
-    pub state: u8, 
-    pub margin_index: u8, // token_index for the trade
-    pub position_side: u8, // 0 for LONG, 1 for SHORT
-    pub padding: [u8; 3],
-    pub position_id: u16, // unique id for the position
-    
-    pub trade_amount: u64, // 8 for PnL calculation
-
-    pub fund_share: U64F64,
-    pub share_ratio: U64F64
+    pub investor_debts: [u64; 2], // cumulative investor debts for each deposit token 
+    pub padding: [u8; 24]
 }
-impl_loadable!(MarginInfo);
+impl_loadable!(MangoInfo);
 
 impl Sealed for InvestorData {}
 impl IsInitialized for InvestorData {
@@ -223,6 +333,13 @@ impl IsInitialized for InvestorData {
 
 impl Sealed for FundData {}
 impl IsInitialized for FundData {
+    fn is_initialized(&self) -> bool {
+        self.is_initialized
+    }
+}
+
+impl Sealed for FundAccount {}
+impl IsInitialized for FundAccount {
     fn is_initialized(&self) -> bool {
         self.is_initialized
     }
@@ -318,8 +435,41 @@ impl FundData {
     pub fn get_token_slot(&self, index: usize, mux: usize) -> Option<usize> {
         self.tokens.iter().position(|token| token.index[mux] as usize == index)
     }
-    pub fn get_margin_index(&self, margin_account_pk: &Pubkey) -> Option<usize> {
-        self.mango_positions.iter().position(|pos| pos.margin_account == *margin_account_pk)
+    pub fn get_mango_perp_index(&self, mango_perp_index: u8) -> Option<usize> {
+        self.mango_positions.perp_markets.iter().position(|pmid| *pmid == mango_perp_index)
+    }
+    pub fn get_investor_index(&self, inv_state_pk: &Pubkey) -> Option<usize> {
+        self.investors.iter().position(|pos| *pos == *inv_state_pk)
+    }
+}
+
+impl FundAccount {
+    pub fn load_mut_checked<'a>(
+        account: &'a AccountInfo,
+        program_id: &Pubkey
+    ) -> Result<RefMut<'a, Self>, ProgramError> {
+
+        check_eq!(account.data_len(), size_of::<Self>());
+        check_eq!(account.owner, program_id);
+
+        let data = Self::load_mut(account)?;
+        Ok(data)
+    }
+    pub fn load_checked<'a>(
+        account: &'a AccountInfo,
+        program_id: &Pubkey
+    ) -> Result<Ref<'a, Self>, ProgramError> {
+        check_eq!(account.data_len(), size_of::<Self>());  // TODO not necessary check
+        check_eq!(account.owner, program_id);
+
+        let data = Self::load(account)?;
+        Ok(data)
+    }
+    pub fn get_token_slot(&self, index: usize, mux: usize) -> Option<usize> {
+        self.tokens.iter().position(|token| token.index[mux] as usize == index)
+    }
+    pub fn get_mango_perp_index(&self, mango_perp_index: u8) -> Option<usize> {
+        self.mango_positions.perp_markets.iter().position(|pmid| *pmid == mango_perp_index)
     }
     pub fn get_investor_index(&self, inv_state_pk: &Pubkey) -> Option<usize> {
         self.investors.iter().position(|pos| *pos == *inv_state_pk)

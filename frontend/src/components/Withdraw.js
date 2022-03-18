@@ -1,23 +1,25 @@
 import { PublicKey, SYSVAR_CLOCK_PUBKEY, Transaction, TransactionInstruction } from '@solana/web3.js';
 import React, { useState } from 'react'
 import { GlobalState } from '../store/globalState';
-import { adminAccount, SOL_USDC_MARKET, connection,  platformStateAccount, priceStateAccount, FUND_ACCOUNT_KEY, programId, TOKEN_PROGRAM_ID , CLOCK_PROGRAM_ID, MANGO_PROGRAM_ID_V2, MANGO_GROUP_ACCOUNT, MANGO_VAULT_ACCOUNT_USDC, MARGIN_ACCOUNT_KEY, ORACLE_BTC_DEVNET, ORACLE_ETH_DEVNET, ORACLE_SOL_DEVNET, ORACLE_SRM_DEVNET} from '../utils/constants';
+import { adminAccount, SOL_USDC_MARKET, connection,  platformStateAccount, priceStateAccount, FUND_ACCOUNT_KEY, programId, TOKEN_PROGRAM_ID , CLOCK_PROGRAM_ID, MANGO_PROGRAM_ID_V2, MANGO_GROUP_ACCOUNT, MARGIN_ACCOUNT_KEY, ORACLE_BTC_DEVNET, ORACLE_ETH_DEVNET, ORACLE_SOL_DEVNET, ORACLE_SRM_DEVNET, idsIndex, MANGO_TOKENS, PERP_MARKETS} from '../utils/constants';
 
 import { nu64, struct, u8 } from 'buffer-layout';
 import { createKeyIfNotExists, findAssociatedTokenAddress, setWalletTransaction, signAndSendTransaction, createAssociatedTokenAccount, createAssociatedTokenAccountIfNotExist } from '../utils/web3';
-import { devnet_pools } from '../utils/pools';
+import { devnet_pools, DEV_TOKENS, orcaPools, raydiumPools } from '../utils/pools';
 import { keyBy } from 'lodash';
-import { INVESTOR_DATA, PLATFORM_DATA, FUND_DATA } from '../utils/programLayouts';
+import { INVESTOR_DATA, PLATFORM_DATA, FUND_DATA, FUND_PDA_DATA } from '../utils/programLayouts';
 
 import { updatePoolPrices } from './updatePrices';
 import { MarginAccountLayout, NUM_MARKETS, MangoGroupLayout } from '../utils/MangoLayout';
 
 import { mangoWithdrawInvestor, placeOrder, placeOrder2 } from '../utils/mango';
 import { TOKENS } from '../utils/tokens';
+import { IDS, MangoClient, NodeBankLayout } from '@blockworks-foundation/mango-client';
 
+import { closeAccount } from '@project-serum/serum/lib/token-instructions'
 
 const getPoolAccounts = () => {
-  return devnet_pools.map((p) => {
+  return raydiumPools.map((p) => {
     return [
       { pubkey: new PublicKey(p.poolCoinTokenAccount), isSigner: false, isWritable: true },
       { pubkey: new PublicKey(p.poolPcTokenAccount), isSigner: false, isWritable: true }
@@ -26,73 +28,162 @@ const getPoolAccounts = () => {
 }
 
 export const Withdraw = () => {
-
-  const [amount, setAmount] = useState(0);
-
-  const [fundPDA, setFundPDA] = useState('')
-  const [fundStateAccount, setFundStateAccount] = useState('')
-  const [fundPerf, setFundPerf] = useState(0);
-  const [startPerf, setStartPerf] = useState(0);
-  const [invShare, setInvShare] = useState(0);
-  const [funds, setFunds] = useState([]);
-
-
-  const [fundBalances, setFundBalances] = useState([])
-  const [withdrawableAmount, setWithdrawableAmount] = useState(0)
+  
+  const ids= IDS['groups'][idsIndex];
 
   const walletProvider = GlobalState.useState(s => s.walletProvider);
-  const fundAccount = GlobalState.useState(s => s.createFundPublicKey);
+  
+  const [amount, setAmount] = useState(0);
+  const [investments, setInvestments] = useState([])
+  const [investmentIndex, setInvestmentIndex] = useState(0)
+  // const [investorAddr, setInvestorAddr] = useState('')
+  // const [investorStateAcc, setInvestorStateAcc] = useState('')
+
+  
+  const handleGetAllInvestments = async () => {
+
+    //  const userkey = new PublicKey('zRzdC1b2zJte4rMjfaSFZwbnBfL1kNYaTAF4UC4bqpx');
+    let investments = await connection.getProgramAccounts(programId, { filters: [
+      { dataSize: INVESTOR_DATA.span },
+      {
+        memcmp: { offset: INVESTOR_DATA.offsetOf('owner'), bytes: walletProvider?.publicKey.toBase58() }
+      }
+    ] });
+    // console.log("investments::",investments)
+    const newInvestors = []
+    for (const investment of investments) {
+      const invStateData = INVESTOR_DATA.decode(investment.account.data)
+      invStateData['ivnStatePubKey'] = investment.pubkey;
+    //   if (invStateData.is_initialized && invStateData.owner.toBase58() == key.toBase58()) {
+        newInvestors.push(invStateData)
+    //   }
+    }
+    console.log("newInvestors::",newInvestors)
+    setInvestments(newInvestors);
+  }
 
   const handleWithdrawSettle = async () => {
+
+    const investorStateAcc = investments[investmentIndex].ivnStatePubKey?.toBase58()
+    const investorAddr = investments[investmentIndex].owner?.toBase58()
+
+    console.log("**----handleWithdrawSettle investorStateAcc, investorAddr::",investorStateAcc,investorAddr)
+
     const key = walletProvider?.publicKey;
     if (!key) {
-      alert("connect wallet")
+      console.log("connect wallet")
       return;
     };
-
-    if(!fundStateAccount) {
-      alert("no funds found")
-      return
+    if(investments[investmentIndex]?.owner?.toBase58()!= walletProvider?.publicKey.toBase58())
+    {
+      alert('web3 not done only manager investments')
+      return;
     }
-    console.log("fundStateAcc::: ", fundStateAccount)
-    const investerStateAccount = await createKeyIfNotExists(walletProvider, null, programId, fundPDA.substr(0, 31), INVESTOR_DATA.span)
-
-    const accountInfo = await connection.getAccountInfo(new PublicKey(fundStateAccount));
-    const fund_data = FUND_DATA.decode(accountInfo.data);
-
-    let margin_account_1 = fund_data.mango_positions[0].margin_account;
-    let margin_account_2 = fund_data.mango_positions[1].margin_account;
-
-    let open_orders_1 = PublicKey.default
-    let oracle_acc_1 = PublicKey.default
-    let is_active = false
-    if (margin_account_1 != PublicKey.default && fund_data.mango_positions[0].state != 0) {
-      let margin_info = await connection.getAccountInfo(margin_account_1)
-      let margin_data = MarginAccountLayout.decode(margin_info.data)
-      let mango_info = await connection.getAccountInfo(MANGO_GROUP_ACCOUNT)
-      let mango_data = MangoGroupLayout.decode(mango_info.data)
-
-      let index = fund_data.mango_positions[0].margin_index
-      open_orders_1 = margin_data.openOrders[index]
-      oracle_acc_1 = mango_data.oracles[index]
-    }
-    let open_orders_2 = PublicKey.default
-    let oracle_acc_2 = PublicKey.default
-    if (margin_account_2 != PublicKey.default && fund_data.mango_positions[1].state != 0) {
-      let margin_info = await connection.getAccountInfo(margin_account_2)
-      let margin_data = MarginAccountLayout.decode(margin_info.data)
-      let mango_info = await connection.getAccountInfo(MANGO_GROUP_ACCOUNT)
-      let mango_data = MangoGroupLayout.decode(mango_info.data)
-
-      let index = fund_data.mango_positions[1].margin_index
-      open_orders_2 = margin_data.openOrders[index]
-      oracle_acc_2 = mango_data.oracles[index]
-    }
+    const fundPDA = await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId);
+    // const fundStateAccount = await PublicKey.createWithSeed(
+    //     key,
+    //     FUND_ACCOUNT_KEY,
+    //     programId,
+    // );
+    // console.log("fundStateAccount:",fundStateAccount.toBase58())
+    let fundStateInfo = await connection.getAccountInfo(fundPDA[0])
+    let fund_data = FUND_PDA_DATA.decode(fundStateInfo.data) 
+  
+   
+    console.log("fund_data:",fund_data)
   
     const transaction = new Transaction()
-    
-    updatePoolPrices(transaction, devnet_pools)
+  
+    let filt_pools = []
+    let WSOLWhitelisted = false;
+    let MSOLWhitelisted = false;
+    let platData = await connection.getAccountInfo(platformStateAccount)
+    let platform_data = PLATFORM_DATA.decode(platData.data)
+    console.log("plat info:: ", platform_data)
 
+    for (let i = 1; i<8; i++) {
+      if (fund_data.tokens[i].balance > 0) {
+        let mint = platform_data.token_list[fund_data.tokens[i].index[fund_data.tokens[i].mux]].mint;
+        // if(mint.toBase58() === TOKENS.WSOL.mintAddress){
+        //   WSOLWhitelisted=true;
+        // } 
+        // else if(mint.toBase58() === TOKENS.MSOL.mintAddress){
+        //   MSOLWhitelisted=true;
+        // }
+        if(fund_data.tokens[i].mux === 0){
+          let x = raydiumPools.find(p => p.coin.mintAddress == mint.toBase58())
+          filt_pools.push(x)
+        } else {
+          let x = orcaPools.find(p => p.coin.mintAddress == mint.toBase58())
+          filt_pools.push(x)
+        }
+      }  
+    }
+    //send WSOL everytime 
+    // if(!WSOLWhitelisted){
+    //   const wsol_usdc_pool = raydiumPools.find(p => p.name == 'WSOL-USDC');
+    //   console.log("pushing WSOL pool")
+    //   filt_pools.push(wsol_usdc_pool)
+    // }
+    // if(!MSOLWhitelisted){
+    //   const msol_usdc_pool = orcaPools.find(p => p.name == 'MSOL-USDC');
+    //   console.log("pushing MSOL pool")
+    //   filt_pools.push(msol_usdc_pool)
+    // }
+    console.log("filt_pools:",filt_pools)
+    updatePoolPrices(transaction, filt_pools)
+
+    console.log("ids.mangoProgramId:: ", ids.mangoProgramId)
+    let client = new MangoClient(connection, new PublicKey(ids.mangoProgramId))
+    let mangoGroup = await client.getMangoGroup(new PublicKey(ids.publicKey))
+    console.log("mangoGroup.mangoCache :: ", mangoGroup.mangoCache.toBase58())
+
+
+    // [      perp_market_ai,     // write default_ai if no perp market for i^th index
+    //        bids_ai,            // write default_ai if no perp market for i^th index
+    //        asks_ai,            // write default_ai if no perp market for i^th index
+    //        event_queue_ai,]   //write default_ai if no perp market for i^th index
+    let perpKeys = []
+    for(let i=0; i<3;i++){
+          const marketIndex = fund_data.mango_positions.perp_markets[i];
+          console.log("marketIndex:",marketIndex,i)
+          const perpMaketInfo = PERP_MARKETS.find((i) => i.perpMarketId==marketIndex )
+          console.log("found  perpMaketInfo::",perpMaketInfo)
+          
+          if(marketIndex!=255){
+             console.log("pusing:",marketIndex,i)
+
+            perpKeys.push(
+              { pubkey:  new PublicKey(perpMaketInfo.publicKey), isSigner: false, isWritable: true },
+             )
+             perpKeys.push(
+              { pubkey:  new PublicKey(perpMaketInfo.bidsKey), isSigner: false, isWritable: true },
+             )
+             perpKeys.push(
+              { pubkey:  new PublicKey(perpMaketInfo.asksKey), isSigner: false, isWritable: true },
+             )
+             perpKeys.push(
+              { pubkey:  new PublicKey(perpMaketInfo.eventsKey), isSigner: false, isWritable: true },
+             )
+          
+          } else {
+
+            perpKeys.push(
+              { pubkey:  PublicKey.default, isSigner: false, isWritable: false },
+             )
+             perpKeys.push(
+              { pubkey:  PublicKey.default, isSigner: false, isWritable: false },
+             )
+             perpKeys.push(
+              { pubkey:  PublicKey.default, isSigner: false, isWritable: false },
+             )
+             perpKeys.push(
+              { pubkey:  PublicKey.default, isSigner: false, isWritable: false },
+             )
+           
+          }
+    }
+  
     const dataLayout = struct([u8('instruction')])
     const data = Buffer.alloc(dataLayout.span)
     dataLayout.encode(
@@ -102,31 +193,174 @@ export const Withdraw = () => {
       data
     )
 
+    const keys = [
+      { pubkey: platformStateAccount, isSigner: false, isWritable: true }, //fund State Account
+      // { pubkey: fundStateAccount, isSigner: false, isWritable: true },
+      { pubkey: fundPDA[0], isSigner: false, isWritable: true },
+
+      { pubkey: new PublicKey(investorStateAcc), isSigner: false, isWritable: true }, //fund State Account
+      { pubkey: key, isSigner: true, isWritable: true },
+
+      { pubkey: fund_data.mango_positions.mango_account , isSigner: false, isWritable: true },
+      { pubkey: new PublicKey(ids.publicKey), isSigner: false, isWritable: true },
+      { pubkey: mangoGroup.mangoCache, isSigner: false, isWritable: false },
+      { pubkey: new PublicKey(ids.mangoProgramId), isSigner: false, isWritable: false },
+       
+      { pubkey: PublicKey.default, isSigner: false, isWritable: false },
+
+       ...perpKeys, // 16 accs 
+    ];
+
+    for(let i=0; i<keys.length;i++) {
+      console.log("key:",i, keys[i].pubkey.toBase58())
+    }
+  
     const instruction = new TransactionInstruction({
-      keys: [
-        { pubkey: platformStateAccount, isSigner: false, isWritable: true }, //fund State Account
-        { pubkey: new PublicKey(fundStateAccount), isSigner: false, isWritable: true },
-        { pubkey: investerStateAccount, isSigner: false, isWritable: true }, //fund State Account
-        { pubkey: key, isSigner: true, isWritable: true },
-
-        { pubkey: MANGO_GROUP_ACCOUNT, isSigner: false, isWritable: true },
-        {pubkey: SYSVAR_CLOCK_PUBKEY, isSigner: false, isWritable:true},
-
-        { pubkey: margin_account_1, isSigner: false, isWritable: true },
-        { pubkey: margin_account_2, isSigner: false, isWritable: true },
-        { pubkey: open_orders_1, isSigner: false, isWritable: true },
-        { pubkey: open_orders_2, isSigner: false, isWritable: true },
-        { pubkey: oracle_acc_1, isSigner: false, isWritable: true },
-        { pubkey: oracle_acc_2, isSigner: false, isWritable: true },
-
-      ],
+      keys: keys,
       programId,
       data
+    });
+    transaction.add(instruction);
+    transaction.feePayer = key;
+    let hash = await connection.getRecentBlockhash("finalized");
+    console.log("blockhash", hash);
+    transaction.recentBlockhash = hash.blockhash;
+  
+    const sign = await signAndSendTransaction(walletProvider, transaction);
+    console.log("tx::: ", sign);
+    console.log("signature tx url:: ", `https://solscan.io/tx/${sign}`) 
+
+  }
+
+  const isMangoWithdrawRequired = async () => {
+    
+    const investorStateAcc = investments[investmentIndex].ivnStatePubKey?.toBase58()
+    const investorAddr = investments[investmentIndex].owner?.toBase58()
+    console.log("**----isMangoWithdrawRequired investorStateAcc,investorAddr::",investorStateAcc,investorAddr)
+
+    let investorStateData = await connection.getAccountInfo(investorStateAcc);
+    investorStateData = INVESTOR_DATA.decode(investorStateData.data)
+
+    // const user_other_token_deposit_debt = investorStateData.margin_debt[1]
+
+    // zero debts
+    // IMP but rare senario :: when it gets liquidated after partial withdraw 
+    return ( !investorStateData.margin_debt[0] && !investorStateData.margin_debt[1] ) 
+
+  }
+
+  const handleWithdrawFromMango = async ( ) => {
+
+    const investorStateAcc = investments[investmentIndex].ivnStatePubKey?.toBase58()
+    const investorAddr = investments[investmentIndex].owner?.toBase58()
+    console.log("**----handleWithdrawFromMango investorStateAcc,investorAddr::",investorStateAcc,investorAddr)
+    const key = walletProvider?.publicKey;
+    if (!key) {
+        alert("connect wallet")
+        return;
+    };
+    if (investments[investmentIndex]?.owner?.toBase58()!= walletProvider?.publicKey.toBase58()) {
+        alert('web3 not done only manager investments')
+        return;
+    }
+    const fundPDA = await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId);
+    // const fundStateAccount = await PublicKey.createWithSeed(
+    //     key,
+    //     FUND_ACCOUNT_KEY,
+    //     programId,
+    // );
+    let fundStateInfo = await connection.getAccountInfo((fundPDA[0]))
+    let fundState = FUND_PDA_DATA.decode(fundStateInfo.data) 
+    console.log("fundState:",fundState)
+
+    // let investorStateData = await connection.getAccountInfo(investorStateAcc);
+    // investorStateData = INVESTOR_DATA.decode(investorStateData.data)
+
+    let client = new MangoClient(connection, new PublicKey(ids.mangoProgramId))
+    let mangoGroup = await client.getMangoGroup(new PublicKey(ids.publicKey))
+
+    let usdcnodeBankInfo = await connection.getAccountInfo(new PublicKey("BGcwkj1WudQwUUjFk78hAjwd1uAm8trh1N4CJSa51euh"))
+    console.log("usdcnodeBankInfo:",usdcnodeBankInfo)
+    let usdcnodeBank = NodeBankLayout.decode(usdcnodeBankInfo.data)
+
+      const deposit_index = parseInt(investments[investmentIndex]?.margin_position_id[1].toString());
+      const user_other_token_deposit_debt = investments[investmentIndex]?.margin_debt[1]
+      console.log("deposit_index::::",deposit_index)
+      console.log("user_other_token_deposit_debt::::",user_other_token_deposit_debt)
+
+      const transaction = new Transaction()
+
+      const usdcInvestorTokenAcc = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(MANGO_TOKENS.USDC.mintAddress), walletProvider.publicKey, transaction)
+      console.log("usdcInvestorTokenAcc::::",usdcInvestorTokenAcc.toBase58())
+
+
+    let otherDespoitTokenKeys = [];
+    if (user_other_token_deposit_debt != 0) {
+
+      //getting token info if the deposit_index token at mango
+      const deposit_index_token_info = Object.values(MANGO_TOKENS).find( t => t.mangoTokenIndex==deposit_index )
+      console.log("deposit_index_token_info:",deposit_index_token_info)
+
+      const despositTokenInvestortokenAcc =  await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(deposit_index_token_info.mintKey), walletProvider.publicKey, transaction)
+      console.log("despositTokenInvestortokenAcc::::",despositTokenInvestortokenAcc.toBase58())
+
+      let tokennodeBankInfo = await connection.getAccountInfo(new PublicKey(deposit_index_token_info.nodeKeys[0]))
+      let tokennodeBank = NodeBankLayout.decode(tokennodeBankInfo.data)
+        otherDespoitTokenKeys.push({ pubkey: new PublicKey(deposit_index_token_info.rootKey), isSigner: false, isWritable: false } )
+        otherDespoitTokenKeys.push({ pubkey: new PublicKey(deposit_index_token_info.nodeKeys[0]), isSigner: false, isWritable: true } )
+        otherDespoitTokenKeys.push({ pubkey: tokennodeBank.vault, isSigner: false, isWritable: true } )
+        otherDespoitTokenKeys.push({ pubkey: despositTokenInvestortokenAcc, isSigner: false, isWritable: true } )
+    } else {
+        otherDespoitTokenKeys.push( { pubkey:PublicKey.default, isSigner: false, isWritable: false  } )
+        otherDespoitTokenKeys.push( { pubkey:PublicKey.default, isSigner: false, isWritable: false  } )
+        otherDespoitTokenKeys.push( { pubkey:PublicKey.default, isSigner: false, isWritable: false  } )
+        otherDespoitTokenKeys.push( { pubkey:PublicKey.default, isSigner: false, isWritable: false  } )
+    }
+
+
+    const dataLayout = struct([u8('instruction')])
+    const data = Buffer.alloc(dataLayout.span)
+    dataLayout.encode(
+        {
+            instruction: 14,
+        },
+        data
+    )
+      
+    const keys = [
+      { pubkey: fundPDA[0], isSigner: false, isWritable: true },
+      { pubkey: new PublicKey(investorStateAcc), isSigner: false, isWritable: true },
+      { pubkey: key, isSigner: true, isWritable: true },
+
+      { pubkey: new PublicKey(ids.mangoProgramId), isSigner: false, isWritable: false },
+      { pubkey: new PublicKey(ids.publicKey), isSigner: false, isWritable: true },
+      { pubkey: fundState.mango_positions.mango_account , isSigner: false, isWritable: true },
+      // { pubkey: fundPDA[0], isSigner: false, isWritable: false },
+      { pubkey: mangoGroup.mangoCache, isSigner: false, isWritable: false },
+
+      { pubkey: new PublicKey(MANGO_TOKENS.USDC.rootKey), isSigner: false, isWritable: false },
+      { pubkey: new PublicKey(MANGO_TOKENS.USDC.nodeKeys[0]), isSigner: false, isWritable: true },
+      { pubkey: usdcnodeBank.vault, isSigner: false, isWritable: true },
+      { pubkey: usdcInvestorTokenAcc, isSigner: false, isWritable: true }, 
+
+      ...otherDespoitTokenKeys,
+
+      { pubkey: mangoGroup.signerKey, isSigner: false, isWritable: false },
+      { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+      { pubkey: PublicKey.default, isSigner: false, isWritable: false },
+  ]
+
+  for(let i=0; i<keys.length;i++) {
+    console.log("key:",i, keys[i].pubkey.toBase58())
+  }
+    const instruction = new TransactionInstruction({
+        keys: keys,
+        programId: programId,
+        data
     });
 
     transaction.add(instruction);
     console.log(`transaction ::: `, transaction)
-    console.log(`walletProvider?.publicKey ::: `, walletProvider?.publicKey.toBase58())
     transaction.feePayer = key;
     let hash = await connection.getRecentBlockhash("finalized");
     console.log("blockhash", hash);
@@ -134,47 +368,80 @@ export const Withdraw = () => {
 
     const sign = await signAndSendTransaction(walletProvider, transaction);
     console.log("tx::: ", sign)
-    console.log("signature tx url:: ", `https://solscan.io/tx/{sign}`) 
+    console.log("signature tx url:: ", `https://solscan.io/tx/${sign}`) 
 
   }
-  const handleWithdraw = async () => {
 
-    console.log(`[...getPoolAccounts()] ::: `, [...getPoolAccounts()])
+  const handleWithdrawFromFund =  async () => {
+
+    const investorStateAcc = investments[investmentIndex].ivnStatePubKey?.toBase58()
+    const investorAddr = investments[investmentIndex].owner?.toBase58()
+
+
+    console.log("**----handleWithdrawFromFund investorStateAcc::",investorStateAcc)
 
     const key = walletProvider?.publicKey;
-
     if (!key) {
-      alert("connect wallet")
+      console.log("connect wallet")
       return;
     };
-
-    if(!fundStateAccount) {
-      alert("no funds found")
-      return
-    }
-    console.log("fundStateAcc::: ", fundStateAccount)
-
-    const RPDA = await PublicKey.findProgramAddress([Buffer.from("router")], programId);
-
-    const investerStateAccount = await createKeyIfNotExists(walletProvider, null, programId, fundPDA.substr(0, 31), INVESTOR_DATA.span)
-    
+     const fundPDA = await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId);
+    //  const fundStateAccount = await PublicKey.createWithSeed(
+    //         key,
+    //         FUND_ACCOUNT_KEY,
+    //         programId,
+    //     );
+    // if (!fundStateAccount) {
+    //   console.log("no funds found")
+    //   return
+    // }
     const transaction = new Transaction()
 
-    // updatePoolPrices(transaction, devnet_pools)
-
-    const routerAssociatedTokenAddress = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TOKENS['USDC'].mintAddress), RPDA[0], transaction);
-
-    const investorBaseTokenAccount = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TOKENS['USDC'].mintAddress), key, transaction);
-    const investorTokenAccount2 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TOKENS['SRM'].mintAddress), key, transaction);
-    // const investorTokenAccount3 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TEST_TOKENS['ALPHA'].mintAddress), key, transaction);
-
-    const fundAssociatedTokenAddress1 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TOKENS['USDC'].mintAddress), new PublicKey(fundPDA), transaction);
-    const fundAssociatedTokenAddress2 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TOKENS['SRM'].mintAddress), new PublicKey(fundPDA), transaction);
-    // const fundAssociatedTokenAddress3 = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TOKENS['ALPHA'].mintAddress), MPDA, transaction);
-
-    console.log("USDC vault:: ", fundAssociatedTokenAddress1)
-    console.log("SRM vault:: ", fundAssociatedTokenAddress2)
-
+  
+    // const accountInfo = await connection.getAccountInfo(new PublicKey(fundStateAccount));
+    // const fund_data = FUND_DATA.decode(accountInfo.data);
+  
+    const RPDA = await PublicKey.findProgramAddress([Buffer.from("router")], programId);
+    const investerStateAccount = new PublicKey(investorStateAcc);
+    const routerAssociatedTokenAddress = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TOKENS.USDC.mintAddress), RPDA[0], transaction);
+  
+    const investorBaseTokenAccounts = [];
+    const fundAssociatedTokenAddresses = []
+  
+    const investorTokens = investments[investmentIndex].token_indexes;
+    console.log("investorTokens:",investorTokens)
+    const investorTokenDebts = investments[investmentIndex].token_debts;
+    console.log("investorTokenDebts:",investorTokenDebts)
+  
+      const platformDataAcc = await connection.getAccountInfo(platformStateAccount)
+      if(!platformDataAcc){
+        alert('platform state not initilaized');
+        return;
+      }
+      const platformState = PLATFORM_DATA.decode(platformDataAcc.data)
+      let wsolTokenAccount;
+  
+    for (let i = 0; i < investments[investmentIndex].token_indexes.length; i++) {
+  
+      // if wsol then save to close account
+      if (platformState.token_list[investorTokens[i]]?.mint.toBase58() === TOKENS.WSOL.mintAddress && investorTokenDebts[i] > 0) {
+        wsolTokenAccount = await findAssociatedTokenAddress(key, new PublicKey(TOKENS.WSOL.mintAddress))
+      }
+  
+      // const invAccount = await createAssociatedTokenAccountIfNotExist(walletProvider, platformState.token_list[investorTokens[i]].mint, key, transaction);
+      investorBaseTokenAccounts.push({
+        pubkey: investorTokenDebts[i] > 0 || i === 0 ? await createAssociatedTokenAccountIfNotExist(walletProvider, platformState.token_list[investorTokens[i]].mint, key, transaction) : PublicKey.default,
+        isSigner: false,
+        isWritable: true
+      })
+      // const fundAssToken = await createAssociatedTokenAccountIfNotExist(walletProvider, platformState.token_list[investorTokens[i]].mint, new PublicKey(fundPDA), transaction) ;
+      fundAssociatedTokenAddresses.push({
+        pubkey: investorTokenDebts[i] > 0 || i === 0 ? await createAssociatedTokenAccountIfNotExist(walletProvider, platformState.token_list[investorTokens[i]].mint, fundPDA[0], transaction) : PublicKey.default,
+        isSigner: false,
+        isWritable: true
+      })
+    }
+  
     const dataLayout = struct([u8('instruction')])
     const data = Buffer.alloc(dataLayout.span)
     dataLayout.encode(
@@ -183,261 +450,92 @@ export const Withdraw = () => {
       },
       data
     )
-
-    const instruction = new TransactionInstruction({
-      keys: [
+      const keys = [
         { pubkey: platformStateAccount, isSigner: false, isWritable: true }, //fund State Account
-        { pubkey: fundStateAccount, isSigner: false, isWritable: true },
+        { pubkey: fundPDA[0], isSigner: false, isWritable: true },
         { pubkey: investerStateAccount, isSigner: false, isWritable: true }, //fund State Account
         { pubkey: key, isSigner: true, isWritable: true },
-
+  
         { pubkey: routerAssociatedTokenAddress, isSigner: false, isWritable: true }, // Router Base Token Account
-        { pubkey: new PublicKey(fundPDA), isSigner: false, isWritable: false },
+        // { pubkey: fundPDA[0], isSigner: false, isWritable: false },
         { pubkey: RPDA[0], isSigner: false, isWritable: false },
-        { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: true },
+        { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
 
-        { pubkey: investorBaseTokenAccount, isSigner: false, isWritable: true }, // Investor Token Accounts
-        { pubkey: investorTokenAccount2, isSigner: false, isWritable: true },
-        { pubkey: investorBaseTokenAccount, isSigner: false, isWritable: true },
-        { pubkey: investorBaseTokenAccount, isSigner: false, isWritable: true },
-        { pubkey: investorBaseTokenAccount, isSigner: false, isWritable: true },
-        { pubkey: investorBaseTokenAccount, isSigner: false, isWritable: true },
-        { pubkey: investorBaseTokenAccount, isSigner: false, isWritable: true },
-        { pubkey: investorBaseTokenAccount, isSigner: false, isWritable: true },
+        ...investorBaseTokenAccounts,
+        ...fundAssociatedTokenAddresses
+      ];
 
-
-        { pubkey: fundAssociatedTokenAddress1, isSigner: false, isWritable: true }, // Fund Token Accounts
-        { pubkey: fundAssociatedTokenAddress2, isSigner: false, isWritable: true },
-        { pubkey: fundAssociatedTokenAddress1, isSigner: false, isWritable: true },
-        { pubkey: fundAssociatedTokenAddress1, isSigner: false, isWritable: true },
-        { pubkey: fundAssociatedTokenAddress1, isSigner: false, isWritable: true },
-        { pubkey: fundAssociatedTokenAddress1, isSigner: false, isWritable: true },
-        { pubkey: fundAssociatedTokenAddress1, isSigner: false, isWritable: true },
-        { pubkey: fundAssociatedTokenAddress1, isSigner: false, isWritable: true },
-
-      ],
+    for(let i=0; i<keys.length;i++) {
+      console.log("key:",i, keys[i].pubkey.toBase58())
+    }
+  
+    const instruction = new TransactionInstruction({
+      keys: keys,
       programId,
       data
     });
-
+  
     transaction.add(instruction);
-    console.log(`transaction ::: `, transaction)
-    console.log(`walletProvider?.publicKey ::: `, walletProvider?.publicKey.toBase58())
+  
+    if (wsolTokenAccount) {
+      transaction.add(
+        closeAccount({
+          source: wsolTokenAccount,
+          destination: key,
+          owner: key
+        })
+      )
+    }
     transaction.feePayer = key;
     let hash = await connection.getRecentBlockhash("finalized");
     console.log("blockhash", hash);
     transaction.recentBlockhash = hash.blockhash;
-
+  
     const sign = await signAndSendTransaction(walletProvider, transaction);
-    console.log("tx::: ", sign)
-    console.log("signature tx url:: ", `https://solscan.io/tx/{sign}`) 
-
+    console.log("tx::: ", sign);
+    console.log("signature tx url:: ", `https://solscan.io/tx/${sign}`) 
   }
-  
-  const handleFunds = async () => {
-    const key = walletProvider?.publicKey;
-    let invFunds = []
-    const platformDataAcc = await connection.getAccountInfo(platformStateAccount)
-    const platformData = PLATFORM_DATA.decode(platformDataAcc.data)
-    console.log("platformData :: ", platformData)
-  
-    let funds = await connection.getProgramAccounts(programId, { filters: [{ dataSize: FUND_DATA.span }] });
-    console.log(`funds :::: `, funds)
-    const fundData = funds.map(f => FUND_DATA.decode(f.account.data))
-
-    console.log(`decodedFunds ::: `, fundData)
-    
-    for(let i=0; i<fundData.length; i++) {
-      let manager = fundData[i].manager_account;
-
-      let PDA = await PublicKey.findProgramAddress([manager.toBuffer()], programId);
-      let fundState = await PublicKey.createWithSeed(manager, FUND_ACCOUNT_KEY, programId);
-
-      let invStateAccount = await PublicKey.createWithSeed(key, PDA[0].toBase58().substr(0, 31), programId);
-      let invState = await connection.getAccountInfo(invStateAccount);
-
-      if (invState == null) {
-        continue
-      }
-
-      let invStateData = INVESTOR_DATA.decode(invState.data)
-      console.log(invStateData)
-
-      // if (!invStateData.is_initialized) {
-      //   continue
-      // }
-      invFunds.push({
-        fundPDA: PDA[0].toBase58(),
-        fundManager: manager.toBase58(),
-        fundStateAccount: fundState.toBase58()
-      });
-    }
-    console.log(invFunds)
-    setFunds(invFunds);
-  }
-
-  const handleFundSelect = async(event) => {
-  
-    setFundPDA(event.target.value);
-    funds.forEach(fund => {
-      if (fund.fundPDA == event.target.value) 
-      {setFundStateAccount(fund.fundStateAccount)
-       console.log("set fundStateAcoount")}
-    });
-    console.log(`setting fundPDA :::: `, fundPDA)
-    console.log(`setting fundStateAccount :::: `, fundStateAccount)
-  }
-  
-  const handleGetInvestments = async () => {
-    const key = walletProvider?.publicKey;  
-    if (!key ) {
-      alert("connect wallet")
-      return;
-    }
-    if (!fundPDA) {
-      alert('no fund found')
-      return;
-    }
-    const investorStateAccount = await PublicKey.createWithSeed(
-      key,
-      fundPDA.substr(0, 31),
-      programId,
-    );
-
-    let x = await connection.getAccountInfo(investorStateAccount)
-    if (x == null)
-    {
-      alert("investor account not found for selected fund")
-      return
-    }
-    let invState = INVESTOR_DATA.decode(x.data)
-    // if (!invState.is_initialized) {
-    //   alert("investor data not initialized!")
-    //   return
-    // }
-    console.log(invState);
-    
-    let y = await connection.getAccountInfo(new PublicKey(fundStateAccount))
-    if (y == null)
-    {
-      alert("investor account not found")
-      return
-    }
-    let fundState = FUND_DATA.decode(y.data);
-    console.log(fundState)
-    setFundPerf(parseInt(fundState.prev_performance));
-    setStartPerf(parseInt(invState.start_performance));
-    setWithdrawableAmount(((parseInt(invState.amount) * 0.98) / (10 ** fundState.tokens[0].decimals)) 
-      *(parseInt(fundState.prev_performance) / parseInt(invState.start_performance))
-    );
-    let share_ratio = ((parseInt(invState.amount) * 0.98) / parseInt(fundState.total_amount)) * 
-      (parseInt(fundState.prev_performance) / parseInt(invState.start_performance))
-    
-    setInvShare(share_ratio)
-
-    let bal = []
-    bal.push((parseInt(fundState.tokens[0].balance)/ (10**fundState.tokens[0].decimals)) * share_ratio)
-    bal.push((parseInt(fundState.tokens[1].balance)/ (10**fundState.tokens[1].decimals)) * share_ratio)
-    bal.push((parseInt(fundState.tokens[2].balance)/ (10**fundState.tokens[2].decimals)) * share_ratio)
-    setFundBalances(bal)
-  }
-
-  const handleMangoWithdrawInvestor = async () => {
-    
-      const key = walletProvider?.publicKey;
-
-      if (!key) {
-        alert("connect wallet")
-        return;
-      };
-  
-      if(!fundStateAccount) {
-        alert("no funds found")
-        return
-      }
-      console.log("fundStateAcc::: ", fundStateAccount)
-    
-      const investerStateAccount = await createKeyIfNotExists(walletProvider, null, programId, fundPDA.substr(0, 31), INVESTOR_DATA.span)
-      
-
-    if (fundStateAccount == ''){
-      alert("get fund info first!")
-      return
-    }
-
-    let fund_data = FUND_DATA.decode((await connection.getAccountInfo(new PublicKey(fundStateAccount))).data)
-    let inv_data = INVESTOR_DATA.decode((await connection.getAccountInfo(investerStateAccount)).data)
-
-
-    console.log("fund_data:: ", fund_data)
-    console.log("inv_data:: ", inv_data)
-
-    for(let i = 0; i<2; i++) {
-      const transaction = new Transaction()
-
-      if (inv_data.margin_debt[i] == 0) {continue}
-
-      let index = inv_data.margin_position_id[i] == fund_data.mango_positions[0].position_id ? 0 : 1
-      let side = fund_data.mango_positions[index].position_side == 0 ? 'sell' : 'buy'
-      let market_index = fund_data.mango_positions[index].margin_index
-      let margin_account_acc = fund_data.mango_positions[index].margin_account
-      console.log("market index:: ", market_index)
-      await mangoWithdrawInvestor(connection, margin_account_acc, new PublicKey(fundStateAccount), investerStateAccount, new PublicKey(fundPDA), walletProvider, market_index, side, 10, null, transaction, side == 'buy' ? 0 : NUM_MARKETS)
-
-      transaction.feePayer = key;
-      let hash = await connection.getRecentBlockhash();
-      console.log("blockhash", hash);
-      transaction.recentBlockhash = hash.blockhash;
-
-      const sign = await signAndSendTransaction(walletProvider, transaction);
-      console.log("signature tx:: ", sign)
-      console.log("signature tx url:: ", `https://solscan.io/tx/{sign}`) 
-
-    }
-
-      
-      
-}
 
   return (
     <div className="form-div">
-      <h4>Withdraw</h4>
+      <h4>WITHDRAW INVESTOR</h4>
       
-      <select name="funds" width = "100px" onClick={handleFundSelect}>
+      <select name="funds" width = "100px"  onChange={ (e) => setInvestmentIndex(e.target.value)}>
         {
-          funds.map((fund) => {
-            return (<option key={fund.fundPDA} value={fund.fundPDA}>{fund.fundPDA}</option>)
+          investments.map((i, index) => {
+            return (<option key={index} value={index}>
+                     {i?.ivnStatePubKey?.toBase58()} 
+                      || {i?.amount?.toString()/10**6}
+                    </option>)
           })
         }
       </select>
-      <button onClick={handleFunds}>Load Investments</button>
+      <button onClick={handleGetAllInvestments}>Load Investments</button>
       <br />
-      <br />
-     
-      <button onClick={handleWithdrawSettle}>Settle Withdraws</button>
-      <button onClick={handleGetInvestments}>GetInvestments</button>
-  
-      <br />
-      Assets Info::
-      <br />
-      withdrawableAmount:: {withdrawableAmount}
-      <br />
-      fund Address :: {fundPDA}
-      <br />
-      fund performance:: {fundPerf}
-      <br />
-      inv start performance :: {startPerf}
-      <br/>
-      inv share ratio:: {invShare}
-      <br />
-      USDR balance: {fundBalances[0]}
-      <br />
-      RAYT balance: {fundBalances[1]}
-      <br />
-      ALPHA balance: {fundBalances[2]}
-      <br />
-      <button onClick={handleWithdraw}>Withdraw from Fund</button>
-      <button onClick={handleMangoWithdrawInvestor}>Withdraw from Margin Account</button>
+      {
+        investments && investments.length &&
+        <>
+                 <p > ivnStatePubKey:  {investments[investmentIndex]?.ivnStatePubKey?.toBase58()}</p>
+                 <p > manager : {investments[investmentIndex]?.manager?.toBase58()}</p>
+                 <p > owner : {investments[investmentIndex]?.owner?.toBase58()}</p>
+                 <p> amount : {investments[investmentIndex]?.amount?.toString()/10**6}</p>
+                 <p>amount_in_router : {investments[investmentIndex]?.amount_in_router?.toString()/10**6}</p>
+                 <p>start_performance : {investments[investmentIndex]?.start_performance?.toString()}</p>
+                 <p>is_initialized : {investments[investmentIndex]?.is_initialized}</p>
+                 <p>has_withdrawn :{investments[investmentIndex]?.has_withdrawn}</p>
+                 <p>withdrawn_from_margin : {investments[investmentIndex]?.withdrawn_from_margin}</p>
+                 <p>margin_debt :{`${investments[investmentIndex]?.margin_debt[0]} <==>  ${investments[investmentIndex]?.margin_debt[1]}`}</p>
+                 <p>margin_position_id:{`${investments[investmentIndex]?.margin_position_id[0]} <==>  ${investments[investmentIndex]?.margin_position_id[1]}`}</p>
+        </>
+      }
+
+               
+      {/* <button onClick={handleUpdateTokenPrices}>updatePoolPrices</button> */}
+      <button onClick={handleWithdrawSettle}>withdraw_settle_1</button>
+      <button onClick={handleWithdrawFromMango}>withdraw_from_margin_2</button>
+      <button onClick={handleWithdrawFromFund}>withdraw_from_fund_3</button>
+      
+      
     </div>
   )
 

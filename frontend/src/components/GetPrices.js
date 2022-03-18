@@ -1,19 +1,25 @@
 import { PublicKey, SYSVAR_CLOCK_PUBKEY, Transaction, TransactionInstruction } from '@solana/web3.js';
 import React, { useState , useEffect} from 'react'
 import { GlobalState } from '../store/globalState';
-import { signAndSendTransaction } from '../utils/web3'
-import { connection, programId, priceStateAccount, platformStateAccount } from '../utils/constants';
+import { createAssociatedTokenAccountIfNotExist, signAndSendTransaction } from '../utils/web3'
+import { connection, programId, priceStateAccount, platformStateAccount, idsIndex, FUND_ACCOUNT_KEY, LIQUIDITY_POOL_PROGRAM_ID_V4 } from '../utils/constants';
 import { struct, u8 } from 'buffer-layout';
 import { TOKENS } from '../utils/tokens'
-import { PLATFORM_DATA, PRICE_DATA } from '../utils/programLayouts';
-import { devnet_pools, pools } from '../utils/pools';
+import { FUND_DATA, FUND_PDA_DATA, PLATFORM_DATA, PRICE_DATA } from '../utils/programLayouts';
+import { devnet_pools, DEV_TOKENS, pools, raydiumPools } from '../utils/pools';
+import { IDS } from '@blockworks-foundation/mango-client';
 
 const priceProgramId = new PublicKey('CB6oEYpfSsrF3oWG41KQxwfg4onZ38JMj1hk17UNe1Fn')
 
 
 export const GetPrices = () => {
+  
+  const ids= IDS['groups'][idsIndex];
+  const tokensStatic = Object.entries(TOKENS).map( i => i[1])
+  
+
   const walletProvider = GlobalState.useState(s => s.walletProvider);
-  const [tokenList, setTokenList] = useState([TOKENS['SRM']])
+  const [tokenList, setTokenList] = useState([]) // SOL-4 SRM-5
     const [priceAccount, setPriceAccount] = useState('');
     const [poolName, setPoolName] = useState('');
     const [platformData, setPlatformData] = useState(0)
@@ -24,22 +30,32 @@ export const GetPrices = () => {
     useEffect(  ()=> {
       (async () => {
         const platformDataAcc = await connection.getAccountInfo(platformStateAccount)
+        if(!platformDataAcc){
+          alert('platform state not initilaized');
+          return;
+        }
           const platformData = PLATFORM_DATA.decode(platformDataAcc.data)
           // console.log("platformData::",platformData);
           setPlatformData(platformData)
           const platformTokens = platformData?.token_list;
-          // console.log("platformTokens::",platformTokens);
+          console.log("platformTokens::",platformTokens);
 
           let t = []; 
           if(platformTokens?.length){
             t = platformTokens.map( (i) => {
               return {
-                symbol: (Object.keys(TOKENS).find( k => TOKENS[k].mintAddress ===i.mint.toBase58()) ),
+                symbol: tokensStatic.find( k => k.mintAddress ===i.mint.toBase58())?.symbol ?? 'NONE',
                 mintAddress: i.mint.toBase58(),
-                decimals: i.decimals?.toString()
+                decimals: i.decimals?.toString(),
+                pool_coin_account: i.pool_coin_account.toBase58(),
+                pool_pc_account: i.pool_pc_account.toBase58(),
+                pool_price : i.pool_price?.toString(),
+                last_updated: i.last_updated?.toString(),
+                token_id: i.token_id?.toString()
               }
             })
           } 
+          console.log("t:",t)
 
           setTokenList(t)
       })()
@@ -53,36 +69,64 @@ export const GetPrices = () => {
 
     const handleAddToken = async () => {
        
-        let transaction = new Transaction()
-        if (!poolName)
-        {
-            alert("no token pool found")
-            return
-        }
-        const poolInfo = devnet_pools.find(p => p.name === poolName);
-        console.log(poolInfo)
-        const dataLayout = struct([u8('instruction')])
+      console.log("**handleAddToken  selectedTokenSymbol::",selectedTokenSymbol)
+      const tokenMintAddr = TOKENS[selectedTokenSymbol.toUpperCase()]?.mintAddress
+      console.log(" tokenMintAddr::",tokenMintAddr);
 
-        const data = Buffer.alloc(dataLayout.span)
-        dataLayout.encode(
-            {
-                instruction: 17,
-            },
-            data
-        )
-        const instruction = new TransactionInstruction({
-            keys: [
+      const transaction = new Transaction()
+  
+      // const toCoinMint = poolInfo.pc.mintAddress;
+      // const fromCoinMint = poolInfo.coin.mintAddress;
+      const fundPDA = await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId);
+      const associatedTokenAddress = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(tokenMintAddr), fundPDA[0], transaction);
+  
+      // const fundStateAcc = await PublicKey.createWithSeed(
+      //   walletProvider?.publicKey,
+      //     FUND_ACCOUNT_KEY,
+      //     programId,
+      // );
+  
+      let fund_info = await connection.getAccountInfo(fundPDA[0]);
+      const fund_data = FUND_PDA_DATA.decode(fund_info.data); 
+      console.log("fund_data:",fund_data)
+  
+      let unUsedTokenIndex = 0 ;
+      for (let i = 0; i < fund_data.tokens.length; i++) {
+          if(fund_data.tokens[i].is_active === 0) {
+              unUsedTokenIndex = i;
+              break;
+          }
+          
+      } 
+      console.log("unUsedTokenIndex:",unUsedTokenIndex)
+  
+      if(unUsedTokenIndex === -1) {
+          alert("Cannot add tokens, limit of 8 reached");
+          return
+      }
+  
+      const dataLayout = struct([u8('instruction'), u8('index')])
+  
+      const data = Buffer.alloc(dataLayout.span)
+      dataLayout.encode(
+          {
+              instruction: 20,
+              index: unUsedTokenIndex
+          },
+          data
+      )
+      const transfer_instruction = new TransactionInstruction({
+          keys: [
               { pubkey: platformStateAccount, isSigner: false, isWritable: true },
-              { pubkey: SYSVAR_CLOCK_PUBKEY, isSigner: false, isWritable: true },
-              { pubkey: walletProvider?.publicKey, isSigner: true, isWritable: true },
-              { pubkey: new PublicKey(poolInfo.coin.mintAddress), isSigner: false, isWritable: true },
-              { pubkey: new PublicKey(poolInfo.poolCoinTokenAccount), isSigner: false, isWritable: true },
-              { pubkey: new PublicKey(poolInfo.poolPcTokenAccount), isSigner: false, isWritable: true },
-            ],
-            programId: programId,
-            data
-        });
-        transaction.add(instruction)
+              { pubkey: fundPDA[0], isSigner: false, isWritable: true },
+              { pubkey: new PublicKey(tokenMintAddr), isSigner: false, isWritable: true },
+              { pubkey: associatedTokenAddress, isSigner: false, isWritable: true },
+          ],
+          programId,
+          data
+      });
+  
+       transaction.add(transfer_instruction);
         transaction.feePayer = walletProvider?.publicKey;
         console.log("trnsaction:: ", transaction)
         let hash = await connection.getRecentBlockhash();
@@ -91,8 +135,24 @@ export const GetPrices = () => {
 
         const sign = await signAndSendTransaction(walletProvider, transaction);
         console.log("signature tx:: ", sign)
-      console.log("signature tx url:: ", `https://solscan.io/tx/{sign}`) 
+      console.log("signature tx url:: ", `https://solscan.io/tx/${sign}`) 
 
+    }
+
+    const getPoolAccounts = (poolInfo) => {
+        if(poolInfo.programId == LIQUIDITY_POOL_PROGRAM_ID_V4) {
+          return [
+            { pubkey: new PublicKey(poolInfo.poolCoinTokenAccount), isSigner: false, isWritable: true },
+            { pubkey: new PublicKey(poolInfo.poolPcTokenAccount), isSigner: false, isWritable: true },
+            { pubkey: new PublicKey(poolInfo.ammOpenOrders), isSigner: false, isWritable: false},
+            { pubkey: new PublicKey(poolInfo.ammId), isSigner: false, isWritable: false}
+          ]
+        } else {
+          return [
+            { pubkey: new PublicKey(poolInfo.poolCoinTokenAccount), isSigner: false, isWritable: true },
+            { pubkey: new PublicKey(poolInfo.poolPcTokenAccount), isSigner: false, isWritable: true }
+          ]
+        }
     }
 
     const handleUpdatePrices = async () => {
@@ -102,7 +162,7 @@ export const GetPrices = () => {
             alert("no token pool found")
             return
         }
-        const poolInfo = devnet_pools.find(p => p.name === poolName);
+        const poolInfo = raydiumPools.find(p => p.name === poolName);
         console.log(poolInfo)
         const dataLayout = struct([u8('instruction'), u8('count')])
 
@@ -114,17 +174,17 @@ export const GetPrices = () => {
             },
             data
         )
+        let transaction = new Transaction()
+        
         const instruction = new TransactionInstruction({
             keys: [
               { pubkey: platformStateAccount, isSigner: false, isWritable: true },
               { pubkey: SYSVAR_CLOCK_PUBKEY, isSigner: false, isWritable: true },
-              { pubkey: new PublicKey(poolInfo.poolCoinTokenAccount), isSigner: false, isWritable: true },
-              { pubkey: new PublicKey(poolInfo.poolPcTokenAccount), isSigner: false, isWritable: true },
+              ...getPoolAccounts(poolInfo).flat()
             ],
             programId: programId,
             data
         });
-        let transaction = new Transaction()
         transaction.add(instruction)
         transaction.feePayer = walletProvider?.publicKey;
         console.log("trnsaction:: ", transaction)
@@ -134,7 +194,7 @@ export const GetPrices = () => {
 
         const sign = await signAndSendTransaction(walletProvider, transaction);
         console.log("signature tx:: ", sign)
-      console.log("signature tx url:: ", `https://solscan.io/tx/{sign}`) 
+      console.log("signature tx url:: ", `https://solscan.io/tx/${sign}`) 
         
     }
 
@@ -152,7 +212,8 @@ export const GetPrices = () => {
           symbol : getMint.symbol,
           price : p.pool_price.toString()
         }
-        console.log("price of selectedToken **:",selectedToken)
+        console.log("Last Updated at:: ", p.last_updated);
+        console.log("price of selectedToken:: ",selectedToken)
 
         setTokenPrice( p.pool_price.toString() );
       } else {
@@ -167,7 +228,7 @@ export const GetPrices = () => {
 
     return (
         <div className="form-div">
-          <h4>Get Token Prices</h4>
+          <h4>Get Token Prices / ADD or REMOVE token from FUND </h4>
 
           <button onClick={handleGetAllPlatformTokens}>Get ALL platform Tokens in log</button>
 

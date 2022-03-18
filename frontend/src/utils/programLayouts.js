@@ -1,4 +1,4 @@
-import { Blob, seq, struct, u32, u8, u16, ns64 } from 'buffer-layout';
+import { Blob, seq, struct,Structure, u32, u8, u16, ns64 } from 'buffer-layout';
 import { PublicKey } from '@solana/web3.js';
 import BN from 'bn.js';
 
@@ -69,6 +69,54 @@ export function u64(property = "") {
 export function u128(property = "") {
   return new BNLayout(16, property);
 }
+
+const zeroKey = new PublicKey(new Uint8Array(32));
+export class MangoInfo {
+
+  mango_account;
+  perp_markets;
+  deposit_index;
+  markets_active;
+  deposits_active;
+  xpadding;
+  investor_debts;
+  padding;
+
+  constructor(decoded) {
+    Object.assign(this, decoded);
+  }
+  // isEmpty() {
+  //   return this.mango_account.equals(zeroKey);
+  // }
+}
+
+ 
+// export class MangoInfoLayout extends Structure {
+//   constructor(property) {
+//     super(
+//       [
+//         publicKeyLayout('mango_account'),
+//         seq(u8('perp_markets'), 4),
+//         u8('deposit_index'),
+//         u8('markets_active'),
+//         u8('deposits_active'),
+//         u8('xpadding'),
+//         seq(u64('investor_debts'), 2),
+//         seq(u8('padding'), 24),
+//       ],
+//       property,
+//     );
+//   }
+//   decode(b, offset) {
+//     return new MangoInfo(super.decode(b, offset));
+//   }
+//   encode(src, b, offset) {
+//     return super.encode(src.toBuffer(), b, offset);
+//   }
+// }
+// export function mangoInfoLayout(property = '') {
+//   return new MangoInfoLayout(property);
+// }
  
 export const PLATFORM_DATA = struct([
   u8('is_initialized'),
@@ -76,7 +124,10 @@ export const PLATFORM_DATA = struct([
   u8('router_nonce'),
   u8('no_of_active_funds'),
   u8('token_count'),
-  seq(u8(), 3, 'padding'),
+  // seq(u8(), 3, 'padding'),
+
+  u8('padding'),
+  u16('total_v3_funds'),
 
   publicKeyLayout('router'),
   publicKeyLayout('investin_admin'),
@@ -107,7 +158,9 @@ export const FUND_DATA = struct([
   u16('position_count'),
 
   u8('version'),
-  seq(u8(), 7, 'padding'),
+  u8('is_private'),
+  u16('fund_v3_index'),
+  seq(u8(), 4, 'padding'),
 
   u64('min_amount'),
   U64F64('min_return'),
@@ -119,39 +172,36 @@ export const FUND_DATA = struct([
   U64F64('performance_fee'),
   publicKeyLayout('manager_account'),
   publicKeyLayout('fund_pda'),
-
   seq(
     struct([
-      u8('is_initialized'),
-      // u8('index'),
+      u8('is_active'),
       seq(u8(),3,'index'),
       u8('mux'),
-      seq(u8(), 3, 'padding'),
-
+      u8('is_on_mango'),
+      seq(u8(), 2, 'padding'),
       u64('balance'),
       u64('debt'),
-
       publicKeyLayout('vault')
     ]),
     NUM_TOKENS, 'tokens'
   ),
   seq(publicKeyLayout(), MAX_INVESTORS, 'investors'),
-  seq(
-    struct([
-      publicKeyLayout('margin_account'),
-      u8('state'),
-      u8('margin_index'),
-      u8('position_side'),
-      u8('debtors'),
-      seq(u8('padding'), 2),
-      u16('position_id'),
+  
+  struct([
+      publicKeyLayout('mango_account'),
+      seq(u8(),4,'perp_markets'),
+      u8('deposit_index'),
+      u8('markets_active'),
+      u8('deposits_active'),
+      u8('xpadding'),
+      seq(u64(), 2, 'investor_debts'),
+      seq(u8('padding'), 24),
+    ],'mango_positions'),
 
-      u64('trade_amount'),
-      U64F64('fund_share'),
-      U64F64('share_ratio')
-    ]),
-    NUM_MARGIN, 'mango_positions'
-  ),
+  // mangoInfoLayout('mango_positions'),
+  
+     
+  seq(u8(), 80, 'margin_update_padding'),
   seq(u8(), 32, 'padding'),
 
 ])
@@ -259,4 +309,76 @@ export const PRICE_DATA = struct([
     ]),
     MAX_TOKENS, 'prices'
   ),
+])
+
+
+export const FUND_PDA_DATA = struct([
+  u8('is_initialized'),
+  u8('number_of_active_investments'),
+  u8('no_of_investments'),
+  u8('signer_nonce'),
+  u8('no_of_margin_positions'),
+  u8('no_of_assets'),
+  u16('position_count'),
+
+  u8('version'),
+  u8('is_private'),
+  u16('fund_v3_index'),
+  seq(u8(), 4, 'padding'),
+
+  u64('min_amount'),
+  U64F64('min_return'),
+  U64F64('performance_fee_percentage'),
+  U64F64('total_amount'),
+  U64F64('prev_performance'),
+
+  u64('amount_in_router'),
+  U64F64('performance_fee'),
+  publicKeyLayout('manager_account'),
+  publicKeyLayout('fund_pda'),
+  seq(
+    struct([
+      u8('is_active'),
+      seq(u8(),3,'index'),
+      u8('mux'),
+      u8('is_on_mango'),
+      seq(u8(), 2, 'padding'),
+      u64('balance'),
+      u64('debt'),
+      publicKeyLayout('vault')
+    ]),
+    NUM_TOKENS, 'tokens'
+  ),
+  seq(publicKeyLayout(), MAX_INVESTORS, 'investors'),
+  
+  struct([
+      publicKeyLayout('mango_account'),
+      seq(u8(),3,'perp_markets'),
+      u8('padding'),
+      u8('deposit_index'),
+      u8('markets_active'),
+      u8('deposits_active'),
+      u8('xpadding'),
+      seq(u64(), 2, 'investor_debts'),
+      seq(u8('padding'), 24),
+    ],'mango_positions'),
+
+  
+  struct([
+      u8('is_active'),
+      u8('is_split'),
+      u8('hop'),
+      u8('count'),
+      u8('token_in_slot'),
+      u8('token_out_slot'),
+      seq(u8('padding'), 2),
+   
+      publicKeyLayout('token_in'),
+      publicKeyLayout('token_out'),
+      u64('amount_in'),
+      u64('min_amount_out'),
+  ],'guard'),
+  
+  seq(u8(), 24, 'margin_update_padding'),
+  seq(u8(), 2024, 'migration_additonal_padding'),
 ])

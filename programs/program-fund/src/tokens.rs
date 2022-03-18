@@ -9,12 +9,15 @@ use solana_program::{
     clock::Clock,
     sysvar::Sysvar
 };
+use std::cell::{Ref, RefMut};
+use bytemuck::{ from_bytes };
+
 
 use spl_token::state::Mint;
 
 use crate::error::FundError;
 use crate::processor::parse_token_account;
-use crate::state::{FundData, PlatformData};
+use crate::state::{FundAccount, FundData, PlatformData, AmmInfo, Loadable};
 
 macro_rules! check_eq {
     ($x:expr, $y:expr) => {
@@ -50,8 +53,12 @@ pub fn add_token_to_whitelist (
     check_eq!(investin_admin_acc.is_signer, true); // signer check
     check_eq!(platform_data.investin_admin, *investin_admin_acc.key); // only admin is allowed to add token
 
-    // token id check
+    // token id check => 0 for Raydium and 1 for Orca for now!
     check!(token_id < 2, ProgramError::InvalidArgument);
+    
+    //later can keep if else condition 
+    // check!(pc_index < 2, ProgramError::InvalidArgument);
+
 
     let mint_account = next_account_info(accounts_iter)?;
     let pool_coin_account = next_account_info(accounts_iter)?;
@@ -95,10 +102,12 @@ pub fn update_token_prices (
 
     let mut platform_data = PlatformData::load_mut_checked(platform_acc, program_id)?;
     let clock = &Clock::from_account_info(clock_sysvar_info)?;
-
+    
     for _i in 0..count {
+
         let pool_coin_account = next_account_info(accounts_iter)?;
         let pool_pc_account = next_account_info(accounts_iter)?;
+        
 
         let pool_coin_data = parse_token_account(pool_coin_account)?;
         let pool_pc_data = parse_token_account(pool_pc_account)?;
@@ -108,10 +117,21 @@ pub fn update_token_prices (
         check_eq!(platform_data.token_list[index].pool_coin_account, *pool_coin_account.key);
         check_eq!(platform_data.token_list[index].pool_pc_account, *pool_pc_account.key);
 
-        platform_data.token_list[index].pool_price = U64F64::from_num(pool_pc_data.amount)
-        .checked_div(U64F64::from_num(pool_coin_data.amount)).unwrap();
+        let mux = platform_data.token_list[index].token_id;
+        msg!("MUX: {:?}", mux);
+        if mux == 0 {
+            let amm_open_orders_account = next_account_info(accounts_iter)?;
+            let amm_info_account = next_account_info(accounts_iter)?;
+            let amm_open_order_data = load_open_orders(amm_open_orders_account)?;
+            let amm_info_data = AmmInfo::load(amm_info_account)?;
+            platform_data.token_list[index].pool_price = U64F64::from_num(pool_pc_data.amount + amm_open_order_data.native_pc_total - amm_info_data.need_take_pnl_pc)
+            .checked_div(U64F64::from_num(pool_coin_data.amount + amm_open_order_data.native_coin_total - amm_info_data.need_take_pnl_coin)).unwrap();
+        } else {
+            platform_data.token_list[index].pool_price = U64F64::from_num(pool_pc_data.amount)
+            .checked_div(U64F64::from_num(pool_coin_data.amount)).unwrap();
+        }
         platform_data.token_list[index].last_updated = clock.unix_timestamp;
-    }
+    }                           
     Ok(())
 }
 
@@ -123,12 +143,18 @@ pub fn add_token_to_fund (
 
     let accounts_iter = &mut accounts.iter();
     let platform_acc = next_account_info(accounts_iter)?;
-    let fund_state_acc = next_account_info(accounts_iter)?;
+    let fund_account_acc = next_account_info(accounts_iter)?;
     let mint_acc = next_account_info(accounts_iter)?;
     let vault_acc = next_account_info(accounts_iter)?;
 
     let platform_data = PlatformData::load_checked(platform_acc, program_id)?;
-    let mut fund_data = FundData::load_mut_checked(fund_state_acc, program_id)?;
+    let mut fund_data = FundAccount::load_mut_checked(fund_account_acc, program_id)?;
+
+    // if invalid fund_state_acc
+    // although other signers cannot chnage some others fundState so error will be thrown
+    // still be better if we add checks (will need to pass manager acc)
+    // check!(manager_ai.is_signer, ProgramError::MissingRequiredSignature);
+    // check_eq!(fund_data.manager_account, *manager_ai.key);
 
     let vault_info = parse_token_account(vault_acc)?;
     check_eq!(vault_info.owner, fund_data.fund_pda);
@@ -140,6 +166,7 @@ pub fn add_token_to_fund (
     // both indexes cant be None
     check!(((token_index_1 != None) || (token_index_2 != None)), ProgramError::InvalidAccountData);
 
+    //what happens when it is both on ray and Orca MUX=??
     if token_index_1 != None {
         fund_data.tokens[index as usize].mux = 0;
         fund_data.tokens[index as usize].index[0] = token_index_1.unwrap() as u8;
@@ -177,13 +204,20 @@ pub fn remove_token_from_fund (
     let mint_acc = next_account_info(accounts_iter)?;
 
     let platform_data = PlatformData::load_checked(platform_acc, program_id)?;
-    let mut fund_data = FundData::load_mut_checked(fund_state_acc, program_id)?;
+    let mut fund_data = FundAccount::load_mut_checked(fund_state_acc, program_id)?;
+
+    // if invalid fund_state_acc
+    // although other signers cannot chnage some others fundState so error will be thrown
+    // still be better if we add checks (will need to pass manager acc)
+    // check!(manager_ai.is_signer, ProgramError::MissingRequiredSignature);
+    // check_eq!(fund_data.manager_account, *manager_ai.key);
 
     let token_slot = index as usize;
     let mux = fund_data.tokens[token_slot].mux as usize;
 
-    check_eq!(fund_data.tokens[token_slot].balance, 0);
+    check!(fund_data.tokens[token_slot].balance<=10, ProgramError::InsufficientFunds);
     check_eq!(fund_data.tokens[token_slot].debt, 0);
+    // check_eq!(fund_data.tokens[token_slot].is_on_mango, 0);
     check_eq!((fund_data.tokens[token_slot].index[mux] == 0), false); // cant remove USDC
 
     fund_data.tokens[token_slot].is_active = false;
@@ -197,3 +231,25 @@ pub fn remove_token_from_fund (
     fund_data.no_of_assets -= 1;
     Ok(())
 }
+
+
+fn strip_dex_padding<'a>(acc: &'a AccountInfo) -> Result<Ref<'a, [u8]>, ProgramError> {
+    check!(acc.data_len() >= 12, ProgramError::InvalidArgument);
+    let unpadded_data: Ref<[u8]> = Ref::map(acc.try_borrow_data()?, |data| {
+        let data_len = data.len() - 12;
+        let (_, rest) = data.split_at(5);
+        let (mid, _) = rest.split_at(data_len);
+        mid
+    });
+    Ok(unpadded_data)
+}
+
+pub fn load_open_orders<'a>(
+    acc: &'a AccountInfo,
+) -> Result<Ref<'a, serum_dex::state::OpenOrders>, ProgramError> {
+    Ok(Ref::map(strip_dex_padding(acc)?, from_bytes))
+}
+
+
+
+

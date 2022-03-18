@@ -21,12 +21,36 @@ export async function signAndSendTransaction(
   wallet,
   transaction
 ) {
-  console.log(`wallet :::`, wallet)
+  // console.log(`wallet :::`, wallet)
   let signedTrans = await wallet.signTransaction(transaction);
-  console.log("sign transaction");
-  let signature = await connection.sendRawTransaction(signedTrans.serialize());
+  console.log("sign transaction:",signedTrans);
+  let signature = await connection.sendRawTransaction(signedTrans.serialize(), { skipPreflight: false }); //skipPreflight -**Main
   console.log("send raw transaction");
   return signature;
+}
+
+export async function createAccountInstruction(
+  connection,
+  payer,
+  space,
+  programId,
+  lamports,
+  transaction,
+  signers
+) {
+  const account = new Account();
+  const instruction = SystemProgram.createAccount({
+    fromPubkey: payer,
+    newAccountPubkey: account.publicKey,
+    lamports: lamports ? lamports : await connection.getMinimumBalanceForRentExemption(space),
+    space,
+    programId
+  })
+
+  transaction.add(instruction);
+  signers.push(account);
+
+  return account.publicKey;
 }
 
 export const createKeyIfNotExists = async (wallet, payerAccount, programId, seed, size, transaction) => {
@@ -36,26 +60,18 @@ export const createKeyIfNotExists = async (wallet, payerAccount, programId, seed
     programId,
   );
 
-  console.log(`greetedPubkey :: `, greetedPubkey)
+  console.log(`createWithSeed :: `, greetedPubkey)
 
   // Check if the greeting account has already been created
   const greetedAccount = await connection.getAccountInfo(greetedPubkey);
-
-  console.log(`greetedAccount ::: `, greetedAccount)
+  console.log(`createWithSeed check if Accinfo NULL ::: `, greetedAccount);
+  
   if (greetedAccount === null) {
-    console.log(
-      'Creating account',
-      greetedPubkey.toBase58(),
-      'to say hello to',
-    );
-    const lamports = await connection.getMinimumBalanceForRentExemption(
-      size,
-    );
 
-    // const transaction = new Transaction().add(
-
-    // );
+    console.log('Creating account',greetedPubkey.toBase58(),'to say hello to',);
+    const lamports = await connection.getMinimumBalanceForRentExemption(size);
     console.log(`lamports :::: `, lamports)
+
     transaction.add(
       SystemProgram.createAccountWithSeed({
         fromPubkey: wallet.publicKey,
@@ -67,9 +83,7 @@ export const createKeyIfNotExists = async (wallet, payerAccount, programId, seed
         programId,
       }))
 
-    // await sendAndConfirmTransaction(connection, transaction, [payerAccount]);
-
-    //await signAndSendTransaction(wallet, transaction)
+    
   }
   return greetedPubkey;
 }
@@ -162,6 +176,7 @@ export async function findAssociatedTokenAddress(walletAddress, tokenMintAddress
   )
   return publicKey
 }
+
 
 
 

@@ -14,16 +14,16 @@ import {
 } from '@blockworks-foundation/mango-client'
 import { TOKENS } from '../utils/tokens';
 
-export const Transfer = () => {
+export const UpdateAllTokenPrices = () => {
 
   const ids= IDS['groups'][idsIndex];
 
 
   const walletProvider = GlobalState.useState(s => s.walletProvider);
 
-  const handleTransfer = async () => {
+  const handleUpdateTokenPrices = async () => {
 
-    console.log("**handleTransfer :")
+    console.log("handle Update Token Prices")
 
     const key = walletProvider?.publicKey;
     if (!key) {
@@ -40,10 +40,6 @@ export const Transfer = () => {
     // );
 
     let fundPDAState = await connection.getAccountInfo(fundPDA[0])
-    if (fundPDAState == null) {
-      alert("fundPDAState account not found")
-      return
-    }
     console.log("fundPDAState:",fundPDAState)
     let fund_data = FUND_PDA_DATA.decode(fundPDAState.data)
     if (!fund_data.is_initialized) {
@@ -52,31 +48,10 @@ export const Transfer = () => {
     }
     console.log("fund_data::",fund_data)
 
-    let fundInvestorAccs = []
-    for (let i = 0; i < 10; i++) {
-      if(fund_data.investors[i].toBase58() !== '11111111111111111111111111111111'){
-        fundInvestorAccs.push({
-          pubkey: new PublicKey(fund_data.investors[i].toBase58()) ,
-          isSigner: false,
-          isWritable: true 
-        })
-       }
-    }
-
-    console.log("** fundInvestorAccs:",fundInvestorAccs)
-
-
-    let fund_mango_account = fund_data.mango_positions.mango_account
 
     let platData = await connection.getAccountInfo(platformStateAccount)
     let platform_data = PLATFORM_DATA.decode(platData.data)
     console.log("plat info:: ", platform_data)
-
-    let client = new MangoClient(connection, new PublicKey(ids.mangoProgramId))
-    let mangoGroup = await client.getMangoGroup(new PublicKey(ids.publicKey))
-    // let mangoCache = await mangoGroup.loadCache(connection)
-    console.log("mangoCache:",mangoGroup.mangoCache.toBase58())
-
 
     let filt_pools = []
     let WSOLWhitelisted = false;
@@ -111,61 +86,8 @@ export const Transfer = () => {
       filt_pools.push(msol_usdc_pool)
     }
     console.log("filt_pools:",filt_pools)
-    // updatePoolPrices(transaction, devnet_pools)
-    // console.log("after updatePoolPrices:: ")
-
-
-    // -------------
-
-    const routerPDA = await PublicKey.findProgramAddress([Buffer.from("router")], programId);
-    const fundBaseTokenAccount = await findAssociatedTokenAddress(fundPDA[0], new PublicKey(TOKENS.USDC.mintAddress));
-    const routerBaseTokenAccount = await findAssociatedTokenAddress(routerPDA[0], new PublicKey(TOKENS.USDC.mintAddress));
-
-    const managerBaseTokenAccount = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TOKENS.USDC.mintAddress), key, transaction);
-    const investinBaseTokenAccount = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(TOKENS.USDC.mintAddress), adminAccount, transaction);
-
-
-    const dataLayout = struct([u8('instruction')])
-    const data = Buffer.alloc(dataLayout.span)
-    dataLayout.encode(
-      {
-        instruction: 2,
-      },
-      data
-    )
-
-    console.log("keys : fund_mango_account,platform_data.investin_vault:: ",fund_mango_account.toBase58() ,platform_data.investin_vault.toBase58())
-    const transfer_instruction = new TransactionInstruction({
-      keys: [
-        { pubkey: platformStateAccount, isSigner: false, isWritable: true },
-        { pubkey: fundPDA[0], isSigner: false, isWritable: true },
-
-        { pubkey: fund_mango_account, isSigner: false, isWritable: true },
-        { pubkey: MANGO_GROUP_ACCOUNT, isSigner: false, isWritable: true },
-        { pubkey: mangoGroup.mangoCache, isSigner: false, isWritable: true },
-        { pubkey: MANGO_PROGRAM_ID, isSigner: false, isWritable: false },
-
-        { pubkey: key, isSigner: true, isWritable: true },
-
-        { pubkey: routerBaseTokenAccount, isSigner: false, isWritable: true },
-        { pubkey: fundBaseTokenAccount, isSigner: false, isWritable: true },
-        { pubkey: managerBaseTokenAccount, isSigner: false, isWritable: true },
-        { pubkey: platform_data.investin_vault, isSigner: false, isWritable: true },
-
-        { pubkey: routerPDA[0], isSigner: false, isWritable: true },
-
-        { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
-
-
-        //investor state accounts
-        ...fundInvestorAccs
-
-      ],
-      programId,
-      data
-    });
-
-    transaction.add(transfer_instruction);
+    updatePoolPrices(transaction, filt_pools)
+    
     transaction.feePayer = key;
     let hash = await connection.getRecentBlockhash();
     console.log("blockhash", hash);
@@ -180,9 +102,9 @@ export const Transfer = () => {
   
   return (
     <div className="form-div">
-      <h4>Manager Transfer</h4>
+      <h4>Pool Prices</h4>
 
-      <button onClick={handleTransfer}>Transfer</button>
+      <button onClick={handleUpdateTokenPrices}>Update</button>
       <br />
 
     </div>

@@ -1,15 +1,18 @@
+import { IDS } from '@blockworks-foundation/mango-client'
 import { PublicKey, Transaction, TransactionInstruction } from '@solana/web3.js'
 import { nu64, struct, u8 } from 'buffer-layout'
 import React, { useState , useEffect} from 'react'
 import { GlobalState } from '../store/globalState'
-import { connection, programId, TOKEN_PROGRAM_ID, FUND_ACCOUNT_KEY, LIQUIDITY_POOL_PROGRAM_ID_V4, platformStateAccount } from '../utils/constants'
-import { devnet_pools } from '../utils/pools'
+import { connection, programId, TOKEN_PROGRAM_ID, FUND_ACCOUNT_KEY, LIQUIDITY_POOL_PROGRAM_ID_V4, platformStateAccount, idsIndex } from '../utils/constants'
+import { devnet_pools, raydiumPools } from '../utils/pools'
 import { AMM_INFO_LAYOUT_V4, FUND_DATA, PLATFORM_DATA } from '../utils/programLayouts'
 import { TokenAmount } from '../utils/safe-math'
 import { NATIVE_SOL, TEST_TOKENS, TOKENS } from '../utils/tokens'
 import { createAssociatedTokenAccountIfNotExist, createTokenAccountIfNotExist, findAssociatedTokenAddress, sendNewTransaction, signAndSendTransaction } from '../utils/web3'
 
 export const OrcaSwap = () => {
+
+  const ids= IDS['groups'][idsIndex];
 
   const swapInstruction = async (
     poolProgramId,
@@ -138,10 +141,10 @@ export const OrcaSwap = () => {
     let toMint = toCoinMint
 
     if (fromMint === NATIVE_SOL.mintAddress) {
-      fromMint = TOKENS.WSOL.mintAddress
+      fromMint = ids.tokens[4].mintAddress
     }
     if (toMint === NATIVE_SOL.mintAddress) {
-      toMint = TOKENS.WSOL.mintAddress
+      toMint = ids.tokens[4].mintAddress
     }
 
     const newFromTokenAccount = fromTokenAccount
@@ -180,7 +183,7 @@ export const OrcaSwap = () => {
 
     const sign = await signAndSendTransaction(walletProvider, transaction);
     console.log("signature tx:: ", sign)
-    console.log("signature tx url:: ", `https://solscan.io/tx/{sign}`) 
+    console.log("signature tx url:: ", `https://solscan.io/tx/${sign}`) 
 
     //return await sendNewTransaction(connection, wallet, transaction, signers)
   }
@@ -202,8 +205,12 @@ export const OrcaSwap = () => {
      (async () => {
 
       const platformDataAcc = await connection.getAccountInfo(platformStateAccount)
+      if(!platformDataAcc){
+        alert('platform not initialized')
+        return;
+      }
       const platformData = PLATFORM_DATA.decode(platformDataAcc.data)
-      // console.log("platformData::",platformData);
+      console.log("platformData::",platformData);
       setPlatformData(platformData)
       const platformTokens = platformData?.token_list;
       // console.log("platformTokens::",platformTokens);
@@ -212,7 +219,7 @@ export const OrcaSwap = () => {
       if(platformTokens?.length) {
         pt = platformTokens.map( (i) => {
           return {
-            symbol: (Object.keys(TOKENS).find( k => TOKENS[k].mintAddress ===i.mint.toBase58()) ),
+            symbol: ids.tokens.find( k => k.mintAddress ===i.mint.toBase58()),
             mintAddress: i.mint.toBase58(),
             decimals: i.decimals?.toString()
           }
@@ -265,7 +272,11 @@ export const OrcaSwap = () => {
     // console.log("amm info:: ", ammData)
 
 
-    const poolInfo = devnet_pools.find(p => p.name === selectedFirstToken);
+    const poolInfo = raydiumPools.find(p => p.name === selectedFirstToken);
+    if(!poolInfo){
+      alert("poolInfo not found")
+      return;
+    }
     const fromCoinMint = poolInfo.pc.mintAddress;
     const toCoinMint = poolInfo.coin.mintAddress;
     const fundPDA = await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId);
@@ -286,7 +297,12 @@ export const OrcaSwap = () => {
   }
 
   const handleSell = async () => {
-    const poolInfo = devnet_pools.find(p => p.name === selectedFirstToken);
+
+    const poolInfo = raydiumPools.find(p => p.name === selectedFirstToken);
+    if(!poolInfo){
+      alert("poolInfo not found")
+      return;
+    }
 
     console.log("pool info:: ", poolInfo)
     const toCoinMint = poolInfo.pc.mintAddress;
