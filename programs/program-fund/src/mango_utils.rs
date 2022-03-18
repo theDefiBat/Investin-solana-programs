@@ -27,7 +27,7 @@ use std::num::NonZeroU64;
 use arrayref::{array_ref, array_refs};
 
 use crate::error::FundError;
-use crate::state::{MAX_INVESTORS_WITHDRAW, NUM_MARGIN, FundData, FundAccount, InvestorData};
+use crate::state::{MAX_INVESTORS_WITHDRAW, NUM_MARGIN, FundAccount, InvestorData};
 use crate::state::Loadable;
 use crate::processor::{ parse_token_account, close_investor_account };
 use serum_dex::state::MarketState;
@@ -323,11 +323,6 @@ pub fn mango_place_perp_order(
 
     let mango_group_data = MangoGroup::load_checked(mango_group_ai, mango_prog_ai.key)?;
     check_eq!(mango_group_data.perp_markets[perp_market_id as usize].perp_market, *perp_market_ai.key);
-    
-
-    
-    //Settle PnL to be executed right after place_perp_order...
-
     Ok(())
 
 }

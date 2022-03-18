@@ -24,7 +24,7 @@ use spl_token::state::{Account, Mint};
 
 use crate::error::FundError;
 use crate::instruction::{FundInstruction, Data};
-use crate::state::{NUM_TOKENS, MAX_INVESTORS, NUM_PERP, FundData, FundAccount, InvestorData, PlatformData};
+use crate::state::{NUM_TOKENS, MAX_INVESTORS, NUM_PERP, FundAccount, InvestorData, PlatformData};
 use crate::mango_utils::*;
 use crate::jup_utils::*;
 use crate::tokens::*;
@@ -91,7 +91,6 @@ impl Fund {
         program_id: &Pubkey,
         accounts: &[AccountInfo],
         min_amount: u64,
-        min_return: u64,
         performance_fee_percentage: u64,
         no_of_tokens: u8,
         is_private: bool
@@ -130,9 +129,6 @@ impl Fund {
         check!(!fund_data.is_initialized(), FundError::FundAccountAlreadyInit);
         //check_eq!(fund_data.version, 0);
         check!(platform_data.is_initialized(), ProgramError::InvalidAccountData);
-
-
-        check!(min_return >= 500, ProgramError::InvalidArgument);
 
         check!(min_amount >= 10000000, ProgramError::InvalidArgument);
 
@@ -207,7 +203,6 @@ impl Fund {
         }
 
         fund_data.min_amount = min_amount;
-        fund_data.min_return = U64F64::from_num(min_return / 100);
         fund_data.performance_fee_percentage = U64F64::from_num(performance_fee_percentage / 100);
 
         fund_data.total_amount = U64F64!(0);
@@ -226,68 +221,6 @@ impl Fund {
         fund_data.fund_v3_index = platform_data.total_v3_funds;
 
 
-        Ok(())
-    }
-
-    pub fn migrate_fs(
-        program_id: &Pubkey,
-        accounts: &[AccountInfo],
-    ) -> Result<(), ProgramError> {
-        
-        let accounts_iter = &mut accounts.iter();
-        let platform_ai = next_account_info(accounts_iter)?;
-        let manager_ai = next_account_info(accounts_iter)?;
-        let pda_ai = next_account_info(accounts_iter)?;
-        let fund_state_ai = next_account_info(accounts_iter)?;
-        let system_program_ai = next_account_info(accounts_iter)?;
-        let mut fund_data = FundData::load_mut_checked(&fund_state_ai, &program_id)?;
-
-        let mut platform_data = PlatformData::load_mut_checked(&platform_ai, &program_id)?;
-        platform_data.total_v3_funds = platform_data.total_v3_funds.checked_add(1).unwrap();
-        // msg!("FundState Data: {:?}", fund_data);
-        // let (pda, nonce) = Pubkey::find_program_address(&[&*manager_ai.key.as_ref()], program_id);
-        check_eq!(fund_data.fund_pda, *pda_ai.key);
-        // check_eq!(*manager_ai.key)
-        let rent = Rent::get()?;        
-        let fund_pda_size = size_of::<FundAccount>();
-
-        invoke_signed(
-            &create_account(
-                &manager_ai.key,
-                &pda_ai.key,
-                rent.minimum_balance(fund_pda_size).max(1),
-                fund_pda_size as u64,
-                &program_id,
-            ),
-            &[manager_ai.clone(), pda_ai.clone(), system_program_ai.clone()],
-            &[&[fund_data.manager_account.as_ref(), bytes_of(&fund_data.signer_nonce)]]
-        )?;
-        fund_data.version = 3;
-        let mut fund_pda_data = FundAccount::load_mut_checked(&pda_ai, &program_id)?;
-        fund_pda_data.amount_in_router = fund_data.amount_in_router;
-        fund_pda_data.fund_pda = fund_data.fund_pda;
-        fund_pda_data.guard = fund_data.guard;
-        fund_pda_data.investors = fund_data.investors;
-        fund_pda_data.is_initialized = fund_data.is_initialized;
-        fund_pda_data.is_private = fund_data.is_private;
-        fund_pda_data.manager_account = fund_data.manager_account;
-        fund_pda_data.mango_positions = fund_data.mango_positions;
-        fund_pda_data.min_amount = fund_data.min_amount;
-        fund_pda_data.min_return = fund_data.min_return;
-        fund_pda_data.no_of_assets = fund_data.no_of_assets;
-        fund_pda_data.no_of_investments = fund_data.no_of_investments;
-        fund_pda_data.no_of_margin_positions = fund_data.no_of_margin_positions;
-        fund_pda_data.number_of_active_investments = fund_data.number_of_active_investments;
-        fund_pda_data.performance_fee = fund_data.performance_fee;
-        fund_pda_data.performance_fee_percentage = fund_data.performance_fee_percentage;
-        fund_pda_data.position_count = fund_data.position_count;
-        fund_pda_data.prev_performance = fund_data.prev_performance;
-        fund_pda_data.signer_nonce = fund_data.signer_nonce;
-        fund_pda_data.tokens = fund_data.tokens;
-        fund_pda_data.total_amount = fund_data.total_amount;
-        fund_pda_data.version = fund_data.version;
-        fund_pda_data.fund_v3_index = platform_data.total_v3_funds;
-    
         Ok(())
     }
 
@@ -1114,7 +1047,6 @@ impl Fund {
         freeze_fund: u8,
         unfreeze_fund: u8,
         change_min_amount: u64,
-        change_min_return: u64,
         change_perf_fee: u64
     ) -> Result<(), ProgramError> {
         let accounts_iter = &mut accounts.iter();
@@ -1183,11 +1115,6 @@ impl Fund {
             let mut fund_data = FundAccount::load_mut_checked(fund_account_ai, program_id)?;
             fund_data.min_amount = change_min_amount;
         }
-        if change_min_return > 0 {
-            let fund_account_ai = next_account_info(accounts_iter)?;
-            let mut fund_data = FundAccount::load_mut_checked(fund_account_ai, program_id)?;
-            fund_data.min_return = U64F64::from_num(change_min_return / 100);
-        }
         if change_perf_fee > 0 {
             let fund_account_ai = next_account_info(accounts_iter)?;
             let mut fund_data = FundAccount::load_mut_checked(fund_account_ai, program_id)?;
@@ -1207,9 +1134,9 @@ impl Fund {
     ) -> Result<(), ProgramError> {
         let instruction = FundInstruction::unpack(data).ok_or(ProgramError::InvalidInstructionData)?;
         match instruction {
-            FundInstruction::Initialize { min_amount, min_return, performance_fee_percentage, no_of_tokens, is_private } => {
+            FundInstruction::Initialize { min_amount, performance_fee_percentage, no_of_tokens, is_private } => {
                 msg!("FundInstruction::Initialize");
-                return Self::initialize(program_id, accounts, min_amount, min_return, performance_fee_percentage, no_of_tokens, is_private);
+                return Self::initialize(program_id, accounts, min_amount, performance_fee_percentage, no_of_tokens, is_private);
             }
             FundInstruction::InvestorDeposit { amount, index } => {
                 msg!("FundInstruction::InvestorDeposit");
@@ -1241,7 +1168,7 @@ impl Fund {
             }
             FundInstruction::AdminControl { intialize_platform,
                 freeze_platform, unfreeze_platform, change_vault, freeze_fund, unfreeze_fund,
-                change_min_amount, change_min_return, change_perf_fee } => {
+                change_min_amount, change_perf_fee } => {
                 msg!("FundInstruction::AdminControl");
                 return Self::admin_control(
                     program_id,
@@ -1253,7 +1180,6 @@ impl Fund {
                     freeze_fund,
                     unfreeze_fund,
                     change_min_amount,
-                    change_min_return,
                     change_perf_fee
                 );
             }
@@ -1321,10 +1247,6 @@ impl Fund {
             FundInstruction::CheckSwapGuard => {
                 msg!("FundInstruction::CheckSwapGuard");
                 return check_swap_guard(program_id, accounts);
-            }
-            FundInstruction::MigrateFundState => {
-                msg!("FundInstruction::MigrateFundState");
-                return Self::migrate_fs(program_id, accounts)
             }
             FundInstruction::InitOpenOrderAccounts => {
                 msg!("FundInstruction::InitOpenOrders");
@@ -1662,29 +1584,30 @@ pub fn get_share(
 
     // in case of profit
     if investment_return > actual_amount {
-        let profit = U64F64::from_num(investment_return)
+        let profit = investment_return
         .checked_sub(U64F64::from_num(actual_amount)).unwrap();
-        let performance: u64 = U64F64::to_num(profit.checked_div(U64F64::from_num(actual_amount)).unwrap()
-        .checked_mul(U64F64::from_num(100)).unwrap());
-        // if performance exceeds min return; update manager performance fees
 
-        // TODO xoheb jo bola woh idher karna hai (trimming)
-        if performance >= fund_data.min_return {
-            investment_return = U64F64::from_num(profit)
-            .checked_mul(
-                (U64F64::from_num(100).checked_sub(fund_data.performance_fee_percentage).unwrap())
-                .checked_div(U64F64::from_num(100)).unwrap()
-                ).unwrap()
-            .checked_add(U64F64::from_num(actual_amount)).unwrap();
+        let performance_fee = profit.checked_mul(fund_data.performance_fee_percentage).unwrap()
+        .checked_div(U64F64::from_num(100)).unwrap();
 
-            fund_data.performance_fee = U64F64::to_num(U64F64::from_num(fund_data.performance_fee)
-            .checked_add(U64F64::from_num(profit)
-            .checked_mul(
-                U64F64::from_num(fund_data.performance_fee_percentage)
-                .checked_div(U64F64::from_num(100)).unwrap()
-            ).unwrap()).unwrap()
-            );
-        }
+        investment_return = investment_return.checked_sub(performance_fee).unwrap();
+
+        fund_data.performance_fee = fund_data.performance_fee.checked_add(performance_fee).unwrap();
+        
+        // investment_return = U64F64::from_num(profit)
+        // .checked_mul(
+        //     (U64F64::from_num(100).checked_sub(fund_data.performance_fee_percentage).unwrap())
+        //     .checked_div(U64F64::from_num(100)).unwrap()
+        //     ).unwrap()
+        // .checked_add(U64F64::from_num(actual_amount)).unwrap();
+
+        // fund_data.performance_fee = U64F64::to_num(U64F64::from_num(fund_data.performance_fee)
+        // .checked_add(U64F64::from_num(profit)
+        // .checked_mul(
+        //     U64F64::from_num(fund_data.performance_fee_percentage)
+        //     .checked_div(U64F64::from_num(100)).unwrap()
+        // ).unwrap()).unwrap()
+        // );
     }
 
     let share = U64F64::from_num(investment_return)
