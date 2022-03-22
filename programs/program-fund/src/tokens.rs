@@ -17,7 +17,7 @@ use spl_token::state::Mint;
 
 use crate::error::FundError;
 use crate::processor::parse_token_account;
-use crate::state::{FundAccount, FundData, PlatformData, AmmInfo, Loadable};
+use crate::state::{FundAccount, PlatformData, AmmInfo, Loadable};
 
 macro_rules! check_eq {
     ($x:expr, $y:expr) => {

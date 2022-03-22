@@ -16,7 +16,7 @@ use solana_program::{
     program::invoke_signed,
     sysvar::{Sysvar, clock::Clock},
 };
-use crate::state::{FundData, FundAccount, PlatformData};
+use crate::state::{FundAccount, PlatformData};
 use crate::error::FundError;
 use crate::processor::{raydium_id, orca_id, parse_token_account};
 pub use switchboard_aggregator::AggregatorAccountData;
@@ -152,8 +152,6 @@ pub fn init_open_order_accs(
         &[&[&*manager_ai.key.as_ref(), bytes_of(&pda_signer_nonce)]]
     )?;
     Ok(())
-
-
 }
 
 
@@ -231,10 +229,8 @@ pub fn set_swap_guard(
     fund_data.guard.token_in_slot = token_in_fund_slot;
     fund_data.guard.token_out_slot = token_out_fund_slot;
     msg!("amount_in {:?}, min_aount_out {:?}", fund_data.guard.amount_in, fund_data.guard.min_amount_out);
-
-    
     Ok(())
-}
+} 
 
 
 pub fn check_swap_guard(
@@ -284,5 +280,4 @@ pub fn check_swap_guard(
     fund_data.guard.token_out_slot = u8::MAX;
     fund_data.guard.input_value = U64F64!(0);
     Ok(())
-
 }

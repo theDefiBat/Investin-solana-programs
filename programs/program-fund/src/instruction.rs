@@ -16,7 +16,6 @@ pub enum FundInstruction {
 
     Initialize {
         min_amount: u64,
-        min_return: u64,
         performance_fee_percentage: u64,
         no_of_tokens: u8,
         is_private: bool
@@ -116,7 +115,6 @@ pub enum FundInstruction {
         freeze_fund: u8,
         unfreeze_fund: u8,
         change_min_amount: u64,
-        change_min_return: u64,
         change_perf_fee: u64
     },
 
@@ -375,7 +373,6 @@ pub enum FundInstruction {
 
     JupiterSwap,
     CheckSwapGuard,
-    MigrateFundState,
     InitOpenOrderAccounts,
 }
 
@@ -393,14 +390,13 @@ impl FundInstruction {
         let op = u8::from_le_bytes(op);
         Some(match op {
             0 => {
-                let data = array_ref![data, 0, 8 + 8 + 8 + 1 + 1];
+                let data = array_ref![data, 0, 8 + 8 + 1 + 1];
                 let (
                     min_amount,
-                    min_return,
                     performance_fee_percentage,
                     no_of_tokens,
                     is_private
-                ) = array_refs![data, 8, 8, 8, 1, 1];
+                ) = array_refs![data, 8, 8, 1, 1];
                 let is_private = match is_private {
                     [0] => false,
                     [1] => true,
@@ -408,7 +404,6 @@ impl FundInstruction {
                 };
                 FundInstruction::Initialize {
                     min_amount: u64::from_le_bytes(*min_amount),
-                    min_return: u64::from_le_bytes(*min_return),
                     performance_fee_percentage: u64::from_le_bytes(*performance_fee_percentage),
                     no_of_tokens: u8::from_le_bytes(*no_of_tokens),
                     is_private
@@ -457,7 +452,7 @@ impl FundInstruction {
                 FundInstruction::ClaimPerformanceFee
             },
             7 => {
-                let data = array_ref![data, 0, 6 + 8 + 8 + 8];
+                let data = array_ref![data, 0, 6 + 8 + 8];
                 let (
                     intialize_platform,
                     freeze_platform,
@@ -466,9 +461,8 @@ impl FundInstruction {
                     freeze_fund,
                     unfreeze_fund,
                     change_min_amount,
-                    change_min_return,
                     change_perf_fee
-                ) = array_refs![data, 1, 1, 1, 1, 1, 1, 8, 8, 8];
+                ) = array_refs![data, 1, 1, 1, 1, 1, 1, 8, 8];
 
                 FundInstruction::AdminControl {
                     intialize_platform: u8::from_le_bytes(*intialize_platform),
@@ -478,7 +472,6 @@ impl FundInstruction {
                     freeze_fund: u8::from_le_bytes(*freeze_fund),
                     unfreeze_fund: u8::from_le_bytes(*unfreeze_fund),
                     change_min_amount: u64::from_le_bytes(*change_min_amount),
-                    change_min_return: u64::from_le_bytes(*change_min_return),
                     change_perf_fee: u64::from_le_bytes(*change_perf_fee)
                 }
             },
@@ -601,10 +594,6 @@ impl FundInstruction {
 
             23 => {
                 FundInstruction::JupiterSwap
-            }
-
-            24 => {
-                FundInstruction::MigrateFundState
             }
 
             25 => {
