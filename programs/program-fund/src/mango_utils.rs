@@ -268,7 +268,7 @@ pub fn mango_place_perp_order(
     price: i64,
     quantity: i64
 ) -> Result<(), ProgramError> {
-    const NUM_FIXED: usize = 11;
+    const NUM_FIXED: usize = 12;
     let accounts = array_ref![accounts, 0, NUM_FIXED];
 
     let [
@@ -282,6 +282,7 @@ pub fn mango_place_perp_order(
         bids_ai,            // write
         asks_ai,            // write
         event_queue_ai,    // write
+        referrer_mango_account_ai,
         default_ai,
     ] = accounts;
 
@@ -303,7 +304,7 @@ pub fn mango_place_perp_order(
     invoke_signed(
         &place_perp_order(mango_prog_ai.key,
             mango_group_ai.key, mango_account_ai.key, fund_account_ai.key,
-            mango_cache_ai.key,perp_market_ai.key, bids_ai.key, asks_ai.key, event_queue_ai.key, &open_orders_accs,
+            mango_cache_ai.key,perp_market_ai.key, bids_ai.key, asks_ai.key, event_queue_ai.key, Some(referrer_mango_account_ai.key), &open_orders_accs,
             side, price, quantity, 0, OrderType::ImmediateOrCancel, false)?,
         &[
             mango_prog_ai.clone(),
@@ -315,8 +316,8 @@ pub fn mango_place_perp_order(
             bids_ai.clone(),
             asks_ai.clone(),
             event_queue_ai.clone(),
-            default_ai.clone(),
-            
+            referrer_mango_account_ai.clone(),
+            default_ai.clone(), 
         ],
         &[&[&*manager_ai.key.as_ref(), bytes_of(&nonce)]]
     )?;
