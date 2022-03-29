@@ -4,7 +4,7 @@ import { GlobalState } from '../store/globalState';
 
 import { adminAccount, connection, FUND_ACCOUNT_KEY, idsIndex, platformStateAccount, priceStateAccount, programId } from '../utils/constants';
 import { blob, nu64, struct, u32, u8 } from 'buffer-layout';
-import { AMM_INFO_LAYOUT_V4, FUND_DATA, FUND_PDA_DATA, SPL_TOKEN_MINT_DATA } from '../utils/programLayouts';
+import { AMM_INFO_LAYOUT_V4, FRIKTION_VOLT, FUND_DATA, FUND_PDA_DATA, SPL_TOKEN_MINT_DATA } from '../utils/programLayouts';
 import { IDS, MangoClient, I80F48, NodeBankLayout, PerpAccountLayout, PerpMarketLayout ,RootBankCacheLayout, RootBankLayout} from '@blockworks-foundation/mango-client';
 import { Card, Col, Row ,Table} from 'reactstrap';
 import { DEV_TOKENS } from '../utils/pools';
@@ -22,6 +22,7 @@ export const DisplayInfo = (props) => {
   const [fundPDATokens, setFundPDATokens] = useState([])
   const [mangoGroup, setMangoGroup] = useState({})
   const [mangoAccount, setMangoAccount] = useState('7BLzTNvjNjaCnZ2Nnpu1aFYqTBsL8Lz2FUxknSAZ8tDX')
+  // const [FriktionVault, setFriktionVault] = useState('7BLzTNvjNjaCnZ2Nnpu1aFYqTBsL8Lz2FUxknSAZ8tDX')
   const [mangoAccountData, setMangoAccountData] = useState({})
   const [nodeBank, setNodeBank] = useState({})
   const [rootBank, setRootBank] = useState({})
@@ -31,6 +32,16 @@ const programIdX = programId.toBase58();
 const adminAccountX = adminAccount.toBase58();
 const platformStateAccountX = platformStateAccount.toBase58();
 const priceStateAccountX = priceStateAccount.toBase58();
+
+const handleGetFriktionData = async () => {
+  const vault_key = new PublicKey('CbPemKEEe7Y7YgBmYtFaZiECrVTP5sGrYzrrrviSewKY');
+  const friktionDataAcc = await connection.getAccountInfo(vault_key);
+    console.log("FriktionDataAccount:: ",friktionDataAcc);
+    if (friktionDataAcc) {
+      const friktionData = FRIKTION_VOLT.decode(friktionDataAcc.data);
+      console.error("FriktionData ::",friktionData);
+    }
+}
 
 const handleGetFundData = async () => {
 
@@ -59,9 +70,9 @@ const handleGetFundData = async () => {
     );
     console.log("FUND fundStateAcc:: ", fundStateAcc.toBase58())
     // setFundStateAccount(fundStateAcc.toBase58())
-
+    
     const fundDataAcc = await connection.getAccountInfo(fundStateAcc);
-    console.log("fundDataAcc::",fundDataAcc);
+    console.log("fundDataAcc::", fundDataAcc);
     if (fundDataAcc) {
       const fundData = FUND_DATA.decode(fundDataAcc.data)
       console.error("fundData ::",fundData);
@@ -280,7 +291,7 @@ const getMangoAccountData = async () => {
       <p> platformStateAccount : {platformStateAccountX}</p>
       <p> priceStateAccount : {priceStateAccountX}</p>
       <p> fundPDA  : {fundPDA}</p>
-
+      <button onClick={handleGetFriktionData}>GET FRIKTION VAULT DATA</button>
       <button onClick={handleGetFundData}>GET FUND STATE</button>
    
       <Row className="justify-content-between">
