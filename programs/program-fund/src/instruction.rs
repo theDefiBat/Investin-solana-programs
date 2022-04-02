@@ -69,12 +69,13 @@ pub enum FundInstruction {
             // mango_group_ai,
             // mango_cache_ai,
             // mango_prog_ai,
+            // referrer_mango_account_ai,
             // default_ai,
             // ..4 X [perp_market_ai,     // write default_ai if no perp market for i^th index
             //        bids_ai,            // write default_ai if no perp market for i^th index
             //        asks_ai,            // write default_ai if no perp market for i^th index
             //        event_queue_ai,]   //write default_ai if no perp market for i^th index
-
+            // 
     InvestorWithdrawSettleFunds,
 
     /// 0. [WRITE] Fund State Account
@@ -161,6 +162,7 @@ pub enum FundInstruction {
     /// bids_ai,            // write
     /// asks_ai,            // write
     /// event_queue_ai,    // write
+    /// referrer_mango_account_ai, //write
     /// default_acc,
     MangoPlacePerpOrder { //Only Market Orders
         perp_market_id: u8,
