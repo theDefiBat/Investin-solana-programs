@@ -2,6 +2,7 @@ use bytemuck::bytes_of;
 use fixed::types::I80F48;
 use fixed::types::U64F64;
 use fixed_macro::types::I80F48;
+use mango::instruction::cancel_perp_order;
 use solana_program::{
     account_info::AccountInfo,
     msg,
@@ -35,7 +36,8 @@ use serum_dex::instruction::{NewOrderInstructionV3, SelfTradeBehavior};
 use serum_dex::matching::{Side as SerumSide, OrderType as SerumOrderType};
 use mango::state::{MangoAccount, MangoGroup, MangoCache, MAX_PAIRS, QUOTE_INDEX};
 // use mango::state::Loadable as OtherLoadable;
-use mango::instruction::{deposit, withdraw, place_perp_order, init_spot_open_orders, settle_pnl, MangoInstruction};
+use mango::instruction::{deposit, withdraw, place_perp_order, place_perp_order2, init_spot_open_orders, settle_pnl, MangoInstruction};
+
 use mango::matching::{Side, OrderType};
 use spl_token::state::Account;
 
@@ -327,6 +329,129 @@ pub fn mango_place_perp_order(
     Ok(())
 
 }
+
+
+pub fn mango_place_perp_order2(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    perp_market_id: u8,
+    side: Side,
+    price: i64,
+    max_base_quantity: i64,
+    max_quote_quantity: i64,
+    client_order_id: u64,
+    _order_type: OrderType,
+    reduce_only: bool,
+    expiry_timestamp: u64,
+    limit: u8,
+) -> Result<(), ProgramError> {
+    const NUM_FIXED: usize = 12;
+    let accounts = array_ref![accounts, 0, NUM_FIXED];
+
+    let [
+        fund_account_ai,
+        manager_ai,
+        mango_prog_ai,
+        mango_group_ai,     // read
+        mango_account_ai,   // write
+        mango_cache_ai,     // read
+        perp_market_ai,     // write
+        bids_ai,            // write
+        asks_ai,            // write
+        event_queue_ai,    // write
+        referrer_mango_account_ai,
+        default_ai,
+    ] = accounts;
+
+    let mut fund_data = FundAccount::load_mut_checked(fund_account_ai, program_id)?;
+    //Check for Mango v3 ID 
+    check_eq!(*mango_prog_ai.key, mango_v3_id::ID);
+    check!(manager_ai.is_signer, ProgramError::MissingRequiredSignature);
+
+    // check_eq!(fund_data.manager_account, *manager_ai.key);
+    check!((fund_data.manager_account == *manager_ai.key), FundError::ManagerMismatch);
+    let fund_perp_market_index = fund_data.get_mango_perp_index(perp_market_id);
+    if fund_perp_market_index == None {
+        let new_fund_perp_market_index = fund_data.get_mango_perp_index(u8::MAX).unwrap(); //getting empty Index
+        fund_data.mango_positions.perp_markets[new_fund_perp_market_index] = perp_market_id;
+    }
+    let open_orders_accs = [Pubkey::default(); MAX_PAIRS];
+    let nonce = fund_data.signer_nonce;
+    drop(fund_data);
+    invoke_signed(
+        &place_perp_order2(mango_prog_ai.key,
+            mango_group_ai.key, mango_account_ai.key, fund_account_ai.key,
+            mango_cache_ai.key,perp_market_ai.key, bids_ai.key, asks_ai.key, event_queue_ai.key, 
+            Some(referrer_mango_account_ai.key), &open_orders_accs,
+            side, price, max_base_quantity, max_quote_quantity, client_order_id, OrderType::Limit, reduce_only, Some(expiry_timestamp),limit)?,
+            &[
+                mango_prog_ai.clone(),
+                mango_group_ai.clone(),
+                mango_account_ai.clone(),
+                fund_account_ai.clone(),
+                mango_cache_ai.clone(),
+                perp_market_ai.clone(),
+                bids_ai.clone(),
+                asks_ai.clone(),
+                event_queue_ai.clone(),
+                referrer_mango_account_ai.clone(),
+                default_ai.clone(), 
+            ],
+        &[&[&*manager_ai.key.as_ref(), bytes_of(&nonce)]]
+    )?;
+
+    let mango_group_data = MangoGroup::load_checked(mango_group_ai, mango_prog_ai.key)?;
+    check_eq!(mango_group_data.perp_markets[perp_market_id as usize].perp_market, *perp_market_ai.key);
+    Ok(())
+
+}
+
+pub fn mango_cancel_perp_order(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    order_id: i128,
+) -> Result<(), ProgramError> {
+    const NUM_FIXED: usize = 8;
+    let accounts = array_ref![accounts, 0, NUM_FIXED];
+
+    let [
+        fund_account_ai,
+        manager_ai,
+        mango_prog_ai,
+        mango_group_ai,     // read
+        mango_account_ai,   // write
+        perp_market_ai,     // write
+        bids_ai,            // write
+        asks_ai,            // write
+    ] = accounts;
+
+    let mut fund_data = FundAccount::load_mut_checked(fund_account_ai, program_id)?;
+    //Check for Mango v3 ID 
+    check_eq!(*mango_prog_ai.key, mango_v3_id::ID);
+    check!(manager_ai.is_signer, ProgramError::MissingRequiredSignature);
+    let nonce = fund_data.signer_nonce;
+    
+    invoke_signed(
+        &cancel_perp_order(mango_prog_ai.key,
+            mango_group_ai.key, mango_account_ai.key, fund_account_ai.key,
+            perp_market_ai.key, bids_ai.key, asks_ai.key,order_id ,false)?,
+        &[
+            mango_prog_ai.clone(),
+            mango_group_ai.clone(),
+            mango_account_ai.clone(),
+            fund_account_ai.clone(),
+            perp_market_ai.clone(),
+            bids_ai.clone(),
+            asks_ai.clone(), 
+        ],
+        &[&[&*manager_ai.key.as_ref(), bytes_of(&nonce)]]
+    )?;
+
+   
+    Ok(())
+
+}
+
 
 pub fn mango_remove_perp_index(
     program_id: &Pubkey,

@@ -41,6 +41,9 @@ solana program deploy /Users/aw/Desktop/Solana-Apps/Solana-IVN-Code/dist/program
 # deploy to exsiting addresss
 solana program deploy /Users/aw/Desktop/Solana-Apps/Solana-IVN-Code/dist/program-fund/fund.so --program-id  EYCioTzTEMFwcYKbYn8HMNdY32KkpEnRnKuirv7GZPmL
 
+# program size 
+ls -al /Users/aw/Desktop/test-solana-playground/mango-cpi/target/deploy/spl_example_transfer_lamports.so
+
 
 # address
 

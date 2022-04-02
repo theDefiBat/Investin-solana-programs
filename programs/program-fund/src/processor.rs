@@ -224,8 +224,6 @@ impl Fund {
         Ok(())
     }
 
-
-
     // investor deposit
     pub fn deposit(
         program_id: &Pubkey,
@@ -1193,6 +1191,38 @@ impl Fund {
             FundInstruction::MangoPlacePerpOrder { perp_market_id, side, price, quantity } => {
                 msg!("FundInstruction::MangoPlacePerpOrder");
                 return mango_place_perp_order(program_id, accounts, perp_market_id , side, price, quantity);
+            }
+            FundInstruction::MangoPlacePerpOrder2 { 
+                perp_market_id,
+                price,
+                max_base_quantity,
+                max_quote_quantity,
+                client_order_id,
+                expiry_timestamp,
+                side,
+                order_type,
+                reduce_only,
+                limit 
+            } => {
+                msg!("FundInstruction::MangoPlacePerpOrder2");
+                return mango_place_perp_order2(
+                    program_id,
+                    accounts,
+                    perp_market_id,
+                    side,
+                    price,
+                    max_base_quantity,
+                    max_quote_quantity,
+                    client_order_id,
+                    order_type,
+                    reduce_only,
+                    expiry_timestamp,
+                    limit
+                );
+            }
+            FundInstruction::CancelPerpOrder { order_id} => {
+                msg!("FundInstruction::CancelPerpOrder");
+                return mango_cancel_perp_order(program_id, accounts, order_id);
             }
             FundInstruction::MangoRemovePerpIndex {perp_market_id} => {
                 msg!("FundInstruction::MangoRemovePerpIndex");

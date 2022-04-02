@@ -243,7 +243,7 @@ impl_loadable!(InvestorData);
 pub struct MangoInfo {
     // margin account pubkey to check if the passed acc is correct
     pub mango_account: Pubkey, 
-    pub perp_markets: [u8; 3],
+    pub perp_markets: [u8; 3], // default u8::MAX
     pub perp_padding: u8,
     pub deposit_index: u8,
     pub markets_active: u8,
