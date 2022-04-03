@@ -39,7 +39,10 @@ npm run build:program-fund
 solana program deploy /Users/aw/Desktop/Solana-Apps/Solana-IVN-Code/dist/program-fund/fund.so
 
 # deploy to exsiting addresss
+## devenet
 solana program deploy /Users/aw/Desktop/Solana-Apps/Solana-IVN-Code/dist/program-fund/fund.so --program-id  EYCioTzTEMFwcYKbYn8HMNdY32KkpEnRnKuirv7GZPmL
+## Beta- Mainnet (deployer : HcikBBJaAUTZXyqHQYHv46NkvwXVigkk2CuQgGuNQEnX)
+solana program deploy /Users/aw/Desktop/Solana-Apps/Solana-IVN-Code/dist/program-fund/fund.so --program-id DGWPuR54RgRYVdUHF8TaG7SP63BzWUSAYBScuAEbV1fD
 
 # program size 
 ls -al /Users/aw/Desktop/test-solana-playground/mango-cpi/target/deploy/spl_example_transfer_lamports.so

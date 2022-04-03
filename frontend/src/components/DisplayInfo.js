@@ -158,9 +158,11 @@ const handleGetFundData = async () => {
 }
 
 const getAllDecodeMangoData = async () => {
-
-  let client = new MangoClient(connection, new PublicKey(ids.mangoProgramId))
-  let mangoGroup = await client.getMangoGroup(new PublicKey(ids.publicKey))
+   const MANGO_PROGRAM_ID_V3 = new PublicKey('mv3ekLzLbnVPNxjSKvqBpU3ZeZXPQdEC3bp5MDEBG68')
+ const MANGO_GROUP_ACCOUNT_V3 = new PublicKey('98pjRuQjK3qA6gXts96PqZT4Ze5QmnCmt3QYjhbUSPue')
+   
+  let client = new MangoClient(connection, MANGO_PROGRAM_ID_V3)
+  let mangoGroup = await client.getMangoGroup(MANGO_GROUP_ACCOUNT_V3)
   console.log("mango group:: ", mangoGroup)
   let mangoGroupDecoded = {};
   mangoGroupDecoded.admin = mangoGroup.admin.toBase58();
@@ -239,9 +241,14 @@ const getAllDecodeMangoData = async () => {
 }
 
 const getMangoAccountData = async () => {
-    let client = new MangoClient(connection, new PublicKey(ids.mangoProgramId))
+  const MANGO_PROGRAM_ID_V3 = new PublicKey('mv3ekLzLbnVPNxjSKvqBpU3ZeZXPQdEC3bp5MDEBG68')
+  const MANGO_GROUP_ACCOUNT_V3 = new PublicKey('98pjRuQjK3qA6gXts96PqZT4Ze5QmnCmt3QYjhbUSPue')
+    
+   let client = new MangoClient(connection,MANGO_PROGRAM_ID_V3)
+  //  let mangoGroup = await client.getMangoGroup(new PublicKey(MANGO_GROUP_ACCOUNT_V3))
+   const SERUM_PROGRAM_ID_V3 = new PublicKey('9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PusVFin')
 
-    let mangoAcc = await client.getMangoAccount(new PublicKey(mangoAccount), ids.serumProgramId)
+    let mangoAcc = await client.getMangoAccount(new PublicKey(mangoAccount), SERUM_PROGRAM_ID_V3)
     console.log("mangoAccount:: ", mangoAccount)
 
     let mangoAccountDecoded = {};

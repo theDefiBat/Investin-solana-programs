@@ -52,6 +52,10 @@ export function u128(property = "") {
   return new BNLayout(16, property);
 }
 
+export function i128(property = "") {
+  return new BNLayout(16, property, true);
+}
+
 
 class U64F64Layout extends Blob {
   constructor(property) {

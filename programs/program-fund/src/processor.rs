@@ -24,12 +24,13 @@ use spl_token::state::{Account, Mint};
 
 use crate::error::FundError;
 use crate::instruction::{FundInstruction, Data};
-use crate::state::{NUM_TOKENS, MAX_INVESTORS, NUM_PERP, FundAccount, InvestorData, PlatformData};
+use crate::state::{NUM_TOKENS, MAX_INVESTORS,MAX_LIMIT_ORDERS, NUM_PERP, FundAccount, InvestorData, PlatformData};
 use crate::mango_utils::*;
 use crate::jup_utils::*;
 use crate::tokens::*;
-use mango::state::{MangoAccount, MangoGroup, MangoCache, PerpMarket, MAX_TOKENS, MAX_PAIRS, QUOTE_INDEX};
-use mango::instruction::{ cancel_all_perp_orders, withdraw, place_perp_order, consume_events };
+use mango::{state::{MangoAccount, MangoGroup, MangoCache, PerpMarket, MAX_TOKENS, MAX_PAIRS, QUOTE_INDEX}, instruction::cancel_perp_order_by_client_id};
+use mango::instruction::{ cancel_all_perp_orders,cancel_perp_order, withdraw, place_perp_order, consume_events };
+
 use mango::matching::{Side, OrderType, Book};
 
 macro_rules! check {
@@ -759,6 +760,60 @@ impl Fund {
                 mango_val_after,
                 false
             )?;
+
+            // Loop over Limit Orders
+            let mango_account = MangoAccount::load_checked(mango_account_ai, mango_prog_ai.key, mango_group_ai.key)?;
+            
+            for i in 0..MAX_LIMIT_ORDERS {
+
+                if  fund_data.limit_orders[i].client_order_id == 0 {
+                    continue;
+                }
+
+                // 1) check Limit Order is Valid 
+                let valid =  mango_account.find_order_with_client_id(fund_data.limit_orders[i].perp_market_id,fund_data.limit_orders[i].client_order_id);
+                match valid {
+                    None => {
+                        //order already executed
+                        fund_data.limit_orders[i].client_order_id = 0; 
+                        //clear data if needed
+                        fund_data.limit_orders[i].is_repost_processing = false;
+                        
+                        continue;
+                    }
+                    Some((order_id,side)) => {
+                        // update Structs and FLAG
+                        fund_data.repost_processing = true; // overall 
+                        fund_data.limit_orders[i].is_repost_processing = true;
+                        let mul_factor =  U64F64::to_num(1).checked_sub(share);
+                        // let  base_close_amount: i64 = U64F64::to_num(fund_data.limit_orders[i].max_base_quantity).checked_mul(share);
+                        // if side == Side::Bid {
+                            fund_data.limit_orders[i].max_base_quantity = (fund_data.limit_orders[i].max_base_quantity).checked_add(mul_factor).unwrap();
+                            fund_data.limit_orders[i].max_quote_quantity = (fund_data.limit_orders[i].max_quote_quantity).checked_add(mul_factor).unwrap();
+                        // }
+                        invoke_signed(
+                            &cancel_perp_order_by_client_id(mango_prog_ai.key,
+                                mango_group_ai.key, mango_account_ai.key, fund_account_ai.key,
+                                 perp_accs[i*4].key, perp_accs[(i*4) + 1].key, perp_accs[(i*4) + 2].key, fund_data.limit_orders[i].client_order_id, true)?,
+                            &[
+                                mango_prog_ai.clone(),
+                                mango_group_ai.clone(),
+                                mango_account_ai.clone(),
+                                fund_account_ai.clone(),
+                                mango_cache_ai.clone(),
+                                perp_accs[i*4].clone(),
+                                perp_accs[i*4 + 1].clone(),
+                                perp_accs[i*4 + 2].clone(),
+                            ],
+                            &[&[bytes_of(&manager_account), bytes_of(&nonce)]]
+                        )?;
+                    },
+                }
+                
+            }
+            
+
+
             //investor_data.margin_debt[0] = investor_data.margin_debt[0].checked_add(usdc_deposits_after.checked_sub(usdc_deposits_before).unwrap()).unwrap();
         }
         Ok(())

@@ -59,20 +59,23 @@ function App() {
         } */}
         <SendGreating />
         <DisplayInfo/>
-        <MigrateState/>
+        {/* <MigrateState/>
         <InitialisedFund />
         <Deposit />
 	      <Transfer />
         <GetPrices />
         <Swap />
-        <UpdateAllTokenPrices/>
+        <UpdateAllTokenPrices/> */}
+
         {/* <OrcaSwap /> */}
         {/* <Testing /> */}
-        <Withdraw />
+
+        {/* <Withdraw />
         <Claim />
-        <MangoInitialize />
+        <MangoInitialize /> */}
+
         <MangoPlaceOrder />
-        <AdminControl />
+        {/* <AdminControl /> */}
         <AllFundsInvestors/>
       </Container>
     </div>

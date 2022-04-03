@@ -19,7 +19,13 @@ export const MARGIN_ACCOUNT_KEY_2 = "macck2";//"margin_account_key_22"
 export const PRICE_ACCOUNT_KEY = "margin_account_key_22"
 
 export const cluster = process.env.REACT_APP_CLUSTER_URL;
-export const connection = new Connection(cluster, "confirmed");
+
+export const mangoCluster = "https://mango.rpcpool.com"
+// export const cluster = "https://investin.rpcpool.com";
+export const publicCluster = "https://solana-api.projectserum.com";
+export const genesysGluster = "https://investinpro.genesysgo.net";
+
+export const connection = new Connection(publicCluster, "processed");
 
 export const adminAccount = new PublicKey(process.env.REACT_APP_ADMIN_ACCOUNT)
 export const programId = new PublicKey(process.env.REACT_APP_PROGRAMID);

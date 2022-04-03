@@ -345,6 +345,9 @@ pub fn mango_place_perp_order2(
     expiry_timestamp: u64,
     limit: u8,
 ) -> Result<(), ProgramError> {
+
+    msg!("yooyo: perpId-{:?} side- {:?}, p-{},bq-{}, qq-{}, coi-{}, et{:?}, l-{} ", perp_market_id,side,price,max_base_quantity, max_quote_quantity, client_order_id, expiry_timestamp, limit );
+
     const NUM_FIXED: usize = 12;
     let accounts = array_ref![accounts, 0, NUM_FIXED];
 
@@ -400,8 +403,8 @@ pub fn mango_place_perp_order2(
         &[&[&*manager_ai.key.as_ref(), bytes_of(&nonce)]]
     )?;
 
-    let mango_group_data = MangoGroup::load_checked(mango_group_ai, mango_prog_ai.key)?;
-    check_eq!(mango_group_data.perp_markets[perp_market_id as usize].perp_market, *perp_market_ai.key);
+    // let mango_group_data = MangoGroup::load_checked(mango_group_ai, mango_prog_ai.key)?;
+    // check_eq!(mango_group_data.perp_markets[perp_market_id as usize].perp_market, *perp_market_ai.key);
     Ok(())
 
 }
@@ -411,6 +414,7 @@ pub fn mango_cancel_perp_order(
     accounts: &[AccountInfo],
     order_id: i128,
 ) -> Result<(), ProgramError> {
+    msg!("order_id: {:?}",order_id);
     const NUM_FIXED: usize = 8;
     let accounts = array_ref![accounts, 0, NUM_FIXED];
 
@@ -430,6 +434,7 @@ pub fn mango_cancel_perp_order(
     check_eq!(*mango_prog_ai.key, mango_v3_id::ID);
     check!(manager_ai.is_signer, ProgramError::MissingRequiredSignature);
     let nonce = fund_data.signer_nonce;
+    drop(fund_data);
     
     invoke_signed(
         &cancel_perp_order(mango_prog_ai.key,

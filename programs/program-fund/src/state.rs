@@ -17,6 +17,7 @@ pub const MAX_INVESTORS:usize = 10;
 pub const MAX_INVESTORS_WITHDRAW: usize = 2;
 pub const NUM_MARGIN: usize = 2;
 pub const NUM_PERP: usize = 3;
+pub const MAX_LIMIT_ORDERS:usize = 2;
 
 pub trait Loadable: Pod {
     fn load_mut<'a>(account: &'a AccountInfo) -> Result<RefMut<'a, Self>, ProgramError> {
@@ -155,12 +156,13 @@ pub struct FundAccount {
 
      pub guard: SwapGuard,
 
-     pub margin_update_padding: [u8; 24], //80 Bytes for Depr. MarginInfo Size
- 
-     // padding for future use
-    //  pub xpadding: [u8; 8] //32
+     pub repost_processing : bool, // 1
 
-    pub migration_additonal_padding: [u8; 2024]
+     pub limit_orders : [LimitOrderInfo; MAX_LIMIT_ORDERS], // 45 each = 90
+     
+    //  pub margin_update_padding: [u8; 24], //80 Bytes for Depr. MarginInfo Size
+
+    pub migration_additonal_padding: [u8; 1957] // 2024 + 24 - 90 -1 =  1957
 }
 impl_loadable!(FundAccount);
 
@@ -254,6 +256,23 @@ pub struct MangoInfo {
     pub padding: [u8; 24]
 }
 impl_loadable!(MangoInfo);
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
+pub struct LimitOrderInfo { 
+    // PerpOrderInfo for Limit Orders [ 1 + 8 + 8 + 8 + 8 + 8 + 1 + 1 + 1 + 1 ] = 45 bytes
+    pub is_repost_processing: bool,
+    pub price: i64,
+    pub max_base_quantity: i64,
+    pub max_quote_quantity: i64,
+    pub client_order_id: u64, // 0 = means inActive
+    pub expiry_timestamp: u64,
+    pub perp_market_id: u8,
+    pub side: u8,
+    pub reduce_only: bool,
+    pub limit: u8,
+}
+impl_loadable!(LimitOrderInfo);
 
 impl Sealed for InvestorData {}
 impl IsInitialized for InvestorData {
