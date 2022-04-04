@@ -230,7 +230,7 @@ pub enum FundInstruction {
     },
 
     CancelPerpOrder {
-        order_id: i128
+        client_order_id: u64
     },
     
     /// Settle all funds from serum dex open orders into MarginAccount positions
@@ -712,9 +712,9 @@ impl FundInstruction {
             }
 
             29 => {
-                let order_id = array_ref![data, 0, 16];
+                let order_id = array_ref![data, 0, 8];
                 FundInstruction::CancelPerpOrder {
-                    order_id: i128::from_le_bytes(*order_id)
+                    client_order_id: u64::from_le_bytes(*order_id)
                 }
             }
             _ => { return None; }

@@ -3,6 +3,7 @@ use fixed::types::I80F48;
 use fixed::types::U64F64;
 use fixed_macro::types::I80F48;
 use mango::instruction::cancel_perp_order;
+use mango::instruction::cancel_perp_order_by_client_id;
 use solana_program::{
     account_info::AccountInfo,
     msg,
@@ -17,6 +18,7 @@ use num_enum::TryFromPrimitive;
 use std::convert::TryFrom;
 use std::convert::TryInto;
 use std::cell::RefMut;
+use std::i128;
 
 use fixed_macro::types::U64F64;
 pub const ONE_U64F64: U64F64 = U64F64!(1);
@@ -28,6 +30,7 @@ use std::num::NonZeroU64;
 use arrayref::{array_ref, array_refs};
 
 use crate::error::FundError;
+use crate::state::MAX_LIMIT_ORDERS;
 use crate::state::{MAX_INVESTORS_WITHDRAW, NUM_MARGIN, FundAccount, InvestorData};
 use crate::state::Loadable;
 use crate::processor::{ parse_token_account, close_investor_account };
@@ -331,6 +334,7 @@ pub fn mango_place_perp_order(
 }
 
 
+//currently only for Limit Orders
 pub fn mango_place_perp_order2(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
@@ -347,6 +351,8 @@ pub fn mango_place_perp_order2(
 ) -> Result<(), ProgramError> {
 
     msg!("yooyo: perpId-{:?} side- {:?}, p-{},bq-{}, qq-{}, coi-{}, et{:?}, l-{} ", perp_market_id,side,price,max_base_quantity, max_quote_quantity, client_order_id, expiry_timestamp, limit );
+
+    // disAllow clientOrderid = 0
 
     const NUM_FIXED: usize = 12;
     let accounts = array_ref![accounts, 0, NUM_FIXED];
@@ -380,7 +386,50 @@ pub fn mango_place_perp_order2(
     }
     let open_orders_accs = [Pubkey::default(); MAX_PAIRS];
     let nonce = fund_data.signer_nonce;
+
+    // first check all slots and clear if some already executed
+    for i in 0..MAX_LIMIT_ORDERS {
+        msg!("check sl-{:?}",i);
+        if  fund_data.limit_orders[i].client_order_id == 0 {
+            msg!("ignore 0");
+            continue;
+        }
+        let limit_order_slot = fund_data.find_slot_by_client_id(client_order_id).unwrap();
+        //check if order has already execueted
+        let mango_account = MangoAccount::load_checked(mango_account_ai, mango_prog_ai.key, mango_group_ai.key)?;
+        let valid =  mango_account.find_order_with_client_id(fund_data.limit_orders[limit_order_slot].perp_market_id as usize,client_order_id);
+            match valid {
+                None => {
+                    msg!("order already executed");
+                    //order already executed
+                    fund_data.limit_orders[limit_order_slot].client_order_id = 0; 
+                    //clear data if needed
+                    fund_data.limit_orders[limit_order_slot].is_repost_processing = false;
+                }
+                _ => {
+                    // move on still listed
+                    msg!("still listed");
+                }
+            }
+    }
+
+    //get free slot or Panic
+    let free_slot = fund_data.find_slot_by_client_id(0).unwrap();
+
+    // update structs 
+    check!(!fund_data.limit_orders[free_slot].is_repost_processing,FundError::LimitOrderProcessing);
+    fund_data.limit_orders[free_slot].price = price;
+    fund_data.limit_orders[free_slot].max_base_quantity = max_base_quantity;
+    fund_data.limit_orders[free_slot].max_quote_quantity = max_quote_quantity;
+    fund_data.limit_orders[free_slot].client_order_id = client_order_id;
+    fund_data.limit_orders[free_slot].perp_market_id = perp_market_id;
+    fund_data.limit_orders[free_slot].side = side;
+    // fund_data.limit_orders[free_slot].expiry_timestamp = expiry_timestamp;
+    // fund_data.limit_orders[free_slot].reduce_only = reduce_only;
+    // fund_data.limit_orders[free_slot].limit = limit;
+
     drop(fund_data);
+
     invoke_signed(
         &place_perp_order2(mango_prog_ai.key,
             mango_group_ai.key, mango_account_ai.key, fund_account_ai.key,
@@ -403,13 +452,86 @@ pub fn mango_place_perp_order2(
         &[&[&*manager_ai.key.as_ref(), bytes_of(&nonce)]]
     )?;
 
-    // let mango_group_data = MangoGroup::load_checked(mango_group_ai, mango_prog_ai.key)?;
-    // check_eq!(mango_group_data.perp_markets[perp_market_id as usize].perp_market, *perp_market_ai.key);
+    
+    let mango_group_data = MangoGroup::load_checked(mango_group_ai, mango_prog_ai.key)?;
+    check_eq!(mango_group_data.perp_markets[perp_market_id as usize].perp_market, *perp_market_ai.key);
     Ok(())
 
 }
 
 pub fn mango_cancel_perp_order(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    client_order_id: u64,
+) -> Result<(), ProgramError> {
+    msg!("client_order_id: {:?}",client_order_id);
+    const NUM_FIXED: usize = 8;
+    let accounts = array_ref![accounts, 0, NUM_FIXED];
+
+    let [
+        fund_account_ai,
+        manager_ai,
+        mango_prog_ai,
+        mango_group_ai,     // read
+        mango_account_ai,   // write
+        perp_market_ai,     // write
+        bids_ai,            // write
+        asks_ai,            // write
+    ] = accounts;
+
+    let mut fund_data = FundAccount::load_mut_checked(fund_account_ai, program_id)?;
+    //Check for Mango v3 ID 
+    check_eq!(*mango_prog_ai.key, mango_v3_id::ID);
+    check!(manager_ai.is_signer, ProgramError::MissingRequiredSignature);
+    let nonce = fund_data.signer_nonce;
+
+    // clear data and clientOrderid = 0
+    let limit_order_slot = fund_data.find_slot_by_client_id(client_order_id).unwrap();
+
+    //check if order has already execueted
+    let mango_account = MangoAccount::load_checked(mango_account_ai, mango_prog_ai.key, mango_group_ai.key)?;
+    let valid =  mango_account.find_order_with_client_id(fund_data.limit_orders[limit_order_slot].perp_market_id as usize,client_order_id);
+        match valid {
+            Some(_) => {
+                fund_data.limit_orders[limit_order_slot].client_order_id = 0;
+
+                drop(fund_data);
+    
+                invoke_signed(
+                    &cancel_perp_order_by_client_id(mango_prog_ai.key,
+                        mango_group_ai.key, mango_account_ai.key, fund_account_ai.key,
+                        perp_market_ai.key, bids_ai.key, asks_ai.key,client_order_id ,false)?,
+                    &[
+                        mango_prog_ai.clone(),
+                        mango_group_ai.clone(),
+                        mango_account_ai.clone(),
+                        fund_account_ai.clone(),
+                        perp_market_ai.clone(),
+                        bids_ai.clone(),
+                        asks_ai.clone(), 
+                    ],
+                    &[&[&*manager_ai.key.as_ref(), bytes_of(&nonce)]]
+                )?;
+            }
+            None => {
+                //order already executed
+                fund_data.limit_orders[limit_order_slot].client_order_id = 0; 
+                //clear data if needed
+                fund_data.limit_orders[limit_order_slot].is_repost_processing = false;
+                msg!("order already executed");
+            }
+        }
+
+    // check!(!fund_data.limit_orders[limit_order_slot].is_repost_processing,FundError::LimitOrderProcessing);
+    
+
+   
+    Ok(())
+
+}
+
+// deprecated
+pub fn mango_cancel_perp_by_order_id(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
     order_id: i128,

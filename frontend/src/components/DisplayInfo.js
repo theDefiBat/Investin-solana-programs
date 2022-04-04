@@ -4,7 +4,7 @@ import { GlobalState } from '../store/globalState';
 
 import { adminAccount, connection, FUND_ACCOUNT_KEY, idsIndex, platformStateAccount, priceStateAccount, programId } from '../utils/constants';
 import { blob, nu64, struct, u32, u8 } from 'buffer-layout';
-import { AMM_INFO_LAYOUT_V4, FUND_DATA, FUND_PDA_DATA, SPL_TOKEN_MINT_DATA } from '../utils/programLayouts';
+import { AMM_INFO_LAYOUT_V4, FUND_DATA, FUND_PDA_DATA, PLATFORM_DATA, SPL_TOKEN_MINT_DATA } from '../utils/programLayouts';
 import { IDS, MangoClient, I80F48, NodeBankLayout, PerpAccountLayout, PerpMarketLayout ,RootBankCacheLayout, RootBankLayout} from '@blockworks-foundation/mango-client';
 import { Card, Col, Row ,Table} from 'reactstrap';
 import { DEV_TOKENS } from '../utils/pools';
@@ -31,6 +31,14 @@ const programIdX = programId.toBase58();
 const adminAccountX = adminAccount.toBase58();
 const platformStateAccountX = platformStateAccount.toBase58();
 const priceStateAccountX = priceStateAccount.toBase58();
+
+  useEffect(() => {
+   console.log("FUND_DATA.span::",FUND_DATA.span)
+   console.log("FUND_PDA_DATA.span::",FUND_PDA_DATA.span)
+   console.log("PLATFORM_DATA.span::",PLATFORM_DATA.span)
+
+  }, [])
+  
 
 const handleGetFundData = async () => {
 

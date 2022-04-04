@@ -1,5 +1,6 @@
 use std::cell::{Ref, RefMut};
 use std::mem::size_of;
+use mango::matching::Side;
 use solana_program::pubkey::Pubkey;
 use solana_program::account_info::AccountInfo;
 use solana_program::program_pack::{IsInitialized, Sealed};
@@ -156,13 +157,12 @@ pub struct FundAccount {
 
      pub guard: SwapGuard,
 
-     pub repost_processing : bool, // 1
-
-     pub limit_orders : [LimitOrderInfo; MAX_LIMIT_ORDERS], // 45 each = 90
+     pub limit_orders : [LimitOrderInfo; MAX_LIMIT_ORDERS], // 48 each = 96
      
+     pub repost_processing : bool, // 1
     //  pub margin_update_padding: [u8; 24], //80 Bytes for Depr. MarginInfo Size
 
-    pub migration_additonal_padding: [u8; 1957] // 2024 + 24 - 90 -1 =  1957
+    pub migration_additonal_padding: [u8; 1951] // 2024 + 24 - 96 -1 =  1951
 }
 impl_loadable!(FundAccount);
 
@@ -261,16 +261,17 @@ impl_loadable!(MangoInfo);
 #[derive(Clone, Copy, Debug)]
 pub struct LimitOrderInfo { 
     // PerpOrderInfo for Limit Orders [ 1 + 8 + 8 + 8 + 8 + 8 + 1 + 1 + 1 + 1 ] = 45 bytes
-    pub is_repost_processing: bool,
     pub price: i64,
     pub max_base_quantity: i64,
     pub max_quote_quantity: i64,
     pub client_order_id: u64, // 0 = means inActive
     pub expiry_timestamp: u64,
+    pub is_repost_processing: bool,
     pub perp_market_id: u8,
-    pub side: u8,
+    pub side: Side,
     pub reduce_only: bool,
     pub limit: u8,
+    pub padding :[u8;3],
 }
 impl_loadable!(LimitOrderInfo);
 
@@ -386,6 +387,10 @@ impl FundAccount {
     pub fn get_investor_index(&self, inv_state_pk: &Pubkey) -> Option<usize> {
         self.investors.iter().position(|pos| *pos == *inv_state_pk)
     }
+    pub fn find_slot_by_client_id(&self, client_order_id: u64) -> Option<usize> {
+        self.limit_orders.iter().position(|limitOrderInfo| (*limitOrderInfo).client_order_id == client_order_id)
+    }
+    
 }
 
 impl InvestorData {
