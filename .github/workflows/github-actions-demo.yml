@@ -1,17 +1,22 @@
-name: GitHub Actions Demo
-on: [push]
+name: Soteria Audit
+# Update to match your branch names and requirements
+on:
+  push:
+    branches: main
+  pull_request:
+    branches: main
+
 jobs:
-  Explore-GitHub-Actions:
+  audit:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "🎉 The job was automatically triggered by a ${{ github.event_name }} event."
-      - run: echo "🐧 This job is now running on a ${{ runner.os }} server hosted by GitHub!"
-      - run: echo "🔎 The name of your branch is ${{ github.ref }} and your repository is ${{ github.repository }}."
-      - name: Check out repository code
-        uses: actions/checkout@v3
-      - run: echo "💡 The ${{ github.repository }} repository has been cloned to the runner."
-      - run: echo "🖥️ The workflow is now ready to test your code on the runner."
-      - name: List files in the repository
-        run: |
-          ls ${{ github.workspace }}
-      - run: echo "🍏 This job's status is ${{ job.status }}."
+      - name: Check-out the repository
+        uses: actions/checkout@v2
+      - name: Soteria Audit
+        continue-on-error: false          # set to true if you don't want to fail jobs
+        uses: silas-x/soteria-action@main
+        with:                             # remove if not passing arguments below
+          solana-version: "1.9.14"        # not required
+          run-mode: "-analyzeAll"         # not required
+          cargo-com: "."                  # not required
+          program-path: "programs/program-fund"               # not required
