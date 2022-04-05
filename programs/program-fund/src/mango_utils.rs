@@ -404,9 +404,9 @@ pub fn mango_place_perp_order2(
                 None => {
                     msg!("order already executed");
                     //order already executed
-                    fund_data.limit_orders[limit_order_slot].client_order_id = 0; 
+                    fund_data.limit_orders[i].client_order_id = 0; 
                     //clear data if needed
-                    fund_data.limit_orders[limit_order_slot].is_repost_processing = false;
+                    fund_data.limit_orders[i].is_repost_processing = false;
                 }
                 _ => {
                     // move on still listed
