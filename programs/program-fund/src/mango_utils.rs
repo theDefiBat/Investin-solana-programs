@@ -396,10 +396,10 @@ pub fn mango_place_perp_order2(
             msg!("ignore 0");
             continue;
         }
-        let limit_order_slot = fund_data.find_slot_by_client_id(client_order_id).unwrap();
+        // let limit_order_slot = fund_data.find_slot_by_client_id(client_order_id).unwrap();
         //check if order has already execueted
         let mango_account = MangoAccount::load_checked(mango_account_ai, mango_prog_ai.key, mango_group_ai.key)?;
-        let valid =  mango_account.find_order_with_client_id(fund_data.limit_orders[limit_order_slot].perp_market_id as usize,client_order_id);
+        let valid =  mango_account.find_order_with_client_id(fund_data.limit_orders[i].perp_market_id as usize,fund_data.limit_orders[i].client_order_id);
             match valid {
                 None => {
                     msg!("order already executed");
@@ -419,7 +419,7 @@ pub fn mango_place_perp_order2(
     let free_slot = fund_data.find_slot_by_client_id(0).unwrap();
 
     // update structs 
-    check!(!fund_data.limit_orders[free_slot].is_repost_processing,FundError::LimitOrderProcessing);
+    check!(!fund_data.limit_orders[free_slot].is_repost_processing, FundError::LimitOrderProcessing);
     fund_data.limit_orders[free_slot].price = price;
     fund_data.limit_orders[free_slot].max_base_quantity = max_base_quantity;
     fund_data.limit_orders[free_slot].max_quote_quantity = max_quote_quantity;
