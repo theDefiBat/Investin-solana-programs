@@ -36,7 +36,6 @@ const priceStateAccountX = priceStateAccount.toBase58();
    console.log("FUND_DATA.span::",FUND_DATA.span)
    console.log("FUND_PDA_DATA.span::",FUND_PDA_DATA.span)
    console.log("PLATFORM_DATA.span::",PLATFORM_DATA.span)
-
   }, [])
   
 
@@ -450,6 +449,28 @@ const getMangoAccountData = async () => {
             {fundPDAData.mango_positions.perp_markets[2]}{' || '}
             {fundPDAData.mango_positions.perp_markets[3]}
             </p>
+
+            <hr/>
+            <h5>----Limit -Orders 0 </h5>
+            <p> price  : {fundPDAData.limit_orders[0].price.toNumber()}</p>
+            <p> max_base_quantity  : {fundPDAData.limit_orders[0].max_base_quantity.toNumber()}</p>
+            <p> max_quote_quantity  : {fundPDAData.limit_orders[0].max_quote_quantity.toNumber()}</p>
+            <p> client_order_id  : {fundPDAData.limit_orders[0].client_order_id.toNumber()}</p>
+            <p> expiry_timestamp  : {fundPDAData.limit_orders[0].expiry_timestamp.toNumber()}</p>
+            <p> is_repost_processing  : {fundPDAData.limit_orders[0].is_repost_processing}</p>
+            <p> perp_market_id  : {fundPDAData.limit_orders[0].perp_market_id}</p>
+            <p> side  : {fundPDAData.limit_orders[0].side}</p>
+            <h5>----Limit -Orders 1 </h5>
+            <p> price  : {fundPDAData.limit_orders[1].price.toNumber()}</p>
+            <p> max_base_quantity  : {fundPDAData.limit_orders[1].max_base_quantity.toNumber()}</p>
+            <p> max_quote_quantity  : {fundPDAData.limit_orders[1].max_quote_quantity.toNumber()}</p>
+            <p> client_order_id  : {fundPDAData.limit_orders[1].client_order_id.toNumber()}</p>
+            <p> expiry_timestamp  : {fundPDAData.limit_orders[1].expiry_timestamp.toNumber()}</p>
+            <p> is_repost_processing  : {fundPDAData.limit_orders[1].is_repost_processing}</p>
+            <p> perp_market_id  : {fundPDAData.limit_orders[1].perp_market_id}</p>
+            <p> side  : {fundPDAData.limit_orders[1].side}</p>
+
+            <br/>
             
 
             <p> investor_debts[]  : {fundPDAData.mango_positions.investor_debts[0].toString()} {' || '}

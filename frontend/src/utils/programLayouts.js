@@ -398,6 +398,5 @@ export const FUND_PDA_DATA = struct([
   ),
   u8('repost_processing'),
   
-  // seq(u8(), 24, 'margin_update_padding'),
   seq(u8(), 1951, 'migration_additonal_padding'),
 ])

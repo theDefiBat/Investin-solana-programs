@@ -1,3 +1,19 @@
+## rpc url
+solana config set --url 
+https://solana-api.projectserum.com
+https://ssc-dao.genesysgo.net
+https://mainnet-beta.solflare.network/
+https://trashpandas.rpcpool.com/
+https://magiceden.rpcpool.com/
+
+## Beta- Mainnet (deployer : HcikBBJaAUTZXyqHQYHv46NkvwXVigkk2CuQgGuNQEnX)
+solana program deploy /Users/aw/Desktop/Solana-Apps/Solana-IVN-Code/dist/program-fund/fund.so --program-id DGWPuR54RgRYVdUHF8TaG7SP63BzWUSAYBScuAEbV1fD
+# all new features
+$ solana feature status
+
+# all validators at
+$ solana validators
+
 $ cargo --version
 cargo 1.55.0 (32da73ab1 2021-08-23)
 

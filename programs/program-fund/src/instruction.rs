@@ -232,6 +232,8 @@ pub enum FundInstruction {
     CancelPerpOrder {
         client_order_id: u64
     },
+
+    RepostLimitOrders,
     
     /// Settle all funds from serum dex open orders into MarginAccount positions
     ///
@@ -716,6 +718,9 @@ impl FundInstruction {
                 FundInstruction::CancelPerpOrder {
                     client_order_id: u64::from_le_bytes(*order_id)
                 }
+            }
+            30 => {
+                FundInstruction::RepostLimitOrders
             }
             _ => { return None; }
         })

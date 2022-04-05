@@ -352,6 +352,8 @@ pub fn mango_place_perp_order2(
 
     msg!("yooyo: perpId-{:?} side- {:?}, p-{},bq-{}, qq-{}, coi-{}, et{:?}, l-{} ", perp_market_id,side,price,max_base_quantity, max_quote_quantity, client_order_id, expiry_timestamp, limit );
 
+    check!(client_order_id > 0, FundError::InvalidInstruction);
+
     // disAllow clientOrderid = 0
 
     const NUM_FIXED: usize = 12;
@@ -424,9 +426,9 @@ pub fn mango_place_perp_order2(
     fund_data.limit_orders[free_slot].client_order_id = client_order_id;
     fund_data.limit_orders[free_slot].perp_market_id = perp_market_id;
     fund_data.limit_orders[free_slot].side = side;
-    // fund_data.limit_orders[free_slot].expiry_timestamp = expiry_timestamp;
-    // fund_data.limit_orders[free_slot].reduce_only = reduce_only;
-    // fund_data.limit_orders[free_slot].limit = limit;
+    fund_data.limit_orders[free_slot].expiry_timestamp = expiry_timestamp;
+    fund_data.limit_orders[free_slot].reduce_only = reduce_only;
+    fund_data.limit_orders[free_slot].limit = limit;
 
     drop(fund_data);
 
@@ -465,6 +467,8 @@ pub fn mango_cancel_perp_order(
     client_order_id: u64,
 ) -> Result<(), ProgramError> {
     msg!("client_order_id: {:?}",client_order_id);
+    check!(client_order_id > 0, FundError::InvalidInstruction);
+
     const NUM_FIXED: usize = 8;
     let accounts = array_ref![accounts, 0, NUM_FIXED];
 
@@ -491,6 +495,8 @@ pub fn mango_cancel_perp_order(
     //check if order has already execueted
     let mango_account = MangoAccount::load_checked(mango_account_ai, mango_prog_ai.key, mango_group_ai.key)?;
     let valid =  mango_account.find_order_with_client_id(fund_data.limit_orders[limit_order_slot].perp_market_id as usize,client_order_id);
+    drop(mango_account);
+
         match valid {
             Some(_) => {
                 fund_data.limit_orders[limit_order_slot].client_order_id = 0;
