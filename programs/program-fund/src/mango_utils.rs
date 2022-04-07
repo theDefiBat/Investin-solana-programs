@@ -623,7 +623,15 @@ pub fn mango_remove_perp_index(
     let base_pos = mango_account.perp_accounts[perp_market_id as usize].base_position;
 
     check!(perp_pnl == I80F48!(0) && base_pos == I80F48!(0), ProgramError::InsufficientFunds);
-    
+
+    //Check No pending limit orders
+    for i in 0..MAX_LIMIT_ORDERS {
+        if fund_data.limit_orders[i].perp_market_id == perp_market_id {
+        let valid =  mango_account.find_order_with_client_id(fund_data.limit_orders[i].perp_market_id as usize,fund_data.limit_orders[i].client_order_id);
+        check!(valid == None, FundError::LimitOrderProcessing);
+
+        }
+    }
     let fund_perp_makret_index = fund_data.get_mango_perp_index(perp_market_id).unwrap();
     fund_data.mango_positions.perp_markets[fund_perp_makret_index as usize] = u8::MAX;
     
