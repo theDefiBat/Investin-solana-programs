@@ -885,7 +885,7 @@ impl Fund {
             let price = fund_data.limit_orders[i].price;
             let max_base_quantity = fund_data.limit_orders[i].max_base_quantity;
             let max_quote_quantity = fund_data.limit_orders[i].max_quote_quantity;
-            let client_order_id = fund_data.limit_orders[i].client_order_id;
+            let client_order_id = (Clock::get()?.unix_timestamp as u64) + (i as u64); //fund_data.limit_orders[i].client_order_id + 11;
             let reduce_only = fund_data.limit_orders[i].reduce_only;
             let expiry_timestamp = fund_data.limit_orders[i].expiry_timestamp;
             let limit = fund_data.limit_orders[i].limit;
