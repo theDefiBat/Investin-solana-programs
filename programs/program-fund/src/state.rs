@@ -322,6 +322,18 @@ pub struct TokenInfo {
 }
 impl_loadable!(TokenInfo);
 
+pub struct TokenInfoNew {
+    // mint address of the token
+    pub mint: Pubkey,
+    // decimals for token, not used can be used later
+    pub decimals: u64,
+    
+    // Oracle Pubkey
+    pub sw_oracle: Pubkey,
+    
+    pub padding: [u8; 6],
+}
+
 
 impl PlatformData {
     pub fn load_mut_checked<'a>(

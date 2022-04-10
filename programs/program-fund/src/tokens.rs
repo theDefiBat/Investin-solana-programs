@@ -1,7 +1,7 @@
 use fixed::types::U64F64;
 
 use solana_program::{
-    account_info::{AccountInfo, next_account_info},
+    account_info::{AccountInfo, next_account_info, Account},
     program_error::ProgramError,
     program_pack::Pack,
     msg,
@@ -9,9 +9,9 @@ use solana_program::{
     clock::Clock,
     sysvar::Sysvar
 };
-use std::cell::{Ref, RefMut};
+use std::{cell::{Ref, RefMut}, fmt::Result};
 use bytemuck::{ from_bytes };
-
+use switchboard_aggregator::aggregator;
 
 use spl_token::state::Mint;
 
@@ -89,6 +89,16 @@ pub fn add_token_to_whitelist (
     Ok(())
 }
 
+pub fn add_token_to_whitelist_with_oracle(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    index: u8
+) -> Result<(), ProgramError> {
+    
+    
+    Ok(())
+}
+
 pub fn update_token_prices (
     program_id: &Pubkey,
     accounts: &[AccountInfo],
@@ -132,6 +142,15 @@ pub fn update_token_prices (
         }
         platform_data.token_list[index].last_updated = clock.unix_timestamp;
     }                           
+    Ok(())
+}
+
+pub fn update_oracle_prices (
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+) -> Result<(), ProgramError> {
+    
+    
     Ok(())
 }
 

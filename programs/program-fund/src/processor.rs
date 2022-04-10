@@ -1535,6 +1535,73 @@ pub fn update_amount_and_performance(
     Ok(())
 }
 
+pub fn update_amount_and_performance_uzing_oracles(
+    platform_data: &PlatformData,
+    fund_data: &mut FundAccount,
+    oracle_ais: &[AccountInfo],
+    mango_val: U64F64,
+    update_perf: bool
+) -> Result<(), ProgramError> {
+    let mut fund_val = mango_val;
+    
+    // add USDC balance (not decimal adjusted)
+    fund_val = fund_val.checked_add(U64F64::from_num(fund_data.tokens[0].balance - fund_data.tokens[0].debt)).unwrap();
+    // msg!("USDC: {:?}", U64F64::from_num(fund_data.tokens[0].balance - fund_data.tokens[0].debt));
+    // Calculate prices for all tokens with balances
+    let oracles_iter = &mut oracle_ais.iter();
+
+
+    for i in 1..NUM_TOKENS {
+
+        let token_oracle = next_account_info(oracles_iter)?;
+        // dont update if token balance == 0
+        if (fund_data.tokens[i].balance - fund_data.tokens[i].debt) == 0 { continue; }
+        
+        // get last mux
+        // get index of token
+        let token_info = platform_data.token_list[fund_data.tokens[i].index[fund_data.tokens[i].mux as usize] as usize];
+        
+        // if Clock::get()?.unix_timestamp - token_info.last_updated > 100 {
+        //     msg!("price not up-to-date.. aborting");
+        //     return Err(FundError::PriceStaleInAccount.into())
+        // }
+
+        check!(*token_oracle.key == token_info.sw_oracle, );
+
+        // calculate price in terms of base token
+        let mut val: U64F64 = U64F64::from_num(fund_data.tokens[i].balance - fund_data.tokens[i].debt)
+        .checked_mul(token_info.pool_price).unwrap();
+
+         if token_info.pc_index != 0 {
+             let underlying_token_info = platform_data.token_list[token_info.pc_index as usize];
+             if Clock::get()?.unix_timestamp - underlying_token_info.last_updated > 100 {
+                msg!("price not up-to-date.. aborting");
+                return Err(FundError::PriceStaleInAccount.into())
+            }
+             val = val.checked_mul(underlying_token_info.pool_price).unwrap();
+         }
+
+        fund_val = fund_val.checked_add(val).unwrap();
+    }
+    
+    if update_perf {
+        let mut perf = U64F64::from_num(fund_data.prev_performance);
+        // only case where performance is not updated:
+        // when no investments and no performance fee for manager
+        if fund_data.number_of_active_investments != 0 || fund_data.performance_fee != 0 {
+            perf = fund_val.checked_div(fund_data.total_amount).unwrap()
+            .checked_mul(U64F64::from_num(fund_data.prev_performance)).unwrap();
+        }
+        // adjust for manager performance fee
+        fund_data.performance_fee = U64F64::to_num(U64F64::from_num(perf)
+            .checked_div(U64F64::from_num(fund_data.prev_performance)).unwrap()
+            .checked_mul(U64F64::from_num(fund_data.performance_fee)).unwrap());
+        fund_data.prev_performance = U64F64::to_num(perf);
+    }
+    fund_data.total_amount = fund_val;
+
+    Ok(())
+}
 pub fn get_mango_valuation(
     fund_data: &FundAccount,
     mango_account_ai: &AccountInfo,
