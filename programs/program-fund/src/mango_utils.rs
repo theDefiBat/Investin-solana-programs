@@ -491,15 +491,23 @@ pub fn mango_cancel_perp_order(
 
     // clear data and clientOrderid = 0
     let limit_order_slot = fund_data.find_slot_by_client_id(client_order_id).unwrap();
+    msg!("limit_order_slot {:?}",limit_order_slot);
 
     //check if order has already execueted
     let mango_account = MangoAccount::load_checked(mango_account_ai, mango_prog_ai.key, mango_group_ai.key)?;
-    let valid =  mango_account.find_order_with_client_id(fund_data.limit_orders[limit_order_slot].perp_market_id as usize,client_order_id);
+    let valid = mango_account.find_order_with_client_id(fund_data.limit_orders[limit_order_slot].perp_market_id as usize,client_order_id);
     drop(mango_account);
 
         match valid {
             Some(_) => {
                 fund_data.limit_orders[limit_order_slot].client_order_id = 0;
+                fund_data.limit_orders[limit_order_slot].is_repost_processing = false;
+                fund_data.limit_orders[limit_order_slot].max_base_quantity = 0 as i64;
+                fund_data.limit_orders[limit_order_slot].max_quote_quantity = 0 as i64;
+                fund_data.limit_orders[limit_order_slot].perp_market_id = 0 as u8;
+                fund_data.limit_orders[limit_order_slot].side = Side::Bid;
+                fund_data.limit_orders[limit_order_slot].expiry_timestamp = 0 as u64;
+                fund_data.limit_orders[limit_order_slot].reduce_only = false;
 
                 drop(fund_data);
     
@@ -524,6 +532,12 @@ pub fn mango_cancel_perp_order(
                 fund_data.limit_orders[limit_order_slot].client_order_id = 0; 
                 //clear data if needed
                 fund_data.limit_orders[limit_order_slot].is_repost_processing = false;
+                fund_data.limit_orders[limit_order_slot].max_base_quantity = 0 as i64;
+                fund_data.limit_orders[limit_order_slot].max_quote_quantity = 0 as i64;
+                fund_data.limit_orders[limit_order_slot].perp_market_id = 0 as u8;
+                fund_data.limit_orders[limit_order_slot].side = Side::Bid;
+                fund_data.limit_orders[limit_order_slot].expiry_timestamp = 0 as u64;
+                fund_data.limit_orders[limit_order_slot].reduce_only = false;
                 msg!("order already executed");
             }
         }
