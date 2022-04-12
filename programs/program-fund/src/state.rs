@@ -329,9 +329,9 @@ impl PlatformData {
         program_id: &Pubkey
     ) -> Result<RefMut<'a, Self>, ProgramError> {
 
-        msg!("Platform data:: {:?}, {:?}", account.data_len(), size_of::<Self>());
+        // msg!("Platform data:: {:?}, {:?}", account.data_len(), size_of::<Self>());
         check_eq!(account.data_len(), size_of::<Self>());
-        msg!("size check done");
+        // msg!("size check done");
         check_eq!(account.owner, program_id);
 
         let data = Self::load_mut(account)?;

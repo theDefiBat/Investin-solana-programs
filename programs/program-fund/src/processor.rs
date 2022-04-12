@@ -588,7 +588,6 @@ impl Fund {
         program_id: &Pubkey,
         accounts: &[AccountInfo],
     ) -> Result<(), ProgramError> {
-        msg!("Invoked Withdraw Settle");
         const NUM_FIXED:usize = 10;
         let accounts = array_ref![accounts, 0, NUM_FIXED + 4*NUM_PERP];
         let (
@@ -637,7 +636,7 @@ impl Fund {
                 true
             )?;
             let share = get_share(&mut fund_data, &mut investor_data)?;
-            msg!("share {:?}", share);
+            // msg!("share {:?}", share);
             for i in 0..NUM_TOKENS {
                 let mut withdraw_amount: u64 = U64F64::to_num(
                     U64F64::from_num(fund_data.tokens[i].balance-fund_data.tokens[i].debt)
@@ -1787,9 +1786,6 @@ pub fn get_share(
 ) -> Result<U64F64, ProgramError> {
     let perf_share = U64F64::from_num(fund_data.prev_performance)
     .checked_div(U64F64::from_num(investor_data.start_performance)).unwrap();
-
-    // investor_data.end_performance = perf_share;
-    msg!("performance: {:?}", perf_share);
 
     let actual_amount: u64 = investor_data.amount;
 
