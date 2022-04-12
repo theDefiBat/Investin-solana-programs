@@ -775,7 +775,6 @@ impl Fund {
         program_id: &Pubkey,
         accounts: &[AccountInfo],
     ) -> Result<(), ProgramError> {
-        msg!("Invoked withdraw_process_limit_orders");
         const NUM_FIXED: usize = 9;
                             
         let accounts = array_ref![accounts, 0, NUM_FIXED + 4*MAX_LIMIT_ORDERS];
@@ -834,7 +833,6 @@ impl Fund {
                         continue;
                 }
                 Some((order_id,_side)) => { //MEANS ORDER IS VALID
-                    msg!("store close- {:?}",i);
                      // update Structs and FLAG
                     let new_client_order_id = (Clock::get()?.unix_timestamp as u64).checked_mul(1000 as u64).unwrap() + (i as u64);
                     let old_client_order_id = fund_data.limit_orders[i].client_order_id;

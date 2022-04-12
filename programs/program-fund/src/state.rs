@@ -18,7 +18,7 @@ pub const MAX_INVESTORS:usize = 10;
 pub const MAX_INVESTORS_WITHDRAW: usize = 2;
 pub const NUM_MARGIN: usize = 2;
 pub const NUM_PERP: usize = 3;
-pub const MAX_LIMIT_ORDERS:usize = 3;
+pub const MAX_LIMIT_ORDERS:usize = 2;
 
 pub trait Loadable: Pod {
     fn load_mut<'a>(account: &'a AccountInfo) -> Result<RefMut<'a, Self>, ProgramError> {
@@ -157,11 +157,11 @@ pub struct FundAccount {
 
      pub guard: SwapGuard,
 
-     pub limit_orders : [LimitOrderInfo; MAX_LIMIT_ORDERS], // 48 each = 96 + 48
+     pub limit_orders : [LimitOrderInfo; MAX_LIMIT_ORDERS], // 48 each = 96 
      
     //  pub margin_update_padding: [u8; 24], //80 Bytes for Depr. MarginInfo Size
 
-    pub migration_additonal_padding: [u8; 1904] // 2024 + 24 - 96 -48 =  1904
+    pub migration_additonal_padding: [u8; 1952] // 2024 + 24 - 96 =  1
 }
 impl_loadable!(FundAccount);
 
