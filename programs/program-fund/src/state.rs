@@ -267,11 +267,11 @@ pub struct LimitOrderInfo {
     pub max_quote_quantity: i64,
     pub client_order_id: u64, // 0 = means inActive
     pub expiry_timestamp: u64,
+    pub is_repost_processing: bool,
     pub perp_market_id: u8,
     pub side: Side,
     pub reduce_only: bool,
     pub limit: u8,
-    pub is_repost_processing: bool,
     pub padding :[u8;3],
 }
 impl_loadable!(LimitOrderInfo);

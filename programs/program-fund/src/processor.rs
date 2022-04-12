@@ -1,5 +1,5 @@
 use bytemuck::bytes_of;
-use std::mem::size_of;
+use std::{mem::size_of, sync::mpsc::RecvTimeoutError};
 use fixed::types::U64F64;
 use fixed_macro::types::U64F64;
 use fixed::types::I80F48;
@@ -588,7 +588,7 @@ impl Fund {
         program_id: &Pubkey,
         accounts: &[AccountInfo],
     ) -> Result<(), ProgramError> {
-        const NUM_FIXED:usize = 10;
+        const NUM_FIXED:usize = 11;
         let accounts = array_ref![accounts, 0, NUM_FIXED + 4*NUM_PERP];
         let (
             fixed_accs,
@@ -605,6 +605,7 @@ impl Fund {
             mango_cache_ai,
             mango_prog_ai,
             referrer_mango_account_ai,
+            ix_sysvar_ai,
             default_ai,
         ] = fixed_accs;
 
@@ -616,6 +617,8 @@ impl Fund {
         check!(investor_ai.is_signer, ProgramError::MissingRequiredSignature);
         check_eq!(investor_data.manager, fund_data.manager_account);
         check_eq!(investor_data.has_withdrawn, false);
+        let ix = solana_program::sysvar::instructions::load_instruction_at_checked(1, ix_sysvar_ai)?;
+        check!(ix.program_id == *program_id && ix.data[0] == 30, FundError::InvalidInstruction); 
         
 
         if investor_data.amount != 0 && investor_data.start_performance != 0 {
@@ -774,7 +777,7 @@ impl Fund {
     ) -> Result<(), ProgramError> {
         msg!("Invoked withdraw_process_limit_orders");
         const NUM_FIXED: usize = 9;
-
+                            
         let accounts = array_ref![accounts, 0, NUM_FIXED + 4*MAX_LIMIT_ORDERS];
         let (
             fixed_accs,
@@ -794,10 +797,6 @@ impl Fund {
         ] = fixed_accs;
 
 
-        // CHECK IF withdraw settle is called in same trx
-        // 
-
-
         let mut fund_data = FundAccount::load_mut_checked(fund_account_ai, program_id)?;
         check_eq!(*mango_prog_ai.key, mango_v3_id::ID);
         let nonce = fund_data.signer_nonce;
@@ -807,8 +806,14 @@ impl Fund {
         check!(investor_data.owner == *investor_ai.key, ProgramError::MissingRequiredSignature);
         check!(investor_ai.is_signer, ProgramError::MissingRequiredSignature);
         check_eq!(investor_data.manager, fund_data.manager_account);
+        check!(investor_data.share != U64F64!(0), FundError::InvalidStateAccount);
 
         let open_orders_accs = [Pubkey::default(); MAX_PAIRS];
+
+        if fund_data.number_of_active_investments == 0 {
+            msg!("No Investors Left");
+            return Ok(())
+        }
 
         for i in 0..MAX_LIMIT_ORDERS {
 
@@ -916,6 +921,7 @@ impl Fund {
 
         }
 
+        investor_data.share = U64F64!(0);
         Ok(())
     }    
 
@@ -1379,8 +1385,8 @@ impl Fund {
                 msg!("FundInstruction::CancelPerpOrder");
                 return mango_cancel_perp_order(program_id, accounts, client_order_id);
             }
-            FundInstruction::RepostLimitOrders => {
-                msg!("FundInstruction::RepostLimitOrders");
+            FundInstruction::WithdrawProcessLimitOrders => {
+                msg!("FundInstruction::WithdrawProcessLimitOrders");
                 return Self::withdraw_process_limit_orders(program_id, accounts);
             }
             FundInstruction::MangoRemovePerpIndex {perp_market_id} => {

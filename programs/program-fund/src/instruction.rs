@@ -233,7 +233,7 @@ pub enum FundInstruction {
         client_order_id: u64
     },
 
-    RepostLimitOrders,
+    WithdrawProcessLimitOrders,
     
     /// Settle all funds from serum dex open orders into MarginAccount positions
     ///
@@ -720,7 +720,7 @@ impl FundInstruction {
                 }
             }
             30 => {
-                FundInstruction::RepostLimitOrders
+                FundInstruction::WithdrawProcessLimitOrders
             }
             _ => { return None; }
         })
