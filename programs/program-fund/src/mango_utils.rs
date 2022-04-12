@@ -405,8 +405,6 @@ pub fn mango_place_perp_order2(
                     msg!("order already executed");
                     //order already executed
                     fund_data.limit_orders[i].client_order_id = 0; 
-                    //clear data if needed
-                    fund_data.limit_orders[i].is_repost_processing = false;
                 }
                 _ => {
                     // move on still listed
@@ -419,7 +417,6 @@ pub fn mango_place_perp_order2(
     let free_slot = fund_data.find_slot_by_client_id(0).unwrap();
 
     // update structs 
-    check!(!fund_data.limit_orders[free_slot].is_repost_processing, FundError::LimitOrderProcessing);
     fund_data.limit_orders[free_slot].price = price;
     fund_data.limit_orders[free_slot].max_base_quantity = max_base_quantity;
     fund_data.limit_orders[free_slot].max_quote_quantity = max_quote_quantity;
@@ -501,7 +498,6 @@ pub fn mango_cancel_perp_order(
         match valid {
             Some(_) => {
                 fund_data.limit_orders[limit_order_slot].client_order_id = 0;
-                fund_data.limit_orders[limit_order_slot].is_repost_processing = false;
                 fund_data.limit_orders[limit_order_slot].max_base_quantity = 0 as i64;
                 fund_data.limit_orders[limit_order_slot].max_quote_quantity = 0 as i64;
                 fund_data.limit_orders[limit_order_slot].perp_market_id = 0 as u8;
@@ -531,7 +527,6 @@ pub fn mango_cancel_perp_order(
                 //order already executed
                 fund_data.limit_orders[limit_order_slot].client_order_id = 0; 
                 //clear data if needed
-                fund_data.limit_orders[limit_order_slot].is_repost_processing = false;
                 fund_data.limit_orders[limit_order_slot].max_base_quantity = 0 as i64;
                 fund_data.limit_orders[limit_order_slot].max_quote_quantity = 0 as i64;
                 fund_data.limit_orders[limit_order_slot].perp_market_id = 0 as u8;
@@ -542,7 +537,6 @@ pub fn mango_cancel_perp_order(
             }
         }
 
-    // check!(!fund_data.limit_orders[limit_order_slot].is_repost_processing,FundError::LimitOrderProcessing);
     
 
    

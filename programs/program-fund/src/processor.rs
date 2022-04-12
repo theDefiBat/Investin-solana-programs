@@ -637,6 +637,8 @@ impl Fund {
             )?;
             let share = get_share(&mut fund_data, &mut investor_data)?;
             // msg!("share {:?}", share);
+            investor_data.share = share;
+
             for i in 0..NUM_TOKENS {
                 let mut withdraw_amount: u64 = U64F64::to_num(
                     U64F64::from_num(fund_data.tokens[i].balance-fund_data.tokens[i].debt)
@@ -762,86 +764,16 @@ impl Fund {
                 false
             )?;
 
-            // Loop over Limit Orders
-            
-            for i in 0..MAX_LIMIT_ORDERS {
-                
-                if  fund_data.limit_orders[i].client_order_id == 0 {
-                    msg!("0 - {:?}",i);
-                    continue;
-                }
-
-                let mango_account = MangoAccount::load_checked(mango_account_ai, mango_prog_ai.key, mango_group_ai.key)?;
-                
-                // 1) check Limit Order is Valid 
-                let valid =  mango_account.find_order_with_client_id((fund_data.limit_orders[i].perp_market_id as usize),fund_data.limit_orders[i].client_order_id);
-                drop(mango_account);
-                match valid {
-                    None => {
-                        msg!("exe - {:?}",i);
-                        
-                        // if order in processing 
-                        if fund_data.repost_processing && fund_data.limit_orders[i].is_repost_processing {
-                            // let it process and accumalate
-                            msg!("already in processing - accumulate")
-                        } else {
-                             //order already executed
-                            fund_data.limit_orders[i].client_order_id = 0; 
-                            continue;
-                        }
-                       
-                    }
-                    Some((order_id,side)) => {
-                        msg!("store close- {:?}",i);
-                    },
-                }
-                  // update Structs and FLAG
-                  fund_data.repost_processing = true; // overall 
-                  fund_data.limit_orders[i].is_repost_processing = true;
-                  let mul_factor =  U64F64!(1).checked_sub(share).unwrap();
-                  // let  base_close_amount: i64 = U64F64::to_num(fund_data.limit_orders[i].max_base_quantity).checked_mul(share);
-                  // if side == Side::Bid {
-                      fund_data.limit_orders[i].max_base_quantity = U64F64::to_num(
-                          U64F64::from_num(
-                              fund_data.limit_orders[i].max_base_quantity
-                            ).checked_mul(mul_factor).unwrap());
-                      fund_data.limit_orders[i].max_quote_quantity = U64F64::to_num(
-                          U64F64::from_num(
-                              fund_data.limit_orders[i].max_quote_quantity
-                            ).checked_mul(mul_factor).unwrap());
-                  // }
-                  let client_order_id = fund_data.limit_orders[i].client_order_id;
-                  drop(fund_data);
-                  invoke_signed(
-                      &cancel_perp_order_by_client_id(mango_prog_ai.key,
-                          mango_group_ai.key, mango_account_ai.key, fund_account_ai.key,
-                           perp_accs[i*4].key, perp_accs[(i*4) + 1].key, perp_accs[(i*4) + 2].key, client_order_id, true)?,
-                      &[
-                          mango_prog_ai.clone(),
-                          mango_group_ai.clone(),
-                          mango_account_ai.clone(),
-                          fund_account_ai.clone(),
-                          perp_accs[i*4].clone(),
-                          perp_accs[i*4 + 1].clone(),
-                          perp_accs[i*4 + 2].clone(),
-                      ],
-                      &[&[bytes_of(&manager_account), bytes_of(&nonce)]]
-                  )?;
-                fund_data = FundAccount::load_mut_checked(fund_account_ai, program_id)?;
-
-                
-            }
-            
         }
         Ok(())
     }
 
-    pub fn repost_limit_orders(
+    pub fn withdraw_process_limit_orders(
         program_id: &Pubkey,
         accounts: &[AccountInfo],
     ) -> Result<(), ProgramError> {
-        msg!("Invoked repost_limit_orders");
-        const NUM_FIXED: usize = 7;
+        msg!("Invoked withdraw_process_limit_orders");
+        const NUM_FIXED: usize = 9;
 
         let accounts = array_ref![accounts, 0, NUM_FIXED + 4*MAX_LIMIT_ORDERS];
         let (
@@ -851,6 +783,8 @@ impl Fund {
 
         let [
             fund_account_ai,
+            investor_state_ai,
+            investor_ai,
             mango_prog_ai,
             mango_group_ai,     // read
             mango_cache_ai,     // read
@@ -859,86 +793,128 @@ impl Fund {
             default_ai
         ] = fixed_accs;
 
+
+        // CHECK IF withdraw settle is called in same trx
+        // 
+
+
         let mut fund_data = FundAccount::load_mut_checked(fund_account_ai, program_id)?;
         check_eq!(*mango_prog_ai.key, mango_v3_id::ID);
         let nonce = fund_data.signer_nonce;
         let manager_pubkey = fund_data.manager_account;
+
+        let mut investor_data = InvestorData::load_mut_checked(investor_state_ai, program_id)?;
+        check!(investor_data.owner == *investor_ai.key, ProgramError::MissingRequiredSignature);
+        check!(investor_ai.is_signer, ProgramError::MissingRequiredSignature);
+        check_eq!(investor_data.manager, fund_data.manager_account);
+
         let open_orders_accs = [Pubkey::default(); MAX_PAIRS];
-
-        check!(fund_data.repost_processing,FundError::LimitOrderProcessing);
-
-
-        // clear data and clientOrderid = 0
-        // let limit_order_slot = fund_data.find_slot_by_client_id(client_order_id);
-        // check!(!fund_data.limit_orders[limit_order_slot].is_repost_processing,FundError::LimitOrderProcessing);
-        // fund_data.limit_orders[free_slot].client_order_id = 0;
-        // drop(fund_data);
 
         for i in 0..MAX_LIMIT_ORDERS {
 
-            if  fund_data.limit_orders[i].client_order_id == 0 && !fund_data.limit_orders[i].is_repost_processing {
+            if  fund_data.limit_orders[i].client_order_id == 0  {
                 msg!("skip {:?}",i);
                 continue;
             }
-            let side = fund_data.limit_orders[i].side;
-            let price = fund_data.limit_orders[i].price;
-            let max_base_quantity = fund_data.limit_orders[i].max_base_quantity;
-            let max_quote_quantity = fund_data.limit_orders[i].max_quote_quantity;
-            let client_order_id = (Clock::get()?.unix_timestamp as u64) + (i as u64); //fund_data.limit_orders[i].client_order_id + 11;
-            //updating new ClientOrderId
-            fund_data.limit_orders[i].client_order_id = client_order_id;
-            let reduce_only = fund_data.limit_orders[i].reduce_only;
-            let expiry_timestamp = fund_data.limit_orders[i].expiry_timestamp;
-            let limit = fund_data.limit_orders[i].limit;
 
-            msg!("expiry_timestamp: {:?}, l - {:?}",expiry_timestamp,limit);
+            // 1) check Limit Order is Valid 
+            let mango_account = MangoAccount::load_checked(mango_account_ai, mango_prog_ai.key, mango_group_ai.key)?;
+            let valid =  mango_account.find_order_with_client_id((fund_data.limit_orders[i].perp_market_id as usize),fund_data.limit_orders[i].client_order_id);
+            drop(mango_account);
+            match valid {
+                None => {
+                    msg!("Alexe - {:?}",i);
+                        //order already executed
+                        fund_data.limit_orders[i].client_order_id = 0; 
+                        continue;
+                }
+                Some((order_id,_side)) => { //MEANS ORDER IS VALID
+                    msg!("store close- {:?}",i);
+                     // update Structs and FLAG
+                    let new_client_order_id = (Clock::get()?.unix_timestamp as u64).checked_mul(1000 as u64).unwrap() + (i as u64);
+                    let old_client_order_id = fund_data.limit_orders[i].client_order_id;
+                    let side = fund_data.limit_orders[i].side;
+                    let price = fund_data.limit_orders[i].price;
+                    
+                    let reduce_only = fund_data.limit_orders[i].reduce_only;
+                    let expiry_timestamp = fund_data.limit_orders[i].expiry_timestamp;
+                    let limit = fund_data.limit_orders[i].limit;
 
+                    let mul_factor =  U64F64!(1).checked_sub(investor_data.share).unwrap();
+                    let new_max_base_quantity = U64F64::to_num(
+                            U64F64::from_num(
+                                fund_data.limit_orders[i].max_base_quantity
+                                ).checked_mul(mul_factor).unwrap());
+                    let new_max_quote_quantity = U64F64::to_num(
+                            U64F64::from_num(
+                                fund_data.limit_orders[i].max_quote_quantity
+                                ).checked_mul(mul_factor).unwrap());
+                    fund_data.limit_orders[i].max_base_quantity = new_max_base_quantity;
+                    fund_data.limit_orders[i].max_quote_quantity = new_max_quote_quantity;
+                    fund_data.limit_orders[i].client_order_id = new_client_order_id;
 
-            drop(fund_data);
-            invoke_signed(
-                &place_perp_order2(
-                    mango_prog_ai.key,
-                    mango_group_ai.key,
-                    mango_account_ai.key,
-                    fund_account_ai.key,
-                    mango_cache_ai.key,
-                    perp_accs[i*4].key,
-                    perp_accs[(i*4) + 1].key,
-                    perp_accs[(i*4) + 2].key,
-                    perp_accs[(i*4) + 3].key, 
-                    Some(referrer_mango_account_ai.key),
-                    &open_orders_accs,
-                    side,
-                    price,
-                    max_base_quantity, 
-                    max_quote_quantity, 
-                    client_order_id, 
-                    OrderType::Limit, 
-                    reduce_only, 
-                    Some(expiry_timestamp),
-                    limit
-                )?,
-                    &[
-                        mango_prog_ai.clone(),
-                        mango_group_ai.clone(),
-                        mango_account_ai.clone(),
-                        fund_account_ai.clone(),
-                        mango_cache_ai.clone(),
-                        perp_accs[i*4].clone(),
-                        perp_accs[i*4 + 1].clone(),
-                        perp_accs[i*4 + 2].clone(),
-                        perp_accs[i*4 + 3].clone(),
-                        referrer_mango_account_ai.clone(),
-                        default_ai.clone(), 
-                    ],
-                &[&[&manager_pubkey.as_ref(), bytes_of(&nonce)]]
-            )?;
-            fund_data = FundAccount::load_mut_checked(fund_account_ai, program_id)?;
+                    drop(fund_data);
+                    invoke_signed(
+                        &cancel_perp_order_by_client_id(mango_prog_ai.key,
+                            mango_group_ai.key, mango_account_ai.key, fund_account_ai.key,
+                                perp_accs[i*4].key, perp_accs[(i*4) + 1].key, perp_accs[(i*4) + 2].key, old_client_order_id, true)?,
+                        &[
+                            mango_prog_ai.clone(),
+                            mango_group_ai.clone(),
+                            mango_account_ai.clone(),
+                            fund_account_ai.clone(),
+                            perp_accs[i*4].clone(),
+                            perp_accs[i*4 + 1].clone(),
+                            perp_accs[i*4 + 2].clone(),
+                        ],
+                        &[&[bytes_of(&manager_pubkey), bytes_of(&nonce)]]
+                    )?;
 
-            fund_data.limit_orders[i].is_repost_processing = false;
+                    //updating new ClientOrderId and placing Order Again
+                    
+                    invoke_signed(
+                        &place_perp_order2(
+                            mango_prog_ai.key,
+                            mango_group_ai.key,
+                            mango_account_ai.key,
+                            fund_account_ai.key,
+                            mango_cache_ai.key,
+                            perp_accs[i*4].key,
+                            perp_accs[(i*4) + 1].key,
+                            perp_accs[(i*4) + 2].key,
+                            perp_accs[(i*4) + 3].key, 
+                            Some(referrer_mango_account_ai.key),
+                            &open_orders_accs,
+                            side,
+                            price,
+                            new_max_base_quantity,
+                            new_max_quote_quantity,
+                            new_client_order_id, 
+                            OrderType::Limit,
+                            reduce_only,
+                            Some(expiry_timestamp),
+                            limit
+                        )?,
+                            &[
+                                mango_prog_ai.clone(),
+                                mango_group_ai.clone(),
+                                mango_account_ai.clone(),
+                                fund_account_ai.clone(),
+                                mango_cache_ai.clone(),
+                                perp_accs[i*4].clone(),
+                                perp_accs[i*4 + 1].clone(),
+                                perp_accs[i*4 + 2].clone(),
+                                perp_accs[i*4 + 3].clone(),
+                                referrer_mango_account_ai.clone(),
+                                default_ai.clone(), 
+                            ],
+                        &[&[&manager_pubkey.as_ref(), bytes_of(&nonce)]]
+                    )?;
+                    fund_data = FundAccount::load_mut_checked(fund_account_ai, program_id)?;
+                },
+            }
+
         }
-
-        fund_data.repost_processing = false;
 
         Ok(())
     }    
@@ -1405,7 +1381,7 @@ impl Fund {
             }
             FundInstruction::RepostLimitOrders => {
                 msg!("FundInstruction::RepostLimitOrders");
-                return Self::repost_limit_orders(program_id, accounts);
+                return Self::withdraw_process_limit_orders(program_id, accounts);
             }
             FundInstruction::MangoRemovePerpIndex {perp_market_id} => {
                 msg!("FundInstruction::MangoRemovePerpIndex");
