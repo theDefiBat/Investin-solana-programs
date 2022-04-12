@@ -24,7 +24,7 @@ use spl_token::state::{Account, Mint};
 
 use crate::error::FundError;
 use crate::instruction::{FundInstruction, Data};
-use crate::state::{NUM_TOKENS, MAX_INVESTORS,MAX_LIMIT_ORDERS, NUM_PERP, FundAccount, InvestorData, PlatformData};
+use crate::state::{NUM_TOKENS, M_INVESTORS,MAX_LIMIT_ORDERS, NUM_PERP, FundAccount, InvestorData, PlatformData};
 use crate::mango_utils::*;
 use crate::jup_utils::*;
 use crate::tokens::*;
@@ -809,10 +809,7 @@ impl Fund {
 
         let open_orders_accs = [Pubkey::default(); MAX_PAIRS];
 
-        if fund_data.number_of_active_investments == 0 {
-            msg!("No Investors Left");
-            return Ok(())
-        }
+        let skip_replace = if fund_data.number_of_active_investments == 0 { true };
 
         for i in 0..MAX_LIMIT_ORDERS {
 
@@ -873,46 +870,49 @@ impl Fund {
                         &[&[bytes_of(&manager_pubkey), bytes_of(&nonce)]]
                     )?;
 
-                    //updating new ClientOrderId and placing Order Again
-                    
-                    invoke_signed(
-                        &place_perp_order2(
-                            mango_prog_ai.key,
-                            mango_group_ai.key,
-                            mango_account_ai.key,
-                            fund_account_ai.key,
-                            mango_cache_ai.key,
-                            perp_accs[i*4].key,
-                            perp_accs[(i*4) + 1].key,
-                            perp_accs[(i*4) + 2].key,
-                            perp_accs[(i*4) + 3].key, 
-                            Some(referrer_mango_account_ai.key),
-                            &open_orders_accs,
-                            side,
-                            price,
-                            new_max_base_quantity,
-                            new_max_quote_quantity,
-                            new_client_order_id, 
-                            OrderType::Limit,
-                            reduce_only,
-                            Some(expiry_timestamp),
-                            limit
-                        )?,
-                            &[
-                                mango_prog_ai.clone(),
-                                mango_group_ai.clone(),
-                                mango_account_ai.clone(),
-                                fund_account_ai.clone(),
-                                mango_cache_ai.clone(),
-                                perp_accs[i*4].clone(),
-                                perp_accs[i*4 + 1].clone(),
-                                perp_accs[i*4 + 2].clone(),
-                                perp_accs[i*4 + 3].clone(),
-                                referrer_mango_account_ai.clone(),
-                                default_ai.clone(), 
-                            ],
-                        &[&[&manager_pubkey.as_ref(), bytes_of(&nonce)]]
-                    )?;
+                    if !skip_replace {
+                        
+                        //updating new ClientOrderId and placing Order Again
+                        invoke_signed(
+                            &place_perp_order2(
+                                mango_prog_ai.key,
+                                mango_group_ai.key,
+                                mango_account_ai.key,
+                                fund_account_ai.key,
+                                mango_cache_ai.key,
+                                perp_accs[i*4].key,
+                                perp_accs[(i*4) + 1].key,
+                                perp_accs[(i*4) + 2].key,
+                                perp_accs[(i*4) + 3].key, 
+                                Some(referrer_mango_account_ai.key),
+                                &open_orders_accs,
+                                side,
+                                price,
+                                new_max_base_quantity,
+                                new_max_quote_quantity,
+                                new_client_order_id, 
+                                OrderType::Limit,
+                                reduce_only,
+                                Some(expiry_timestamp),
+                                limit
+                            )?,
+                                &[
+                                    mango_prog_ai.clone(),
+                                    mango_group_ai.clone(),
+                                    mango_account_ai.clone(),
+                                    fund_account_ai.clone(),
+                                    mango_cache_ai.clone(),
+                                    perp_accs[i*4].clone(),
+                                    perp_accs[i*4 + 1].clone(),
+                                    perp_accs[i*4 + 2].clone(),
+                                    perp_accs[i*4 + 3].clone(),
+                                    referrer_mango_account_ai.clone(),
+                                    default_ai.clone(), 
+                                ],
+                            &[&[&manager_pubkey.as_ref(), bytes_of(&nonce)]]
+                        )?;
+                    }
+
                     fund_data = FundAccount::load_mut_checked(fund_account_ai, program_id)?;
                 },
             }
