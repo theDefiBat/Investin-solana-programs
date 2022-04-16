@@ -168,7 +168,8 @@ pub enum FundInstruction {
         perp_market_id: u8,
         side: Side,
         price: i64,
-        quantity: i64
+        quantity: i64,
+        reduce_only: bool
     },
 
     /// Place an order on the Serum Dex and settle funds from the open orders account
@@ -529,7 +530,6 @@ impl FundInstruction {
                     change_min_amount,
                     change_perf_fee
                 ) = array_refs![data, 1, 1, 1, 1, 1, 1, 8, 8];
-
                 FundInstruction::AdminControl {
                     intialize_platform: u8::from_le_bytes(*intialize_platform),
                     freeze_platform: u8::from_le_bytes(*freeze_platform),
@@ -560,14 +560,20 @@ impl FundInstruction {
                 }
             },
             10 => {
-                let data_arr = array_ref![data, 0, 1 + 1 + 8 + 8];
-                let (perp_market_id, side, price, quantity) =
-                array_refs![data_arr, 1, 1, 8, 8];
+                let data_arr = array_ref![data, 0, 1 + 1 + 8 + 8 + 1];
+                let (perp_market_id, side, price, quantity, reduce_only) =
+                array_refs![data_arr, 1, 1, 8, 8, 1];
+                let reduce_only = match reduce_only {
+                    [0] => false,
+                    [1] => true,
+                    _ => return None,
+                };
                 FundInstruction::MangoPlacePerpOrder {
                     perp_market_id: u8::from_le_bytes(*perp_market_id),
                     side: Side::try_from_primitive(side[0]).ok()?,
                     price: i64::from_le_bytes(*price),
-                    quantity: i64::from_le_bytes(*quantity)
+                    quantity: i64::from_le_bytes(*quantity),
+                    reduce_only
                 }
             },
             11 => {

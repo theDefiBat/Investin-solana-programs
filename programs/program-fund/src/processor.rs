@@ -24,7 +24,7 @@ use spl_token::state::{Account, Mint};
 
 use crate::error::FundError;
 use crate::instruction::{FundInstruction, Data};
-use crate::state::{NUM_TOKENS, M_INVESTORS,MAX_LIMIT_ORDERS, NUM_PERP, FundAccount, InvestorData, PlatformData};
+use crate::state::{NUM_TOKENS, MAX_INVESTORS,MAX_LIMIT_ORDERS, NUM_PERP, FundAccount, InvestorData, PlatformData};
 use crate::mango_utils::*;
 use crate::jup_utils::*;
 use crate::tokens::*;
@@ -526,9 +526,10 @@ impl Fund {
             fund_data.investors[index] = Pubkey::default();
             // close investor account
             close_investor_account(investor_ai, investor_state_ai)?;
-        }
-
-        if investor_data.has_withdrawn == true {//&& investor_data.withdrawn_from_margin == false {
+        } else {
+            check!(investor_data.has_withdrawn == true && 
+                (investor_data.withdrawn_from_margin == true || investor_data.margin_debt[0] == 0),
+                 FundError::InvalidInstruction);
             for i in 0..NUM_TOKENS {
                 // TODO:: check if fund_debt on inv_acc <= fund_debt on fund
                 if investor_data.token_debts[i] < 10 {
@@ -809,7 +810,7 @@ impl Fund {
 
         let open_orders_accs = [Pubkey::default(); MAX_PAIRS];
 
-        let skip_replace = if fund_data.number_of_active_investments == 0 { true };
+        let skip_replace = if fund_data.number_of_active_investments == 0 { true } else { false };
 
         for i in 0..MAX_LIMIT_ORDERS {
 
@@ -1347,9 +1348,9 @@ impl Fund {
                 msg!("FundInstruction::MangoDeposit");
                 return mango_deposit(program_id, accounts, token_slot_index, mango_token_index, quantity);
             }
-            FundInstruction::MangoPlacePerpOrder { perp_market_id, side, price, quantity } => {
+            FundInstruction::MangoPlacePerpOrder { perp_market_id, side, price, quantity, reduce_only } => {
                 msg!("FundInstruction::MangoPlacePerpOrder");
-                return mango_place_perp_order(program_id, accounts, perp_market_id , side, price, quantity);
+                return mango_place_perp_order(program_id, accounts, perp_market_id , side, price, quantity, reduce_only);
             }
             FundInstruction::MangoPlacePerpOrder2 { 
                 perp_market_id,
@@ -1452,6 +1453,8 @@ impl Fund {
         }
     }
 }
+
+
 
 // calculate prices, get fund valuation and performance
 pub fn update_amount_and_performance(

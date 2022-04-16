@@ -1,5 +1,6 @@
 use std::cell::{Ref, RefMut};
 use std::mem::size_of;
+
 use mango::matching::Side;
 use solana_program::pubkey::Pubkey;
 use solana_program::account_info::AccountInfo;
@@ -399,10 +400,8 @@ impl InvestorData {
         account: &'a AccountInfo,
         program_id: &Pubkey
     ) -> Result<RefMut<'a, Self>, ProgramError> {
-
         check_eq!(account.data_len(), size_of::<Self>());
         check_eq!(account.owner, program_id);
-
         let data = Self::load_mut(account)?;
         Ok(data)
     }

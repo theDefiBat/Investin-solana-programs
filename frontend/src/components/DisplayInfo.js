@@ -52,7 +52,7 @@ const handleGetFundData = async () => {
   // baigan : B9YVBghroTdohKoTQb7SofHh2U6FxAybuF6UwZEw7c1x
   // aak : 5Arakn7JSt3sPkXdWvy1887Bjd2d755b57BTEwBR7cW3
   // the Moon (lucio) :FRaWwEyKTwFgcU7tZa3xbSCxkEH61rdpCWqVV7z1Zj7S
-  // const key = new PublicKey('zRzdC1b2zJte4rMjfaSFZwbnBfL1kNYaTAF4UC4bqpx');
+  // const key = new PublicKey('iJbUeGHHKM5Zc4hN8ZXUkDeUbSEocKNV3tcTvzcEuA1');
   const key = walletProvider?.publicKey;  
   if (!key ) {
     alert("connect wallet ")
@@ -112,7 +112,7 @@ const handleGetFundData = async () => {
   
 
     // =============================
-    const fundPDA = await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId);
+    const fundPDA = await PublicKey.findProgramAddress([key.toBuffer()], programId);
     setFundPDA(fundPDA[0].toBase58())
     const fundPDADataAcc = await connection.getAccountInfo(fundPDA[0]);
     console.log("fundPDADataAcc::",fundPDADataAcc);

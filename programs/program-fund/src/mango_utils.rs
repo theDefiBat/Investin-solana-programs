@@ -271,7 +271,8 @@ pub fn mango_place_perp_order(
     perp_market_id: u8,
     side: Side,
     price: i64,
-    quantity: i64
+    quantity: i64, 
+    reduce_only: bool
 ) -> Result<(), ProgramError> {
     const NUM_FIXED: usize = 12;
     let accounts = array_ref![accounts, 0, NUM_FIXED];
@@ -310,7 +311,7 @@ pub fn mango_place_perp_order(
         &place_perp_order(mango_prog_ai.key,
             mango_group_ai.key, mango_account_ai.key, fund_account_ai.key,
             mango_cache_ai.key,perp_market_ai.key, bids_ai.key, asks_ai.key, event_queue_ai.key, Some(referrer_mango_account_ai.key), &open_orders_accs,
-            side, price, quantity, 0, OrderType::ImmediateOrCancel, false)?,
+            side, price, quantity, 0, OrderType::ImmediateOrCancel, reduce_only)?,
         &[
             mango_prog_ai.clone(),
             mango_group_ai.clone(),
