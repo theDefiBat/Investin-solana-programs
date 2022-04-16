@@ -192,6 +192,7 @@ export const Withdraw = () => {
       },
       data
     )
+    const MANGO_REFERRER_ACCOUNT = new PublicKey('EP33BnzZc9gyVwKWzMpr28SYZkr8JGbMqHYKHMJp3H9P');
 
     const keys = [
       { pubkey: platformStateAccount, isSigner: false, isWritable: true }, //fund State Account
@@ -205,6 +206,7 @@ export const Withdraw = () => {
       { pubkey: new PublicKey(ids.publicKey), isSigner: false, isWritable: true },
       { pubkey: mangoGroup.mangoCache, isSigner: false, isWritable: false },
       { pubkey: new PublicKey(ids.mangoProgramId), isSigner: false, isWritable: false },
+      { pubkey: MANGO_REFERRER_ACCOUNT, isSigner: false, isWritable: true},
        
       { pubkey: PublicKey.default, isSigner: false, isWritable: false },
 
@@ -231,6 +233,7 @@ export const Withdraw = () => {
     console.log("signature tx url:: ", `https://solscan.io/tx/${sign}`) 
 
   }
+
 
   const isMangoWithdrawRequired = async () => {
     

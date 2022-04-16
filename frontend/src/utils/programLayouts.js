@@ -6,6 +6,7 @@ export const NUM_TOKENS = 8
 export const MAX_TOKENS = 50
 export const NUM_MARGIN = 2
 export const MAX_INVESTORS = 10
+export const MAX_LIMIT_ORDERS= 2
 
 class PublicKeyLayout extends Blob {
   constructor(property) {
@@ -378,7 +379,24 @@ export const FUND_PDA_DATA = struct([
       u64('amount_in'),
       u64('min_amount_out'),
   ],'guard'),
+
+  seq(
+    struct([
+      u64('price'),
+      u64('max_base_quantity'),
+      u64('max_quote_quantity'),
+      u64('client_order_id'),
+      u64('expiry_timestamp'),
+      u8('is_repost_processing'),
+      u8('perp_market_id'),
+      u8('side'),
+      u8('reduce_only'),
+      u8('limit'),
+      seq(u8(),3,'padding'),
+    ]),
+    MAX_LIMIT_ORDERS, 'limit_orders'
+  ),
+  u8('repost_processing'),
   
-  seq(u8(), 24, 'margin_update_padding'),
-  seq(u8(), 2024, 'migration_additonal_padding'),
+  seq(u8(), 1951, 'migration_additonal_padding'),
 ])

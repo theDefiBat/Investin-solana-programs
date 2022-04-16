@@ -1,5 +1,7 @@
 use std::cell::{Ref, RefMut};
 use std::mem::size_of;
+
+use mango::matching::Side;
 use solana_program::pubkey::Pubkey;
 use solana_program::account_info::AccountInfo;
 use solana_program::program_pack::{IsInitialized, Sealed};
@@ -17,6 +19,7 @@ pub const MAX_INVESTORS:usize = 10;
 pub const MAX_INVESTORS_WITHDRAW: usize = 2;
 pub const NUM_MARGIN: usize = 2;
 pub const NUM_PERP: usize = 3;
+pub const MAX_LIMIT_ORDERS:usize = 2;
 
 pub trait Loadable: Pod {
     fn load_mut<'a>(account: &'a AccountInfo) -> Result<RefMut<'a, Self>, ProgramError> {
@@ -155,12 +158,11 @@ pub struct FundAccount {
 
      pub guard: SwapGuard,
 
-     pub margin_update_padding: [u8; 24], //80 Bytes for Depr. MarginInfo Size
- 
-     // padding for future use
-    //  pub xpadding: [u8; 8] //32
+     pub limit_orders : [LimitOrderInfo; MAX_LIMIT_ORDERS], // 48 each = 96 
+     
+    //  pub margin_update_padding: [u8; 24], //80 Bytes for Depr. MarginInfo Size
 
-    pub migration_additonal_padding: [u8; 2024]
+    pub migration_additonal_padding: [u8; 1952] // 2024 + 24 - 96 =  1
 }
 impl_loadable!(FundAccount);
 
@@ -233,8 +235,10 @@ pub struct InvestorData {
     // investor assets in tokens
     pub token_indexes: [u8; NUM_TOKENS],
     pub token_debts: [u64; NUM_TOKENS],
+
+    pub share : U64F64,
     // padding for future use
-    pub xpadding: [u8; 32] 
+    pub xpadding: [u8; 16] 
 }
 impl_loadable!(InvestorData);
 
@@ -243,7 +247,7 @@ impl_loadable!(InvestorData);
 pub struct MangoInfo {
     // margin account pubkey to check if the passed acc is correct
     pub mango_account: Pubkey, 
-    pub perp_markets: [u8; 3],
+    pub perp_markets: [u8; 3], // default u8::MAX
     pub perp_padding: u8,
     pub deposit_index: u8,
     pub markets_active: u8,
@@ -254,6 +258,24 @@ pub struct MangoInfo {
     pub padding: [u8; 24]
 }
 impl_loadable!(MangoInfo);
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
+pub struct LimitOrderInfo { 
+    // PerpOrderInfo for Limit Orders [ 1 + 8 + 8 + 8 + 8 + 8 + 1 + 1 + 1 + 1 ] = 45 bytes
+    pub price: i64,
+    pub max_base_quantity: i64,
+    pub max_quote_quantity: i64,
+    pub client_order_id: u64, // 0 = means inActive
+    pub expiry_timestamp: u64,
+    pub is_repost_processing: bool,
+    pub perp_market_id: u8,
+    pub side: Side,
+    pub reduce_only: bool,
+    pub limit: u8,
+    pub padding :[u8;3],
+}
+impl_loadable!(LimitOrderInfo);
 
 impl Sealed for InvestorData {}
 impl IsInitialized for InvestorData {
@@ -367,6 +389,10 @@ impl FundAccount {
     pub fn get_investor_index(&self, inv_state_pk: &Pubkey) -> Option<usize> {
         self.investors.iter().position(|pos| *pos == *inv_state_pk)
     }
+    pub fn find_slot_by_client_id(&self, client_order_id: u64) -> Option<usize> {
+        self.limit_orders.iter().position(|limitOrderInfo| (*limitOrderInfo).client_order_id == client_order_id)
+    }
+    
 }
 
 impl InvestorData {
@@ -374,10 +400,8 @@ impl InvestorData {
         account: &'a AccountInfo,
         program_id: &Pubkey
     ) -> Result<RefMut<'a, Self>, ProgramError> {
-
         check_eq!(account.data_len(), size_of::<Self>());
         check_eq!(account.owner, program_id);
-
         let data = Self::load_mut(account)?;
         Ok(data)
     }
