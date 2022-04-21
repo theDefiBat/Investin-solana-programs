@@ -73,8 +73,13 @@ pub enum FundError {
     #[error("Fund is Private")]
     PrivateFund,
 
+    //11
     #[error("minAmountOut invalidated")]
-    MinAmountFailed
+    MinAmountFailed,
+
+     //12
+     #[error("limit Still in Processing")]
+     LimitOrderProcessing
 }
 
 impl From<FundError> for ProgramError {

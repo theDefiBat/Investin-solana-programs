@@ -1,5 +1,5 @@
 use bytemuck::bytes_of;
-use std::{mem::size_of};
+use std::{mem::size_of, sync::mpsc::RecvTimeoutError};
 use fixed::types::U64F64;
 use fixed_macro::types::U64F64;
 use fixed::types::I80F48;
@@ -24,17 +24,21 @@ use bincode::serialize;
 use anchor_lang::{prelude::CpiContext, AnchorDeserialize};
 use arrayref::{array_ref, array_refs};
 use spl_token::state::{Account, Mint};
-use mango::state::{MangoAccount, MangoGroup, MangoCache, PerpMarket, MAX_TOKENS, MAX_PAIRS, QUOTE_INDEX};
-use mango::instruction::{ cancel_all_perp_orders, withdraw, place_perp_order, consume_events };
+
+use mango::{state::{MangoAccount, MangoGroup, MangoCache, PerpMarket, MAX_TOKENS, MAX_PAIRS, QUOTE_INDEX}, instruction::{cancel_perp_order_by_client_id, place_perp_order2}};
+use mango::instruction::{ cancel_all_perp_orders,cancel_perp_order, withdraw, place_perp_order, consume_events };
 use mango::matching::{Side, OrderType, Book};
+
+
 use volt_abi::*;
 
 use crate::error::FundError;
 use crate::instruction::{FundInstruction, Data};
-use crate::state::{NUM_TOKENS, MAX_INVESTORS, NUM_PERP, FundAccount, InvestorData, PlatformData};
+use crate::state::{NUM_TOKENS, MAX_INVESTORS,MAX_LIMIT_ORDERS, NUM_PERP, FundAccount, InvestorData, PlatformData};
 use crate::mango_utils::*;
 use crate::jup_utils::*;
 use crate::tokens::*;
+
 
 macro_rules! check {
     ($cond:expr, $err:expr) => {
@@ -227,8 +231,6 @@ impl Fund {
 
         Ok(())
     }
-
-
 
     // investor deposit
     pub fn deposit(
@@ -531,9 +533,10 @@ impl Fund {
             fund_data.investors[index] = Pubkey::default();
             // close investor account
             close_investor_account(investor_ai, investor_state_ai)?;
-        }
-
-        if investor_data.has_withdrawn == true {//&& investor_data.withdrawn_from_margin == false {
+        } else {
+            check!(investor_data.has_withdrawn == true && 
+                (investor_data.withdrawn_from_margin == true || investor_data.margin_debt[0] == 0),
+                 FundError::InvalidInstruction);
             for i in 0..NUM_TOKENS {
                 // TODO:: check if fund_debt on inv_acc <= fund_debt on fund
                 if investor_data.token_debts[i] < 10 {
@@ -593,8 +596,7 @@ impl Fund {
         program_id: &Pubkey,
         accounts: &[AccountInfo],
     ) -> Result<(), ProgramError> {
-        msg!("Invoked Withdraw Settle");
-        const NUM_FIXED:usize = 10;
+        const NUM_FIXED:usize = 11;
         let accounts = array_ref![accounts, 0, NUM_FIXED + 4*NUM_PERP];
         let (
             fixed_accs,
@@ -611,6 +613,7 @@ impl Fund {
             mango_cache_ai,
             mango_prog_ai,
             referrer_mango_account_ai,
+            ix_sysvar_ai,
             default_ai,
         ] = fixed_accs;
 
@@ -622,6 +625,8 @@ impl Fund {
         check!(investor_ai.is_signer, ProgramError::MissingRequiredSignature);
         check_eq!(investor_data.manager, fund_data.manager_account);
         check_eq!(investor_data.has_withdrawn, false);
+        let ix = solana_program::sysvar::instructions::load_instruction_at_checked(1, ix_sysvar_ai)?;
+        check!(ix.program_id == *program_id && ix.data[0] == 30, FundError::InvalidInstruction); 
         
 
         if investor_data.amount != 0 && investor_data.start_performance != 0 {
@@ -642,7 +647,9 @@ impl Fund {
                 true
             )?;
             let share = get_share(&mut fund_data, &mut investor_data)?;
-            msg!("share {:?}", share);
+            // msg!("share {:?}", share);
+            investor_data.share = share;
+
             for i in 0..NUM_TOKENS {
                 let mut withdraw_amount: u64 = U64F64::to_num(
                     U64F64::from_num(fund_data.tokens[i].balance-fund_data.tokens[i].debt)
@@ -756,6 +763,8 @@ impl Fund {
             fund_data.number_of_active_investments -= 1;
             fund_data.no_of_investments -= 1;
             investor_data.has_withdrawn = true;
+            let nonce = fund_data.signer_nonce;
+            let manager_account = fund_data.manager_account;
             // let mut mango_val_after = U64F64::from_fixed(usdc_deposits_after.checked_add(token_deposits_val_after).unwrap().checked_add(perp_pnl_after).unwrap());
 
             
@@ -765,10 +774,162 @@ impl Fund {
                 mango_val_after,
                 false
             )?;
-            //investor_data.margin_debt[0] = investor_data.margin_debt[0].checked_add(usdc_deposits_after.checked_sub(usdc_deposits_before).unwrap()).unwrap();
+
         }
         Ok(())
     }
+
+    pub fn withdraw_process_limit_orders(
+        program_id: &Pubkey,
+        accounts: &[AccountInfo],
+    ) -> Result<(), ProgramError> {
+        const NUM_FIXED: usize = 9;
+                            
+        let accounts = array_ref![accounts, 0, NUM_FIXED + 4*MAX_LIMIT_ORDERS];
+        let (
+            fixed_accs,
+            perp_accs,
+        ) = array_refs![accounts, NUM_FIXED, 4*MAX_LIMIT_ORDERS];
+
+        let [
+            fund_account_ai,
+            investor_state_ai,
+            investor_ai,
+            mango_prog_ai,
+            mango_group_ai,     // read
+            mango_cache_ai,     // read
+            mango_account_ai,   // write
+            referrer_mango_account_ai,
+            default_ai
+        ] = fixed_accs;
+
+
+        let mut fund_data = FundAccount::load_mut_checked(fund_account_ai, program_id)?;
+        check_eq!(*mango_prog_ai.key, mango_v3_id::ID);
+        let nonce = fund_data.signer_nonce;
+        let manager_pubkey = fund_data.manager_account;
+
+        let mut investor_data = InvestorData::load_mut_checked(investor_state_ai, program_id)?;
+        check!(investor_data.owner == *investor_ai.key, ProgramError::MissingRequiredSignature);
+        check!(investor_ai.is_signer, ProgramError::MissingRequiredSignature);
+        check_eq!(investor_data.manager, fund_data.manager_account);
+        check!(investor_data.share != U64F64!(0), FundError::InvalidStateAccount);
+
+        let open_orders_accs = [Pubkey::default(); MAX_PAIRS];
+
+        let skip_replace = if fund_data.number_of_active_investments == 0 { true } else { false };
+
+        for i in 0..MAX_LIMIT_ORDERS {
+
+            if  fund_data.limit_orders[i].client_order_id == 0  {
+                msg!("skip {:?}",i);
+                continue;
+            }
+
+            // 1) check Limit Order is Valid 
+            let mango_account = MangoAccount::load_checked(mango_account_ai, mango_prog_ai.key, mango_group_ai.key)?;
+            let valid =  mango_account.find_order_with_client_id((fund_data.limit_orders[i].perp_market_id as usize),fund_data.limit_orders[i].client_order_id);
+            drop(mango_account);
+            match valid {
+                None => {
+                    msg!("Alexe - {:?}",i);
+                        //order already executed
+                        fund_data.limit_orders[i].client_order_id = 0; 
+                        continue;
+                }
+                Some((order_id,_side)) => { //MEANS ORDER IS VALID
+                     // update Structs and FLAG
+                    let new_client_order_id = (Clock::get()?.unix_timestamp as u64).checked_mul(1000 as u64).unwrap() + (i as u64);
+                    let old_client_order_id = fund_data.limit_orders[i].client_order_id;
+                    let side = fund_data.limit_orders[i].side;
+                    let price = fund_data.limit_orders[i].price;
+                    
+                    let reduce_only = fund_data.limit_orders[i].reduce_only;
+                    let expiry_timestamp = fund_data.limit_orders[i].expiry_timestamp;
+                    let limit = fund_data.limit_orders[i].limit;
+
+                    let mul_factor =  U64F64!(1).checked_sub(investor_data.share).unwrap();
+                    let new_max_base_quantity = U64F64::to_num(
+                            U64F64::from_num(
+                                fund_data.limit_orders[i].max_base_quantity
+                                ).checked_mul(mul_factor).unwrap());
+                    let new_max_quote_quantity = U64F64::to_num(
+                            U64F64::from_num(
+                                fund_data.limit_orders[i].max_quote_quantity
+                                ).checked_mul(mul_factor).unwrap());
+                    fund_data.limit_orders[i].max_base_quantity = new_max_base_quantity;
+                    fund_data.limit_orders[i].max_quote_quantity = new_max_quote_quantity;
+                    fund_data.limit_orders[i].client_order_id = new_client_order_id;
+
+                    drop(fund_data);
+                    invoke_signed(
+                        &cancel_perp_order_by_client_id(mango_prog_ai.key,
+                            mango_group_ai.key, mango_account_ai.key, fund_account_ai.key,
+                                perp_accs[i*4].key, perp_accs[(i*4) + 1].key, perp_accs[(i*4) + 2].key, old_client_order_id, true)?,
+                        &[
+                            mango_prog_ai.clone(),
+                            mango_group_ai.clone(),
+                            mango_account_ai.clone(),
+                            fund_account_ai.clone(),
+                            perp_accs[i*4].clone(),
+                            perp_accs[i*4 + 1].clone(),
+                            perp_accs[i*4 + 2].clone(),
+                        ],
+                        &[&[bytes_of(&manager_pubkey), bytes_of(&nonce)]]
+                    )?;
+
+                    if !skip_replace {
+                        
+                        //updating new ClientOrderId and placing Order Again
+                        invoke_signed(
+                            &place_perp_order2(
+                                mango_prog_ai.key,
+                                mango_group_ai.key,
+                                mango_account_ai.key,
+                                fund_account_ai.key,
+                                mango_cache_ai.key,
+                                perp_accs[i*4].key,
+                                perp_accs[(i*4) + 1].key,
+                                perp_accs[(i*4) + 2].key,
+                                perp_accs[(i*4) + 3].key, 
+                                Some(referrer_mango_account_ai.key),
+                                &open_orders_accs,
+                                side,
+                                price,
+                                new_max_base_quantity,
+                                new_max_quote_quantity,
+                                new_client_order_id, 
+                                OrderType::Limit,
+                                reduce_only,
+                                Some(expiry_timestamp),
+                                limit
+                            )?,
+                                &[
+                                    mango_prog_ai.clone(),
+                                    mango_group_ai.clone(),
+                                    mango_account_ai.clone(),
+                                    fund_account_ai.clone(),
+                                    mango_cache_ai.clone(),
+                                    perp_accs[i*4].clone(),
+                                    perp_accs[i*4 + 1].clone(),
+                                    perp_accs[i*4 + 2].clone(),
+                                    perp_accs[i*4 + 3].clone(),
+                                    referrer_mango_account_ai.clone(),
+                                    default_ai.clone(), 
+                                ],
+                            &[&[&manager_pubkey.as_ref(), bytes_of(&nonce)]]
+                        )?;
+                    }
+
+                    fund_data = FundAccount::load_mut_checked(fund_account_ai, program_id)?;
+                },
+            }
+
+        }
+
+        investor_data.share = U64F64!(0);
+        Ok(())
+    }    
 
     pub fn swap(
         program_id: &Pubkey,
@@ -1471,9 +1632,45 @@ pub fn friktion_deposit0(
                 msg!("FundInstruction::MangoDeposit");
                 return mango_deposit(program_id, accounts, token_slot_index, mango_token_index, quantity);
             }
-            FundInstruction::MangoPlacePerpOrder { perp_market_id, side, price, quantity } => {
+            FundInstruction::MangoPlacePerpOrder { perp_market_id, side, price, quantity, reduce_only } => {
                 msg!("FundInstruction::MangoPlacePerpOrder");
-                return mango_place_perp_order(program_id, accounts, perp_market_id , side, price, quantity);
+                return mango_place_perp_order(program_id, accounts, perp_market_id , side, price, quantity, reduce_only);
+            }
+            FundInstruction::MangoPlacePerpOrder2 { 
+                perp_market_id,
+                price,
+                max_base_quantity,
+                max_quote_quantity,
+                client_order_id,
+                expiry_timestamp,
+                side,
+                order_type,
+                reduce_only,
+                limit 
+            } => {
+                msg!("FundInstruction::MangoPlacePerpOrder2");
+                return mango_place_perp_order2(
+                    program_id,
+                    accounts,
+                    perp_market_id,
+                    side,
+                    price,
+                    max_base_quantity,
+                    max_quote_quantity,
+                    client_order_id,
+                    order_type,
+                    reduce_only,
+                    expiry_timestamp,
+                    limit
+                );
+            }
+            FundInstruction::CancelPerpOrder { client_order_id} => {
+                msg!("FundInstruction::CancelPerpOrder");
+                return mango_cancel_perp_order(program_id, accounts, client_order_id);
+            }
+            FundInstruction::WithdrawProcessLimitOrders => {
+                msg!("FundInstruction::WithdrawProcessLimitOrders");
+                return Self::withdraw_process_limit_orders(program_id, accounts);
             }
             FundInstruction::MangoRemovePerpIndex {perp_market_id} => {
                 msg!("FundInstruction::MangoRemovePerpIndex");
@@ -1868,9 +2065,6 @@ pub fn get_share(
 ) -> Result<U64F64, ProgramError> {
     let perf_share = U64F64::from_num(fund_data.prev_performance)
     .checked_div(U64F64::from_num(investor_data.start_performance)).unwrap();
-
-    // investor_data.end_performance = perf_share;
-    msg!("performance: {:?}", perf_share);
 
     let actual_amount: u64 = investor_data.amount;
 

@@ -68,13 +68,16 @@ function App() {
         <GetPrices />
         <Swap />
         <UpdateAllTokenPrices/>
+
         {/* <OrcaSwap /> */}
         {/* <Testing /> */}
+
         <Withdraw />
         <Claim />
         <MangoInitialize />
+
         <MangoPlaceOrder />
-        <AdminControl />
+        {/* <AdminControl /> */}
         <AllFundsInvestors/>
       </Container>
     </div>
