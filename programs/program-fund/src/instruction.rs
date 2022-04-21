@@ -446,10 +446,16 @@ pub enum FundInstruction {
         deposit_amount: u64
     },
 
+    FriktionWithdraw {
+        withdraw_amount: u64
+    },
+
     JupiterSwap,
     CheckSwapGuard,
     InitOpenOrderAccounts,
-    ReadFriktion
+    ReadFriktion,
+    FriktionCancelPendingDeposit,
+    FriktionCancelPendingWithdrawal
 }
 
 
@@ -754,6 +760,20 @@ impl FundInstruction {
                 FundInstruction::FriktionDeposit0{
                     deposit_amount: u64::from_le_bytes(*deposit_amount)
                 }
+            }
+
+            35 => {
+                FundInstruction::FriktionCancelPendingDeposit
+
+            }
+            36 => {
+                let withdraw_amount = array_ref![data, 0, 8];
+                FundInstruction::FriktionWithdraw{
+                    withdraw_amount: u64::from_le_bytes(*withdraw_amount)
+                }
+            }
+            37 => {
+                FundInstruction::FriktionCancelPendingWithdrawal
             }
             _ => { return None; }
         })
