@@ -1,5 +1,5 @@
 use bytemuck::bytes_of;
-use std::mem::size_of;
+use std::{mem::size_of};
 use fixed::types::U64F64;
 use fixed_macro::types::U64F64;
 use fixed::types::I80F48;
@@ -18,9 +18,16 @@ use solana_program::{
     program::{invoke, invoke_signed},
     sysvar::{clock::Clock, rent::Rent, Sysvar}
 };
+use bincode::serialize;
 
+// use anchor_lang::prelude::*;
+use anchor_lang::{prelude::CpiContext, AnchorDeserialize};
 use arrayref::{array_ref, array_refs};
 use spl_token::state::{Account, Mint};
+use mango::state::{MangoAccount, MangoGroup, MangoCache, PerpMarket, MAX_TOKENS, MAX_PAIRS, QUOTE_INDEX};
+use mango::instruction::{ cancel_all_perp_orders, withdraw, place_perp_order, consume_events };
+use mango::matching::{Side, OrderType, Book};
+use volt_abi::*;
 
 use crate::error::FundError;
 use crate::instruction::{FundInstruction, Data};
@@ -28,9 +35,6 @@ use crate::state::{NUM_TOKENS, MAX_INVESTORS, NUM_PERP, FundAccount, InvestorDat
 use crate::mango_utils::*;
 use crate::jup_utils::*;
 use crate::tokens::*;
-use mango::state::{MangoAccount, MangoGroup, MangoCache, PerpMarket, MAX_TOKENS, MAX_PAIRS, QUOTE_INDEX};
-use mango::instruction::{ cancel_all_perp_orders, withdraw, place_perp_order, consume_events };
-use mango::matching::{Side, OrderType, Book};
 
 macro_rules! check {
     ($cond:expr, $err:expr) => {
@@ -1039,7 +1043,8 @@ impl Fund {
         Ok(())
     }
 
-
+    
+    
     pub fn admin_control(
         program_id: &Pubkey,
         accounts: &[AccountInfo],
@@ -1053,81 +1058,357 @@ impl Fund {
         change_perf_fee: u64
     ) -> Result<(), ProgramError> {
         let accounts_iter = &mut accounts.iter();
-
+        
         let platform_state_ai = next_account_info(accounts_iter)?;
         let investin_admin_ai = next_account_info(accounts_iter)?;
         let investin_vault_ai = next_account_info(accounts_iter)?;
         let mint_ai = next_account_info(accounts_iter)?;
-
+        
         let mut platform_data = PlatformData::load_mut_checked(platform_state_ai, program_id)?;
         check!(investin_admin_ai.is_signer, FundError::IncorrectSignature);
-
+        
         //check_eq!(investin_admin::ID, *investin_admin_ai.key); REVERT-MAINNET
-
+        
         if intialize_platform == 1 {
-
+            
             // check_eq!(platform_data.is_initialized(), false);  REVERT-MAINNET
             platform_data.is_initialized = true;
             platform_data.version = 1;
             platform_data.no_of_active_funds = 0;
-
+            
             // add router pda
             let (router_pda, nonce) =
-                Pubkey::find_program_address(&["router".as_ref()], program_id
-            );
-            platform_data.router = router_pda;
-            platform_data.router_nonce = nonce;
+            Pubkey::find_program_address(&["router".as_ref()], program_id
+        );
+        platform_data.router = router_pda;
+        platform_data.router_nonce = nonce;
+        
+        // add investin accs
+        platform_data.investin_admin = *investin_admin_ai.key;
+        platform_data.investin_vault = *investin_vault_ai.key;
+        
+        // add USDC as base token
+        let mint_info = Mint::unpack(&mint_ai.data.borrow())?;
+        platform_data.token_list[0].mint = *mint_ai.key;
+        platform_data.token_list[0].decimals = mint_info.decimals as u64;
+        platform_data.token_list[0].pool_coin_account = Pubkey::default();
+        platform_data.token_list[0].pool_pc_account = Pubkey::default();
+        platform_data.token_list[0].pool_price = U64F64!(0);
+        platform_data.token_count = 1;
+    }
+    msg!("done");
+    // freeze the platform
+    if freeze_platform == 1 {
+        platform_data.is_initialized = false;
+    }
+    if unfreeze_platform == 1 {
+        platform_data.is_initialized = true;
+    }
+    if change_vault == 1 {
+        check!(*investin_vault_ai.key != Pubkey::default(), ProgramError::InvalidArgument);
+        platform_data.investin_vault = *investin_vault_ai.key;
+    }
+    if freeze_fund == 1 {
+        let fund_account_ai = next_account_info(accounts_iter)?;
+        let mut fund_data = FundAccount::load_mut_checked(fund_account_ai, program_id)?;
+        fund_data.is_initialized = false;
+    }
+    if unfreeze_fund == 1 {
+        let fund_account_ai = next_account_info(accounts_iter)?;
+        let mut fund_data = FundAccount::load_mut_checked(fund_account_ai, program_id)?;
+        fund_data.is_initialized = true;
+    }
+    if change_min_amount > 0 {
+        let fund_account_ai = next_account_info(accounts_iter)?;
+        let mut fund_data = FundAccount::load_mut_checked(fund_account_ai, program_id)?;
+        fund_data.min_amount = change_min_amount;
+    }
+    if change_perf_fee > 0 {
+        let fund_account_ai = next_account_info(accounts_iter)?;
+        let mut fund_data = FundAccount::load_mut_checked(fund_account_ai, program_id)?;
+        fund_data.performance_fee_percentage = U64F64::from_num(change_perf_fee / 100);
+    }
+    
+    Ok(())
+}
 
-            // add investin accs
-            platform_data.investin_admin = *investin_admin_ai.key;
-            platform_data.investin_vault = *investin_vault_ai.key;
+pub fn read_friktion_data(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+) -> Result<(), ProgramError> {
+    let accounts_iter = &mut accounts.iter();
+    let friktion_epoch_info_ai = next_account_info(accounts_iter)?;
+    msg!("Getting Data");
+    let raw_data: &[u8] = &(friktion_epoch_info_ai.data.borrow())[8..];
+    // raw_data = &raw_data[8..];
+    let epoch_info = volt_abi::FriktionEpochInfo::try_from_slice(raw_data)?;
+    msg!("Price: {}, pct_pnl: {}, number_info: {:?}, pnl: {}", epoch_info.vault_token_price, epoch_info.pct_pnl, epoch_info.number, epoch_info.pnl);
+    let pending_deposit_info_ai = next_account_info(accounts_iter)?;
+    let pending_info_data: &[u8] = &(pending_deposit_info_ai.data.borrow())[8..];
+    let pending_deposit_info = volt_abi::PendingDeposit::try_from_slice(pending_info_data)?;
+    msg!("Underlying Deposited: {}, Round_Num {}", pending_deposit_info.num_underlying_deposited, pending_deposit_info.round_number);
+    let pending_withdrawal_info_ai = next_account_info(accounts_iter)?;
+    let pending_withdrawal_data: &[u8] = &(pending_withdrawal_info_ai.data.borrow())[8..];
+    let pending_withdrawal_info = volt_abi::PendingWithdrawal::try_from_slice(pending_withdrawal_data)?;
+    msg!("Underlying withdrawaled: {}, Round_Num {}", pending_withdrawal_info.num_volt_redeemed, pending_withdrawal_info.round_number);
+    Ok(())
+}
 
-            // add USDC as base token
-            let mint_info = Mint::unpack(&mint_ai.data.borrow())?;
-            platform_data.token_list[0].mint = *mint_ai.key;
-            platform_data.token_list[0].decimals = mint_info.decimals as u64;
-            platform_data.token_list[0].pool_coin_account = Pubkey::default();
-            platform_data.token_list[0].pool_pc_account = Pubkey::default();
-            platform_data.token_list[0].pool_price = U64F64!(0);
-            platform_data.token_count = 1;
-        }
-        msg!("done");
-        // freeze the platform
-        if freeze_platform == 1 {
-            platform_data.is_initialized = false;
-        }
-        if unfreeze_platform == 1 {
-            platform_data.is_initialized = true;
-        }
-        if change_vault == 1 {
-            check!(*investin_vault_ai.key != Pubkey::default(), ProgramError::InvalidArgument);
-            platform_data.investin_vault = *investin_vault_ai.key;
-        }
-        if freeze_fund == 1 {
-            let fund_account_ai = next_account_info(accounts_iter)?;
-            let mut fund_data = FundAccount::load_mut_checked(fund_account_ai, program_id)?;
-            fund_data.is_initialized = false;
-        }
-        if unfreeze_fund == 1 {
-            let fund_account_ai = next_account_info(accounts_iter)?;
-            let mut fund_data = FundAccount::load_mut_checked(fund_account_ai, program_id)?;
-            fund_data.is_initialized = true;
-        }
-        if change_min_amount > 0 {
-            let fund_account_ai = next_account_info(accounts_iter)?;
-            let mut fund_data = FundAccount::load_mut_checked(fund_account_ai, program_id)?;
-            fund_data.min_amount = change_min_amount;
-        }
-        if change_perf_fee > 0 {
-            let fund_account_ai = next_account_info(accounts_iter)?;
-            let mut fund_data = FundAccount::load_mut_checked(fund_account_ai, program_id)?;
-            fund_data.performance_fee_percentage = U64F64::from_num(change_perf_fee / 100);
-        }
+pub fn friktion_deposit_ins(
+    program_id: &Pubkey,
+    authority_pk: &Pubkey,
+    dao_authority_pk: &Pubkey,
+    authority_check_pk: &Pubkey,
+    vault_mint_pk: &Pubkey,
+    volt_vault_pk: &Pubkey,
+    vault_authority_pk: &Pubkey,
+    extra_volt_data_pk: &Pubkey,
+    whitelist_pk: &Pubkey,
+    deposit_pool_pk: &Pubkey,
+    writer_token_pool_pk: &Pubkey,
+    vault_token_destination_pk: &Pubkey,
+    underlying_token_source_pk: &Pubkey,
+    round_info_pk: &Pubkey,
+    round_volt_tokens_pk: &Pubkey,
+    round_underlying_tokens_pk: &Pubkey,
+    pending_deposit_info_pk: &Pubkey,
+    epoch_info_pk: &Pubkey,
+    entropy_program_pk: &Pubkey,
+    entropy_group_pk: &Pubkey,
+    entropy_account_pk: &Pubkey,
+    entropy_cache_pk: &Pubkey,
+    system_program_pk: &Pubkey,
+    token_program_pk: &Pubkey,
+    discrim: u64,
+    amount: u64
+) -> Result<Instruction, ProgramError> {
+    let mut accounts = vec![
+        AccountMeta::new(*authority_pk, true),
+        AccountMeta::new(*dao_authority_pk, true),
+        AccountMeta::new(*authority_check_pk, true),
+        AccountMeta::new(*vault_mint_pk, false),
+        AccountMeta::new(*volt_vault_pk, false),
+        AccountMeta::new_readonly(*vault_authority_pk, false),
+        AccountMeta::new_readonly(*extra_volt_data_pk, false),
+        AccountMeta::new_readonly(*whitelist_pk, false),
+        AccountMeta::new(*deposit_pool_pk, false),
+        AccountMeta::new_readonly(*writer_token_pool_pk, false),
+        AccountMeta::new(*vault_token_destination_pk, false),
+        AccountMeta::new(*underlying_token_source_pk, false),
+        AccountMeta::new(*round_info_pk, false),
+        AccountMeta::new(*round_volt_tokens_pk, false),
+        AccountMeta::new(*round_underlying_tokens_pk, false),
+        AccountMeta::new(*pending_deposit_info_pk, false),
+        AccountMeta::new(*epoch_info_pk, false),
+        AccountMeta::new_readonly(*entropy_program_pk, false),
+        AccountMeta::new_readonly(*entropy_group_pk, false),
+        AccountMeta::new_readonly(*entropy_account_pk, false),
+        AccountMeta::new_readonly(*entropy_cache_pk, false),
+        AccountMeta::new_readonly(*system_program_pk, false),
+        AccountMeta::new_readonly(*token_program_pk, false),
+    ];
+
+    // let instr = FundInstruction::FriktionDepositInstr { discrim, amount };
+    let mut cpi_data = Vec::<u8>::new();
+    cpi_data.extend_from_slice(&discrim.to_le_bytes());
+    cpi_data.extend_from_slice(&amount.to_le_bytes());
+    msg!("data for cpi: {:?}", cpi_data);
+    Ok(Instruction { program_id: *program_id, accounts, data: cpi_data })
+}
+
+pub fn friktion_deposit0(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    deposit_amount: u64
+) -> Result<(), ProgramError> {
+    const NUM_FIXED:usize = 26;
+    let accounts = array_ref![accounts, 0, NUM_FIXED];
+    
+        let [
+            fund_account_ai,
+            manager_ai,
+            volt_program_ai,
+            authority_ai,
+            dao_authority_ai,
+            authority_check_ai,
+            vault_mint_ai,
+            volt_vault_ai,
+            vault_authority_ai,
+            extra_volt_data_ai,
+            whitelist_ai,
+            deposit_pool_ai,
+            writer_token_pool_ai,
+            vault_token_destination_ai,
+            underlying_token_source_ai,
+            round_info_ai,
+            round_volt_tokens_ai,
+            round_underlying_tokens_ai,
+            pending_deposit_info_ai,
+            epoch_info_ai,
+            entropy_program_ai,
+            entropy_group_ai,
+            entropy_account_ai,
+            entropy_cache_ai,
+            system_program_ai,
+            token_program_ai,
+        ] = accounts;
+
+        check!(manager_ai.is_signer, ProgramError::MissingRequiredSignature);
+        let mut fund_data = FundAccount::load_mut_checked(fund_account_ai, program_id)?;
+        check!(fund_data.manager_account == *manager_ai.key, FundError::ManagerMismatch);
+        let pda_signer_nonce = fund_data.signer_nonce;
+        drop(fund_data);
+        msg!("Trying CPI");
+        // authority_check_ai.is_signer = true;
+        // let authority_check_ai_new = AccountInfo::new(authority_check_ai.key, true, authority_check_ai.is_writable, *authority_check_ai.laudachipppa(), *authority_check_ai.data.clone(), authority_check_ai.owner, authority_check_ai.executable, authority_check_ai.rent_epoch);
+        invoke_signed(
+            &Self::friktion_deposit_ins(
+                volt_program_ai.key, 
+                authority_ai.key,
+                dao_authority_ai.key,
+                authority_check_ai.key, 
+                vault_mint_ai.key, 
+                volt_vault_ai.key,
+                vault_authority_ai.key,
+                extra_volt_data_ai.key,
+                whitelist_ai.key,
+                deposit_pool_ai.key, 
+                writer_token_pool_ai.key, 
+                vault_token_destination_ai.key, 
+                underlying_token_source_ai.key, 
+                round_info_ai.key, 
+                round_volt_tokens_ai.key, 
+                round_underlying_tokens_ai.key, 
+                pending_deposit_info_ai.key, 
+                epoch_info_ai.key, 
+                entropy_program_ai.key, 
+                entropy_group_ai.key, 
+                entropy_account_ai.key, 
+                entropy_cache_ai.key, 
+                system_program_ai.key, 
+                token_program_ai.key, 
+                13182846803881894898, 
+                deposit_amount
+            )?,
+            &[
+                volt_program_ai.clone(),
+                authority_ai.clone(),
+                dao_authority_ai.clone(),
+                authority_check_ai.clone(),
+                vault_mint_ai.clone(),
+                volt_vault_ai.clone(),
+                vault_authority_ai.clone(),
+                extra_volt_data_ai.clone(),
+                whitelist_ai.clone(),
+                deposit_pool_ai.clone(),
+                writer_token_pool_ai.clone(),
+                vault_token_destination_ai.clone(),
+                underlying_token_source_ai.clone(),
+                round_info_ai.clone(),
+                round_volt_tokens_ai.clone(),
+                round_underlying_tokens_ai.clone(),
+                pending_deposit_info_ai.clone(),
+                epoch_info_ai.clone(),
+                entropy_program_ai.clone(),
+                entropy_group_ai.clone(),
+                entropy_account_ai.clone(),
+                entropy_cache_ai.clone(),
+                system_program_ai.clone(),
+                token_program_ai.clone()
+            ], 
+            &[&[&*manager_ai.key.as_ref(), bytes_of(&pda_signer_nonce)]]
+        );
 
         Ok(())
+
     }
 
+    pub fn friktion_deposit(
+        program_id: &Pubkey,
+        accounts: &[AccountInfo],
+        deposit_amount: u64
+    ) -> Result<(), ProgramError> {
+        const NUM_FIXED:usize = 26;
+        let accounts = array_ref![accounts, 0, NUM_FIXED];
+        
+            let [
+                fund_account_ai,
+                manager_ai,
+                volt_program_ai,
+                authority_ai,
+                dao_authority_ai,
+                authority_check_ai,
+                vault_mint_ai,
+                volt_vault_ai,
+                vault_authority_ai,
+                extra_volt_data_ai,
+                whitelist_ai,
+                deposit_pool_ai,
+                writer_token_pool_ai,
+                vault_token_destination_ai,
+                underlying_token_source_ai,
+                round_info_ai,
+                round_volt_tokens_ai,
+                round_underlying_tokens_ai,
+                pending_deposit_info_ai,
+                epoch_info_ai,
+                entropy_program_ai,
+                entropy_group_ai,
+                entropy_account_ai,
+                entropy_cache_ai,
+                system_program_ai,
+                token_program_ai,
+            ] = accounts;
     
+            check!(manager_ai.is_signer, ProgramError::MissingRequiredSignature);
+            let mut fund_data = FundAccount::load_mut_checked(fund_account_ai, program_id)?;
+            check!(fund_data.manager_account == *manager_ai.key, FundError::ManagerMismatch);
+            let pda_signer_nonce = fund_data.signer_nonce;
+            drop(fund_data);
+            msg!("Trying CPI");
+            let mut authority_check_ai_new = fund_account_ai.clone();
+            authority_check_ai_new.is_signer = true;
+    
+            let dummy_acc_info = &authority_check_ai_new.clone();
+            msg!("{:?} --- {:?}", authority_check_ai_new.is_signer, dummy_acc_info.is_signer);
+            // authority_check_ai.is_signer = true;
+            // let authority_check_ai_new = AccountInfo::new(authority_check_ai.key, true, authority_check_ai.is_writable, *authority_check_ai.laudachipppa(), *authority_check_ai.data.clone(), authority_check_ai.owner, authority_check_ai.executable, authority_check_ai.rent_epoch);
+            volt_abi::cpi::deposit(
+                CpiContext::new_with_signer(volt_program_ai.clone(), 
+                volt_abi::cpi::accounts::Deposit {
+                    authority: (*authority_ai).clone(),
+                    dao_authority: (*dummy_acc_info).clone(),
+                    // dao_authority: (*dao_authority_ai).clone(),
+                    authority_check: (*dummy_acc_info).clone(),
+                    // authority_check: authority_check_ai_new,
+                    vault_mint: (*vault_mint_ai).clone(),
+                    volt_vault: (*volt_vault_ai).clone(),
+                    vault_authority: (*vault_authority_ai).clone(),
+                    extra_volt_data: (*extra_volt_data_ai).clone(),
+                    whitelist: (*whitelist_ai).clone(),
+                    deposit_pool: (*deposit_pool_ai).clone(),
+                    writer_token_pool: (*writer_token_pool_ai).clone(),
+                    vault_token_destination: (*vault_token_destination_ai).clone(),
+                    underlying_token_source: (*underlying_token_source_ai).clone(),
+                    round_info: (*round_info_ai).clone(),
+                    round_volt_tokens: (*round_volt_tokens_ai).clone(),
+                    round_underlying_tokens: (*round_underlying_tokens_ai).clone(),
+                    pending_deposit_info: (*pending_deposit_info_ai).clone(),
+                    epoch_info: (*epoch_info_ai).clone(),
+                    entropy_program: (*entropy_program_ai).clone(),
+                    entropy_group: (*entropy_group_ai).clone(),
+                    entropy_account: (*entropy_account_ai).clone(),
+                    entropy_cache: (*entropy_cache_ai).clone(), 
+                    system_program: (*system_program_ai).clone(),
+                    token_program: (*token_program_ai).clone(),
+                }, 
+                &[&[&*manager_ai.key.as_ref(), bytes_of(&pda_signer_nonce)]]),
+                deposit_amount
+            ).unwrap();
+    
+            Ok(())
+    
+        }
 
     // instruction processor
     pub fn process(
@@ -1202,6 +1483,10 @@ impl Fund {
             //     msg!("FundInstruction::MangoPlaceSpotOrder");
             //     return mango_place_spot_order2(program_id, accounts, side, price, trade_size);
             // }
+            FundInstruction::FriktionDeposit { deposit_amount} => {
+                msg!("FundInstruction::FriktionDeposit");
+                return Self::friktion_deposit(program_id, accounts, deposit_amount);
+            }
             FundInstruction::MangoWithdraw { token_slot_index, mango_token_index, quantity } => {
                 msg!("FundInstruction::MangoWithdraw");
                 return mango_withdraw(program_id, accounts, token_slot_index, mango_token_index, quantity);
@@ -1256,9 +1541,19 @@ impl Fund {
                 let (&_op, op_data) = array_refs![data, 1; ..;];
                 return init_open_order_accs(program_id, accounts, op_data);
             }
+            FundInstruction::ReadFriktion => {
+                msg!("FundInstruction::ReadFriktion");
+                return Self::read_friktion_data(program_id, accounts);
+            }
+            FundInstruction::FriktionDeposit0 { deposit_amount } => {
+                msg!("FundInstruction::FriktionDeposit0");
+                return Self::friktion_deposit0(program_id, accounts, deposit_amount)
+            }
         }
     }
 }
+
+
 
 // calculate prices, get fund valuation and performance
 pub fn update_amount_and_performance(

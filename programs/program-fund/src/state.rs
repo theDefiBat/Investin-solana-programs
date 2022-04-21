@@ -1,4 +1,5 @@
 use std::cell::{Ref, RefMut};
+
 use std::mem::size_of;
 use solana_program::pubkey::Pubkey;
 use solana_program::account_info::AccountInfo;
@@ -168,6 +169,8 @@ impl_loadable!(FundAccount);
 #[derive(Clone, Copy, Debug)]
 pub struct TokenSlot {
     // state vars
+
+    //Remove Mux system and replace with one-one mapping to platofrm state tokenInfo
     pub is_active: bool,
     pub index: [u8; 3],
     pub mux: u8,
@@ -284,7 +287,7 @@ pub struct TokenInfo {
     pub mint: Pubkey,
     // decimals for token, not used can be used later
     pub decimals: u64,
-    
+    // replace with oracle
     // poolCoinTokenAccount for pool price
     pub pool_coin_account: Pubkey,
     // poolPcTokenAccount for pool price

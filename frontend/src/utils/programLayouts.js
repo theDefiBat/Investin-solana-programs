@@ -141,7 +141,8 @@ export const PLATFORM_DATA = struct([
       publicKeyLayout('pool_pc_account'),
       U64F64('pool_price'),
       ns64('last_updated'),
-      u64('padding')
+      u8('tokenId'),
+      seq(u8(), 7, 'padding')
     ]),
     MAX_TOKENS, 'token_list'
   ),

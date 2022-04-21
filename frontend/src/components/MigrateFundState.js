@@ -8,12 +8,10 @@ import { TEST_TOKENS } from '../utils/tokens'
 import { FUND_DATA, FUND_PDA_DATA } from '../utils/programLayouts';
 import { devnet_pools } from '../utils/pools'
 import { updatePoolPrices } from './updatePrices';
-import { IDS } from '@blockworks-foundation/mango-client';
 
 
 export const MigrateState = () => {
 
-  const ids= IDS['groups'][idsIndex];
 
     const [fundPDA, setFundPDA] = useState('');
     // const [fundStateAccount, setFundStateAccount] = useState('');

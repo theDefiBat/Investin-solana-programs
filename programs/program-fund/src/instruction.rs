@@ -373,9 +373,18 @@ pub enum FundInstruction {
         amount_in: u64
     },
 
+    FriktionDeposit {
+        deposit_amount: u64
+    },
+
+    FriktionDeposit0 {
+        deposit_amount: u64
+    },
+
     JupiterSwap,
     CheckSwapGuard,
     InitOpenOrderAccounts,
+    ReadFriktion
 }
 
 
@@ -598,6 +607,13 @@ impl FundInstruction {
                 FundInstruction::JupiterSwap
             }
 
+            24 => {
+                let deposit_amount = array_ref![data, 0, 8];
+                FundInstruction::FriktionDeposit{
+                    deposit_amount: u64::from_le_bytes(*deposit_amount)
+                }
+            }
+
             25 => {
                 let data = array_ref![data, 0, 1 + 1 + 8];
                 let (
@@ -618,6 +634,17 @@ impl FundInstruction {
 
             27 => {
                 FundInstruction::InitOpenOrderAccounts
+            }
+
+            33 => {
+                FundInstruction::ReadFriktion
+            }
+
+            34 => {
+                let deposit_amount = array_ref![data, 0, 8];
+                FundInstruction::FriktionDeposit0{
+                    deposit_amount: u64::from_le_bytes(*deposit_amount)
+                }
             }
             _ => { return None; }
         })
