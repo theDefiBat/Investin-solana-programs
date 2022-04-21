@@ -60,9 +60,9 @@ function App() {
         } */}
         <SendGreating />
         <DisplayInfo/>
+        <FriktionDeposit/>
         <MigrateState/>
         <InitialisedFund />
-        <FriktionDeposit/>
         <Deposit />
 	      <Transfer />
         <GetPrices />

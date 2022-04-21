@@ -315,6 +315,7 @@ export const PRICE_DATA = struct([
 
 export const FRIKTION_VOLT = struct(
   [
+    u64('discrim'),
     publicKeyLayout('adminKey'),
     publicKeyLayout('seed'),
     u64('transferWindow'),
