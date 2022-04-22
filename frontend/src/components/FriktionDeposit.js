@@ -8,6 +8,7 @@ import { TOKENS } from '../utils/tokens'
 import { FRIKTION_VOLT, FUND_DATA, FUND_PDA_DATA, PLATFORM_DATA, PRICE_DATA } from '../utils/programLayouts';
 import { devnet_pools, DEV_TOKENS, pools, raydiumPools } from '../utils/pools';
 import { IDS } from '@blockworks-foundation/mango-client';
+import { FriktionSDK } from "@friktion-labs/friktion-sdk";
 
 const VOLT_PROGRAM_ID = 'VoLT1mJz1sbnxwq5Fv2SXjdVDgPXrb9tJyC8WpMDkSp'
 
@@ -50,6 +51,14 @@ export const FriktionDeposit = () => {
     useEffect(() => {
       (async () => {
          await handleGetFriktionData();
+         const client = new FriktionSDK({ provider: { connection: connection } });
+
+         const vaults = await client.getAllVoltVaults()
+         console.log("vaults :",vaults)
+          
+         const data = await client.loadVoltAndExtraDataByKey(vaults[0].voltKey);
+         console.log('FriktionDeposit data :>> ', await data.getAllRounds());
+     
       })()
      }, [])
 
@@ -63,13 +72,13 @@ export const FriktionDeposit = () => {
           console.error("FriktionData ::",friktionData);
           setVoltDecoded(friktionData);
 
-          for (const [key, value] of Object.entries(friktionData)) {
-            try {
-              console.log(`${key}: ${value.toBase58()}`);
-            } catch (error) {
-              console.log("e:", `${key}: ${value.toString()}`)
-            }
-          }
+          // for (const [key, value] of Object.entries(friktionData)) {
+          //   try {
+          //     console.log(`${key}: ${value.toBase58()}`);
+          //   } catch (error) {
+          //     console.log("e:", `${key}: ${value.toString()}`)
+          //   }
+          // }
 
         }
     }
