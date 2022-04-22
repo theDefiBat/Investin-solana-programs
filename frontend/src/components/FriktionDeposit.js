@@ -518,7 +518,7 @@ export const FriktionDeposit = () => {
     const data = Buffer.alloc(dataLayout.span)
     dataLayout.encode(
       {
-        instruction: 35,
+        instruction: 37,
       },
       data
     )
@@ -600,6 +600,8 @@ export const FriktionDeposit = () => {
           <h4>Friktion Withdraw</h4>
           <button onClick={handleFriktionWithdraw}>Withdraw</button>
 
+          <h4>Friktion CancelPendingWithdrawal</h4>
+          <button onClick={handleFriktionCancelPendingWithdrawal}>CancelPendingWithdrawal</button>
 
           <h4>Friktion Get Data</h4>
 
