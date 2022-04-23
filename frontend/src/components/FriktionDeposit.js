@@ -58,9 +58,14 @@ export const FriktionDeposit = () => {
          const vaults = await client.getAllVoltVaults()
          console.log("vaults :",vaults)
 
-         for (let i=0 ;i<=vaults.length; i++) {
-           console.log("volt-"+i,vaults[i].voltKey.toBase58(), vaults[i].voltVault.underlyingAssetMint.toBase58())
+         try {
+          for (let i=0 ;i<=vaults.length; i++) {
+            console.log("volt-"+i,vaults[i].voltKey.toBase58(), vaults[i].voltVault.underlyingAssetMint.toBase58())
+          }
+         } catch (error) {
+           console.log("error:",error)
          }
+         
 
          setSelectedVolt(vaults[5]) //srm
           
