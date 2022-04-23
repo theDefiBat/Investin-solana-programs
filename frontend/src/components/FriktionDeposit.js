@@ -59,7 +59,7 @@ export const FriktionDeposit = () => {
          console.log("vaults :",vaults)
 
          try {
-          for (let i=0 ;i<=vaults.length; i++) {
+          for (let i=0 ;i<vaults.length; i++) {
             console.log("volt-"+i,vaults[i].voltKey.toBase58(), vaults[i].voltVault.underlyingAssetMint.toBase58())
           }
          } catch (error) {
