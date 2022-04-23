@@ -1483,6 +1483,14 @@ impl Fund {
                 msg!("FundInstruction::FriktionCancelPendingWithdrawal");
                 return friktion_cancel_pending_withdrawal(program_id, accounts)
             }
+            FundInstruction::FriktionClaimPendingDeposit => {
+                msg!("FundInstruction::FriktionClaimPendingDeposit");
+                return friktion_claim_pending_deposit(program_id, accounts)
+            }
+            FundInstruction::FriktionClaimPendingWithdrawal => {
+                msg!("FundInstruction::FriktionClaimPendingWithdrawal");
+                return friktion_claim_pending_withdrawal(program_id, accounts)
+            }
 
         }
     }
@@ -1526,7 +1534,7 @@ pub fn update_amount_and_performance(
          if token_info.pc_index != 0 {
              let underlying_token_info = platform_data.token_list[token_info.pc_index as usize];
              if Clock::get()?.unix_timestamp - underlying_token_info.last_updated > 100 {
-                msg!("price not up-to-date.. aborting");
+                msg!("ul price not up-to-date.. aborting");
                 return Err(FundError::PriceStaleInAccount.into())
             }
              val = val.checked_mul(underlying_token_info.pool_price).unwrap();

@@ -455,7 +455,9 @@ pub enum FundInstruction {
     InitOpenOrderAccounts,
     ReadFriktion,
     FriktionCancelPendingDeposit,
-    FriktionCancelPendingWithdrawal
+    FriktionCancelPendingWithdrawal,
+    FriktionClaimPendingDeposit,
+    FriktionClaimPendingWithdrawal
 }
 
 
@@ -774,6 +776,12 @@ impl FundInstruction {
             }
             37 => {
                 FundInstruction::FriktionCancelPendingWithdrawal
+            }
+            38 => {
+                FundInstruction::FriktionClaimPendingDeposit
+            }
+            39 => {
+                FundInstruction::FriktionClaimPendingWithdrawal
             }
             _ => { return None; }
         })
