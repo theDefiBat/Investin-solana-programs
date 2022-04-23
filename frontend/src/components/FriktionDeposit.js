@@ -8,7 +8,7 @@ import { TOKENS } from '../utils/tokens'
 import { FRIKTION_VOLT, FUND_DATA, FUND_PDA_DATA, PLATFORM_DATA, PRICE_DATA, u64 } from '../utils/programLayouts';
 import { devnet_pools, DEV_TOKENS, pools, raydiumPools } from '../utils/pools';
 import { IDS } from '@blockworks-foundation/mango-client';
-import { FriktionSDK } from "@friktion-labs/friktion-sdk";
+import { FriktionSDK, VoltSDK } from "@friktion-labs/friktion-sdk";
 
 const VOLT_PROGRAM_ID = 'VoLT1mJz1sbnxwq5Fv2SXjdVDgPXrb9tJyC8WpMDkSp'
 
@@ -42,6 +42,7 @@ const VOLT_SRM =  {
 // FriktionDeposit.js:52 permissionedMarketPremiumMint: EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v
 // FriktionDeposit.js:52 permissionedMarketPremiumPool: H4qUyG47mzqNv75fSBjSE59V9nRvxtvidGsLsbjJMZPV
 
+const client = new FriktionSDK({ provider: { connection: connection } });
 
 
 export const FriktionDeposit = () => {
@@ -52,25 +53,32 @@ export const FriktionDeposit = () => {
 
     useEffect(() => {
       (async () => {
-         await handleGetFriktionData();
-         const client = new FriktionSDK({ provider: { connection: connection } });
 
-         const vaults = await client.getAllVoltVaults()
-         console.log("vaults :",vaults)
+      
+        let selectedVolt = await client.loadVoltAndExtraDataByKey(new PublicKey('Ef2CD9yhQE7BvReQXct68uuYFW8GLKj62u2YPfmua3JY'));
+        console.log("selectedVolt:",selectedVolt)
+        setSelectedVolt(selectedVolt) //srm
+        
+        //  try {
+        //     await handleGetFriktionData();
+  
+        //     const vaults = await client.getAllVoltVaults()
+        //     console.log("vaults :",vaults)
 
-         try {
-          for (let i=0 ;i<vaults.length; i++) {
-            console.log("volt-"+i,vaults[i].voltKey.toBase58(), vaults[i].voltVault.underlyingAssetMint.toBase58())
-          }
-         } catch (error) {
-           console.log("error:",error)
-         }
-         
-
-         setSelectedVolt(vaults[5]) //srm
           
-         const data = await client.loadVoltAndExtraDataByKey(vaults[0].voltKey);
-         console.log('FriktionDeposit data :>> ', await data.getAllRounds());
+        //   for (let i=0 ;i<vaults.length; i++) {
+        //     console.log("volt-"+i,vaults[i].voltKey.toBase58(), vaults[i].voltVault.underlyingAssetMint.toBase58())
+        //   }
+
+        //   setSelectedVolt(vaults[0]) //srm
+          
+        //   const data = await client.loadVoltAndExtraDataByKey(vaults[0].voltKey);
+        //   console.log('FriktionDeposit data :>> ', data);
+
+        //  } catch (error) {
+        //    console.log("error:",error)
+        //  }
+                 
      
       })()
      }, [])
@@ -157,6 +165,9 @@ export const FriktionDeposit = () => {
     }
 
     const handleFriktionDeposit = async () => {
+
+
+      
     
       const key = walletProvider?.publicKey;
       if (!key ) {
@@ -182,20 +193,36 @@ export const FriktionDeposit = () => {
         new PublicKey('VoLT1mJz1sbnxwq5Fv2SXjdVDgPXrb9tJyC8WpMDkSp')
       );
 
-      // const pendingDepositsPDAAccount = await connection.getAccountInfo(pendingDepositsPDA[0]);
+      // const ExtraVoltDataAddress = await selectedVolt.findExtraVoltDataAddress(selectedVolt.voltKey)
+      const [extraVoltKey] = await VoltSDK.findExtraVoltDataAddress(selectedVolt.voltKey);
+      const [roundInfoKey, roundInfoKeyBump] = await VoltSDK.findRoundInfoAddress(
+        selectedVolt.voltKey,
+        selectedVolt.voltVault.roundNumber,
+        new PublicKey('VoLT1mJz1sbnxwq5Fv2SXjdVDgPXrb9tJyC8WpMDkSp')
+      );
 
-    // if (pendingDepositsPDAAccount == null) {
+      const roundVoltTokensAddress = (
+        await VoltSDK.findRoundVoltTokensAddress(
+          selectedVolt.voltKey,
+          selectedVolt.voltVault.roundNumber,
+          new PublicKey('VoLT1mJz1sbnxwq5Fv2SXjdVDgPXrb9tJyC8WpMDkSp')
+        )
+      )[0];
 
-    //     const pendingDepositsPDALamports =
-    //   await connection.getMinimumBalanceForRentExemption(
-    //     25,
-    //     'singleGossip'
-    //   )
-    //   let signers = []
-    //   await createAccountInstruction(connection, key, 25, new PublicKey('VoLT1mJz1sbnxwq5Fv2SXjdVDgPXrb9tJyC8WpMDkSp'), pendingDepositsPDALamports, transaction, signers);
-    // }
+      const roundUnderlyingTokensAddress = (
+        await VoltSDK.findRoundUnderlyingTokensAddress(
+          selectedVolt.voltKey,
+          selectedVolt.voltVault.roundNumber,
+          new PublicKey('VoLT1mJz1sbnxwq5Fv2SXjdVDgPXrb9tJyC8WpMDkSp')
+        )
+      )[0];
+     
+      const [epochInfoKey, epochInfoBump] = await VoltSDK.findEpochInfoAddress(
+        selectedVolt.voltKey,
+        selectedVolt.voltVault.roundNumber,
+        new PublicKey('VoLT1mJz1sbnxwq5Fv2SXjdVDgPXrb9tJyC8WpMDkSp')
+      );
 
-    
       console.log('pendingDepositPDA:: ', pendingDepositsPDA[0].toBase58());
     
 
@@ -223,21 +250,21 @@ export const FriktionDeposit = () => {
         {pubkey: selectedVolt.voltKey, isSigner: false, isWritable: true},
 
         {pubkey: selectedVolt.voltVault.vaultAuthority, isSigner: false, isWritable: false},
-        {pubkey: selectedVolt.findExtraVoltDataAddress(selectedVolt.voltKey)[0], isSigner: false, isWritable: false},
+        {pubkey: extraVoltKey, isSigner: false, isWritable: false},
         {pubkey: new PublicKey('11111111111111111111111111111111'), isSigner: false, isWritable: false},
         {pubkey: selectedVolt.voltVault.depositPool , isSigner: false, isWritable: true},
         {pubkey: selectedVolt.voltVault.writerTokenPool, isSigner: false, isWritable: false},
         {pubkey: associatedTokenAddressfcSRM, isSigner: false, isWritable: true},//Fund_Vault_token_acc
         {pubkey: associatedTokenAddressSRM, isSigner: false, isWritable: true},//Fund_Underlying_token_acc
-        {pubkey: selectedVolt.findRoundInfoAddress(selectedVolt.voltKey, selectedVolt.voltVault.roundNumber ,new PublicKey(VOLT_PROGRAM_ID)), isSigner: false, isWritable: true},
-        {pubkey: selectedVolt.findRoundVoltTokensAddress(selectedVolt.voltKey, selectedVolt.voltVault.roundNumber ,new PublicKey(VOLT_PROGRAM_ID)), isSigner: false, isWritable: true},
-        {pubkey: selectedVolt.findRoundUnderlyingTokensAddress(selectedVolt.voltKey, selectedVolt.voltVault.roundNumber ,new PublicKey(VOLT_PROGRAM_ID)), isSigner: false, isWritable: true},
+        {pubkey: roundInfoKey, isSigner: false, isWritable: true},
+        {pubkey: roundVoltTokensAddress, isSigner: false, isWritable: true},
+        {pubkey: roundUnderlyingTokensAddress, isSigner: false, isWritable: true},
        
         // {pubkey: new PublicKey('6yphtPNxWnESktG8zmk1GpD7GgjR37WerxtoWdqedXbX'), isSigner: false, isWritable: true},
         // {pubkey: new PublicKey('8mSbc6sVm7xPCW23mk2UMXxtoYuMTWgXmo9itnxQsLXH'), isSigner: false, isWritable: true},
         {pubkey: pendingDepositsPDA[0], isSigner: false, isWritable: true}, //PendingDepositsPDA --fund
 
-        {pubkey: selectedVolt.findEpochInfoAddress(selectedVolt.voltKey, selectedVolt.voltVault.roundNumber ,new PublicKey(VOLT_PROGRAM_ID)), isSigner: false, isWritable: true},
+        {pubkey: epochInfoKey, isSigner: false, isWritable: true},
         // {pubkey: new PublicKey('Gnz3cwbgh6vHH9EMVp3f36Pvs6rkeD14ayoJFyptGEA4'), isSigner: false, isWritable: true},
         
         {pubkey: new PublicKey('11111111111111111111111111111111'), isSigner: false, isWritable: false},
