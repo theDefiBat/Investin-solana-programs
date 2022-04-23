@@ -225,10 +225,16 @@ export const FriktionDeposit = () => {
         {pubkey: associatedTokenAddressfcSRM, isSigner: false, isWritable: true},//Fund_Vault_token_acc
         {pubkey: associatedTokenAddressSRM, isSigner: false, isWritable: true},//Fund_Underlying_token_acc
         {pubkey: selectedVolt.findRoundInfoAddress(selectedVolt.voltKey, selectedVolt.voltVault.roundNumber ,new PublicKey(VOLT_PROGRAM_ID)), isSigner: false, isWritable: true},
-        {pubkey: new PublicKey('6yphtPNxWnESktG8zmk1GpD7GgjR37WerxtoWdqedXbX'), isSigner: false, isWritable: true},
-        {pubkey: new PublicKey('8mSbc6sVm7xPCW23mk2UMXxtoYuMTWgXmo9itnxQsLXH'), isSigner: false, isWritable: true},
+        {pubkey: selectedVolt.findRoundVoltTokensAddress(selectedVolt.voltKey, selectedVolt.voltVault.roundNumber ,new PublicKey(VOLT_PROGRAM_ID)), isSigner: false, isWritable: true},
+        {pubkey: selectedVolt.findRoundUnderlyingTokensAddress(selectedVolt.voltKey, selectedVolt.voltVault.roundNumber ,new PublicKey(VOLT_PROGRAM_ID)), isSigner: false, isWritable: true},
+       
+        // {pubkey: new PublicKey('6yphtPNxWnESktG8zmk1GpD7GgjR37WerxtoWdqedXbX'), isSigner: false, isWritable: true},
+        // {pubkey: new PublicKey('8mSbc6sVm7xPCW23mk2UMXxtoYuMTWgXmo9itnxQsLXH'), isSigner: false, isWritable: true},
         {pubkey: pendingDepositsPDA[0], isSigner: false, isWritable: true}, //PendingDepositsPDA --fund
-        {pubkey: new PublicKey('Gnz3cwbgh6vHH9EMVp3f36Pvs6rkeD14ayoJFyptGEA4'), isSigner: false, isWritable: true},
+
+        {pubkey: selectedVolt.findEpochInfoAddress(selectedVolt.voltKey, selectedVolt.voltVault.roundNumber ,new PublicKey(VOLT_PROGRAM_ID)), isSigner: false, isWritable: true},
+        // {pubkey: new PublicKey('Gnz3cwbgh6vHH9EMVp3f36Pvs6rkeD14ayoJFyptGEA4'), isSigner: false, isWritable: true},
+        
         {pubkey: new PublicKey('11111111111111111111111111111111'), isSigner: false, isWritable: false},
         {pubkey: new PublicKey('11111111111111111111111111111111'), isSigner: false, isWritable: false},
         {pubkey: new PublicKey('11111111111111111111111111111111'), isSigner: false, isWritable: false},
