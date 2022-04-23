@@ -5,7 +5,7 @@ import { createAccountInstruction, createAssociatedTokenAccountIfNotExist, signA
 import { connection, programId, RENT_PROGRAM_ID, platformStateAccount, idsIndex, FUND_ACCOUNT_KEY, LIQUIDITY_POOL_PROGRAM_ID_V4, TOKEN_PROGRAM_ID } from '../utils/constants';
 import { struct, u8, nu64 } from 'buffer-layout';
 import { TOKENS } from '../utils/tokens'
-import { FRIKTION_VOLT, FUND_DATA, FUND_PDA_DATA, PLATFORM_DATA, PRICE_DATA } from '../utils/programLayouts';
+import { FRIKTION_VOLT, FUND_DATA, FUND_PDA_DATA, PLATFORM_DATA, PRICE_DATA, u64 } from '../utils/programLayouts';
 import { devnet_pools, DEV_TOKENS, pools, raydiumPools } from '../utils/pools';
 import { IDS } from '@blockworks-foundation/mango-client';
 import { FriktionSDK } from "@friktion-labs/friktion-sdk";
@@ -19,6 +19,7 @@ const VOLT_SRM =  {
   "underlyingMint": "SRMuApVNdxXokk5GT7XD5cUUgXMBCoAz2LHeuAoKWRt",
   "depositTokenMint": "SRMuApVNdxXokk5GT7XD5cUUgXMBCoAz2LHeuAoKWRt",
   "shareTokenMint": "5SLqZSywodLS8ih6U2AAioZrxpgR149hR8SApmCB7r5X",
+  "vaultMint": "5SLqZSywodLS8ih6U2AAioZrxpgR149hR8SApmCB7r5X",
   "shareTokenSymbol": "fcSRM",
   "shareTokenDecimals": 6,
   "voltType": 1,
@@ -47,6 +48,7 @@ export const FriktionDeposit = () => {
   
     const walletProvider = GlobalState.useState(s => s.walletProvider);
     const [voltDecoded, setVoltDecoded] = useState({})
+    const [selectedVolt, setSelectedVolt] = useState({})
 
     useEffect(() => {
       (async () => {
@@ -55,6 +57,12 @@ export const FriktionDeposit = () => {
 
          const vaults = await client.getAllVoltVaults()
          console.log("vaults :",vaults)
+
+         for (let i=0 ;i<=vaults.length; i++) {
+           console.log("volt-"+i,vaults[i].voltKey.toBase58(), vaults[i].voltVault.underlyingAssetMint.toBase58())
+         }
+
+         setSelectedVolt(vaults[5]) //srm
           
          const data = await client.loadVoltAndExtraDataByKey(vaults[0].voltKey);
          console.log('FriktionDeposit data :>> ', await data.getAllRounds());
@@ -103,7 +111,8 @@ export const FriktionDeposit = () => {
       const textEncoder = new TextEncoder();
       const pendingDepositsPDA = await PublicKey.findProgramAddress(
         [
-          new PublicKey('Ef2CD9yhQE7BvReQXct68uuYFW8GLKj62u2YPfmua3JY').toBuffer(),
+          // new PublicKey('Ef2CD9yhQE7BvReQXct68uuYFW8GLKj62u2YPfmua3JY').toBuffer(),
+          (selectedVolt.voltKey).toBuffer(),
           fundPDA[0].toBuffer(),
           textEncoder.encode("pendingDeposit"),
         ],
@@ -111,11 +120,12 @@ export const FriktionDeposit = () => {
       );
       const pendingWithdrawalsPDA = await PublicKey.findProgramAddress(
         [
-          new PublicKey('Ef2CD9yhQE7BvReQXct68uuYFW8GLKj62u2YPfmua3JY').toBuffer(),
+          // new PublicKey('Ef2CD9yhQE7BvReQXct68uuYFW8GLKj62u2YPfmua3JY').toBuffer(),
+          (selectedVolt.voltKey).toBuffer(),
           fundPDA[0].toBuffer(),
           textEncoder.encode("pendingWithdrawal"),
         ],
-        new PublicKey('VoLT1mJz1sbnxwq5Fv2SXjdVDgPXrb9tJyC8WpMDkSp')
+        new PublicKey(VOLT_PROGRAM_ID)
       );
 
       const keys = [
@@ -141,7 +151,7 @@ export const FriktionDeposit = () => {
         console.log("signature tx url:: ", `https://solscan.io/tx/${sign}`)
     }
 
-    const handleFriktionDeposit0 = async () => {
+    const handleFriktionDeposit = async () => {
     
       const key = walletProvider?.publicKey;
       if (!key ) {
@@ -159,7 +169,8 @@ export const FriktionDeposit = () => {
 
       const pendingDepositsPDA = await PublicKey.findProgramAddress(
         [
-          new PublicKey('Ef2CD9yhQE7BvReQXct68uuYFW8GLKj62u2YPfmua3JY').toBuffer(),
+          // new PublicKey('Ef2CD9yhQE7BvReQXct68uuYFW8GLKj62u2YPfmua3JY').toBuffer(),
+          (selectedVolt.voltKey).toBuffer(),
           fundPDA[0].toBuffer(),
           textEncoder.encode("pendingDeposit"),
         ],
@@ -196,20 +207,24 @@ export const FriktionDeposit = () => {
       const keys = [
         {pubkey: fundPDA[0], isSigner: false, isWritable: true},
         {pubkey: key, isSigner: true, isWritable: true },
-        {pubkey: new PublicKey('VoLT1mJz1sbnxwq5Fv2SXjdVDgPXrb9tJyC8WpMDkSp'), isSigner: false, isWritable: false},
+        {pubkey: new PublicKey(VOLT_PROGRAM_ID), isSigner: false, isWritable: false},
         {pubkey: key, isSigner: true, isWritable: true},
         {pubkey: fundPDA[0], isSigner: false, isWritable: true},
         {pubkey: fundPDA[0], isSigner: false, isWritable: true},
-        {pubkey: new PublicKey('5SLqZSywodLS8ih6U2AAioZrxpgR149hR8SApmCB7r5X'), isSigner: false, isWritable: true},
-        {pubkey: new PublicKey('Ef2CD9yhQE7BvReQXct68uuYFW8GLKj62u2YPfmua3JY'), isSigner: false, isWritable: true},
-        {pubkey: new PublicKey('2P427N5sYcEXvZAZwqNzjXEHsBMESQoLyjNquTSmGPMb'), isSigner: false, isWritable: false},
-        {pubkey: new PublicKey('9e7XC1K2sPbDALCA7ZD8oxockHLe6KtXjEKhjEzqEGuj'), isSigner: false, isWritable: false},
+
+
+        {pubkey: selectedVolt.voltVault.vaultMint, isSigner: false, isWritable: true},
+        // {pubkey: new PublicKey('Ef2CD9yhQE7BvReQXct68uuYFW8GLKj62u2YPfmua3JY'), isSigner: false, isWritable: true},
+        {pubkey: selectedVolt.voltKey, isSigner: false, isWritable: true},
+
+        {pubkey: selectedVolt.voltVault.vaultAuthority, isSigner: false, isWritable: false},
+        {pubkey: selectedVolt.findExtraVoltDataAddress(selectedVolt.voltKey)[0], isSigner: false, isWritable: false},
         {pubkey: new PublicKey('11111111111111111111111111111111'), isSigner: false, isWritable: false},
-        {pubkey: new PublicKey('JBPXzHLMDTN3BLACACcBHM1CAfNz2r1s6tUMUhCMgGCZ'), isSigner: false, isWritable: true},
-        {pubkey: new PublicKey('HKMwJ27Zh5ySthKqyLniFDke99JSLsTYMgzHEfeSDgq2'), isSigner: false, isWritable: false},
+        {pubkey: selectedVolt.voltVault.depositPool , isSigner: false, isWritable: true},
+        {pubkey: selectedVolt.voltVault.writerTokenPool, isSigner: false, isWritable: false},
         {pubkey: associatedTokenAddressfcSRM, isSigner: false, isWritable: true},//Fund_Vault_token_acc
         {pubkey: associatedTokenAddressSRM, isSigner: false, isWritable: true},//Fund_Underlying_token_acc
-        {pubkey: new PublicKey('CZBmqRPuPhTkd56kH3JQbsnPK4jCUnCBeF7EfLPPZaoJ'), isSigner: false, isWritable: true},
+        {pubkey: selectedVolt.findRoundInfoAddress(selectedVolt.voltKey, selectedVolt.voltVault.roundNumber ,new PublicKey(VOLT_PROGRAM_ID)), isSigner: false, isWritable: true},
         {pubkey: new PublicKey('6yphtPNxWnESktG8zmk1GpD7GgjR37WerxtoWdqedXbX'), isSigner: false, isWritable: true},
         {pubkey: new PublicKey('8mSbc6sVm7xPCW23mk2UMXxtoYuMTWgXmo9itnxQsLXH'), isSigner: false, isWritable: true},
         {pubkey: pendingDepositsPDA[0], isSigner: false, isWritable: true}, //PendingDepositsPDA --fund
@@ -261,7 +276,8 @@ export const FriktionDeposit = () => {
 
       const pendingWithdrawalsPDA = await PublicKey.findProgramAddress(
         [
-          new PublicKey('Ef2CD9yhQE7BvReQXct68uuYFW8GLKj62u2YPfmua3JY').toBuffer(),
+          // new PublicKey('Ef2CD9yhQE7BvReQXct68uuYFW8GLKj62u2YPfmua3JY').toBuffer(),
+          (selectedVolt.voltKey).toBuffer(),
           fundPDA[0].toBuffer(),
           textEncoder.encode("pendingWithdrawal"),
         ],
@@ -303,7 +319,10 @@ export const FriktionDeposit = () => {
         {pubkey: fundPDA[0], isSigner: false, isWritable: true},
         {pubkey: fundPDA[0], isSigner: false, isWritable: true},
         {pubkey: new PublicKey('5SLqZSywodLS8ih6U2AAioZrxpgR149hR8SApmCB7r5X'), isSigner: false, isWritable: true}, //vault mint
-        {pubkey: new PublicKey('Ef2CD9yhQE7BvReQXct68uuYFW8GLKj62u2YPfmua3JY'), isSigner: false, isWritable: true}, //volt_vault
+
+        // {pubkey: new PublicKey('Ef2CD9yhQE7BvReQXct68uuYFW8GLKj62u2YPfmua3JY'), isSigner: false, isWritable: true}, //volt_vault
+        {pubkey: selectedVolt.voltKey, isSigner: false, isWritable: true},
+
         {pubkey: new PublicKey('2P427N5sYcEXvZAZwqNzjXEHsBMESQoLyjNquTSmGPMb'), isSigner: false, isWritable: false}, //vault_authority
         {pubkey: new PublicKey('9e7XC1K2sPbDALCA7ZD8oxockHLe6KtXjEKhjEzqEGuj'), isSigner: false, isWritable: false}, //extra_volt_data
         {pubkey: new PublicKey('11111111111111111111111111111111'), isSigner: false, isWritable: false}, //whitelist
@@ -379,7 +398,8 @@ export const FriktionDeposit = () => {
     const roundInfoPDA =  await PublicKey.findProgramAddress(
       [
         new PublicKey(VOLT_SRM.voltVaultId).toBuffer(),
-        voltDecoded.roundNumber,
+        // voltDecoded.roundNumber,
+        new u64(voltDecoded.roundNumber.toString()).toBuffer(),
         textEncoder.encode("roundInfo"),
       ],
       new PublicKey(VOLT_PROGRAM_ID)
@@ -595,13 +615,12 @@ export const FriktionDeposit = () => {
   }
 
 
-    
 
     return (
         <div className="form-div">
 
           <h4>Friktion Deposit 0000</h4>
-          <button onClick={handleFriktionDeposit0}>Deposit</button>
+          <button onClick={handleFriktionDeposit}>Deposit</button>
 
           <h4>Friktion CancelPendingDeposit</h4>
           <button onClick={handleFriktionCancelPendingDeposit}>CancelPendingDeposit</button>
