@@ -298,6 +298,91 @@ export const FriktionDeposit = () => {
         console.log("signature tx url:: ", `https://explorer.solana.com/tx/${sign}`) 
   }
 
+  const handleFriktionGetValue = async () => {
+
+    const key = walletProvider?.publicKey;
+    if (!key ) {
+      alert("connect wallet")
+      return;
+    };
+    const transaction = new Transaction()
+
+    const fundPDA = await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId);
+
+    //fcSRM
+    const associatedTokenAddressfcSRM = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey('5SLqZSywodLS8ih6U2AAioZrxpgR149hR8SApmCB7r5X'), fundPDA[0], transaction);    
+    const textEncoder = new TextEncoder();
+
+    const pendingDepositsPDA = await PublicKey.findProgramAddress(
+      [
+        // new PublicKey('Ef2CD9yhQE7BvReQXct68uuYFW8GLKj62u2YPfmua3JY').toBuffer(),
+        (selectedVolt.voltKey).toBuffer(),
+        fundPDA[0].toBuffer(),
+        textEncoder.encode("pendingDeposit"),
+      ],
+      new PublicKey('VoLT1mJz1sbnxwq5Fv2SXjdVDgPXrb9tJyC8WpMDkSp')
+    );
+
+    const pendingWithdrawalsPDA = await PublicKey.findProgramAddress(
+      [
+        // new PublicKey('Ef2CD9yhQE7BvReQXct68uuYFW8GLKj62u2YPfmua3JY').toBuffer(),
+        (selectedVolt.voltKey).toBuffer(),
+        fundPDA[0].toBuffer(),
+        textEncoder.encode("pendingWithdrawal"),
+      ],
+      new PublicKey('VoLT1mJz1sbnxwq5Fv2SXjdVDgPXrb9tJyC8WpMDkSp')
+    );
+   
+    const [epochInfoKey, epochInfoBump] = await VoltSDK.findEpochInfoAddress(
+      selectedVolt.voltKey,
+      selectedVolt.voltVault.roundNumber,
+      new PublicKey('VoLT1mJz1sbnxwq5Fv2SXjdVDgPXrb9tJyC8WpMDkSp')
+    );
+
+    console.log('pendingDepositPDA:: ', pendingDepositsPDA[0].toBase58());
+  
+
+    const dataLayout = struct([u8('instruction'), nu64('deposit_amount')])
+    const data = Buffer.alloc(dataLayout.span)
+    dataLayout.encode(
+      {
+        instruction: 40
+      },
+      data
+      )
+      
+      const keys = [
+        {pubkey: fundPDA[0], isSigner: false, isWritable: true},
+        {pubkey: new PublicKey(VOLT_PROGRAM_ID), isSigner: false, isWritable: false},
+        {pubkey: selectedVolt.voltKey, isSigner: false, isWritable: true},
+        {pubkey: pendingDepositsPDA[0], isSigner: false, isWritable: true}, //PendingDepositsPDA --fund
+        {pubkey: associatedTokenAddressfcSRM, isSigner: false, isWritable: true},//Fund_Vault_token_acc
+        {pubkey: pendingWithdrawalsPDA[0], isSigner: false, isWritable: true},
+        {pubkey: epochInfoKey, isSigner: false, isWritable: true},
+        
+  ];
+      const instruction = new TransactionInstruction({
+      keys,
+      programId,
+      data
+      });
+
+      for(let i=0; i<keys.length;i++) {
+          console.log("key:",i, keys[i].pubkey.toBase58())
+      }
+
+      transaction.add(instruction);
+      transaction.feePayer = key;
+      let hash = await connection.getRecentBlockhash();
+      console.log("blockhash", hash);
+      transaction.recentBlockhash = hash.blockhash;
+
+      const sign = await signAndSendTransaction(walletProvider, transaction);
+      console.log("signature tx:: ", sign)
+      console.log("signature tx url:: ", `https://explorer.solana.com/tx/${sign}`) 
+}
+
+
     const handleFriktionWithdraw= async () => {
       
       const key = walletProvider?.publicKey;
@@ -770,6 +855,7 @@ export const FriktionDeposit = () => {
           <h4>Friktion Get Data</h4>
 
           <button onClick={handleFriktionGetData}>Get Data</button>
+          <button onClick={handleFriktionGetValue}>GET VALUE</button>
 
           <button onClick={handleGetFriktionData}>GET FRIKTION VAULT DATA</button>
 
