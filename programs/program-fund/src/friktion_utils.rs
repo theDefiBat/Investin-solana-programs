@@ -1,6 +1,6 @@
-use bytemuck::bytes_of;
+use bytemuck::{bytes_of};
 use std::{mem::size_of};
-use fixed::types::U64F64;
+use fixed::{types::U64F64};
 use fixed_macro::types::U64F64;
 use fixed::types::I80F48;
 use fixed_macro::types::I80F48;
@@ -21,7 +21,7 @@ use solana_program::{
 use bincode::serialize;
 
 // use anchor_lang::prelude::*;
-use anchor_lang::{prelude::CpiContext, AnchorDeserialize, accounts::sysvar};
+use anchor_lang::{prelude::CpiContext, AnchorDeserialize, accounts::{sysvar, account}};
 use arrayref::{array_ref, array_refs};
 use spl_token::state::{Account, Mint};
 use mango::state::{MangoAccount, MangoGroup, MangoCache, PerpMarket, MAX_TOKENS, MAX_PAIRS, QUOTE_INDEX};
@@ -32,6 +32,7 @@ use volt_abi::*;
 use crate::error::FundError;
 use crate::instruction::{FundInstruction, Data};
 use crate::state::{FundAccount, InvestorData, PlatformData};
+use crate::processor::{parse_token_account};
 
 macro_rules! check {
     ($cond:expr, $err:expr) => {
@@ -60,13 +61,17 @@ pub fn read_friktion_data(
     let epoch_info = volt_abi::FriktionEpochInfo::try_from_slice(raw_data)?;
     msg!("Price: {}, pct_pnl: {}, number_info: {:?}, pnl: {}", epoch_info.vault_token_price, epoch_info.pct_pnl, epoch_info.number, epoch_info.pnl);
     let pending_deposit_info_ai = next_account_info(accounts_iter)?;
-    let pending_info_data: &[u8] = &(pending_deposit_info_ai.data.borrow())[8..];
-    let pending_deposit_info = volt_abi::PendingDeposit::try_from_slice(pending_info_data)?;
-    msg!("Underlying Deposited: {}, Round_Num {}", pending_deposit_info.num_underlying_deposited, pending_deposit_info.round_number);
+    if pending_deposit_info_ai.data_len() > 0 {
+        let pending_info_data: &[u8] = &(pending_deposit_info_ai.data.borrow())[8..];
+        let pending_deposit_info = volt_abi::PendingDeposit::try_from_slice(pending_info_data)?;
+        msg!("Underlying Deposited: {}, Round_Num {}", pending_deposit_info.num_underlying_deposited, pending_deposit_info.round_number);
+    }
     let pending_withdrawal_info_ai = next_account_info(accounts_iter)?;
-    let pending_withdrawal_data: &[u8] = &(pending_withdrawal_info_ai.data.borrow())[8..];
-    let pending_withdrawal_info = volt_abi::PendingWithdrawal::try_from_slice(pending_withdrawal_data)?;
-    msg!("Underlying withdrawaled: {}, Round_Num {}", pending_withdrawal_info.num_volt_redeemed, pending_withdrawal_info.round_number);
+    if pending_withdrawal_info_ai.data_len() > 0 {
+        let pending_withdrawal_data: &[u8] = &(pending_withdrawal_info_ai.data.borrow())[8..];
+        let pending_withdrawal_info = volt_abi::PendingWithdrawal::try_from_slice(pending_withdrawal_data)?;
+        msg!("Underlying withdrawaled: {}, Round_Num {}", pending_withdrawal_info.num_volt_redeemed, pending_withdrawal_info.round_number);
+    }
     Ok(())
 }
 
@@ -435,7 +440,7 @@ pub fn friktion_deposit0(
             ], 
             &[&[&*manager_ai.key.as_ref(), bytes_of(&pda_signer_nonce)]]
         );
-
+        
         Ok(())
 
     }
@@ -902,3 +907,55 @@ pub fn friktion_deposit(
             Ok(())
     
         }
+
+pub fn update_friktion_value(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+) -> Result<(), ProgramError> {
+    let mut val = 0u64;
+    // //for pending dep and withdraws always check round_number matches that of voltVault if not then ask to claim first!!!
+    let accounts_iter = &mut accounts.iter();
+
+    let fund_account_ai = next_account_info(accounts_iter)?;
+    let fund_data = FundAccount::load_mut_checked(fund_account_ai, program_id)?;
+    let volt_program_id = next_account_info(accounts_iter)?.key;
+    check_eq!(*volt_program_id, volt_abi::id());
+    let volt_vault_ai = next_account_info(accounts_iter)?;
+    check!(*volt_vault_ai.key == fund_data.friktion_vault.volt_vault_id, FundError::InvalidStateAccount);
+    let volt_vault_info = &(volt_vault_ai.data.borrow())[8..];
+    let volt_vault_data = volt_abi::VoltVault::try_from_slice(volt_vault_info)?;
+    let current_round = volt_vault_data.round_number;
+    let pending_deposit_info_ai = next_account_info(accounts_iter)?;
+    let (pending_deposit_pda, bump) = Pubkey::find_program_address(&[volt_vault_ai.key.as_ref(), fund_account_ai.key.as_ref(), b"pendingDeposit"], volt_program_id);
+    msg!("pending dep pda {:?}", pending_deposit_pda);
+    check!(*pending_deposit_info_ai.key == pending_deposit_pda, FundError::IncorrectPDA);
+    if pending_deposit_info_ai.data_len() > 0 {
+        let pending_info: &[u8] = &(pending_deposit_info_ai.data.borrow())[8..];
+        let pending_deposit_data = volt_abi::PendingDeposit::try_from_slice(pending_info)?;
+        check!(pending_deposit_data.round_number == current_round, FundError::UnclaimedPendingDeposit);
+        val = pending_deposit_data.num_underlying_deposited;
+        msg!("Underlying Deposited: {}, Round_Num {}", pending_deposit_data.num_underlying_deposited, pending_deposit_data.round_number);
+    }
+
+    let fc_tokens_ta_ai = next_account_info(accounts_iter)?;
+    let fc_tokens_data = parse_token_account(fc_tokens_ta_ai)?;
+    let mut fc_tokens = fc_tokens_data.amount;
+    let pending_withdrawal_info_ai = next_account_info(accounts_iter)?;
+    let (pending_withdrawal_pda, bump) = Pubkey::find_program_address(&[volt_vault_ai.key.as_ref(), fund_account_ai.key.as_ref(), b"pendingWithdrawal"], volt_program_id);
+    msg!("pending wdw pda {:?}", pending_withdrawal_pda);
+    check!(*pending_withdrawal_info_ai.key == pending_withdrawal_pda, FundError::IncorrectPDA);
+    if pending_withdrawal_info_ai.data_len() > 0 {
+        let pending_info: &[u8] = &(pending_withdrawal_info_ai.data.borrow())[8..];
+        let pending_withdrawal_data = volt_abi::PendingWithdrawal::try_from_slice(pending_info)?;
+        check!(pending_withdrawal_data.round_number == current_round, FundError::UnclaimedPendingwithdrawal);
+        fc_tokens = fc_tokens.checked_add(pending_withdrawal_data.num_volt_redeemed).unwrap();
+        msg!("Volt Tokens Withdrawan: {}, Round_Num {}", pending_withdrawal_data.num_volt_redeemed, pending_withdrawal_data.round_number);
+    }
+    let epoch_info_ai = next_account_info(accounts_iter)?;
+    let epoch_info = &(epoch_info_ai.data.borrow())[8..];
+    let epoch_info_data = volt_abi::FriktionEpochInfo::try_from_slice(epoch_info)?; 
+    let fc_tokens_val = epoch_info_data.vault_token_price*(fc_tokens as f64);
+    val = val.checked_add(fc_tokens_val as u64).unwrap();
+    msg!("Friktion val in ul: {:?}", val);
+    Ok(())
+}

@@ -457,7 +457,8 @@ pub enum FundInstruction {
     FriktionCancelPendingDeposit,
     FriktionCancelPendingWithdrawal,
     FriktionClaimPendingDeposit,
-    FriktionClaimPendingWithdrawal
+    FriktionClaimPendingWithdrawal,
+    UpdateFriktionValue
 }
 
 
@@ -782,6 +783,9 @@ impl FundInstruction {
             }
             39 => {
                 FundInstruction::FriktionClaimPendingWithdrawal
+            }
+            40 => {
+                FundInstruction::UpdateFriktionValue
             }
             _ => { return None; }
         })

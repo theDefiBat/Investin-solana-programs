@@ -114,7 +114,7 @@ impl Fund {
         
         let rent = Rent::get()?;        
         let fund_pda_size = size_of::<FundAccount>();
-        let (pda, nonce) = Pubkey::find_program_address(&[&*manager_ai.key.as_ref()], program_id);
+        let (pda, nonce) = Pubkey::find_program_address(&[manager_ai.key.as_ref()], program_id);
         check!(*fund_account_ai.key == pda, FundError::IncorrectPDA);
         invoke_signed(
             &create_account(
@@ -714,6 +714,8 @@ impl Fund {
                 }
                 fund_data = FundAccount::load_mut_checked(fund_account_ai, program_id)?;
             }
+
+            //Friktion Withdraw then transfer UL to user 
 
             // msg!("usdc {:?}, tok {:?}", usdc_deposits_before, token_deposits_before);
             let (perp_pnl_after, usdc_deposits_after) = get_mango_valuation(
@@ -1491,7 +1493,10 @@ impl Fund {
                 msg!("FundInstruction::FriktionClaimPendingWithdrawal");
                 return friktion_claim_pending_withdrawal(program_id, accounts)
             }
-
+            FundInstruction::UpdateFriktionValue => {
+                msg!("FundInstruction::FriktionUpdateValue");
+                return update_friktion_value(program_id, accounts)
+            }
         }
     }
 }

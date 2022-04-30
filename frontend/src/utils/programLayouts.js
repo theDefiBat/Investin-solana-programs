@@ -373,6 +373,7 @@ export const FRIKTION_VOLT = struct(
 )
 
 
+
 export const FUND_PDA_DATA = struct([
   u8('is_initialized'),
   u8('number_of_active_investments'),

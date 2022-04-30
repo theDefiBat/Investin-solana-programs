@@ -2,7 +2,7 @@ import { PublicKey, SYSVAR_CLOCK_PUBKEY, Transaction, TransactionInstruction } f
 import React, { useState , useEffect} from 'react'
 import { GlobalState } from '../store/globalState';
 import { createAccountInstruction, createAssociatedTokenAccountIfNotExist, signAndSendTransaction } from '../utils/web3'
-import { connection, programId, RENT_PROGRAM_ID, platformStateAccount, idsIndex, FUND_ACCOUNT_KEY, LIQUIDITY_POOL_PROGRAM_ID_V4, TOKEN_PROGRAM_ID } from '../utils/constants';
+import { connection, programId, RENT_PROGRAM_ID, platformStateAccount, idsIndex, FUND_ACCOUNT_KEY, LIQUIDITY_POOL_PROGRAM_ID_V4, TOKEN_PROGRAM_ID, SYSTEM_PROGRAM_ID } from '../utils/constants';
 import { struct, u8, nu64 } from 'buffer-layout';
 import { TOKENS } from '../utils/tokens'
 import { FRIKTION_VOLT, FUND_DATA, FUND_PDA_DATA, PLATFORM_DATA, PRICE_DATA, u64 } from '../utils/programLayouts';
@@ -161,7 +161,7 @@ export const FriktionDeposit = () => {
 
         const sign = await signAndSendTransaction(walletProvider, transaction);
         console.log("signature tx:: ", sign)
-        console.log("signature tx url:: ", `https://solscan.io/tx/${sign}`)
+        console.log("signature tx url:: ", `https://explorer.solana.com/tx/${sign}`)
     }
 
     const handleFriktionDeposit = async () => {
@@ -192,6 +192,8 @@ export const FriktionDeposit = () => {
         ],
         new PublicKey('VoLT1mJz1sbnxwq5Fv2SXjdVDgPXrb9tJyC8WpMDkSp')
       );
+
+      // const volt = new VoltSDK(FriktionSDK, selectedVolt, );
 
       // const ExtraVoltDataAddress = await selectedVolt.findExtraVoltDataAddress(selectedVolt.voltKey)
       const [extraVoltKey] = await VoltSDK.findExtraVoltDataAddress(selectedVolt.voltKey);
@@ -293,7 +295,7 @@ export const FriktionDeposit = () => {
 
         const sign = await signAndSendTransaction(walletProvider, transaction);
         console.log("signature tx:: ", sign)
-        console.log("signature tx url:: ", `https://solscan.io/tx/${sign}`) 
+        console.log("signature tx url:: ", `https://explorer.solana.com/tx/${sign}`) 
   }
 
     const handleFriktionWithdraw= async () => {
@@ -396,7 +398,7 @@ export const FriktionDeposit = () => {
 
         const sign = await signAndSendTransaction(walletProvider, transaction);
         console.log("signature tx:: ", sign)
-        console.log("signature tx url:: ", `https://solscan.io/tx/${sign}`) 
+        console.log("signature tx url:: ", `https://explorer.solana.com/tx/${sign}`) 
   }
 
   const handleFriktionCancelPendingDeposit = async () => {
@@ -524,7 +526,7 @@ export const FriktionDeposit = () => {
 
       const sign = await signAndSendTransaction(walletProvider, transaction);
       console.log("signature tx:: ", sign)
-      console.log("signature tx url:: ", `https://solscan.io/tx/${sign}`) 
+      console.log("signature tx url:: ", `https://explorer.solana.com/tx/${sign}`) 
   }
 
   const handleFriktionCancelPendingWithdrawal = async () => {
@@ -649,7 +651,100 @@ export const FriktionDeposit = () => {
 
       const sign = await signAndSendTransaction(walletProvider, transaction);
       console.log("signature tx:: ", sign)
-      console.log("signature tx url:: ", `https://solscan.io/tx/${sign}`) 
+      console.log("signature tx url:: ", `https://explorer.solana.com/tx/${sign}`) 
+  }
+
+  const handleFriktionClaimPendingDeposit = async () => {
+
+    const key = walletProvider?.publicKey;
+      if (!key ) {
+        alert("connect wallet")
+        return;
+      };
+      const transaction = new Transaction()
+
+      const fundPDA = await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId);
+
+      const associatedTokenAddressfcSRM = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey('5SLqZSywodLS8ih6U2AAioZrxpgR149hR8SApmCB7r5X'), fundPDA[0], transaction);    
+      const associatedTokenAddressSRM = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey('SRMuApVNdxXokk5GT7XD5cUUgXMBCoAz2LHeuAoKWRt'), fundPDA[0], transaction);    
+      const textEncoder = new TextEncoder();
+      
+      const pendingDepositsPDA = await PublicKey.findProgramAddress(
+        [
+          // new PublicKey('Ef2CD9yhQE7BvReQXct68uuYFW8GLKj62u2YPfmua3JY').toBuffer(),
+          (selectedVolt.voltKey).toBuffer(),
+          fundPDA[0].toBuffer(),
+          textEncoder.encode("pendingDeposit"),
+        ],
+        new PublicKey('VoLT1mJz1sbnxwq5Fv2SXjdVDgPXrb9tJyC8WpMDkSp')
+      );
+
+
+      const pendingDepositsPDAData = await selectedVolt.getPendingDepositByKey(pendingDepositsPDA[0]);
+      console.log('x ::: ', pendingDepositsPDAData) 
+
+      const [extraVoltKey] = await VoltSDK.findExtraVoltDataAddress(selectedVolt.voltKey);
+
+      const [pendingDepositRoundInfoKey, roundInfoKeyBump] = await VoltSDK.findRoundInfoAddress(
+        selectedVolt.voltKey,
+        pendingDepositsPDAData.roundNumber,
+        new PublicKey('VoLT1mJz1sbnxwq5Fv2SXjdVDgPXrb9tJyC8WpMDkSp')
+      );
+
+      const [PendingDepositRoundVoltTokens, pdrvtabump] = (
+        await VoltSDK.findRoundVoltTokensAddress(
+          selectedVolt.voltKey,
+          pendingDepositsPDAData.roundNumber,
+          new PublicKey('VoLT1mJz1sbnxwq5Fv2SXjdVDgPXrb9tJyC8WpMDkSp')
+        )
+      );
+
+      const dataLayout = struct([u8('instruction')])
+      const data = Buffer.alloc(dataLayout.span)
+      dataLayout.encode(
+        {
+          instruction: 38,
+          deposit_amount: 1000000
+        },
+        data
+      )
+
+      const keys = [
+        {pubkey: fundPDA[0], isSigner: false, isWritable: true},
+        {pubkey: key, isSigner: true, isWritable: true },
+        {pubkey: new PublicKey(VOLT_PROGRAM_ID), isSigner: false, isWritable: false},
+        {pubkey: fundPDA[0], isSigner: false, isWritable: true},
+        {pubkey: selectedVolt.voltKey, isSigner: false, isWritable: true},
+        {pubkey: extraVoltKey, isSigner: false, isWritable: false},
+        {pubkey: selectedVolt.voltVault.vaultAuthority, isSigner: false, isWritable: false},
+        {pubkey: associatedTokenAddressfcSRM, isSigner: false, isWritable: true},
+        {pubkey: pendingDepositRoundInfoKey, isSigner: false, isWritable: true},
+        {pubkey: PendingDepositRoundVoltTokens, isSigner: false, isWritable: true},
+        {pubkey: pendingDepositsPDA[0], isSigner: false, isWritable: true},
+        {pubkey: SYSTEM_PROGRAM_ID, isSigner: false, isWritable: false},
+        {pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false}
+      ];
+
+      const instruction = new TransactionInstruction({
+        keys,
+        programId,
+        data
+      })
+
+      for(let i=0; i<keys.length;i++) {
+        console.log("key:",i, keys[i].pubkey.toBase58())
+    }
+    
+    transaction.add(instruction);
+    transaction.feePayer = key;
+    let hash = await connection.getRecentBlockhash();
+    console.log("blockhash", hash);
+    transaction.recentBlockhash = hash.blockhash;
+
+    const sign = await signAndSendTransaction(walletProvider, transaction);
+    console.log("signature tx:: ", sign)
+    console.log("signature tx url:: ", `https://explorer.solana.com/tx/${sign}`) 
+
   }
 
 
@@ -662,6 +757,9 @@ export const FriktionDeposit = () => {
 
           <h4>Friktion CancelPendingDeposit</h4>
           <button onClick={handleFriktionCancelPendingDeposit}>CancelPendingDeposit</button>
+
+          <h4>Friktion ClaimPendingDeposit</h4>
+          <button onClick={handleFriktionClaimPendingDeposit}>ClaimPendingDeposit</button>
 
           <h4>Friktion Withdraw</h4>
           <button onClick={handleFriktionWithdraw}>Withdraw</button>

@@ -118,7 +118,8 @@ pub struct FundAccount {
     pub version: u8,
     pub is_private: bool,
     pub fund_v3_index: u16,
-    pub padding: [u8; 4],
+    pub is_friktion_initialized: bool,
+    pub padding: [u8; 3],
 
     /// Minimum Amount
     pub min_amount: u64,
@@ -160,10 +161,13 @@ pub struct FundAccount {
      pub guard: SwapGuard,
 
      pub limit_orders : [LimitOrderInfo; MAX_LIMIT_ORDERS], // 48 each = 96 
+
+     
+     pub friktion_vault: FriktionVaultInfo,
      
     //  pub margin_update_padding: [u8; 24], //80 Bytes for Depr. MarginInfo Size
 
-    pub migration_additonal_padding: [u8; 1952] // 2024 + 24 - 96 =  1
+    pub migration_additonal_padding: [u8; 1880] // 2024 + 24 - 96 =  1
 }
 impl_loadable!(FundAccount);
 
@@ -176,7 +180,8 @@ pub struct TokenSlot {
     pub is_active: bool,
     pub index: [u8; 3],
     pub mux: u8,
-    pub padding: [u8; 3],
+    pub is_locked: u8,
+    pub padding: [u8; 2],
 
     // token balances & debts
     pub balance: u64,
@@ -261,6 +266,19 @@ pub struct MangoInfo {
     pub padding: [u8; 24]
 }
 impl_loadable!(MangoInfo);
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
+pub struct FriktionVaultInfo {
+    pub ul_token_index: u8,
+    pub padding: [u8; 7],
+    pub ul_token_value: u64,
+    pub last_updated: UnixTimestamp,
+    pub volt_vault_id: Pubkey,
+    pub ul_debt: u64,
+    pub fc_token_debt: u64,    
+}
+impl_loadable!(FriktionVaultInfo);
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug)]
