@@ -1547,6 +1547,32 @@ pub fn update_amount_and_performance(
 
         fund_val = fund_val.checked_add(val).unwrap();
     }
+
+    if fund_data.is_friktion_initialized {
+
+        let friktion_ul_token_info = platform_data.token_list[fund_data.tokens[fund_data.friktion_vault.ul_token_slot as usize].index[fund_data.tokens[fund_data.friktion_vault.ul_token_slot as usize].mux as usize] as usize];
+            
+            if Clock::get()?.unix_timestamp - fund_data.friktion_vault.last_updated > 100 {
+                msg!("FKV not up-to-date...");
+                return Err(FundError::PriceStaleInAccount.into())
+            }
+            // calculate price in terms of base token
+            let mut val: U64F64 = U64F64::from_num(fund_data.friktion_vault.ul_token_value - fund_data.friktion_vault.ul_debt )
+            .checked_mul(friktion_ul_token_info.pool_price).unwrap();
+    
+             if friktion_ul_token_info.pc_index != 0 {
+                 let underlying_token_info = platform_data.token_list[friktion_ul_token_info.pc_index as usize];
+                 if Clock::get()?.unix_timestamp - underlying_token_info.last_updated > 100 {
+                    msg!("ul price not up-to-date.. aborting");
+                    return Err(FundError::PriceStaleInAccount.into())
+                }
+                 val = val.checked_mul(underlying_token_info.pool_price).unwrap();
+             }
+    
+        fund_val = fund_val.checked_add(val).unwrap();
+    }
+    
+
     
     if update_perf {
         let mut perf = U64F64::from_num(fund_data.prev_performance);

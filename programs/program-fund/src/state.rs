@@ -217,7 +217,8 @@ pub struct InvestorData {
     pub is_initialized: bool,
     pub has_withdrawn: bool,
     pub withdrawn_from_margin: bool,
-    pub padding: [u8; 5],
+    pub withdrawn_from_friktion: bool,
+    pub padding: [u8; 4],
 
     /// Investor wallet address
     pub owner: Pubkey,
@@ -270,7 +271,7 @@ impl_loadable!(MangoInfo);
 #[repr(C)]
 #[derive(Clone, Copy, Debug)]
 pub struct FriktionVaultInfo {
-    pub ul_token_index: u8,
+    pub ul_token_slot: u8,
     pub padding: [u8; 7],
     pub ul_token_value: u64,
     pub last_updated: UnixTimestamp,

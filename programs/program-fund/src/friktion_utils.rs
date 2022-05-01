@@ -375,10 +375,20 @@ pub fn friktion_deposit0(
             token_program_ai,
         ] = accounts;
 
+        //TODO::
+        // UPDATE balance of ul_token_slot on fund 
+        // Take token_slot as param and init if needed 
+
         check!(manager_ai.is_signer, ProgramError::MissingRequiredSignature);
         let mut fund_data = FundAccount::load_mut_checked(fund_account_ai, program_id)?;
         check!(fund_data.manager_account == *manager_ai.key, FundError::ManagerMismatch);
         let pda_signer_nonce = fund_data.signer_nonce;
+
+        //check
+        //*underlying_token_source_ai.key == fund_data.tokens[fund_data.friktion_vault.ul_token_slot as usize].vault
+        
+
+        
         drop(fund_data);
         msg!("Trying CPI");
         // authority_check_ai.is_signer = true;
@@ -440,7 +450,12 @@ pub fn friktion_deposit0(
             ], 
             &[&[&*manager_ai.key.as_ref(), bytes_of(&pda_signer_nonce)]]
         );
-        
+
+        fund_data = FundAccount::load_mut_checked(fund_account_ai, program_id)?;
+        let tsi = fund_data.friktion_vault.ul_token_slot as usize;
+        let ul_fund_token_data = parse_token_account(underlying_token_source_ai)?;
+        fund_data.tokens[tsi].balance = ul_fund_token_data.amount;
+        check!(fund_data.tokens[tsi].balance >= fund_data.tokens[tsi].debt, ProgramError::InsufficientFunds);
         Ok(())
 
     }
@@ -917,11 +932,11 @@ pub fn update_friktion_value(
     let accounts_iter = &mut accounts.iter();
 
     let fund_account_ai = next_account_info(accounts_iter)?;
-    let fund_data = FundAccount::load_mut_checked(fund_account_ai, program_id)?;
+    let mut fund_data = FundAccount::load_mut_checked(fund_account_ai, program_id)?;
     let volt_program_id = next_account_info(accounts_iter)?.key;
     check_eq!(*volt_program_id, volt_abi::id());
     let volt_vault_ai = next_account_info(accounts_iter)?;
-    check!(*volt_vault_ai.key == fund_data.friktion_vault.volt_vault_id, FundError::InvalidStateAccount);
+    // check!(*volt_vault_ai.key == fund_data.friktion_vault.volt_vault_id, FundError::InvalidStateAccount);
     let volt_vault_info = &(volt_vault_ai.data.borrow())[8..];
     let volt_vault_data = volt_abi::VoltVault::try_from_slice(volt_vault_info)?;
     let current_round = volt_vault_data.round_number;
@@ -932,7 +947,7 @@ pub fn update_friktion_value(
     if pending_deposit_info_ai.data_len() > 0 {
         let pending_info: &[u8] = &(pending_deposit_info_ai.data.borrow())[8..];
         let pending_deposit_data = volt_abi::PendingDeposit::try_from_slice(pending_info)?;
-        check!(pending_deposit_data.round_number == current_round, FundError::UnclaimedPendingDeposit);
+        check!(pending_deposit_data.round_number == current_round || pending_deposit_data.round_number == 0, FundError::UnclaimedPendingDeposit);
         val = pending_deposit_data.num_underlying_deposited;
         msg!("Underlying Deposited: {}, Round_Num {}", pending_deposit_data.num_underlying_deposited, pending_deposit_data.round_number);
     }
@@ -947,7 +962,7 @@ pub fn update_friktion_value(
     if pending_withdrawal_info_ai.data_len() > 0 {
         let pending_info: &[u8] = &(pending_withdrawal_info_ai.data.borrow())[8..];
         let pending_withdrawal_data = volt_abi::PendingWithdrawal::try_from_slice(pending_info)?;
-        check!(pending_withdrawal_data.round_number == current_round, FundError::UnclaimedPendingwithdrawal);
+        check!(pending_withdrawal_data.round_number == current_round || pending_withdrawal_data.round_number == 0, FundError::UnclaimedPendingwithdrawal);
         fc_tokens = fc_tokens.checked_add(pending_withdrawal_data.num_volt_redeemed).unwrap();
         msg!("Volt Tokens Withdrawan: {}, Round_Num {}", pending_withdrawal_data.num_volt_redeemed, pending_withdrawal_data.round_number);
     }
@@ -957,5 +972,9 @@ pub fn update_friktion_value(
     let fc_tokens_val = epoch_info_data.vault_token_price*(fc_tokens as f64);
     val = val.checked_add(fc_tokens_val as u64).unwrap();
     msg!("Friktion val in ul: {:?}", val);
+    fund_data.friktion_vault.volt_vault_id = *volt_vault_ai.key;
+    fund_data.friktion_vault.last_updated = Clock::get()?.unix_timestamp;
+    fund_data.friktion_vault.ul_token_value = val;
     Ok(())
 }
+
