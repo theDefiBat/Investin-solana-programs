@@ -61,7 +61,7 @@ function App() {
         <SendGreating />
         <DisplayInfo/>
         <FriktionDeposit/>
-        <MigrateState/>
+        {/* <MigrateState/> */}
         <InitialisedFund />
         <Deposit />
 	      <Transfer />
@@ -77,7 +77,7 @@ function App() {
         <MangoInitialize />
 
         <MangoPlaceOrder />
-        {/* <AdminControl /> */}
+        <AdminControl />
         <AllFundsInvestors/>
       </Container>
     </div>

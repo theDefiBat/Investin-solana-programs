@@ -534,9 +534,12 @@ export const Withdraw = () => {
 
                
       {/* <button onClick={handleUpdateTokenPrices}>updatePoolPrices</button> */}
-      <button onClick={handleWithdrawSettle}>withdraw_settle_1</button>
-      <button onClick={handleWithdrawFromMango}>withdraw_from_margin_2</button>
-      <button onClick={handleWithdrawFromFund}>withdraw_from_fund_3</button>
+      <button onClick={handleWithdrawSettle}>withdraw_settle_1</button> 
+      <br/>
+      <button onClick={handleWithdrawFromMango}>withdraw_from_mango_2</button>
+      <button onClick={handleWithdrawFromMango}>Withdraw_from_friktion_2</button>
+      <br/>
+      <button onClick={handleWithdrawFromFund}>withdraw_from_fund_3</button> 
       
       
     </div>
