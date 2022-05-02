@@ -1505,6 +1505,11 @@ impl Fund {
                 msg!("FundInstruction::FriktionRemoveFromFund");
                 return update_friktion_value(program_id, accounts)
             }
+            FundInstruction::FriktionInvestorWithdraw => {
+                msg!("FundInstruction::FriktionInvestorWithdraw");
+                return friktion_investor_withdraw(program_id, accounts)
+            }
+            
         }
     }
 }

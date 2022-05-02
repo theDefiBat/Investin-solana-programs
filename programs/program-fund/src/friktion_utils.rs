@@ -355,12 +355,16 @@ pub fn friktion_add_to_fund(
     let platform_data = PlatformData::load_checked(platform_acc, program_id)?;
     let mut fund_data = FundAccount::load_mut_checked(fund_account_acc, program_id)?;
     check!(fund_data.friktion_vault.is_active == false, FundError::InvalidStateAccount);
+    // verify that it is whitelisted on PLATFORM
+    
     // let token_index = platform_data.get_token_index(mint_acc.key, fund_data.tokens[ul_token_slot as usize].mux);
     // // let token_index_2 = platform_data.get_token_index(mint_acc.key, 1);
     // // both indexes cant be None
     // check!(ul_token_slot!=255, FundError::Default);
     // check!(((token_index_1 == fund_data.tokens[ul_token_slot as usize].index[0])), ProgramError::InvalidAccountData);
     // check!(volt_vault_info.underlying_asset_mint == platform_data.)
+
+    //also verify that it is whitelisted on FUND
     fund_data.friktion_vault.volt_vault_id = *volt_vault_ai.key;
     fund_data.friktion_vault.ul_token_slot = ul_token_slot;
     fund_data.friktion_vault.is_active = true;
@@ -612,6 +616,109 @@ let accounts = array_ref![accounts, 0, NUM_FIXED];
 
 }
     
+pub fn friktion_investor_withdraw(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    withdraw_amount: u64
+    ) -> Result<(), ProgramError> {
+    const NUM_FIXED:usize = 23;
+    let accounts = array_ref![accounts, 0, NUM_FIXED];
+    
+        let [
+            fund_account_ai,
+            investor_state_ai,
+            investor_ai,
+            volt_program_ai,
+            authority_ai,
+            dao_authority_ai,
+            authority_check_ai,
+            vault_mint_ai,
+            volt_vault_ai,
+            vault_authority_ai,
+            extra_volt_data_ai,
+            whitelist_ai,
+            deposit_pool_ai,
+            vault_token_source_ai,
+            underlying_token_destination_ai,
+            round_info_ai,
+            round_underlying_tokens_ai,
+            pending_withdrawal_info_ai,
+            epoch_info_ai,
+            fee_acct_ai,
+            system_program_ai,
+            token_program_ai,
+            sysvar_rent_ai
+        ] = accounts;
+    
+        check!(investor_ai.is_signer, ProgramError::MissingRequiredSignature);
+        let mut investor_data = InvestorData::load_mut_checked(investor_state_ai, program_id)?;
+        let mut fund_data = FundAccount::load_mut_checked(fund_account_ai, program_id)?;
+        check!(fund_data.manager_account == *manager_ai.key, FundError::ManagerMismatch);
+        let pda_signer_nonce = fund_data.signer_nonce;
+
+        check!(investor_data.owner == *investor_ai.key, ProgramError::MissingRequiredSignature);
+        check!(investor_ai.is_signer, ProgramError::MissingRequiredSignature);
+        check_eq!(investor_data.manager, fund_data.manager_account);
+        check!(investor_data.has_withdrawn == true && investor_data.withdrawn_from_margin == false, FundError::InvalidStateAccount);
+
+       
+        drop(fund_data);
+        msg!("Trying CPI");
+        // authority_check_ai.is_signer = true;
+        // let authority_check_ai_new = AccountInfo::new(authority_check_ai.key, true, authority_check_ai.is_writable, *authority_check_ai.laudachipppa(), *authority_check_ai.data.clone(), authority_check_ai.owner, authority_check_ai.executable, authority_check_ai.rent_epoch);
+        invoke_signed(
+            &friktion_withdraw_ins(
+                volt_program_ai.key, 
+                authority_ai.key,
+                dao_authority_ai.key,
+                authority_check_ai.key, 
+                vault_mint_ai.key, 
+                volt_vault_ai.key,
+                vault_authority_ai.key,
+                extra_volt_data_ai.key,
+                whitelist_ai.key,
+                deposit_pool_ai.key, 
+                vault_token_source_ai.key, 
+                underlying_token_destination_ai.key, 
+                round_info_ai.key, 
+                round_underlying_tokens_ai.key, 
+                pending_withdrawal_info_ai.key, 
+                epoch_info_ai.key, 
+                fee_acct_ai.key, 
+                system_program_ai.key, 
+                token_program_ai.key, 
+                2495396153584390839, 
+                withdraw_amount
+            )?,
+            &[
+                volt_program_ai.clone(),
+                authority_ai.clone(),
+                dao_authority_ai.clone(),
+                authority_check_ai.clone(),
+                vault_mint_ai.clone(),
+                volt_vault_ai.clone(),
+                vault_authority_ai.clone(),
+                extra_volt_data_ai.clone(),
+                whitelist_ai.clone(),
+                deposit_pool_ai.clone(),
+                vault_token_source_ai.clone(),
+                underlying_token_destination_ai.clone(),
+                round_info_ai.clone(),
+                round_underlying_tokens_ai.clone(),
+                pending_withdrawal_info_ai.clone(),
+                epoch_info_ai.clone(),
+                fee_acct_ai.clone(),
+                system_program_ai.clone(),
+                token_program_ai.clone(),
+                sysvar_rent_ai.clone()
+            ], 
+            &[&[&*investor_data.manager.key.as_ref(), bytes_of(&pda_signer_nonce)]]
+        );
+        
+        Ok(())
+    
+    }
+     
 
 pub fn friktion_cancel_pending_deposit(
     program_id: &Pubkey,
