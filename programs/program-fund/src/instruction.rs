@@ -458,7 +458,11 @@ pub enum FundInstruction {
     FriktionCancelPendingWithdrawal,
     FriktionClaimPendingDeposit,
     FriktionClaimPendingWithdrawal,
-    UpdateFriktionValue
+    UpdateFriktionValue,
+    FriktionAddToFund {
+        ul_token_slot: u8
+    },
+    FriktionRemoveFromFund
 }
 
 
@@ -787,6 +791,18 @@ impl FundInstruction {
             40 => {
                 FundInstruction::UpdateFriktionValue
             }
+            41 => {
+                let ul_token_slot = array_ref![data, 0, 1];
+                FundInstruction::FriktionAddToFund {
+                    ul_token_slot: u8::from_le_bytes(*ul_token_slot)
+                }
+            }
+            42 => {
+                FundInstruction::FriktionRemoveFromFund
+            }
+            
+
+
             _ => { return None; }
         })
     }

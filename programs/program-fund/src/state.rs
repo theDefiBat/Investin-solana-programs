@@ -163,11 +163,11 @@ pub struct FundAccount {
      pub limit_orders : [LimitOrderInfo; MAX_LIMIT_ORDERS], // 48 each = 96 
 
      
-     pub friktion_vault: FriktionVaultInfo,
+     pub friktion_vault: FriktionVaultInfo, // 88 u8
      
     //  pub margin_update_padding: [u8; 24], //80 Bytes for Depr. MarginInfo Size
 
-    pub migration_additonal_padding: [u8; 1880] // 2024 + 24 - 96 =  1
+    pub migration_additonal_padding: [u8; 1864] // 2024 + 24 - 96 - 88 =  1864
 }
 impl_loadable!(FundAccount);
 
@@ -246,8 +246,8 @@ pub struct InvestorData {
     pub token_debts: [u64; NUM_TOKENS],
 
     pub share : U64F64,
-    // padding for future use
-    pub xpadding: [u8; 16] 
+    pub friktion_ul_debt: u64,
+    pub friktion_fc_debt: u64
 }
 impl_loadable!(InvestorData);
 
@@ -271,13 +271,16 @@ impl_loadable!(MangoInfo);
 #[repr(C)]
 #[derive(Clone, Copy, Debug)]
 pub struct FriktionVaultInfo {
-    pub ul_token_slot: u8,
-    pub padding: [u8; 7],
-    pub ul_token_value: u64,
     pub last_updated: UnixTimestamp,
     pub volt_vault_id: Pubkey,
-    pub ul_debt: u64,
+    pub total_value_in_ul: u64, //inclusing pending w & d
+    pub fc_token_balance: u64,
+    pub ul_token_balance: u64,
     pub fc_token_debt: u64,    
+    pub ul_debt: u64,
+    pub ul_token_slot: u8,
+    pub is_active: bool,
+    pub padding: [u8; 6],
 }
 impl_loadable!(FriktionVaultInfo);
 

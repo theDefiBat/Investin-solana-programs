@@ -1470,8 +1470,8 @@ impl Fund {
             return read_friktion_data(program_id, accounts);
             }
             FundInstruction::FriktionDeposit0 { deposit_amount } => {
-                msg!("FundInstruction::FriktionDeposit0");
-                return friktion_deposit0(program_id, accounts, deposit_amount)
+                msg!("FundInstruction::FriktionDeposit");
+                return friktion_deposit(program_id, accounts, deposit_amount)
             }
             FundInstruction::FriktionCancelPendingDeposit => {
                 msg!("FundInstruction::FriktionCancelPendingDeposit");
@@ -1495,6 +1495,14 @@ impl Fund {
             }
             FundInstruction::UpdateFriktionValue => {
                 msg!("FundInstruction::FriktionUpdateValue");
+                return update_friktion_value(program_id, accounts)
+            }
+            FundInstruction::FriktionAddToFund { ul_token_slot } => {
+                msg!("FundInstruction::FriktionAddToFund");
+                return friktion_add_to_fund(program_id, accounts, ul_token_slot);
+            }
+            FundInstruction::FriktionRemoveFromFund => {
+                msg!("FundInstruction::FriktionRemoveFromFund");
                 return update_friktion_value(program_id, accounts)
             }
         }
@@ -1557,7 +1565,7 @@ pub fn update_amount_and_performance(
                 return Err(FundError::PriceStaleInAccount.into())
             }
             // calculate price in terms of base token
-            let mut val: U64F64 = U64F64::from_num(fund_data.friktion_vault.ul_token_value - fund_data.friktion_vault.ul_debt )
+            let mut val: U64F64 = U64F64::from_num(fund_data.friktion_vault.ul_token_balance - fund_data.friktion_vault.ul_debt )
             .checked_mul(friktion_ul_token_info.pool_price).unwrap();
     
              if friktion_ul_token_info.pc_index != 0 {
