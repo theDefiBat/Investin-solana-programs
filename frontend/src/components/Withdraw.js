@@ -575,12 +575,11 @@ export const Withdraw = () => {
     console.log('pendingDepositPDA:: ', pendingWithdrawalsPDA[0].toBase58());
 
 
-    const dataLayout = struct([u8('instruction'), nu64('deposit_amount')])
+    const dataLayout = struct([u8('instruction')])
     const data = Buffer.alloc(dataLayout.span)
     dataLayout.encode(
       {
-        instruction: 36,
-        deposit_amount: 1000000
+        instruction: 43,
       },
       data
     )
