@@ -118,8 +118,7 @@ pub struct FundAccount {
     pub version: u8,
     pub is_private: bool,
     pub fund_v3_index: u16,
-    pub is_friktion_initialized: bool,
-    pub padding: [u8; 3],
+    pub padding: [u8; 4],
 
     /// Minimum Amount
     pub min_amount: u64,
@@ -217,8 +216,9 @@ pub struct InvestorData {
     pub is_initialized: bool,
     pub has_withdrawn: bool,
     pub withdrawn_from_margin: bool,
-    pub withdrawn_from_friktion: bool,
-    pub padding: [u8; 4],
+    pub withdrawn_ul_from_friktion: bool,
+    pub withdrawn_ftokens_from_friktion: bool,
+    pub padding: [u8; 3],
 
     /// Investor wallet address
     pub owner: Pubkey,
@@ -273,11 +273,11 @@ impl_loadable!(MangoInfo);
 pub struct FriktionVaultInfo {
     pub last_updated: UnixTimestamp,
     pub volt_vault_id: Pubkey,
-    pub total_value_in_ul: u64, //inclusing pending w & d
+    pub total_value_in_ul: u64, //including pending w & d
     pub fc_token_balance: u64,
     pub ul_token_balance: u64,
     pub fc_token_debt: u64,    
-    pub ul_debt: u64,
+    pub ul_token_debt: u64,
     pub ul_token_slot: u8,
     pub is_active: bool,
     pub padding: [u8; 6],
@@ -296,7 +296,7 @@ pub struct LimitOrderInfo {
     pub is_repost_processing: bool,
     pub perp_market_id: u8,
     pub side: Side,
-    pub reduce_only: bool,
+     pub reduce_only: bool,
     pub limit: u8,
     pub padding :[u8;3],
 }

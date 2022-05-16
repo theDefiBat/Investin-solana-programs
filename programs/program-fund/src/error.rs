@@ -87,7 +87,13 @@ pub enum FundError {
      UnclaimedPendingDeposit,
      //13
      #[error("Claim pending Withdrawal on Friktion")]
-     UnclaimedPendingwithdrawal
+     UnclaimedPendingwithdrawal,
+
+     #[error("Incorrect Friktion Vault")]
+     IncorrectFriktionVault,
+
+     #[error("Incorrect Friktion Vault")]
+     InvestorIndexError
 
 }
 

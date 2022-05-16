@@ -142,8 +142,9 @@ export const PLATFORM_DATA = struct([
       publicKeyLayout('pool_pc_account'),
       U64F64('pool_price'),
       ns64('last_updated'),
-      u8('tokenId'),
-      seq(u8(), 7, 'padding')
+      u8('token_id'),
+      u8('pc_index'),
+      seq(u8(), 6, 'padding')
     ]),
     MAX_TOKENS, 'token_list'
   ),
@@ -457,7 +458,18 @@ export const FUND_PDA_DATA = struct([
     ]),
     MAX_LIMIT_ORDERS, 'limit_orders'
   ),
-  u8('repost_processing'),
+  struct([
+    u64('last_updated'),
+    publicKeyLayout('volt_vault_id'),
+    u64('total_value_in_ul'),
+    u64('fc_token_balance'),
+    u64('ul_token_balance'),
+    u64('fc_token_debt'),
+    u64('ul_token_debt'),
+    u8('ul_token_slot'),
+    u8('is_active'),
+    seq(u8(),6,'padding'),
+  ], 'friktion_vault'),
   
-  seq(u8(), 1951, 'migration_additonal_padding'),
+  seq(u8(), 1864, 'migration_additonal_padding'),
 ])

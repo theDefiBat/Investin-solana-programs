@@ -463,7 +463,8 @@ pub enum FundInstruction {
         ul_token_slot: u8
     },
     FriktionRemoveFromFund,
-    FriktionInvestorWithdraw,
+    FriktionInvestorWithdrawUL,
+    FriktionInvestorWithdrawFTokens
 }
 
 
@@ -802,7 +803,10 @@ impl FundInstruction {
                 FundInstruction::FriktionRemoveFromFund
             }
             43 => {
-                FundInstruction::FriktionInvestorWithdraw
+                FundInstruction::FriktionInvestorWithdrawUL
+            }
+            44 => {
+                FundInstruction::FriktionInvestorWithdrawFTokens
             }
             
 
