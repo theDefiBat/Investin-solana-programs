@@ -26,7 +26,7 @@ const VOLT_SRM = {
   "voltType": 1,
 }
 
-const VOLT_fpSOLHigh = {
+const VOLT_fpSOLHIGH = {
   "name": "SOL PUT",
   "voltVaultId": "BTuiZkgodmKKJtNDhVQGvAzqW1fdSNWasQADDTTyoAxN",
   "quoteMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
@@ -74,8 +74,8 @@ export const FriktionDeposit = () => {
     (async () => {
 
       try {
-        let selectedVolt = await client.loadVoltAndExtraDataByKey(new PublicKey(VOLT_fpSOLHigh.voltVaultId));
-        console.log("selectedVolt VOLT_fpSOLHigh:", selectedVolt)
+        let selectedVolt = await client.loadVoltAndExtraDataByKey(new PublicKey(VOLT_SRM.voltVaultId));
+        console.log("selectedVolt VOLT_SRM:", selectedVolt)
         setSelectedVolt(selectedVolt) //srm
 
         const roundkey = await selectedVolt.getCurrentRound();
@@ -118,8 +118,8 @@ export const FriktionDeposit = () => {
   }, [walletProvider])
 
   const handleGetFriktionDataWeb3 = async () => {
-    console.log("handleGetFriktionDataWeb3 of :", VOLT_fpSOLHigh.voltVaultId)
-    const vault_key = new PublicKey(VOLT_fpSOLHigh.voltVaultId);
+    console.log("handleGetFriktionDataWeb3 of :", VOLT_SRM.voltVaultId)
+    const vault_key = new PublicKey(VOLT_SRM.voltVaultId);
     const friktionDataAcc = await connection.getAccountInfo(vault_key);
     console.log("FriktionDataAccount:: ", friktionDataAcc);
     if (friktionDataAcc) {
@@ -216,9 +216,9 @@ export const FriktionDeposit = () => {
     const fundPDA = await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId);
 
     //fcSRM
-    const associatedTokenAddressfcSRM = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(VOLT_fpSOLHigh.shareTokenMint), fundPDA[0], transaction);
+    const associatedTokenAddressfcSRM = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(VOLT_SRM.shareTokenMint), fundPDA[0], transaction);
 
-    const associatedTokenAddressSRM = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(VOLT_fpSOLHigh.depositTokenMint), fundPDA[0], transaction);
+    const associatedTokenAddressSRM = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(VOLT_SRM.depositTokenMint), fundPDA[0], transaction);
     const textEncoder = new TextEncoder();
 
     const pendingDepositsPDA = await PublicKey.findProgramAddress(
@@ -271,7 +271,7 @@ export const FriktionDeposit = () => {
     dataLayout.encode(
       {
         instruction: 34,
-        deposit_amount: 100000
+        deposit_amount: 5000000
       },
       data
     )
@@ -285,7 +285,7 @@ export const FriktionDeposit = () => {
       { pubkey: fundPDA[0], isSigner: false, isWritable: true },
 
 
-      { pubkey: selectedVolt.voltVault.vaultMint, isSigner: false, isWritable: true },
+      { pubkey: selectedVolt.entr, isSigner: false, isWritable: true },
       // {pubkey: new PublicKey('Ef2CD9yhQE7BvReQXct68uuYFW8GLKj62u2YPfmua3JY'), isSigner: false, isWritable: true},
       { pubkey: selectedVolt.voltKey, isSigner: false, isWritable: true },
 
@@ -348,9 +348,9 @@ export const FriktionDeposit = () => {
     const fundPDA = await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId);
 
     //fcSRM
-    const associatedTokenAddressfcSRM = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(VOLT_fpSOLHigh.shareTokenMint), fundPDA[0], transaction);
+    const associatedTokenAddressfcSRM = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(VOLT_SRM.shareTokenMint), fundPDA[0], transaction);
 
-    const associatedTokenAddressSRM = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(VOLT_fpSOLHigh.depositTokenMint), fundPDA[0], transaction);
+    const associatedTokenAddressSRM = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(VOLT_SRM.depositTokenMint), fundPDA[0], transaction);
     const textEncoder = new TextEncoder();
 
     const pendingDepositsPDA = await PublicKey.findProgramAddress(
@@ -481,7 +481,7 @@ export const FriktionDeposit = () => {
     const fundPDA = await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId);
 
     //fcSRM
-    const associatedTokenAddressfcSRM = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(VOLT_fpSOLHigh.shareTokenMint), fundPDA[0], transaction);
+    const associatedTokenAddressfcSRM = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(VOLT_SRM.shareTokenMint), fundPDA[0], transaction);
     const textEncoder = new TextEncoder();
 
     const pendingDepositsPDA = await PublicKey.findProgramAddress(
@@ -565,8 +565,8 @@ export const FriktionDeposit = () => {
     const fundPDA = await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId);
 
     //fcSRM
-    const associatedTokenAddressfcSRM = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(VOLT_fpSOLHigh.shareTokenMint), fundPDA[0], transaction);
-    const associatedTokenAddressSRM = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(VOLT_fpSOLHigh.depositTokenMint), fundPDA[0], transaction);
+    const associatedTokenAddressfcSRM = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(VOLT_SRM.shareTokenMint), fundPDA[0], transaction);
+    const associatedTokenAddressSRM = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(VOLT_SRM.depositTokenMint), fundPDA[0], transaction);
     const textEncoder = new TextEncoder();
 
     const pendingWithdrawalsPDA = await PublicKey.findProgramAddress(
@@ -674,13 +674,13 @@ export const FriktionDeposit = () => {
     const fundPDA = await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId);
 
     //fcSRM
-    const associatedTokenAddressfcSRM = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey('DNa849drqW19uBV5X9ohpJ5brRGzq856gk3HDRqveFrA'), fundPDA[0], transaction);
-    const associatedTokenAddressSRM = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'), fundPDA[0], transaction);
+    const associatedTokenAddressfcSRM = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(VOLT_SRM.shareTokenMint), fundPDA[0], transaction);
+    const associatedTokenAddressSRM = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(VOLT_SRM.underlyingMint), fundPDA[0], transaction);
     const textEncoder = new TextEncoder();
 
     const pendingDepositsPDA = await PublicKey.findProgramAddress(
       [
-        new PublicKey(VOLT_fpSOLHigh.voltVaultId).toBuffer(),
+        new PublicKey(VOLT_SRM.voltVaultId).toBuffer(),
         fundPDA[0].toBuffer(),
         textEncoder.encode("pendingDeposit"),
       ],
@@ -690,7 +690,7 @@ export const FriktionDeposit = () => {
 
     const extraVoltsDataPDA = await PublicKey.findProgramAddress(
       [
-        new PublicKey(VOLT_fpSOLHigh.voltVaultId).toBuffer(),
+        new PublicKey(VOLT_SRM.voltVaultId).toBuffer(),
         textEncoder.encode("extraVoltData"),
       ],
       new PublicKey(VOLT_PROGRAM_ID)
@@ -732,8 +732,8 @@ export const FriktionDeposit = () => {
       { pubkey: key, isSigner: true, isWritable: true },
       { pubkey: new PublicKey(VOLT_PROGRAM_ID), isSigner: false, isWritable: false },
       { pubkey: fundPDA[0], isSigner: false, isWritable: true },
-      { pubkey: new PublicKey(VOLT_fpSOLHigh.shareTokenMint), isSigner: false, isWritable: true },
-      { pubkey: new PublicKey(VOLT_fpSOLHigh.voltVaultId), isSigner: false, isWritable: true },
+      { pubkey: new PublicKey(VOLT_SRM.shareTokenMint), isSigner: false, isWritable: true },
+      { pubkey: new PublicKey(VOLT_SRM.voltVaultId), isSigner: false, isWritable: true },
       { pubkey: extraVoltsDataPDA[0], isSigner: false, isWritable: false },
 
       { pubkey: selectedVolt.voltVault.vaultAuthority, isSigner: false, isWritable: false },
@@ -803,9 +803,9 @@ export const FriktionDeposit = () => {
     const fundPDA = await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId);
 
     //fcSRM
-    const associatedTokenAddressfcSRM = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(VOLT_fpSOLHigh.shareTokenMint), fundPDA[0], transaction);
+    const associatedTokenAddressfcSRM = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(VOLT_SRM.shareTokenMint), fundPDA[0], transaction);
 
-    const associatedTokenAddressSRM = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(VOLT_fpSOLHigh.depositTokenMint), fundPDA[0], transaction);
+    const associatedTokenAddressSRM = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(VOLT_SRM.depositTokenMint), fundPDA[0], transaction);
     const textEncoder = new TextEncoder();
 
     const pendingWithdrawalPDA = await PublicKey.findProgramAddress(
@@ -923,9 +923,9 @@ export const FriktionDeposit = () => {
 
     const fundPDA = await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId);
 
-    const associatedTokenAddressfcSRM = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(VOLT_fpSOLHigh.shareTokenMint), fundPDA[0], transaction);
+    const associatedTokenAddressfcSRM = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(VOLT_SRM.shareTokenMint), fundPDA[0], transaction);
 
-    const associatedTokenAddressSRM = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(VOLT_fpSOLHigh.depositTokenMint), fundPDA[0], transaction);
+    const associatedTokenAddressSRM = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(VOLT_SRM.depositTokenMint), fundPDA[0], transaction);
     const textEncoder = new TextEncoder();
 
     const pendingDepositsPDA = await PublicKey.findProgramAddress(
@@ -1017,9 +1017,9 @@ export const FriktionDeposit = () => {
 
     const fundPDA = await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId);
 
-    const associatedTokenAddressfcSRM = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(VOLT_fpSOLHigh.shareTokenMint), fundPDA[0], transaction);
+    const associatedTokenAddressfcSRM = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(VOLT_SRM.shareTokenMint), fundPDA[0], transaction);
 
-    const associatedTokenAddressSRM = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(VOLT_fpSOLHigh.depositTokenMint), fundPDA[0], transaction);
+    const associatedTokenAddressSRM = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(VOLT_SRM.depositTokenMint), fundPDA[0], transaction);
     const textEncoder = new TextEncoder();
 
     const pendingWithdrawalPDA = await PublicKey.findProgramAddress(
@@ -1112,7 +1112,7 @@ export const FriktionDeposit = () => {
     const fundPDA = await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId);
 
     //fcSRM
-    // const associatedTokenAddressfcSRM = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(VOLT_fpSOLHigh.shareTokenMint), fundPDA[0], transaction);
+    // const associatedTokenAddressfcSRM = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(VOLT_SRM.shareTokenMint), fundPDA[0], transaction);
     
     // const associatedTokenAddressSRM = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey('SRMuApVNdxXokk5GT7XD5cUUgXMBCoAz2LHeuAoKWRt'), fundPDA[0], transaction);    
     // const textEncoder = new TextEncoder();
@@ -1169,7 +1169,7 @@ export const FriktionDeposit = () => {
     const fundPDA = await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId);
 
     //fcSRM
-    // const associatedTokenAddressfcSRM = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(VOLT_fpSOLHigh.shareTokenMint), fundPDA[0], transaction);
+    // const associatedTokenAddressfcSRM = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(VOLT_SRM.shareTokenMint), fundPDA[0], transaction);
     
     // const associatedTokenAddressSRM = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey('SRMuApVNdxXokk5GT7XD5cUUgXMBCoAz2LHeuAoKWRt'), fundPDA[0], transaction);    
     // const textEncoder = new TextEncoder();

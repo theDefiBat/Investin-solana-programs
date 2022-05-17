@@ -1647,12 +1647,15 @@ pub fn get_mango_valuation(
         let mango_cache = MangoCache::load_checked(mango_cache_ai, mango_prog_ai.key, &mango_group)?;
         // account for native USDC deposits
         usdc_deposits  = mango_account.get_native_deposit(&mango_cache.root_bank_cache[QUOTE_INDEX], QUOTE_INDEX)?
-        .checked_sub(mango_account.get_native_borrow(&mango_cache.root_bank_cache[QUOTE_INDEX], QUOTE_INDEX)?).unwrap()
-        .checked_sub(I80F48::from_num(fund_data.mango_positions.investor_debts[0])).unwrap();
-        // let fund_debts = I80F48::from_num(fund_data.mango_positions.investor_debts[0]);
-        // if usdc_deposits > fund_debts {
-        //     usdc_deposits = usdc_deposits.checked_sub(fund_debts).unwrap();
-        // } else {
+        .checked_sub(mango_account.get_native_borrow(&mango_cache.root_bank_cache[QUOTE_INDEX], QUOTE_INDEX)?).unwrap();
+       
+        // .checked_sub(I80F48::from_num(fund_data.mango_positions.investor_debts[0])).unwrap();
+        let fund_debts = I80F48::from_num(fund_data.mango_positions.investor_debts[0]);
+        if usdc_deposits > fund_debts {
+            usdc_deposits = usdc_deposits.checked_sub(fund_debts).unwrap();
+        } else {
+            msg!("Investor Debts Exceeded Deposits... Rekt");
+        }
         //     fund_data.mango_positions.investor_debts[0] = 0;
         // }
 
