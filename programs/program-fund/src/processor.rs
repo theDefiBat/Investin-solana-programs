@@ -1528,7 +1528,7 @@ impl Fund {
                 return friktion_investor_withdraw_ul(program_id, accounts)
             }
             FundInstruction::FriktionInvestorWithdrawFTokens => {
-                msg!("FundInstruction::FriktionInvestorWithdrawUL");
+                msg!("FundInstruction::FriktionInvestorWithdrawFTokens");
                 return  friktion_investor_withdraw_ftokens(program_id, accounts)
             }
             

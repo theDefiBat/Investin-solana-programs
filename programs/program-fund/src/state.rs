@@ -280,7 +280,9 @@ pub struct FriktionVaultInfo {
     pub ul_token_debt: u64,
     pub ul_token_slot: u8,
     pub is_active: bool,
-    pub padding: [u8; 6],
+    pub pending_deposit: bool,
+    pub pending_withdrawal: bool,
+    pub padding: [u8; 4],
 }
 impl_loadable!(FriktionVaultInfo);
 
