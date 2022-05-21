@@ -21,17 +21,30 @@ import { FriktionSDK, VoltSDK } from "@friktion-labs/friktion-sdk";
 
 const VOLT_PROGRAM_ID = 'VoLT1mJz1sbnxwq5Fv2SXjdVDgPXrb9tJyC8WpMDkSp';
 const VOLT_SRM = {
-  "name": "SRM CALL",
-  "voltVaultId": "Ef2CD9yhQE7BvReQXct68uuYFW8GLKj62u2YPfmua3JY",
-  "quoteMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
-  "underlyingMint": "SRMuApVNdxXokk5GT7XD5cUUgXMBCoAz2LHeuAoKWRt",
-  "depositTokenMint": "SRMuApVNdxXokk5GT7XD5cUUgXMBCoAz2LHeuAoKWRt",
-  "shareTokenMint": "5SLqZSywodLS8ih6U2AAioZrxpgR149hR8SApmCB7r5X",
-  "vaultMint": "5SLqZSywodLS8ih6U2AAioZrxpgR149hR8SApmCB7r5X",
-  "shareTokenSymbol": "fcSRM",
-  "shareTokenDecimals": 6,
-  "voltType": 1,
+      "globalId": "mainnet_income_put_sol_high",
+      "voltVaultId": "BTuiZkgodmKKJtNDhVQGvAzqW1fdSNWasQADDTTyoAxN",
+      "extraVaultDataId": "2WizZuJuh1adXkAYMhHPF15zDUY2dBwMeUpSLCZ9MLYK",
+      "vaultAuthority": "BThMeTgWZBoBbAzp9sK9T7gQzpQDQdRQUVLtVQ3781q1",
+      "quoteMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "underlyingMint": "So11111111111111111111111111111111111111112",
+      "depositTokenMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "shareTokenMint": "G8jsAWUA2KdDn7XmV1sBqUdbEXESaPdjPWDEYCsnkRX2",
+      "shareTokenSymbol": "fpSOLHigh",
+      "shareTokenDecimals": 6,
+      "depositPool": "A9GuE71hkLTgbzM9HEan8uP59bXq96WVANDYEr6Y22Kc",
+      "premiumPool": "PrVrJeV1KqJGowKwtq8UAzF4McL2P1hW82W2Xk9fQMw",
+      "spotSerumMarketId": "C6z5k5fQmdeu7QNnXH1rSYYm22D5dqsMfqEaWgqSUdhM",
+      "depositTokenSymbol": "USDC",
+      "depositTokenCoingeckoId": "usd-coin",
+      "underlyingTokenSymbol": "SOL",
+      "underlyingTokenCoingeckoId": "solana",
+      "voltType": 2,
+      "apy": 49.39,
+      "isVoltage": true,
+      "isInCircuits": false,
+      "highVoltage": ""
 }
+
 const friktionClient = new FriktionSDK({ provider: { connection: connection } });
 
 
@@ -538,16 +551,16 @@ export const Withdraw = () => {
     const fundPDA = await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId);
 
     //fcSRM
-    const associatedTokenAddressfcSRM = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey('5SLqZSywodLS8ih6U2AAioZrxpgR149hR8SApmCB7r5X'), fundPDA[0], transaction);
-    const associatedTokenAddressSRM = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey('SRMuApVNdxXokk5GT7XD5cUUgXMBCoAz2LHeuAoKWRt'), fundPDA[0], transaction);
+    const associatedTokenAddressfcSRM = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(VOLT_SRM.shareTokenMint), fundPDA[0], transaction);
+    const associatedTokenAddressSRM = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(VOLT_SRM.depositTokenMint), fundPDA[0], transaction);
     const textEncoder = new TextEncoder();
 
-    const pendingWithdrawalsPDA = await PublicKey.findProgramAddress(
+    const pendingDepositsPDA = await PublicKey.findProgramAddress(
       [
         // new PublicKey('Ef2CD9yhQE7BvReQXct68uuYFW8GLKj62u2YPfmua3JY').toBuffer(),
         (selectedVolt.voltKey).toBuffer(),
         fundPDA[0].toBuffer(),
-        textEncoder.encode("pendingWithdrawal"),
+        textEncoder.encode("pendingDeposit"),
       ],
       new PublicKey('VoLT1mJz1sbnxwq5Fv2SXjdVDgPXrb9tJyC8WpMDkSp')
     );
@@ -567,12 +580,20 @@ export const Withdraw = () => {
       )
     )[0];
 
+    const roundVoltTokensAddress = (
+      await VoltSDK.findRoundVoltTokensAddress(
+        selectedVolt.voltKey,
+        selectedVolt.voltVault.roundNumber,
+        new PublicKey('VoLT1mJz1sbnxwq5Fv2SXjdVDgPXrb9tJyC8WpMDkSp')
+      )
+    )[0];
+
     const [epochInfoKey, epochInfoBump] = await VoltSDK.findEpochInfoAddress(
       selectedVolt.voltKey,
       selectedVolt.voltVault.roundNumber,
       new PublicKey('VoLT1mJz1sbnxwq5Fv2SXjdVDgPXrb9tJyC8WpMDkSp')
     );
-    console.log('pendingDepositPDA:: ', pendingWithdrawalsPDA[0].toBase58());
+    // console.log('pendingDepositPDA:: ', pendingWithdrawalsPDA[0].toBase58());
 
 
     const dataLayout = struct([u8('instruction')])
@@ -585,34 +606,46 @@ export const Withdraw = () => {
     )
 
     const keys = [
-      { pubkey: fundPDA[0], isSigner: false, isWritable: true },
-      { pubkey: new PublicKey(investorStateAcc), isSigner: false, isWritable: true },
-      { pubkey: key, isSigner: true, isWritable: true },
-      { pubkey: new PublicKey('VoLT1mJz1sbnxwq5Fv2SXjdVDgPXrb9tJyC8WpMDkSp'), isSigner: false, isWritable: false },
-      { pubkey: key, isSigner: true, isWritable: true },
-      { pubkey: fundPDA[0], isSigner: false, isWritable: true },
-      { pubkey: fundPDA[0], isSigner: false, isWritable: true },
-      { pubkey: selectedVolt.voltVault.vaultMint, isSigner: false, isWritable: true }, //vault mint
+      {pubkey: new PublicKey(investorStateAcc), isSigner: false, isWritable: true },
+      {pubkey: fundPDA[0], isSigner: false, isWritable: true},
+      {pubkey: walletProvider?.publicKey, isSigner: true, isWritable: true },
+      {pubkey: new PublicKey(VOLT_PROGRAM_ID), isSigner: false, isWritable: false},
+      {pubkey: fundPDA[0], isSigner: false, isWritable: true},
+      {pubkey: fundPDA[0], isSigner: false, isWritable: true},
+      {pubkey: fundPDA[0], isSigner: false, isWritable: true},
 
-      // {pubkey: new PublicKey('Ef2CD9yhQE7BvReQXct68uuYFW8GLKj62u2YPfmua3JY'), isSigner: false, isWritable: true}, //volt_vault
-      { pubkey: selectedVolt.voltKey, isSigner: false, isWritable: true },
 
-      { pubkey: selectedVolt.voltVault.vaultAuthority, isSigner: false, isWritable: false },
-      { pubkey: extraVoltKey, isSigner: false, isWritable: false }, //extra_volt_data
-      { pubkey: new PublicKey('11111111111111111111111111111111'), isSigner: false, isWritable: false }, //whitelist
-      { pubkey: selectedVolt.voltVault.depositPool, isSigner: false, isWritable: true }, //deposit_pool
-      { pubkey: associatedTokenAddressSRM, isSigner: false, isWritable: true },//Fund_Underlying_token_acc
-      { pubkey: associatedTokenAddressfcSRM, isSigner: false, isWritable: true },//Fund_Vault_token_acc
-      { pubkey: roundInfoKey, isSigner: false, isWritable: true },
-      { pubkey: roundUnderlyingTokensAddress, isSigner: false, isWritable: true },
-      { pubkey: pendingWithdrawalsPDA[0], isSigner: false, isWritable: true }, //PendingDepositsPDA --fund
-      { pubkey: epochInfoKey, isSigner: false, isWritable: true },
-      { pubkey: new PublicKey('FhrcvL91UwgVpbMmpmyx3GTPUsuofWpjRGBdpV34ern2'), isSigner: false, isWritable: true },
+      {pubkey: selectedVolt.voltVault.vaultMint, isSigner: false, isWritable: true},
+      {pubkey: selectedVolt.voltKey, isSigner: false, isWritable: true},
+      {pubkey: selectedVolt.voltVault.vaultAuthority, isSigner: false, isWritable: false},
+      
+      {pubkey: extraVoltKey, isSigner: false, isWritable: false},
+      {pubkey: new PublicKey('11111111111111111111111111111111'), isSigner: false, isWritable: false},
+      {pubkey: selectedVolt.voltVault.depositPool , isSigner: false, isWritable: true},
+      {pubkey: selectedVolt.voltVault.writerTokenPool , isSigner: false, isWritable: true},
+
+      {pubkey: associatedTokenAddressfcSRM, isSigner: false, isWritable: true}, //Fund_Volt_token_acc
+      {pubkey: associatedTokenAddressSRM, isSigner: false, isWritable: true}, //Fund_Underlying_token_acc
+
+      {pubkey: roundInfoKey, isSigner: false, isWritable: true},
+      {pubkey: roundVoltTokensAddress, isSigner: false, isWritable: true},
+      {pubkey: roundUnderlyingTokensAddress, isSigner: false, isWritable: true},
+    
+      {pubkey: pendingDepositsPDA[0], isSigner: false, isWritable: true}, //pendingWithdrawalsPDA --fund
+      {pubkey: epochInfoKey, isSigner: false, isWritable: true},
+
+      // { pubkey: new PublicKey('FhrcvL91UwgVpbMmpmyx3GTPUsuofWpjRGBdpV34ern2'), isSigner: false, isWritable: true },
+
+      {pubkey: new PublicKey('11111111111111111111111111111111'), isSigner: false, isWritable: false},//entropy
+      {pubkey: new PublicKey('11111111111111111111111111111111'), isSigner: false, isWritable: false},
+      {pubkey: new PublicKey('11111111111111111111111111111111'), isSigner: false, isWritable: false},
+      {pubkey: new PublicKey('11111111111111111111111111111111'), isSigner: false, isWritable: false},
+      
       { pubkey: SYSTEM_PROGRAM_ID, isSigner: false, isWritable: false },
       { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
       { pubkey: RENT_PROGRAM_ID, isSigner: false, isWritable: false },
 
-    ];
+  ];
 
     const instruction = new TransactionInstruction({
       keys,

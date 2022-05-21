@@ -108,6 +108,7 @@ pub fn friktion_deposit_ins(
     discrim: u64,
     amount: u64
 ) -> Result<Instruction, ProgramError> {
+    msg!("making dep ins");
     let mut accounts = vec![
         AccountMeta::new(*authority_pk, true),
         AccountMeta::new(*dao_authority_pk, true),
@@ -157,6 +158,7 @@ pub fn friktion_cancel_pending_deposit_ins(
     token_program_pk: &Pubkey,
     discrim: u64
 ) -> Result<Instruction, ProgramError> {
+    msg!("here?");
     let mut accounts = vec![
         AccountMeta::new(*authority_pk, true),
         AccountMeta::new(*vault_mint_pk, false),
@@ -1006,17 +1008,20 @@ pub fn friktion_investor_withdraw_ul(
         check!(*volt_vault_ai.key == fund_data.friktion_vault.volt_vault_id, FundError::FriktionIncorrectVault);
         let tsi = fund_data.friktion_vault.ul_token_slot as usize;
         check!(fund_data.tokens[tsi].vault == *underlying_token_source_ai.key, FundError::InvalidTokenAccount);
-        let pending_info: &[u8] = &(pending_deposit_info_ai.data.borrow())[8..];
-        let pending_deposit_data = volt_abi::PendingDeposit::try_from_slice(pending_info)?;
-        if pending_deposit_data.num_underlying_deposited < investor_data.friktion_ul_debt {
-            msg!("Too Late now...");
-            investor_data.friktion_ul_debt = pending_deposit_data.num_underlying_deposited;
-        }
-        let deposit_amount = pending_deposit_data.num_underlying_deposited.checked_sub(investor_data.friktion_ul_debt).unwrap();
+        // let pending_info: &[u8] = &(pending_deposit_info_ai.data.borrow())[8..];
+        // let pending_deposit_data = volt_abi::PendingDeposit::try_from_slice(pending_info)?;
+        // if pending_deposit_data.num_underlying_deposited < investor_data.friktion_ul_debt {
+        //     msg!("Too Late now...");
+        //     investor_data.friktion_ul_debt = pending_deposit_data.num_underlying_deposited;
+        // }
+        let ul_fund_token_data = parse_token_account(underlying_token_source_ai)?;
+        let ul_balance_before = ul_fund_token_data.amount;
+        // let deposit_amount = pending_deposit_data.num_underlying_deposited.checked_sub(investor_data.friktion_ul_debt).unwrap();
         // drop(pending_deposit_data);
-        drop(pending_info);
+        // drop(pending_info);
         if investor_data.friktion_ul_debt > 0 {
             drop(fund_data);
+            msg!("CPI::Fkn_CPD");
             invoke_signed(
                 &friktion_cancel_pending_deposit_ins(
                     volt_program_ai.key,
@@ -1052,6 +1057,16 @@ pub fn friktion_investor_withdraw_ul(
                     ],
                     &[&[bytes_of(&manager_account), bytes_of(&pda_signer_nonce)]]
             );
+            msg!("Back from CPI");
+            let ul_fund_token_data_updated = parse_token_account(underlying_token_source_ai)?;
+            let ul_balance_after = ul_fund_token_data_updated.amount;
+
+            let difference = ul_balance_after.checked_sub(ul_balance_before).unwrap();
+            if investor_data.friktion_ul_debt > difference {
+                msg!("Too Late now...");
+                investor_data.friktion_ul_debt = difference;
+            }
+            let deposit_amount = difference.checked_sub(investor_data.friktion_ul_debt).unwrap();
             // fund_data = FundAccount::load_mut_checked(fund_account_ai, program_id)?;
             // let tsi = fund_data.friktion_vault.ul_token_slot as usize;
             // let ul_fund_token_data = parse_token_account(underlying_token_source_ai)?;
@@ -1069,6 +1084,7 @@ pub fn friktion_investor_withdraw_ul(
             // let authority_check_ai_new = AccountInfo::new(authority_check_ai.key, true, authority_check_ai.is_writable, *authority_check_ai.laudachipppa(), *authority_check_ai.data.clone(), authority_check_ai.owner, authority_check_ai.executable, authority_check_ai.rent_epoch);
             sol_log_compute_units();
             if deposit_amount > 0 {
+                msg!("CPI::Fkn_D");
                 invoke_signed(
                     &friktion_deposit_ins(
                         volt_program_ai.key,
@@ -1191,26 +1207,26 @@ pub fn friktion_investor_withdraw_ftokens(
         check!(investor_data.has_withdrawn == true && investor_data.withdrawn_ftokens_from_friktion == false, FundError::InvalidStateAccount);
         
         //cheks1!!!!
-        let fc_token_data = parse_token_account(vault_token_source_ai)?;
-        let fc_token_balance = fc_token_data.amount;
-        let fc_token_balance_from_pending_withdrawal = if fund_data.friktion_vault.pending_withdrawal {
-            let pending_info: &[u8] = &(pending_withdrawal_info_ai.data.borrow())[8..];
-            let pending_withdrawal_data = volt_abi::PendingWithdrawal::try_from_slice(pending_info)?;
-            pending_withdrawal_data.num_volt_redeemed
-        } else {
-            0
-        };
+    
+        // let fc_token_balance_from_pending_withdrawal = if fund_data.friktion_vault.pending_withdrawal {
+        //     let pending_info: &[u8] = &(pending_withdrawal_info_ai.data.borrow())[8..];
+        //     let pending_withdrawal_data = volt_abi::PendingWithdrawal::try_from_slice(pending_info)?;
+        //     pending_withdrawal_data.num_volt_redeemed
+        // } else {
+        //     0
+        // };
 
-        let total_fc_token_balance = fc_token_balance.checked_add(fc_token_balance_from_pending_withdrawal).unwrap();
+        // let total_fc_token_balance = fc_token_balance.checked_add(fc_token_balance_from_pending_withdrawal).unwrap();
         
-        if total_fc_token_balance < investor_data.friktion_fc_debt {
-            msg!("Too Late now...");
-            investor_data.friktion_fc_debt = total_fc_token_balance;
-        } 
-        let withdraw_amount = total_fc_token_balance.checked_sub(investor_data.friktion_fc_debt).unwrap();
+        // if total_fc_token_balance < investor_data.friktion_fc_debt {
+        //     msg!("Too Late now...");
+        //     investor_data.friktion_fc_debt = total_fc_token_balance;
+        // } 
+        // let withdraw_amount = total_fc_token_balance.checked_sub(investor_data.friktion_fc_debt).unwrap();
         msg!("LFG");
         if investor_data.friktion_fc_debt > 0 {
-            if fc_token_balance_from_pending_withdrawal > 0 {
+            let mut withdraw_amount = 0;
+            if fund_data.friktion_vault.pending_withdrawal {
                 drop(fund_data);
                 msg!("CPI::Fkn_CPW");
                 invoke_signed(
@@ -1246,6 +1262,14 @@ pub fn friktion_investor_withdraw_ftokens(
                         ],
                     &[&[bytes_of(&manager_account), bytes_of(&pda_signer_nonce)]]
                 );
+
+                let fc_token_data = parse_token_account(vault_token_source_ai)?;
+                let fc_token_balance = fc_token_data.amount;
+                if fc_token_balance < investor_data.friktion_fc_debt {
+                    msg!("Too Late now...");
+                    investor_data.friktion_fc_debt = fc_token_balance;
+                } 
+                withdraw_amount = fc_token_balance.checked_sub(investor_data.friktion_fc_debt).unwrap();
 
                 sol_log_compute_units();
                 // authority_check_ai.is_signer = true;
