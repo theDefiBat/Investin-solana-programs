@@ -1017,7 +1017,6 @@ pub fn friktion_investor_withdraw_ul(
         // drop(pending_deposit_data);
         // drop(pending_info);
 
-        msg!("part1 ix len: {:?}", solana_program::sysvar::instructions::get );
         let ix = solana_program::sysvar::instructions::get_instruction_relative(1, sysvar_ix_ai)?;
         check!(ix.program_id == *program_id && ix.data[0] == 45, FundError::InvalidInstruction);
         if investor_data.friktion_ul_debt > 0 {
