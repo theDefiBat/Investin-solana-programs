@@ -1,5 +1,5 @@
 use bytemuck::bytes_of;
-use std::{mem::size_of, sync::mpsc::RecvTimeoutError};
+use std::{mem::size_of, sync::mpsc::RecvTimeoutError, str::FromStr};
 use fixed::types::U64F64;
 use fixed_macro::types::U64F64;
 use fixed::types::I80F48;
@@ -341,8 +341,6 @@ impl Fund {
 
         let platform_data = PlatformData::load_checked(platform_ai, program_id)?;
         let mut fund_data = FundAccount::load_mut_checked(fund_account_ai, program_id)?;
-        
-
 
         // check if manager signed the tx
         check!(manager_ai.is_signer, FundError::IncorrectProgramId);
@@ -536,7 +534,8 @@ impl Fund {
             close_investor_account(investor_ai, investor_state_ai)?;
         } else {
             check!(investor_data.has_withdrawn == true && 
-                (investor_data.withdrawn_from_margin == true || investor_data.margin_debt[0] == 0),
+                (investor_data.withdrawn_from_margin == true || investor_data.margin_debt[0] == 0) &&
+                (investor_data.withdrawn_ul_from_friktion == true),
                  FundError::InvalidInstruction);
             for i in 0..NUM_TOKENS {
                 // TODO:: check if fund_debt on inv_acc <= fund_debt on fund
@@ -569,7 +568,7 @@ impl Fund {
                 )?;
                 fund_data = FundAccount::load_mut_checked(fund_account_ai, program_id)?;
                 fund_data.tokens[i].balance = parse_token_account(&fund_token_accs[i])?.amount;
-                fund_data.tokens[i].debt -= investor_data.token_debts[i];
+                fund_data.tokens[i].debt = fund_data.tokens[i].debt.checked_sub(investor_data.token_debts[i]).unwrap();
                 investor_data.token_debts[i] = 0;
                 investor_data.token_indexes[i] = 0;
             }
@@ -1219,7 +1218,7 @@ impl Fund {
 
         }
         fund_data = FundAccount::load_mut_checked(fund_account_ai, program_id)?;
-        fund_data.tokens[index as usize].debt -= cumulative_debt;
+        fund_data.tokens[index as usize].debt = fund_data.tokens[index as usize].debt.checked_sub(cumulative_debt).unwrap();
         fund_data.tokens[index as usize].balance = parse_token_account(vault_ai)?.amount;
 
         Ok(())
@@ -1526,6 +1525,10 @@ impl Fund {
             FundInstruction::FriktionInvestorWithdrawUL => {
                 msg!("FundInstruction::FriktionInvestorWithdrawUL");
                 return friktion_investor_withdraw_ul(program_id, accounts)
+            }
+            FundInstruction::FriktionInvestorWithdrawUL2 => {
+                msg!("FundInstruction::FriktionInvestorWithdrawUL_2");
+                return friktion_investor_withdraw_ul_2(program_id, accounts)
             }
             FundInstruction::FriktionInvestorWithdrawFTokens => {
                 msg!("FundInstruction::FriktionInvestorWithdrawFTokens");

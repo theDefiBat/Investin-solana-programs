@@ -162,11 +162,11 @@ pub struct FundAccount {
      pub limit_orders : [LimitOrderInfo; MAX_LIMIT_ORDERS], // 48 each = 96 
 
      
-     pub friktion_vault: FriktionVaultInfo, // 88 u8
+     pub friktion_vault: FriktionVaultInfo, // 96 u8
      
     //  pub margin_update_padding: [u8; 24], //80 Bytes for Depr. MarginInfo Size
 
-    pub migration_additonal_padding: [u8; 1864] // 2024 + 24 - 96 - 88 =  1864
+    pub migration_additonal_padding: [u8; 1856] // 2024 + 24 - 96 - 96 =  1864
 }
 impl_loadable!(FundAccount);
 
@@ -218,7 +218,8 @@ pub struct InvestorData {
     pub withdrawn_from_margin: bool,
     pub withdrawn_ul_from_friktion: bool,
     pub withdrawn_ftokens_from_friktion: bool,
-    pub padding: [u8; 3],
+    pub pending_deposit_on_friktion: bool,
+    pub padding: [u8; 2],
 
     /// Investor wallet address
     pub owner: Pubkey,
@@ -283,6 +284,7 @@ pub struct FriktionVaultInfo {
     pub pending_deposit: bool,
     pub pending_withdrawal: bool,
     pub padding: [u8; 4],
+    pub deposit_amount: u64,
 }
 impl_loadable!(FriktionVaultInfo);
 

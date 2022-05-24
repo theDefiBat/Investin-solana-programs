@@ -427,6 +427,8 @@ pub enum FundInstruction {
         index: u8 // index of slot
     },
 
+    FriktionInvestorWithdrawUL2,
+
     FlushDebts {
         index: u8,
         count: u8
@@ -807,6 +809,9 @@ impl FundInstruction {
             }
             44 => {
                 FundInstruction::FriktionInvestorWithdrawFTokens
+            }
+            45 => {
+                FundInstruction::FriktionInvestorWithdrawUL2
             }
             
 
