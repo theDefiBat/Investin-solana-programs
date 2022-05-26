@@ -354,6 +354,7 @@ impl Fund {
         )?;
         // let mango_val = U64F64::from_fixed(usdc_deposits.checked_add(token_deposits_val).unwrap().checked_add(perp_pnl).unwrap());
         let mango_val = U64F64::from_fixed(usdc_deposits.checked_add(perp_pnl).unwrap());
+        msg!("perp pnl:: {}, usdc_deposits:: {}, mango_val:: {}", perp_pnl, usdc_deposits, mango_val);
         
         update_amount_and_performance(
             &platform_data,
@@ -683,7 +684,7 @@ impl Fund {
                             &place_perp_order(mango_prog_ai.key,
                                 mango_group_ai.key, mango_account_ai.key, fund_account_ai.key,
                                 mango_cache_ai.key, perp_accs[i*4].key, perp_accs[(i*4) + 1].key, perp_accs[(i*4) + 2].key, perp_accs[(i*4) + 3].key, Some(referrer_mango_account_ai.key), &open_orders_accs,
-                                side, i64::MAX, perp_close_amount, 0, OrderType::Market, false)?,
+                                side, i64::MAX, perp_close_amount, 0, OrderType::Market, true)?,
                             &[
                                 mango_prog_ai.clone(),
                                 mango_group_ai.clone(),
@@ -1482,7 +1483,7 @@ pub fn update_amount_and_performance(
         let token_info = platform_data.token_list[fund_data.tokens[i].index[fund_data.tokens[i].mux as usize] as usize];
         
         if Clock::get()?.unix_timestamp - token_info.last_updated > 100 {
-            msg!("price not up-to-date.. aborting");
+            msg!("{} price not up-to-date.. aborting", i);
             return Err(FundError::PriceStaleInAccount.into())
         }
         // calculate price in terms of base token
@@ -1492,12 +1493,11 @@ pub fn update_amount_and_performance(
          if token_info.pc_index != 0 {
              let underlying_token_info = platform_data.token_list[token_info.pc_index as usize];
              if Clock::get()?.unix_timestamp - underlying_token_info.last_updated > 100 {
-                msg!("price not up-to-date.. aborting");
+                msg!("{} base price not up-to-date.. aborting", i);
                 return Err(FundError::PriceStaleInAccount.into())
             }
              val = val.checked_mul(underlying_token_info.pool_price).unwrap();
          }
-
         fund_val = fund_val.checked_add(val).unwrap();
     }
     
@@ -1538,12 +1538,13 @@ pub fn get_mango_valuation(
         let mango_cache = MangoCache::load_checked(mango_cache_ai, mango_prog_ai.key, &mango_group)?;
         // account for native USDC deposits
         usdc_deposits  = mango_account.get_native_deposit(&mango_cache.root_bank_cache[QUOTE_INDEX], QUOTE_INDEX)?
-        .checked_sub(mango_account.get_native_borrow(&mango_cache.root_bank_cache[QUOTE_INDEX], QUOTE_INDEX)?).unwrap()
-        .checked_sub(I80F48::from_num(fund_data.mango_positions.investor_debts[0])).unwrap();
-        // let fund_debts = I80F48::from_num(fund_data.mango_positions.investor_debts[0]);
-        // if usdc_deposits > fund_debts {
-        //     usdc_deposits = usdc_deposits.checked_sub(fund_debts).unwrap();
-        // } else {
+        .checked_sub(mango_account.get_native_borrow(&mango_cache.root_bank_cache[QUOTE_INDEX], QUOTE_INDEX)?).unwrap();
+
+        let fund_debts = I80F48::from_num(fund_data.mango_positions.investor_debts[0]);
+        if usdc_deposits > fund_debts {
+            usdc_deposits = usdc_deposits.checked_sub(fund_debts).unwrap();
+        } 
+        
         //     fund_data.mango_positions.investor_debts[0] = 0;
         // }
 

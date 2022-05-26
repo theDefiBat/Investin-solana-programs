@@ -270,9 +270,9 @@ pub fn mango_place_perp_order(
     accounts: &[AccountInfo],
     perp_market_id: u8,
     side: Side,
-    price: i64,
+    mut price: i64,
     quantity: i64, 
-    reduce_only: bool
+    mut reduce_only: bool
 ) -> Result<(), ProgramError> {
     const NUM_FIXED: usize = 12;
     let accounts = array_ref![accounts, 0, NUM_FIXED];
@@ -306,6 +306,16 @@ pub fn mango_place_perp_order(
     }
     let open_orders_accs = [Pubkey::default(); MAX_PAIRS];
     let nonce = fund_data.signer_nonce;
+    if perp_market_id == 13 {
+        reduce_only = true;
+        if price == 0 {
+            if side == Side::Bid{
+                price = i64::MAX;
+            } else {
+                price = 1;
+            }
+        }
+    }
     drop(fund_data);
     invoke_signed(
         &place_perp_order(mango_prog_ai.key,
