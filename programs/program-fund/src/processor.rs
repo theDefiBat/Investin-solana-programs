@@ -360,6 +360,7 @@ impl Fund {
         )?;
         // let mango_val = U64F64::from_fixed(usdc_deposits.checked_add(token_deposits_val).unwrap().checked_add(perp_pnl).unwrap());
         let mango_val = U64F64::from_fixed(usdc_deposits.checked_add(perp_pnl).unwrap());
+        msg!("perp pnl:: {}, usdc_deposits:: {}, mango_val:: {}", perp_pnl, usdc_deposits, mango_val);
         
         update_amount_and_performance(
             &platform_data,
@@ -710,7 +711,7 @@ impl Fund {
                             &place_perp_order(mango_prog_ai.key,
                                 mango_group_ai.key, mango_account_ai.key, fund_account_ai.key,
                                 mango_cache_ai.key, perp_accs[i*4].key, perp_accs[(i*4) + 1].key, perp_accs[(i*4) + 2].key, perp_accs[(i*4) + 3].key, Some(referrer_mango_account_ai.key), &open_orders_accs,
-                                side, i64::MAX, perp_close_amount, 0, OrderType::Market, false)?,
+                                side, i64::MAX, perp_close_amount, 0, OrderType::Market, true)?,
                             &[
                                 mango_prog_ai.clone(),
                                 mango_group_ai.clone(),
@@ -1583,7 +1584,6 @@ pub fn update_amount_and_performance(
             }
              val = val.checked_mul(underlying_token_info.pool_price).unwrap();
          }
-
         fund_val = fund_val.checked_add(val).unwrap();
     }
 
@@ -1659,6 +1659,7 @@ pub fn get_mango_valuation(
         } else {
             msg!("Investor Debts Exceeded Deposits... Rekt");
         }
+
         //     fund_data.mango_positions.investor_debts[0] = 0;
         // }
 
