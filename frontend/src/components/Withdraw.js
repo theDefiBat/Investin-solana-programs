@@ -1,7 +1,7 @@
 import { PublicKey, SYSVAR_CLOCK_PUBKEY, Transaction, TransactionInstruction } from '@solana/web3.js';
 import React, { useState } from 'react'
 import { GlobalState } from '../store/globalState';
-import { adminAccount, SOL_USDC_MARKET, connection,  platformStateAccount, priceStateAccount, FUND_ACCOUNT_KEY, programId, TOKEN_PROGRAM_ID , CLOCK_PROGRAM_ID, MANGO_PROGRAM_ID_V2, MANGO_GROUP_ACCOUNT, MARGIN_ACCOUNT_KEY, ORACLE_BTC_DEVNET, ORACLE_ETH_DEVNET, ORACLE_SOL_DEVNET, ORACLE_SRM_DEVNET, idsIndex, MANGO_TOKENS, PERP_MARKETS} from '../utils/constants';
+import { adminAccount, SOL_USDC_MARKET, connection,  platformStateAccount, priceStateAccount, FUND_ACCOUNT_KEY, programId, TOKEN_PROGRAM_ID , CLOCK_PROGRAM_ID, MANGO_PROGRAM_ID_V2, MANGO_GROUP_ACCOUNT, MARGIN_ACCOUNT_KEY, ORACLE_BTC_DEVNET, ORACLE_ETH_DEVNET, ORACLE_SOL_DEVNET, ORACLE_SRM_DEVNET, idsIndex, MANGO_TOKENS, PERP_MARKETS, RENT_PROGRAM_ID, SYSTEM_PROGRAM_ID} from '../utils/constants';
 
 import { nu64, struct, u8 } from 'buffer-layout';
 import { createKeyIfNotExists, findAssociatedTokenAddress, setWalletTransaction, signAndSendTransaction, createAssociatedTokenAccount, createAssociatedTokenAccountIfNotExist } from '../utils/web3';
@@ -17,6 +17,36 @@ import { TOKENS } from '../utils/tokens';
 import { IDS, MangoClient, NodeBankLayout } from '@blockworks-foundation/mango-client';
 
 import { closeAccount } from '@project-serum/serum/lib/token-instructions'
+import { FriktionSDK, VoltSDK } from "@friktion-labs/friktion-sdk";
+
+const VOLT_PROGRAM_ID = 'VoLT1mJz1sbnxwq5Fv2SXjdVDgPXrb9tJyC8WpMDkSp';
+const VOLT_SRM = {
+      "globalId": "mainnet_income_put_sol_high",
+      "voltVaultId": "BTuiZkgodmKKJtNDhVQGvAzqW1fdSNWasQADDTTyoAxN",
+      "extraVaultDataId": "2WizZuJuh1adXkAYMhHPF15zDUY2dBwMeUpSLCZ9MLYK",
+      "vaultAuthority": "BThMeTgWZBoBbAzp9sK9T7gQzpQDQdRQUVLtVQ3781q1",
+      "quoteMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "underlyingMint": "So11111111111111111111111111111111111111112",
+      "depositTokenMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "shareTokenMint": "G8jsAWUA2KdDn7XmV1sBqUdbEXESaPdjPWDEYCsnkRX2",
+      "shareTokenSymbol": "fpSOLHigh",
+      "shareTokenDecimals": 6,
+      "depositPool": "A9GuE71hkLTgbzM9HEan8uP59bXq96WVANDYEr6Y22Kc",
+      "premiumPool": "PrVrJeV1KqJGowKwtq8UAzF4McL2P1hW82W2Xk9fQMw",
+      "spotSerumMarketId": "C6z5k5fQmdeu7QNnXH1rSYYm22D5dqsMfqEaWgqSUdhM",
+      "depositTokenSymbol": "USDC",
+      "depositTokenCoingeckoId": "usd-coin",
+      "underlyingTokenSymbol": "SOL",
+      "underlyingTokenCoingeckoId": "solana",
+      "voltType": 2,
+      "apy": 49.39,
+      "isVoltage": true,
+      "isInCircuits": false,
+      "highVoltage": ""
+}
+
+const friktionClient = new FriktionSDK({ provider: { connection: connection } });
+
 
 const getPoolAccounts = () => {
   return raydiumPools.map((p) => {
@@ -499,6 +529,145 @@ export const Withdraw = () => {
     console.log("signature tx url:: ", `https://solscan.io/tx/${sign}`) 
   }
 
+  const handleFriktionInvestorWithdraw = async () => {
+
+    let selectedVolt = await friktionClient.loadVoltAndExtraDataByKey(new PublicKey(VOLT_SRM.voltVaultId));
+    console.log("selectedVolt SRM:", selectedVolt)
+
+    const investorStateAcc = investments[investmentIndex].ivnStatePubKey?.toBase58()
+    const investorAddr = investments[investmentIndex].owner?.toBase58()
+    console.log("**----handleWithdrawFromMango investorStateAcc,investorAddr::",investorStateAcc,investorAddr)
+    if (investments[investmentIndex]?.owner?.toBase58()!= walletProvider?.publicKey.toBase58()) {
+      alert('web3 not done only manager investments')
+      return;
+    }
+    const key = walletProvider?.publicKey;
+    if (!key) {
+      alert("connect wallet")
+      return;
+    };
+    const transaction = new Transaction()
+
+    const fundPDA = await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId);
+
+    //fcSRM
+    const associatedTokenAddressfcSRM = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(VOLT_SRM.shareTokenMint), fundPDA[0], transaction);
+    const associatedTokenAddressSRM = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(VOLT_SRM.depositTokenMint), fundPDA[0], transaction);
+    const textEncoder = new TextEncoder();
+
+    const pendingDepositsPDA = await PublicKey.findProgramAddress(
+      [
+        // new PublicKey('Ef2CD9yhQE7BvReQXct68uuYFW8GLKj62u2YPfmua3JY').toBuffer(),
+        (selectedVolt.voltKey).toBuffer(),
+        fundPDA[0].toBuffer(),
+        textEncoder.encode("pendingDeposit"),
+      ],
+      new PublicKey('VoLT1mJz1sbnxwq5Fv2SXjdVDgPXrb9tJyC8WpMDkSp')
+    );
+
+    const [extraVoltKey] = await VoltSDK.findExtraVoltDataAddress(selectedVolt.voltKey);
+    const [roundInfoKey, roundInfoKeyBump] = await VoltSDK.findRoundInfoAddress(
+      selectedVolt.voltKey,
+      selectedVolt.voltVault.roundNumber,
+      new PublicKey('VoLT1mJz1sbnxwq5Fv2SXjdVDgPXrb9tJyC8WpMDkSp')
+    );
+
+    const roundUnderlyingTokensAddress = (
+      await VoltSDK.findRoundUnderlyingTokensAddress(
+        selectedVolt.voltKey,
+        selectedVolt.voltVault.roundNumber,
+        new PublicKey('VoLT1mJz1sbnxwq5Fv2SXjdVDgPXrb9tJyC8WpMDkSp')
+      )
+    )[0];
+
+    const roundVoltTokensAddress = (
+      await VoltSDK.findRoundVoltTokensAddress(
+        selectedVolt.voltKey,
+        selectedVolt.voltVault.roundNumber,
+        new PublicKey('VoLT1mJz1sbnxwq5Fv2SXjdVDgPXrb9tJyC8WpMDkSp')
+      )
+    )[0];
+
+    const [epochInfoKey, epochInfoBump] = await VoltSDK.findEpochInfoAddress(
+      selectedVolt.voltKey,
+      selectedVolt.voltVault.roundNumber,
+      new PublicKey('VoLT1mJz1sbnxwq5Fv2SXjdVDgPXrb9tJyC8WpMDkSp')
+    );
+    // console.log('pendingDepositPDA:: ', pendingWithdrawalsPDA[0].toBase58());
+
+
+    const dataLayout = struct([u8('instruction')])
+    const data = Buffer.alloc(dataLayout.span)
+    dataLayout.encode(
+      {
+        instruction: 43,
+      },
+      data
+    )
+
+    const keys = [
+      {pubkey: new PublicKey(investorStateAcc), isSigner: false, isWritable: true },
+      {pubkey: fundPDA[0], isSigner: false, isWritable: true},
+      {pubkey: walletProvider?.publicKey, isSigner: true, isWritable: true },
+      {pubkey: new PublicKey(VOLT_PROGRAM_ID), isSigner: false, isWritable: false},
+      {pubkey: fundPDA[0], isSigner: false, isWritable: true},
+      {pubkey: fundPDA[0], isSigner: false, isWritable: true},
+      {pubkey: fundPDA[0], isSigner: false, isWritable: true},
+
+
+      {pubkey: selectedVolt.voltVault.vaultMint, isSigner: false, isWritable: true},
+      {pubkey: selectedVolt.voltKey, isSigner: false, isWritable: true},
+      {pubkey: selectedVolt.voltVault.vaultAuthority, isSigner: false, isWritable: false},
+      
+      {pubkey: extraVoltKey, isSigner: false, isWritable: false},
+      {pubkey: new PublicKey('11111111111111111111111111111111'), isSigner: false, isWritable: false},
+      {pubkey: selectedVolt.voltVault.depositPool , isSigner: false, isWritable: true},
+      {pubkey: selectedVolt.voltVault.writerTokenPool , isSigner: false, isWritable: true},
+
+      {pubkey: associatedTokenAddressfcSRM, isSigner: false, isWritable: true}, //Fund_Volt_token_acc
+      {pubkey: associatedTokenAddressSRM, isSigner: false, isWritable: true}, //Fund_Underlying_token_acc
+
+      {pubkey: roundInfoKey, isSigner: false, isWritable: true},
+      {pubkey: roundVoltTokensAddress, isSigner: false, isWritable: true},
+      {pubkey: roundUnderlyingTokensAddress, isSigner: false, isWritable: true},
+    
+      {pubkey: pendingDepositsPDA[0], isSigner: false, isWritable: true}, //pendingWithdrawalsPDA --fund
+      {pubkey: epochInfoKey, isSigner: false, isWritable: true},
+
+      // { pubkey: new PublicKey('FhrcvL91UwgVpbMmpmyx3GTPUsuofWpjRGBdpV34ern2'), isSigner: false, isWritable: true },
+
+      {pubkey: new PublicKey('11111111111111111111111111111111'), isSigner: false, isWritable: false},//entropy
+      {pubkey: new PublicKey('11111111111111111111111111111111'), isSigner: false, isWritable: false},
+      {pubkey: new PublicKey('11111111111111111111111111111111'), isSigner: false, isWritable: false},
+      {pubkey: new PublicKey('11111111111111111111111111111111'), isSigner: false, isWritable: false},
+      
+      { pubkey: SYSTEM_PROGRAM_ID, isSigner: false, isWritable: false },
+      { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+      { pubkey: RENT_PROGRAM_ID, isSigner: false, isWritable: false },
+
+  ];
+
+    const instruction = new TransactionInstruction({
+      keys,
+      programId,
+      data
+    });
+
+    for (let i = 0; i < keys.length; i++) {
+      console.log("key:", i, keys[i].pubkey.toBase58())
+    }
+
+    transaction.add(instruction);
+    transaction.feePayer = key;
+    let hash = await connection.getRecentBlockhash();
+    console.log("blockhash", hash);
+    transaction.recentBlockhash = hash.blockhash;
+
+    const sign = await signAndSendTransaction(walletProvider, transaction);
+    console.log("signature tx:: ", sign)
+    console.log("signature tx url:: ", `https://explorer.solana.com/tx/${sign}`)
+  }
+
   return (
     <div className="form-div">
       <h4>WITHDRAW INVESTOR</h4>
@@ -534,9 +703,12 @@ export const Withdraw = () => {
 
                
       {/* <button onClick={handleUpdateTokenPrices}>updatePoolPrices</button> */}
-      <button onClick={handleWithdrawSettle}>withdraw_settle_1</button>
-      <button onClick={handleWithdrawFromMango}>withdraw_from_margin_2</button>
-      <button onClick={handleWithdrawFromFund}>withdraw_from_fund_3</button>
+      <button onClick={handleWithdrawSettle}>withdraw_settle_1</button> 
+      <br/>
+      <button onClick={handleWithdrawFromMango}>withdraw_from_mango_2</button>
+      <button onClick={handleFriktionInvestorWithdraw}>Withdraw_from_friktion_2</button>
+      <br/>
+      <button onClick={handleWithdrawFromFund}>withdraw_from_fund_3</button> 
       
       
     </div>

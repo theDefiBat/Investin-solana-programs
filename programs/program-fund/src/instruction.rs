@@ -427,6 +427,8 @@ pub enum FundInstruction {
         index: u8 // index of slot
     },
 
+    FriktionInvestorWithdrawUL2,
+
     FlushDebts {
         index: u8,
         count: u8
@@ -438,9 +440,33 @@ pub enum FundInstruction {
         amount_in: u64
     },
 
+    FriktionDeposit {
+        deposit_amount: u64
+    },
+
+    FriktionDeposit0 {
+        deposit_amount: u64
+    },
+
+    FriktionWithdraw {
+        withdraw_amount: u64
+    },
+
     JupiterSwap,
     CheckSwapGuard,
     InitOpenOrderAccounts,
+    ReadFriktion,
+    FriktionCancelPendingDeposit,
+    FriktionCancelPendingWithdrawal,
+    FriktionClaimPendingDeposit,
+    FriktionClaimPendingWithdrawal,
+    UpdateFriktionValue,
+    FriktionAddToFund {
+        ul_token_slot: u8
+    },
+    FriktionRemoveFromFund,
+    FriktionInvestorWithdrawUL,
+    FriktionInvestorWithdrawFTokens
 }
 
 
@@ -668,6 +694,13 @@ impl FundInstruction {
                 FundInstruction::JupiterSwap
             }
 
+            24 => {
+                let deposit_amount = array_ref![data, 0, 8];
+                FundInstruction::FriktionDeposit{
+                    deposit_amount: u64::from_le_bytes(*deposit_amount)
+                }
+            }
+
             25 => {
                 let data = array_ref![data, 0, 1 + 1 + 8];
                 let (
@@ -728,6 +761,61 @@ impl FundInstruction {
             30 => {
                 FundInstruction::WithdrawProcessLimitOrders
             }
+            
+            33 => {
+                FundInstruction::ReadFriktion
+            }
+
+            34 => {
+                let deposit_amount = array_ref![data, 0, 8];
+                FundInstruction::FriktionDeposit0{
+                    deposit_amount: u64::from_le_bytes(*deposit_amount)
+                }
+            }
+
+            35 => {
+                FundInstruction::FriktionCancelPendingDeposit
+
+            }
+            36 => {
+                let withdraw_amount = array_ref![data, 0, 8];
+                FundInstruction::FriktionWithdraw{
+                    withdraw_amount: u64::from_le_bytes(*withdraw_amount)
+                }
+            }
+            37 => {
+                FundInstruction::FriktionCancelPendingWithdrawal
+            }
+            38 => {
+                FundInstruction::FriktionClaimPendingDeposit
+            }
+            39 => {
+                FundInstruction::FriktionClaimPendingWithdrawal
+            }
+            40 => {
+                FundInstruction::UpdateFriktionValue
+            }
+            41 => {
+                let ul_token_slot = array_ref![data, 0, 1];
+                FundInstruction::FriktionAddToFund {
+                    ul_token_slot: u8::from_le_bytes(*ul_token_slot)
+                }
+            }
+            42 => {
+                FundInstruction::FriktionRemoveFromFund
+            }
+            43 => {
+                FundInstruction::FriktionInvestorWithdrawUL
+            }
+            44 => {
+                FundInstruction::FriktionInvestorWithdrawFTokens
+            }
+            45 => {
+                FundInstruction::FriktionInvestorWithdrawUL2
+            }
+            
+
+
             _ => { return None; }
         })
     }

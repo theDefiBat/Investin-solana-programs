@@ -4,7 +4,7 @@ import { GlobalState } from '../store/globalState';
 
 import { adminAccount, connection, FUND_ACCOUNT_KEY, idsIndex, platformStateAccount, priceStateAccount, programId } from '../utils/constants';
 import { blob, nu64, struct, u32, u8 } from 'buffer-layout';
-import { AMM_INFO_LAYOUT_V4, FUND_DATA, FUND_PDA_DATA, PLATFORM_DATA, SPL_TOKEN_MINT_DATA } from '../utils/programLayouts';
+import { AMM_INFO_LAYOUT_V4, FUND_DATA, FUND_PDA_DATA,PLATFORM_DATA, SPL_TOKEN_MINT_DATA } from '../utils/programLayouts';
 import { IDS, MangoClient, I80F48, NodeBankLayout, PerpAccountLayout, PerpMarketLayout ,RootBankCacheLayout, RootBankLayout} from '@blockworks-foundation/mango-client';
 import { Card, Col, Row ,Table} from 'reactstrap';
 import { DEV_TOKENS } from '../utils/pools';
@@ -32,12 +32,14 @@ const adminAccountX = adminAccount.toBase58();
 const platformStateAccountX = platformStateAccount.toBase58();
 const priceStateAccountX = priceStateAccount.toBase58();
 
-  useEffect(() => {
-   console.log("FUND_DATA.span::",FUND_DATA.span)
-   console.log("FUND_PDA_DATA.span::",FUND_PDA_DATA.span)
-   console.log("PLATFORM_DATA.span::",PLATFORM_DATA.span)
-  }, [])
-  
+
+useEffect(() => {
+  console.log("FUND_DATA.span::",FUND_DATA.span)
+  console.log("FUND_PDA_DATA.span::",FUND_PDA_DATA.span)
+  console.log("PLATFORM_DATA.span::",PLATFORM_DATA.span)
+ }, [])
+
+ 
 
 const handleGetFundData = async () => {
 
@@ -66,9 +68,9 @@ const handleGetFundData = async () => {
     );
     console.log("FUND fundStateAcc:: ", fundStateAcc.toBase58())
     // setFundStateAccount(fundStateAcc.toBase58())
-
+    
     const fundDataAcc = await connection.getAccountInfo(fundStateAcc);
-    console.log("fundDataAcc::",fundDataAcc);
+    console.log("fundDataAcc::", fundDataAcc);
     if (fundDataAcc) {
       const fundData = FUND_DATA.decode(fundDataAcc.data)
       console.error("fundData ::",fundData);
@@ -294,7 +296,6 @@ const getMangoAccountData = async () => {
       <p> platformStateAccount : {platformStateAccountX}</p>
       <p> priceStateAccount : {priceStateAccountX}</p>
       <p> fundPDA  : {fundPDA}</p>
-
       <button onClick={handleGetFundData}>GET FUND STATE</button>
    
       <Row className="justify-content-between">

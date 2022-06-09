@@ -161,7 +161,7 @@ export const AdminControl = () => {
     const instruction = new TransactionInstruction({
       keys: [
         { pubkey: platformStateAccount, isSigner: false, isWritable: true },
-        {pubkey: SYSVAR_CLOCK_PUBKEY, isSigner: false, isWritable:true},
+        { pubkey: SYSVAR_CLOCK_PUBKEY, isSigner: false, isWritable:true},
         { pubkey: walletProvider?.publicKey, isSigner: true, isWritable: true },
         { pubkey: new PublicKey(mintAddress), isSigner: false, isWritable: false },
         { pubkey: new PublicKey(poolCoinAddress), isSigner: false, isWritable: false },

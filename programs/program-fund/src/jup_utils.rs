@@ -19,7 +19,7 @@ use solana_program::{
 use crate::state::{FundAccount, PlatformData};
 use crate::error::FundError;
 use crate::processor::{raydium_id, orca_id, parse_token_account};
-pub use switchboard_aggregator::AggregatorAccountData;
+// pub use switchboard_aggregator::AggregatorAccountData;
 
 
 

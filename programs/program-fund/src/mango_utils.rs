@@ -1049,20 +1049,20 @@ pub fn mango_withdraw_investor(
     Ok(())
 }
 
-pub fn convert_size_to_lots(
-    spot_market_acc: &AccountInfo,
-    dex_program_id: &Pubkey,
-    size: u64,
-    pc: bool
-) -> Result <u64, ProgramError> {
-    let market = MarketState::load(spot_market_acc, dex_program_id)?;
-    if pc {
-        Ok(size * market.pc_lot_size / market.coin_lot_size)
-    }
-    else {
-        Ok(size / market.coin_lot_size)
-    }
-}
+// pub fn convert_size_to_lots(
+//     spot_market_acc: &AccountInfo,
+//     dex_program_id: &Pubkey,
+//     size: u64,
+//     pc: bool
+// ) -> Result <u64, ProgramError> {
+//     let market = MarketState::load(spot_market_acc, dex_program_id)?;
+//     if pc {
+//         Ok(size * market.pc_lot_size / market.coin_lot_size)
+//     }
+//     else {
+//         Ok(size / market.coin_lot_size)
+//     }
+// }
 
 // pub fn convert_size_to_lots(
 //     spot_market_acc: &AccountInfo,

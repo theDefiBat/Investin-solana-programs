@@ -1,4 +1,5 @@
 use std::cell::{Ref, RefMut};
+
 use std::mem::size_of;
 
 use mango::matching::Side;
@@ -159,10 +160,13 @@ pub struct FundAccount {
      pub guard: SwapGuard,
 
      pub limit_orders : [LimitOrderInfo; MAX_LIMIT_ORDERS], // 48 each = 96 
+
+     
+     pub friktion_vault: FriktionVaultInfo, // 96 u8
      
     //  pub margin_update_padding: [u8; 24], //80 Bytes for Depr. MarginInfo Size
 
-    pub migration_additonal_padding: [u8; 1952] // 2024 + 24 - 96 =  1
+    pub migration_additonal_padding: [u8; 1856] // 2024 + 24 - 96 - 96 =  1864
 }
 impl_loadable!(FundAccount);
 
@@ -170,10 +174,13 @@ impl_loadable!(FundAccount);
 #[derive(Clone, Copy, Debug)]
 pub struct TokenSlot {
     // state vars
+
+    //Remove Mux system and replace with one-one mapping to platofrm state tokenInfo
     pub is_active: bool,
     pub index: [u8; 3],
     pub mux: u8,
-    pub padding: [u8; 3],
+    pub is_locked: u8,
+    pub padding: [u8; 2],
 
     // token balances & debts
     pub balance: u64,
@@ -209,7 +216,10 @@ pub struct InvestorData {
     pub is_initialized: bool,
     pub has_withdrawn: bool,
     pub withdrawn_from_margin: bool,
-    pub padding: [u8; 5],
+    pub withdrawn_ul_from_friktion: bool,
+    pub withdrawn_ftokens_from_friktion: bool,
+    pub pending_deposit_on_friktion: bool,
+    pub padding: [u8; 2],
 
     /// Investor wallet address
     pub owner: Pubkey,
@@ -237,8 +247,8 @@ pub struct InvestorData {
     pub token_debts: [u64; NUM_TOKENS],
 
     pub share : U64F64,
-    // padding for future use
-    pub xpadding: [u8; 16] 
+    pub friktion_ul_debt: u64,
+    pub friktion_fc_debt: u64
 }
 impl_loadable!(InvestorData);
 
@@ -261,6 +271,25 @@ impl_loadable!(MangoInfo);
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug)]
+pub struct FriktionVaultInfo {
+    pub last_updated: UnixTimestamp,
+    pub volt_vault_id: Pubkey,
+    pub total_value_in_ul: u64, //including pending w & d
+    pub fc_token_balance: u64,
+    pub ul_token_balance: u64,
+    pub fc_token_debt: u64,    
+    pub ul_token_debt: u64,
+    pub ul_token_slot: u8,
+    pub is_active: bool,
+    pub pending_deposit: bool,
+    pub pending_withdrawal: bool,
+    pub padding: [u8; 4],
+    pub deposit_amount: u64,
+}
+impl_loadable!(FriktionVaultInfo);
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
 pub struct LimitOrderInfo { 
     // PerpOrderInfo for Limit Orders [ 1 + 8 + 8 + 8 + 8 + 8 + 1 + 1 + 1 + 1 ] = 45 bytes
     pub price: i64,
@@ -271,7 +300,7 @@ pub struct LimitOrderInfo {
     pub is_repost_processing: bool,
     pub perp_market_id: u8,
     pub side: Side,
-    pub reduce_only: bool,
+     pub reduce_only: bool,
     pub limit: u8,
     pub padding :[u8;3],
 }
@@ -306,7 +335,7 @@ pub struct TokenInfo {
     pub mint: Pubkey,
     // decimals for token, not used can be used later
     pub decimals: u64,
-    
+    // replace with oracle
     // poolCoinTokenAccount for pool price
     pub pool_coin_account: Pubkey,
     // poolPcTokenAccount for pool price

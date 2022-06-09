@@ -6,8 +6,7 @@ use solana_program::{
     program_pack::Pack,
     msg,
     pubkey::Pubkey,
-    clock::Clock,
-    sysvar::Sysvar
+    sysvar::{Sysvar, clock::Clock}
 };
 use std::cell::{Ref, RefMut};
 use bytemuck::{ from_bytes };
@@ -131,7 +130,8 @@ pub fn update_token_prices (
             .checked_div(U64F64::from_num(pool_coin_data.amount)).unwrap();
         }
         platform_data.token_list[index].last_updated = clock.unix_timestamp;
-    }                           
+    }
+    msg!("Timestamp1: {:?}, Timstamp2: {:?}", clock.unix_timestamp, Clock::get()?.unix_timestamp);                           
     Ok(())
 }
 
@@ -205,6 +205,8 @@ pub fn remove_token_from_fund (
 
     let platform_data = PlatformData::load_checked(platform_acc, program_id)?;
     let mut fund_data = FundAccount::load_mut_checked(fund_state_acc, program_id)?;
+
+    //TODO:: ADD CHECKS FOR FRIKTION VAULT for UL Tokens
 
     // if invalid fund_state_acc
     // although other signers cannot chnage some others fundState so error will be thrown

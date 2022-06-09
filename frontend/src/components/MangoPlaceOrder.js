@@ -948,7 +948,7 @@ export const MangoPlaceOrder = () => {
           Amount :::  <input type="number" value={lendAmount} onChange={(event) => setLendAmount(event.target.value)} />
           <select name="side" width = "100px" onChange={(event) => setLendTokenIndex(event.target.value)}>
               {
-               ids.tokens.map( (i,index) => <option value={index}>{i.symbol}</option> )
+               ids.tokens.map( (i,index) => <option key={index} value={index}>{i.symbol}</option> )
               }
             </select>
           <button onClick={handleMangoPerpDeposit}>DEPOSIT</button>

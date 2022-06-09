@@ -142,7 +142,9 @@ export const PLATFORM_DATA = struct([
       publicKeyLayout('pool_pc_account'),
       U64F64('pool_price'),
       ns64('last_updated'),
-      u64('padding')
+      u8('token_id'),
+      u8('pc_index'),
+      seq(u8(), 6, 'padding')
     ]),
     MAX_TOKENS, 'token_list'
   ),
@@ -312,6 +314,66 @@ export const PRICE_DATA = struct([
   ),
 ])
 
+export const FRIKTION_VOLT = struct(
+  [
+    u64('discrim'),
+    publicKeyLayout('adminKey'),
+    publicKeyLayout('seed'),
+    u64('transferWindow'),
+    u64('startTransferTime'),
+    u64('endTransferTime'),
+    u8('initialized'),
+    u8('currOptionWasSettled'),
+    u8('mustSwapPremiumToUnderlying'),
+    u8('nextOptionWasSet'),
+    u8('firstEverOptionWasSet'),
+    u8('instantTransfersEnabled'),
+    u8('prepareIsFinished'),
+    u8('enterIsFinished'),
+    u8('roundHasStarted'),
+    u64('roundNumber'),
+    u64('totalUnderlyingPreEnter'),
+    u64('totalUnderlyingPostSettle'),
+    u64('totalVoltTokensPostSettle'),
+    publicKeyLayout('vaultAuthority'),
+    publicKeyLayout('depositPool'),
+    publicKeyLayout('premiumPool'),
+    publicKeyLayout('optionPool'),
+    publicKeyLayout('writerTokenPool'),
+    publicKeyLayout('vaultMint'),
+    publicKeyLayout('underlyingAssetMint'),
+    publicKeyLayout('quoteAssetMint'),
+    publicKeyLayout('optionMint'),
+    publicKeyLayout('writerTokenMint'),
+    publicKeyLayout('optionMarket'),
+    u64('vaultType'),
+    u64('underlyingAmountPerContract'),
+    u64('quoteAmountPerContract'),
+    ns64('expirationUnixTimestamp'),
+    u64('expirationInterval'),
+    u64('upperBoundOtmStrikeFactor'),
+    u8('haveTakenWithdrawalFees'),
+    publicKeyLayout('serumSpotMarket'),
+    u8('openOrdersBump'),
+    u8('openOrdersInitBump'),
+    u8('ulOpenOrdersBump'),
+    publicKeyLayout('ulOpenOrders'),
+    u8('ulOpenOrdersInitialized'),
+    u8('bumpAuthority'),
+    u64('serumOrderSizeOptions'),
+    u64('individualCapacity'),
+    u64('serumOrderType'),
+    u16('serumLimit'),
+    u16('serumSelfTradeBehavior'),
+    u64('serumClientOrderId'),
+    publicKeyLayout('whitelistTokenMint'),
+    publicKeyLayout('permissionedMarketPremiumMint'),
+    publicKeyLayout('permissionedMarketPremiumPool'),
+    u64('capacity')
+  ]
+)
+
+
 
 export const FUND_PDA_DATA = struct([
   u8('is_initialized'),
@@ -396,7 +458,18 @@ export const FUND_PDA_DATA = struct([
     ]),
     MAX_LIMIT_ORDERS, 'limit_orders'
   ),
-  u8('repost_processing'),
+  struct([
+    u64('last_updated'),
+    publicKeyLayout('volt_vault_id'),
+    u64('total_value_in_ul'),
+    u64('fc_token_balance'),
+    u64('ul_token_balance'),
+    u64('fc_token_debt'),
+    u64('ul_token_debt'),
+    u8('ul_token_slot'),
+    u8('is_active'),
+    seq(u8(),6,'padding'),
+  ], 'friktion_vault'),
   
-  seq(u8(), 1951, 'migration_additonal_padding'),
+  seq(u8(), 1864, 'migration_additonal_padding'),
 ])

@@ -1,5 +1,5 @@
 use bytemuck::bytes_of;
-use std::{mem::size_of, sync::mpsc::RecvTimeoutError};
+use std::{mem::size_of, sync::mpsc::RecvTimeoutError, str::FromStr};
 use fixed::types::U64F64;
 use fixed_macro::types::U64F64;
 use fixed::types::I80F48;
@@ -18,20 +18,28 @@ use solana_program::{
     program::{invoke, invoke_signed},
     sysvar::{clock::Clock, rent::Rent, Sysvar}
 };
+use bincode::serialize;
 
+// use anchor_lang::prelude::*;
+use anchor_lang::{prelude::CpiContext, AnchorDeserialize};
 use arrayref::{array_ref, array_refs};
 use spl_token::state::{Account, Mint};
 
-use crate::error::FundError;
+use mango::{state::{MangoAccount, MangoGroup, MangoCache, PerpMarket, MAX_TOKENS, MAX_PAIRS, QUOTE_INDEX}, instruction::{cancel_perp_order_by_client_id, place_perp_order2}};
+use mango::instruction::{ cancel_all_perp_orders,cancel_perp_order, withdraw, place_perp_order, consume_events };
+use mango::matching::{Side, OrderType, Book};
+
+
+use volt_abi::*;
+
+use crate::{error::FundError, jup_utils::jupiter_pid::check_id};
 use crate::instruction::{FundInstruction, Data};
 use crate::state::{NUM_TOKENS, MAX_INVESTORS,MAX_LIMIT_ORDERS, NUM_PERP, FundAccount, InvestorData, PlatformData};
 use crate::mango_utils::*;
 use crate::jup_utils::*;
 use crate::tokens::*;
-use mango::{state::{MangoAccount, MangoGroup, MangoCache, PerpMarket, MAX_TOKENS, MAX_PAIRS, QUOTE_INDEX}, instruction::{cancel_perp_order_by_client_id, place_perp_order2}};
-use mango::instruction::{ cancel_all_perp_orders,cancel_perp_order, withdraw, place_perp_order, consume_events };
+use crate::friktion_utils::*;
 
-use mango::matching::{Side, OrderType, Book};
 
 macro_rules! check {
     ($cond:expr, $err:expr) => {
@@ -106,7 +114,7 @@ impl Fund {
         
         let rent = Rent::get()?;        
         let fund_pda_size = size_of::<FundAccount>();
-        let (pda, nonce) = Pubkey::find_program_address(&[&*manager_ai.key.as_ref()], program_id);
+        let (pda, nonce) = Pubkey::find_program_address(&[manager_ai.key.as_ref()], program_id);
         check!(*fund_account_ai.key == pda, FundError::IncorrectPDA);
         invoke_signed(
             &create_account(
@@ -246,7 +254,7 @@ impl Fund {
 
         let mut fund_data = FundAccount::load_mut_checked(fund_account_ai, program_id)?;
         let mut investor_data = InvestorData::load_mut_checked(investor_state_ai, program_id)?;
-        msg!("Is Fund Private: {:?}", fund_data.is_private);
+        msg!("Is Fund Private?: {:?}", fund_data.is_private);
         // check if fund state acc passed is initialised
         check!(fund_data.is_initialized(), FundError::InvalidStateAccount);
         check!(!(fund_data.is_private) || fund_data.manager_account == *investor_ai.key, FundError::PrivateFund);
@@ -270,7 +278,7 @@ impl Fund {
         // update queue
         // let index = fund_data.no_of_investments - fund_data.number_of_active_investments;
         // queue slot should be empty
-        check_eq!(fund_data.investors[index as usize], Pubkey::default());
+        check!(fund_data.investors[index as usize] == Pubkey::default(), FundError::InvestorIndexError);
         fund_data.investors[index as usize] = *investor_state_ai.key;
         fund_data.no_of_investments += 1;
 
@@ -333,8 +341,6 @@ impl Fund {
 
         let platform_data = PlatformData::load_checked(platform_ai, program_id)?;
         let mut fund_data = FundAccount::load_mut_checked(fund_account_ai, program_id)?;
-        
-
 
         // check if manager signed the tx
         check!(manager_ai.is_signer, FundError::IncorrectProgramId);
@@ -529,7 +535,8 @@ impl Fund {
             close_investor_account(investor_ai, investor_state_ai)?;
         } else {
             check!(investor_data.has_withdrawn == true && 
-                (investor_data.withdrawn_from_margin == true || investor_data.margin_debt[0] == 0),
+                (investor_data.withdrawn_from_margin == true || investor_data.margin_debt[0] == 0) &&
+                (investor_data.withdrawn_ul_from_friktion == true),
                  FundError::InvalidInstruction);
             for i in 0..NUM_TOKENS {
                 // TODO:: check if fund_debt on inv_acc <= fund_debt on fund
@@ -562,7 +569,7 @@ impl Fund {
                 )?;
                 fund_data = FundAccount::load_mut_checked(fund_account_ai, program_id)?;
                 fund_data.tokens[i].balance = parse_token_account(&fund_token_accs[i])?.amount;
-                fund_data.tokens[i].debt -= investor_data.token_debts[i];
+                fund_data.tokens[i].debt = fund_data.tokens[i].debt.checked_sub(investor_data.token_debts[i]).unwrap();
                 investor_data.token_debts[i] = 0;
                 investor_data.token_indexes[i] = 0;
             }
@@ -659,6 +666,26 @@ impl Fund {
                 fund_data.tokens[i].debt += withdraw_amount;
                 check!(fund_data.tokens[i].balance >= fund_data.tokens[i].debt, ProgramError::InvalidAccountData);
             }
+
+            if fund_data.friktion_vault.is_active {
+                let ul_withdraw_amount: u64 = U64F64::to_num(
+                    U64F64::from_num(fund_data.friktion_vault.ul_token_balance - fund_data.friktion_vault.ul_token_debt)
+                .checked_mul(share).unwrap());
+                investor_data.friktion_ul_debt = ul_withdraw_amount;
+                fund_data.friktion_vault.ul_token_debt += ul_withdraw_amount;
+                check!(fund_data.friktion_vault.ul_token_balance >= fund_data.friktion_vault.ul_token_debt, ProgramError::InsufficientFunds);
+                
+                let fc_withdraw_amount: u64 = U64F64::to_num(
+                    U64F64::from_num(fund_data.friktion_vault.fc_token_balance - fund_data.friktion_vault.fc_token_debt)
+                .checked_mul(share).unwrap());
+                investor_data.friktion_fc_debt = fc_withdraw_amount;
+                fund_data.friktion_vault.fc_token_debt += fc_withdraw_amount;
+                check!(fund_data.friktion_vault.fc_token_balance >= fund_data.friktion_vault.fc_token_debt, ProgramError::InsufficientFunds);
+            
+            }
+
+            
+
             if mango_val_before > 0 {
                 let mut perp_vals: [i64; 4] = get_perp_vals(&fund_data, &mango_account_ai, &mango_prog_ai, &mango_group_ai).unwrap();
                 // msg!("closing perps: {:?}", perp_vals);
@@ -706,7 +733,7 @@ impl Fund {
                     }
                 }
                 fund_data = FundAccount::load_mut_checked(fund_account_ai, program_id)?;
-            }
+            } 
 
             // msg!("usdc {:?}, tok {:?}", usdc_deposits_before, token_deposits_before);
             let (perp_pnl_after, usdc_deposits_after) = get_mango_valuation(
@@ -1192,13 +1219,14 @@ impl Fund {
 
         }
         fund_data = FundAccount::load_mut_checked(fund_account_ai, program_id)?;
-        fund_data.tokens[index as usize].debt -= cumulative_debt;
+        fund_data.tokens[index as usize].debt = fund_data.tokens[index as usize].debt.checked_sub(cumulative_debt).unwrap();
         fund_data.tokens[index as usize].balance = parse_token_account(vault_ai)?.amount;
 
         Ok(())
     }
 
-
+    
+    
     pub fn admin_control(
         program_id: &Pubkey,
         accounts: &[AccountInfo],
@@ -1212,81 +1240,81 @@ impl Fund {
         change_perf_fee: u64
     ) -> Result<(), ProgramError> {
         let accounts_iter = &mut accounts.iter();
-
+        
         let platform_state_ai = next_account_info(accounts_iter)?;
         let investin_admin_ai = next_account_info(accounts_iter)?;
         let investin_vault_ai = next_account_info(accounts_iter)?;
         let mint_ai = next_account_info(accounts_iter)?;
-
+        
         let mut platform_data = PlatformData::load_mut_checked(platform_state_ai, program_id)?;
         check!(investin_admin_ai.is_signer, FundError::IncorrectSignature);
-
+        
         //check_eq!(investin_admin::ID, *investin_admin_ai.key); REVERT-MAINNET
-
+        
         if intialize_platform == 1 {
-
+            
             // check_eq!(platform_data.is_initialized(), false);  REVERT-MAINNET
             platform_data.is_initialized = true;
             platform_data.version = 1;
             platform_data.no_of_active_funds = 0;
-
+            
             // add router pda
             let (router_pda, nonce) =
-                Pubkey::find_program_address(&["router".as_ref()], program_id
-            );
-            platform_data.router = router_pda;
-            platform_data.router_nonce = nonce;
-
-            // add investin accs
-            platform_data.investin_admin = *investin_admin_ai.key;
-            platform_data.investin_vault = *investin_vault_ai.key;
-
-            // add USDC as base token
-            let mint_info = Mint::unpack(&mint_ai.data.borrow())?;
-            platform_data.token_list[0].mint = *mint_ai.key;
-            platform_data.token_list[0].decimals = mint_info.decimals as u64;
-            platform_data.token_list[0].pool_coin_account = Pubkey::default();
-            platform_data.token_list[0].pool_pc_account = Pubkey::default();
-            platform_data.token_list[0].pool_price = U64F64!(0);
-            platform_data.token_count = 1;
-        }
-        msg!("done");
-        // freeze the platform
-        if freeze_platform == 1 {
-            platform_data.is_initialized = false;
-        }
-        if unfreeze_platform == 1 {
-            platform_data.is_initialized = true;
-        }
-        if change_vault == 1 {
-            check!(*investin_vault_ai.key != Pubkey::default(), ProgramError::InvalidArgument);
-            platform_data.investin_vault = *investin_vault_ai.key;
-        }
-        if freeze_fund == 1 {
-            let fund_account_ai = next_account_info(accounts_iter)?;
-            let mut fund_data = FundAccount::load_mut_checked(fund_account_ai, program_id)?;
-            fund_data.is_initialized = false;
-        }
-        if unfreeze_fund == 1 {
-            let fund_account_ai = next_account_info(accounts_iter)?;
-            let mut fund_data = FundAccount::load_mut_checked(fund_account_ai, program_id)?;
-            fund_data.is_initialized = true;
-        }
-        if change_min_amount > 0 {
-            let fund_account_ai = next_account_info(accounts_iter)?;
-            let mut fund_data = FundAccount::load_mut_checked(fund_account_ai, program_id)?;
-            fund_data.min_amount = change_min_amount;
-        }
-        if change_perf_fee > 0 {
-            let fund_account_ai = next_account_info(accounts_iter)?;
-            let mut fund_data = FundAccount::load_mut_checked(fund_account_ai, program_id)?;
-            fund_data.performance_fee_percentage = U64F64::from_num(change_perf_fee / 100);
-        }
-
-        Ok(())
+            Pubkey::find_program_address(&["router".as_ref()], program_id
+        );
+        platform_data.router = router_pda;
+        platform_data.router_nonce = nonce;
+        
+        // add investin accs
+        platform_data.investin_admin = *investin_admin_ai.key;
+        platform_data.investin_vault = *investin_vault_ai.key;
+        
+        // add USDC as base token
+        let mint_info = Mint::unpack(&mint_ai.data.borrow())?;
+        platform_data.token_list[0].mint = *mint_ai.key;
+        platform_data.token_list[0].decimals = mint_info.decimals as u64;
+        platform_data.token_list[0].pool_coin_account = Pubkey::default();
+        platform_data.token_list[0].pool_pc_account = Pubkey::default();
+        platform_data.token_list[0].pool_price = U64F64!(0);
+        platform_data.token_count = 1;
     }
-
+    msg!("done");
+    // freeze the platform
+    if freeze_platform == 1 {
+        platform_data.is_initialized = false;
+    }
+    if unfreeze_platform == 1 {
+        platform_data.is_initialized = true;
+    }
+    if change_vault == 1 {
+        check!(*investin_vault_ai.key != Pubkey::default(), ProgramError::InvalidArgument);
+        platform_data.investin_vault = *investin_vault_ai.key;
+    }
+    if freeze_fund == 1 {
+        let fund_account_ai = next_account_info(accounts_iter)?;
+        let mut fund_data = FundAccount::load_mut_checked(fund_account_ai, program_id)?;
+        fund_data.is_initialized = false;
+    }
+    if unfreeze_fund == 1 {
+        let fund_account_ai = next_account_info(accounts_iter)?;
+        let mut fund_data = FundAccount::load_mut_checked(fund_account_ai, program_id)?;
+        fund_data.is_initialized = true;
+    }
+    if change_min_amount > 0 {
+        let fund_account_ai = next_account_info(accounts_iter)?;
+        let mut fund_data = FundAccount::load_mut_checked(fund_account_ai, program_id)?;
+        fund_data.min_amount = change_min_amount;
+    }
+    if change_perf_fee > 0 {
+        let fund_account_ai = next_account_info(accounts_iter)?;
+        let mut fund_data = FundAccount::load_mut_checked(fund_account_ai, program_id)?;
+        fund_data.performance_fee_percentage = U64F64::from_num(change_perf_fee / 100);
+    }
     
+    Ok(())
+}
+
+
 
     // instruction processor
     pub fn process(
@@ -1406,9 +1434,9 @@ impl Fund {
                 return mango_withdraw_investor(program_id, accounts);
             }
             // FundInstruction::MangoWithdrawInvestorPlaceOrder { price } => {
-            //     msg!("FundInstruction::MangoWithdrawInvestorPlaceOrder");
-            //     return mango_withdraw_investor_place_order(program_id, accounts, price);
-            // }
+                //     msg!("FundInstruction::MangoWithdrawInvestorPlaceOrder");
+                //     return mango_withdraw_investor_place_order(program_id, accounts, price);
+                // }
             FundInstruction::ChangeFundPrivacy => {
                 msg!("FundInstruction::ChangeFundPrivacy");
                 return Self::change_fund_privacy(program_id, accounts);
@@ -1451,6 +1479,63 @@ impl Fund {
                 let (&_op, op_data) = array_refs![data, 1; ..;];
                 return init_open_order_accs(program_id, accounts, op_data);
             }
+            FundInstruction::FriktionDeposit { deposit_amount} => {
+                msg!("FundInstruction::FriktionDeposit");
+                return friktion_deposit(program_id, accounts, deposit_amount);
+            }
+            FundInstruction::ReadFriktion => {
+            msg!("FundInstruction::ReadFriktion");
+            return read_friktion_data(program_id, accounts);
+            }
+            FundInstruction::FriktionDeposit0 { deposit_amount } => {
+                msg!("FundInstruction::FriktionDeposit");
+                return friktion_deposit(program_id, accounts, deposit_amount)
+            }
+            FundInstruction::FriktionCancelPendingDeposit => {
+                msg!("FundInstruction::FriktionCancelPendingDeposit");
+                return friktion_cancel_pending_deposit(program_id, accounts)
+            }
+            FundInstruction::FriktionWithdraw { withdraw_amount } => {
+                msg!("FundInstruction::FriktionWithdraw");
+                return friktion_withdraw(program_id, accounts)
+            }
+            FundInstruction::FriktionCancelPendingWithdrawal => {
+                msg!("FundInstruction::FriktionCancelPendingWithdrawal");
+                return friktion_cancel_pending_withdrawal(program_id, accounts)
+            }
+            FundInstruction::FriktionClaimPendingDeposit => {
+                msg!("FundInstruction::FriktionClaimPendingDeposit");
+                return friktion_claim_pending_deposit(program_id, accounts)
+            }
+            FundInstruction::FriktionClaimPendingWithdrawal => {
+                msg!("FundInstruction::FriktionClaimPendingWithdrawal");
+                return friktion_claim_pending_withdrawal(program_id, accounts)
+            }
+            FundInstruction::UpdateFriktionValue => {
+                msg!("FundInstruction::FriktionUpdateValue");
+                return update_friktion_value(program_id, accounts)
+            }
+            FundInstruction::FriktionAddToFund { ul_token_slot } => {
+                msg!("FundInstruction::FriktionAddToFund");
+                return friktion_add_to_fund(program_id, accounts, ul_token_slot);
+            }
+            FundInstruction::FriktionRemoveFromFund => {
+                msg!("FundInstruction::FriktionRemoveFromFund");
+                return friktion_remove_from_fund(program_id, accounts)
+            }
+            FundInstruction::FriktionInvestorWithdrawUL => {
+                msg!("FundInstruction::FriktionInvestorWithdrawUL");
+                return friktion_investor_withdraw_ul(program_id, accounts)
+            }
+            FundInstruction::FriktionInvestorWithdrawUL2 => {
+                msg!("FundInstruction::FriktionInvestorWithdrawUL_2");
+                return friktion_investor_withdraw_ul_2(program_id, accounts)
+            }
+            FundInstruction::FriktionInvestorWithdrawFTokens => {
+                msg!("FundInstruction::FriktionInvestorWithdrawFTokens");
+                return  friktion_investor_withdraw_ftokens(program_id, accounts)
+            }
+            
         }
     }
 }
@@ -1473,6 +1558,7 @@ pub fn update_amount_and_performance(
     fund_val = fund_val.checked_add(U64F64::from_num(fund_data.tokens[0].balance - fund_data.tokens[0].debt)).unwrap();
     // msg!("USDC: {:?}", U64F64::from_num(fund_data.tokens[0].balance - fund_data.tokens[0].debt));
     // Calculate prices for all tokens with balances
+    msg!("Timestamp:: {:?}", Clock::get()?.unix_timestamp);
     for i in 1..NUM_TOKENS {
 
         // dont update if token balance == 0
@@ -1483,7 +1569,7 @@ pub fn update_amount_and_performance(
         let token_info = platform_data.token_list[fund_data.tokens[i].index[fund_data.tokens[i].mux as usize] as usize];
         
         if Clock::get()?.unix_timestamp - token_info.last_updated > 100 {
-            msg!("{} price not up-to-date.. aborting", i);
+            msg!("{} price not up-to-date", i);
             return Err(FundError::PriceStaleInAccount.into())
         }
         // calculate price in terms of base token
@@ -1493,13 +1579,39 @@ pub fn update_amount_and_performance(
          if token_info.pc_index != 0 {
              let underlying_token_info = platform_data.token_list[token_info.pc_index as usize];
              if Clock::get()?.unix_timestamp - underlying_token_info.last_updated > 100 {
-                msg!("{} base price not up-to-date.. aborting", i);
+                msg!("{} base price not up-to-date", i);
                 return Err(FundError::PriceStaleInAccount.into())
             }
              val = val.checked_mul(underlying_token_info.pool_price).unwrap();
          }
         fund_val = fund_val.checked_add(val).unwrap();
     }
+
+    if fund_data.friktion_vault.is_active {
+
+        let friktion_ul_token_info = platform_data.token_list[fund_data.tokens[fund_data.friktion_vault.ul_token_slot as usize].index[fund_data.tokens[fund_data.friktion_vault.ul_token_slot as usize].mux as usize] as usize];
+            
+            if Clock::get()?.unix_timestamp - fund_data.friktion_vault.last_updated > 100 {
+                msg!("FKV not up-to-date...");
+                return Err(FundError::PriceStaleInAccount.into())
+            }
+            // calculate price in terms of base token
+            let mut val: U64F64 = U64F64::from_num(fund_data.friktion_vault.ul_token_balance - fund_data.friktion_vault.ul_token_debt )
+            .checked_mul(friktion_ul_token_info.pool_price).unwrap();
+    
+             if friktion_ul_token_info.pc_index != 0 {
+                 let underlying_token_info = platform_data.token_list[friktion_ul_token_info.pc_index as usize];
+                 if Clock::get()?.unix_timestamp - underlying_token_info.last_updated > 100 {
+                    msg!("ul price not up-to-date.. aborting");
+                    return Err(FundError::PriceStaleInAccount.into())
+                }
+                 val = val.checked_mul(underlying_token_info.pool_price).unwrap();
+             }
+    
+        fund_val = fund_val.checked_add(val).unwrap();
+    }
+    
+
     
     if update_perf {
         let mut perf = U64F64::from_num(fund_data.prev_performance);
@@ -1539,12 +1651,15 @@ pub fn get_mango_valuation(
         // account for native USDC deposits
         usdc_deposits  = mango_account.get_native_deposit(&mango_cache.root_bank_cache[QUOTE_INDEX], QUOTE_INDEX)?
         .checked_sub(mango_account.get_native_borrow(&mango_cache.root_bank_cache[QUOTE_INDEX], QUOTE_INDEX)?).unwrap();
-
+       
+        // .checked_sub(I80F48::from_num(fund_data.mango_positions.investor_debts[0])).unwrap();
         let fund_debts = I80F48::from_num(fund_data.mango_positions.investor_debts[0]);
         if usdc_deposits > fund_debts {
             usdc_deposits = usdc_deposits.checked_sub(fund_debts).unwrap();
-        } 
-        
+        } else {
+            msg!("Investor Debts Exceeded Deposits... Rekt");
+        }
+
         //     fund_data.mango_positions.investor_debts[0] = 0;
         // }
 

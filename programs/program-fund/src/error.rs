@@ -1,3 +1,4 @@
+use flux_aggregator::error;
 use num_derive::FromPrimitive;
 use solana_program::program_error::ProgramError;
 use thiserror::Error;
@@ -79,7 +80,26 @@ pub enum FundError {
 
      //12
      #[error("limit Still in Processing")]
-     LimitOrderProcessing
+     LimitOrderProcessing,
+     
+     //13
+     #[error("Claim pending Deposit on Friktion")]
+     FriktionUnclaimedPendingDeposit,
+     //13
+     #[error("Claim pending Withdrawal on Friktion")]
+     FriktionUnclaimedPendingwithdrawal,
+
+     #[error("Incorrect Friktion Vault")]
+     FriktionIncorrectVault,
+
+     #[error("Incorrect Underlying Token Mint")]
+     FriktionIncorrectULMint,
+
+     #[error("Incorrect Friktion Vault")]
+     InvestorIndexError
+
+
+
 }
 
 impl From<FundError> for ProgramError {

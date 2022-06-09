@@ -51,7 +51,8 @@ export const GetPrices = () => {
                 pool_pc_account: i.pool_pc_account.toBase58(),
                 pool_price : i.pool_price?.toString(),
                 last_updated: i.last_updated?.toString(),
-                token_id: i.token_id?.toString()
+                token_id: i.token_id?.toString(),
+                pc_index: i.pc_index?.toString(),
               }
             })
           } 

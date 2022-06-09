@@ -271,7 +271,7 @@ export async function sendSignedTransaction(connection, signedTransaction) {
   const rawTransaction = signedTransaction.serialize()
 
   const txid = await connection.sendRawTransaction(rawTransaction, {
-    skipPreflight: true,
+    skipPreflight: false,
     preflightCommitment: commitment
   })
 
