@@ -224,7 +224,7 @@ const getMangoAccountData = async () => {
 
 
 
-      <hr/>
+      {/* <hr/>
         Mango account  ::: {' '}
         <input type="text" value={mangoAccount} onChange={(event) => setMangoAccount(event.target.value)} />
         <button onClick={getMangoAccountData}>GET  MANGO ACC DATA </button>
@@ -305,14 +305,14 @@ const getMangoAccountData = async () => {
   
         
         </>
-      }
+      } */}
 
 
 
 
 
       <hr/>
-      <h4>MANGO GRP </h4>
+      {/* <h4>MANGO GRP </h4>
       <button onClick={getAllDecodeMangoData}>GET ALL MANGO DATA </button>
       {
         mangoGroup &&
@@ -414,7 +414,7 @@ const getMangoAccountData = async () => {
             <p> optimalRate : {rootBank.optimalRate}</p>
 
         </>
-      }
+      } */}
 
       
    

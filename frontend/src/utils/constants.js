@@ -15,7 +15,7 @@ export const adminAccount = new PublicKey('Fepyuf4vy7mKZVgpzS52UoUeSLmVvGnoMDyra
 // export const cluster = "https://mainnet-beta.solflare.network";
 export const cluster = "https://mango.rpcpool.com";
 
-export const connection = new Connection(cluster, "confirmed");
+export const connection = new Connection(cluster, "recent");
 
 // export const programId = new PublicKey('J65z283avUTTgWCEbMQk1HCVyJkTRoofLMsgAmvjHWBk');
 export const programId = new PublicKey('CikbdcmuRHrJa2FuYECETfx6hrzP3PctyjMeUBRd4H9A');
