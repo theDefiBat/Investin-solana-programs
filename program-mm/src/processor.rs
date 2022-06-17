@@ -112,10 +112,10 @@ impl Fund {
                 &program_id,
             ),
             &[manager_ai.clone(), fund_pda_ai.clone(), system_program_ai.clone()],
-            &[&[&manager_ai.key.to_bytes(), &[signer_nonce]]]
+            &[&[&manager_ai.key.to_bytes(), bytes_of(&signer_nonce)]]
         )?;
 
-        invoke(
+        invoke_signed(
             &mango::instruction::create_mango_account(
                 mango_program_ai.key, 
                 mango_group_ai.key, 
@@ -132,10 +132,12 @@ impl Fund {
                 fund_pda_ai.clone(),
                 system_program_ai.clone(),
                 manager_ai.clone()
-            ]
+            ],
+            &[&[&manager_ai.key.to_bytes(), bytes_of(&signer_nonce)]]
         );
 
-        invoke(
+
+        invoke_signed(
             &mango::instruction::set_delegate(
                 mango_program_ai.key, 
                 mango_group_ai.key, 
@@ -149,8 +151,11 @@ impl Fund {
                 mango_account_ai.clone(),
                 fund_pda_ai.clone(),
                 delegate_ai.clone()
-            ]
+            ],
+            &[&[&manager_ai.key.to_bytes(), bytes_of(&signer_nonce)]]
+
         );
+
 
         let mut fund_data = FundData::load_mut(fund_pda_ai)?;
 
@@ -238,7 +243,6 @@ impl Fund {
     pub fn process_deposits(
         program_id: &Pubkey,
         accounts: &[AccountInfo],
-        investors_count: u8,
     ) -> Result<(), ProgramError> {
         const NUM_FIXED: usize = 11;
         let fixed_accounts = array_ref![accounts, 0, NUM_FIXED];
@@ -374,7 +378,6 @@ impl Fund {
     pub fn process_withdraws(
         program_id: &Pubkey,
         accounts: &[AccountInfo],
-        investors_count: u8,
     ) -> Result<(), ProgramError> {
 
         const NUM_FIXED: usize = 11;
@@ -737,11 +740,11 @@ impl Fund {
                 msg!("FundInstruction::ClaimPerformanceFee");
                 return Self::claim_performnace_fee(program_id, accounts);
             }
-            FundInstruction::ProcessDeposits { investors_count } => {
+            FundInstruction::ProcessDeposits => {
                 msg!("FundInstruction::ProcessDeposits");
                 return Self::process_deposits(program_id, accounts, investors_count);
             }
-            FundInstruction::ProcessWithdraws { investors_count } => {
+            FundInstruction::ProcessWithdraws => {
                 msg!("FundInstruction::ProcessWithdraws");
                 return Self::process_withdraws(program_id, accounts, investors_count);
             }
