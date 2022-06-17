@@ -6,6 +6,8 @@ import { useEffect, useState } from 'react';
 import { GlobalState } from './store/globalState'
 import { InitialisedFund } from './components/InitialisedFund';
 import { Deposit } from './components/Deposit';
+import { ProcessDeposits } from './components/ProcessDeposits';
+
 import { Withdraw } from './components/Withdraw';
 // import { Claim } from './components/ClaimFee';
 import { DisplayInfo } from './components/DisplayInfo';
@@ -55,6 +57,8 @@ function App() {
          <DisplayInfo/>
         <InitialisedFund />
         <Deposit />
+        <ProcessDeposits />
+
         <Withdraw />
         {/* <Claim /> */}
         <AllFundsInvestors/>

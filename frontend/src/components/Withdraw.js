@@ -147,7 +147,7 @@ export const Withdraw = () => {
   const handleFundSelect = async(event) => {
   
     setFundPDA(event.target.value);
-    console.log(`setting fundPDA :::: `, fundPDA)
+    console.log(`setting fundPDA :::: `, event.target.value, fundPDA)
   }
   
   const handleGetInvestments = async () => {

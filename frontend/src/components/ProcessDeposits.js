@@ -8,19 +8,16 @@ import { FUND_DATA, INVESTOR_DATA } from '../utils/programLayouts';
 import { awaitTransactionSignatureConfirmation, IDS, MangoClient } from '@blockworks-foundation/mango-client';
 import { sendSignedTransactionAndNotify } from '../utils/solanaWeb3';
 
-export const Deposit = () => {
+export const ProcessDeposits = () => {
 
-  const [amount, setAmount] = useState(0);
-  const [fundPDA, setFundPDA] = useState('');
-  const [funds, setFunds] = useState([]);
-
+  const [selectedInvestmentStateAcc, setSelectedInvestmentStateAcc] = useState('');
+  const [investments, setInvestments] = useState([]);
 
   const walletProvider = GlobalState.useState(s => s.walletProvider);
   const ids = IDS['groups'][0]
 
-
-
-  const handleDeposit = async () => {
+  
+  const handleprocesDeposit = async () => {
 
     const key = walletProvider?.publicKey;
 
@@ -29,7 +26,9 @@ export const Deposit = () => {
       return;
     };
 
-    console.log('selected FundPDA::', fundPDA)
+    const fundPDA = await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId)[0];
+
+    console.log('selected investment::', selectedInvestmentStateAcc)
   
     let fundStateInfo = await connection.getAccountInfo(new PublicKey(fundPDA))
     let fundState = FUND_DATA.decode(fundStateInfo.data)
@@ -43,25 +42,21 @@ export const Deposit = () => {
         )
     let signers = [];
     
-    const investerStateAccount = await createAccountInstruction(connection, key, INVESTOR_DATA.span, programId, openOrdersLamports, transaction, signers);
     const investorBaseTokenAccount = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(ids.tokens[0].mintKey), key, transaction);
-
-    let investorStateAccounts = 
 
     console.log("account size::: ", INVESTOR_DATA.span)
 
-    const dataLayout = struct([u32('instruction'), nu64('amount')])
+    const dataLayout = struct([u32('instruction')])
     const data = Buffer.alloc(dataLayout.span)
     dataLayout.encode(
       {
-        instruction: 1,
-        amount: amount * ( 10 ** ids.tokens[0].decimals)
+        instruction: 2,
       },
       data
     )
     const keys =  [
       { pubkey: new PublicKey(fundPDA), isSigner: false, isWritable: true }, //fund State Account
-      { pubkey: investerStateAccount, isSigner: false, isWritable: true },
+      // { pubkey: investerStateAccount, isSigner: false, isWritable: true },
       { pubkey: key, isSigner: true, isWritable: true },
       { pubkey: investorBaseTokenAccount, isSigner: false, isWritable: true }, // Investor Base Token Account
       { pubkey: fundState.usdc_vault_key, isSigner: false, isWritable: true },
@@ -107,54 +102,61 @@ export const Deposit = () => {
 
   }
     
-  const handleFunds = async () => {
-    let managers = []
+  const handleGetInvestors = async () => {
 
-    let funds = await connection.getProgramAccounts(programId, { filters: [{ dataSize: FUND_DATA.span }] });
-    console.log(`funds :::: `, funds)
-    const fundData = funds.map(f => FUND_DATA.decode(f.account.data))
+    const fundPDA = (await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId))[0];
+    console.log("fundPDA::",fundPDA.toBase58())
 
-    console.log(`decodedFunds ::: `, fundData)
+    let investments = await connection.getProgramAccounts(programId, { 
+      filters: [
+        {
+          memcmp : { offset : INVESTOR_DATA.offsetOf('fund') , bytes : fundPDA.toString()},
+          // memcmp : { offset : INVESTOR_DATA.offsetOf('investment_status') , bytes : 0}
+        },
+        { dataSize: INVESTOR_DATA.span }
+      ]
+     });
+    console.log(`found investments :::: `, investments)
+
+    const investmentStateAccs = investments.map(f => f.pubkey.toBase58())
+
+    const investmentsData = investments.map(f => INVESTOR_DATA.decode(f.account.data))
+    console.log(`decodedFunds ::: `, investmentsData)
     
-    for(let i=0; i<fundData.length; i++) {
-      let manager = fundData[i].manager_account;
-      let PDA = await PublicKey.findProgramAddress([manager.toBuffer()], programId);
-      let fundState = await PublicKey.createWithSeed(manager, FUND_ACCOUNT_KEY, programId);
-      console.log(`PDA[0]`, PDA)
-      managers.push({
-        fundPDA: PDA[0].toBase58(),
-        fundManager: manager.toBase58(),
-      });
-    }
-    console.log(managers)
-    setFunds(managers);
+    // for(let i=0; i<investments.length; i++) {
+    //   let fund = investmentsData[i].fund;
+    //   let fundState = await PublicKey.createWithSeed(manager, FUND_ACCOUNT_KEY, programId);
+    //   console.log(`PDA[0]`, PDA)
+    //   managers.push({
+    //     fundPDA: PDA[0].toBase58(),
+    //     fundManager: manager.toBase58(),
+    //   });
+    // }
+    // console.log(managers)
+    setInvestments(investmentStateAccs);
   }
 
-
-
-  const handleFundSelect = async(event) => {
-  
-    setFundPDA(event.target.value);
-    console.log(`setting fundPDA :::: `,event.target.value, fundPDA)
+  const handleSelectInvestment = async(event) => {
+    setSelectedInvestmentStateAcc(event.target.value);
+    console.log(`setting selectedInvestmentStateAcc :::: `,event.target.value, selectedInvestmentStateAcc)
   }
 
   return (
     <div className="form-div">
-      <h4>Investor Deposit</h4>
-      amount ::: {' '}
-      <input type="number" value={amount} onChange={(event) => setAmount(event.target.value)} />
+      <h4>Process Deposit</h4>
+      
       <br />
-      <label htmlFor="funds">Select Fund Address:</label>
+      <label htmlFor="funds">Select Investment Address:</label>
 
-      <select name="funds" width = "100px" onClick={handleFundSelect}>
+      <select name="funds" width = "100px" onClick={handleSelectInvestment}>
         {
-          funds.map((fund) => {
-            return (<option key={fund.fundPDA} value={fund.fundPDA}>{fund.fundPDA}</option>)
+          investments.map((i) => {
+            return (<option key={i} value={i}>{i}</option>)
           })
         }
       </select>
-      <button onClick={handleDeposit}>Deposit</button>
-      <button onClick={handleFunds}>Load Funds</button>
+      <button onClick={handleprocesDeposit}> Process Deposit</button>
+      <button onClick={handleGetInvestors}>Load Investments of my fund</button>
     </div>
   )
 }

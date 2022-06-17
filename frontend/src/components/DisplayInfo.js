@@ -13,6 +13,7 @@ import { IDS, MangoClient, I80F48, NodeBankLayout, PerpAccountLayout, PerpMarket
 export const DisplayInfo = (props) => {
 
    const ids = IDS['groups'][0]
+   const [fundAddress, setFundAddress] = useState('')
    const [fundData, setFundData] = useState("");
    const [mangoGroup, setMangoGroup] = useState({})
    const [mangoAccount, setMangoAccount] = useState('7BLzTNvjNjaCnZ2Nnpu1aFYqTBsL8Lz2FUxknSAZ8tDX')
@@ -40,14 +41,12 @@ const handleGetFundData = async () => {
     return;
   }
 
-    const fundStateAcc = await PublicKey.createWithSeed(
-      key,
-      FUND_ACCOUNT_KEY,
-      programId,
-    );
-    console.log("FUND fundStateAcc:: ", fundStateAcc.toBase58())
+  const fundPDA = (await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId))[0];
+  console.log("fundPDA::",fundPDA.toBase58())
+  setFundAddress(fundPDA.toBase58())
 
-    const fundDataAcc = await connection.getAccountInfo(fundStateAcc);
+
+    const fundDataAcc = await connection.getAccountInfo(fundPDA);
     console.log("fundDataAcc::",fundDataAcc);
     if (fundDataAcc == null)
     {
@@ -57,7 +56,6 @@ const handleGetFundData = async () => {
     const fundData = FUND_DATA.decode(fundDataAcc.data)
     console.error("fundData::",fundData);
     setFundData(fundData);
-
 }
 
 const getAllDecodeMangoData = async () => {
@@ -178,6 +176,8 @@ const getMangoAccountData = async () => {
     <h4>Accounts</h4>
       <p> programID : {programIdX}</p>
       <p> adminAccount : {adminAccountX}</p>
+      <p> fundAddress : {fundAddress}</p>
+
 
    
      <hr/>
@@ -187,35 +187,26 @@ const getMangoAccountData = async () => {
         fundData &&
           <>
             <p> signer_nonce  : {fundData.signer_nonce}</p>
-            <p> perp_market_index : {fundData.perp_market_index}</p>
-            <p> padding   : u8</p>
+          
             <p> no_of_investments : {fundData.no_of_investments}</p>
            <br/>
 
             <p> min_amount  : {fundData.min_amount.toString()}</p>
-            <p> min_return  : {fundData.min_return.toString()}</p>
             <p> performance_fee_percentage  : {fundData.performance_fee_percentage}</p>
+         
             <p> total_amount in fund USDC  : {fundData.total_amount.toString()}</p>
             <p> current_index  : {fundData.current_index}</p>
             <br/>
 
-            <p> **deposits  : {fundData.deposits.toString()}</p>
-            <p> vault_balance  : {fundData.vault_balance.toString()}</p>
+            <p> pending_deposits  : {fundData.pending_deposits.toString()}</p>
+            <p> pending_withdrawals  : {fundData.pending_withdrawals.toString()}</p>
 
             <p> manager_account  : {fundData.manager_account.toBase58()}</p>
-            <p> fund_pda  : {fundData.fund_pda.toBase58()}</p>
+            <p> usdc_vault_key  : {fundData.usdc_vault_key.toBase58()}</p>
+            <p> mango_account  : {fundData.mango_account.toBase58()}</p>
             <p> delegate  : {fundData.delegate.toBase58()}</p>
             <br/>
-
-            <p> vault_key  : {fundData.vault_key.toBase58()}</p>
-            <p> mngo_vault_key  : {fundData.mngo_vault_key.toBase58()}</p>
-            <p> mango_account  : {fundData.mango_account.toBase58()}</p>
-            <br/>
-
-            <p> mngo_per_share  : {fundData.mngo_per_share.toString()}</p>
-            <p> mngo_manager  : {fundData.mngo_manager.toString()}</p>
-            <p> mngo_accrued  : {fundData.mngo_accrued.toString()}</p>
-            <p> total_mngo_accrued  : {fundData.total_mngo_accrued.toString()}</p>
+           
           </>
       }
 
