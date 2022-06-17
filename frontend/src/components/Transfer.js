@@ -15,7 +15,6 @@ import {
 export const Transfer = () => {
 
   const [fundPDA, setFundPDA] = useState('')
-  const [fundStateAccount, setFundStateAccount] = useState('')
   const [amountInRouter, setAmountInRouter] = useState(0);
   const [fundPerf, setFundPerf] = useState(0);
   const [fundAUM, setFundAUM] = useState(0);
@@ -42,14 +41,14 @@ export const Transfer = () => {
     const managerBaseTokenAccount = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(MANGO_TOKENS['USDC'].mintAddress), key, transaction);
     const investinBaseTokenAccount = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(MANGO_TOKENS['USDC'].mintAddress), adminAccount, transaction);
 
-    if (fundStateAccount == '') {
+    if ( fundPDA == '') {
       alert("get info first!")
       return
     }
     const client = new MangoClient()
 
 
-    const accountInfo = await connection.getAccountInfo(new PublicKey(fundStateAccount));
+    const accountInfo = await connection.getAccountInfo(new PublicKey( fundPDA));
     const fund_data = FUND_DATA.decode(accountInfo.data);
 
     let margin_account_1 = fund_data.mango_positions[0].margin_account;
@@ -106,7 +105,7 @@ export const Transfer = () => {
     const transfer_instruction = new TransactionInstruction({
       keys: [
         { pubkey: platformStateAccount, isSigner: false, isWritable: true },
-        { pubkey: new PublicKey(fundStateAccount), isSigner: false, isWritable: true },
+        { pubkey: new PublicKey( fundPDA), isSigner: false, isWritable: true },
 
         { pubkey: MANGO_GROUP_ACCOUNT, isSigner: false, isWritable: true },
         { pubkey: SYSVAR_CLOCK_PUBKEY, isSigner: false, isWritable: true },
@@ -172,16 +171,8 @@ export const Transfer = () => {
     const fundPDA = await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId);
     setFundPDA(fundPDA[0].toBase58())
 
-    const fundStateAccount = await PublicKey.createWithSeed(
-      key,
-      FUND_ACCOUNT_KEY,
-      programId,
-    );
 
-    console.log("FUND STTE:: ", fundStateAccount.toBase58())
-    setFundStateAccount(fundStateAccount.toBase58())
-
-    let x = await connection.getAccountInfo(fundStateAccount)
+    let x = await connection.getAccountInfo( fundPDA)
     if (x == null) {
       alert("fund account not found")
       return
@@ -194,7 +185,7 @@ export const Transfer = () => {
     }
     console.log(fundState)
 
-    setAmountInRouter(parseInt(fundState.amount_in_router) / (10 ** 9));
+    setAmountInRouter(parseInt(fundState.pendingDeposits) / (10 ** 9));
     setFundPerf(fundState.current_index)
     setFundAUM(parseInt(fundState.total_amount) / (10 ** 9))
 

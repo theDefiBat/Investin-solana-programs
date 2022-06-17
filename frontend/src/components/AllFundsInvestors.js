@@ -50,7 +50,6 @@ export const AllFundsInvestors = () => {
                 fundState : decodedData,
                 fundPDA: decodedData.fund_pda.toBase58(),
                 fundManager: decodedData.manager_account.toBase58(),
-                fundStateAccount: data.pubkey.toBase58(),
                 vault_key: decodedData.vault_key.toBase58(),
                 mngo_vault_key: decodedData.mngo_vault_key.toBase58(),
                 mango_account: decodedData.mango_account.toBase58(),
@@ -137,7 +136,6 @@ export const AllFundsInvestors = () => {
                               <th style={{ width: "15%" }}>index</th>
                               <th style={{ width: "15%" }}>fundManager</th>
                               <th style={{ width: "15%" }}>fundPDA</th>
-                              <th style={{ width: "15%" }}>fundStateAccount</th>
 
                               <th style={{ width: "15%" }}>vault_key</th>
                               <th style={{ width: "15%" }}>mngo_vault_key</th>
@@ -161,7 +159,6 @@ export const AllFundsInvestors = () => {
                  <td >{x}</td>
                  <td >{i?.fundManager}</td>
                  <td >{i?.fundPDA}</td>
-                 <td >{i?.fundStateAccount}</td>
                 
                  <td >{i?.vault_key}</td>
                  <td >{i?.mngo_vault_key}</td>

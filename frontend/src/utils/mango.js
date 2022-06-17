@@ -60,7 +60,6 @@ export async function mangoOpenPosition(
   connection,
 
   marginAcc,
-  fundStateAccount,
   fundPDA,
   wallet,
 
@@ -214,9 +213,8 @@ export async function mangoOpenPosition(
       )
       let instruction = new TransactionInstruction({
         keys: [
-          { isSigner: false, isWritable: true, pubkey: fundStateAccount },
+          { isSigner: false, isWritable: true, pubkey:  fundPDA },
           { isSigner: true, isWritable: true, pubkey: wallet?.publicKey },
-          { isSigner: false, isWritable: true, pubkey: fundPDA },
           { isSigner: false, isWritable: true, pubkey: MANGO_PROGRAM_ID_V2 },
           { isSigner: false, isWritable: true, pubkey: mangoGroup.publicKey },
           { isSigner: false, isWritable: true, pubkey: marginAccount.publicKey },
@@ -233,7 +231,7 @@ export async function mangoOpenPosition(
     transaction.add(instruction)
 
   let keys1 = [
-      { isSigner: false, isWritable: true, pubkey: fundStateAccount },
+      { isSigner: false, isWritable: true, pubkey:   },
       { isSigner: true, isWritable: true, pubkey: wallet?.publicKey },
       { isSigner: false, isWritable: true, pubkey: fundPDA },
       { isSigner: false, isWritable: true, pubkey: MANGO_PROGRAM_ID_V2 },
@@ -319,9 +317,8 @@ export async function mangoOpenPosition(
   // const nativeQuantity = uiToNative(quantity, mangoGroup.mintDecimals[tokenIndex]);
 
   const settle_keys = [
-    { isSigner: false, isWritable: true, pubkey: fundStateAccount },
-    { isSigner: true, isWritable: true, pubkey: wallet?.publicKey },
     { isSigner: false, isWritable: true, pubkey: fundPDA },
+    { isSigner: true, isWritable: true, pubkey: wallet?.publicKey },
     { isSigner: false, isWritable: true, pubkey: MANGO_PROGRAM_ID_V2 },
 
     { isSigner: false, isWritable: true, pubkey: mangoGroup.publicKey },
@@ -388,7 +385,6 @@ export async function mangoClosePosition(
   connection,
 
   marginAcc,
-  fundStateAccount,
   fundPDA,
   wallet,
 
@@ -537,9 +533,8 @@ export async function mangoClosePosition(
   }
   const fundBaseTokenAccount = await findAssociatedTokenAddress(fundPDA, new PublicKey(MANGO_TOKENS['USDC'].mintAddress));
   let keys1 = [
-    { isSigner: false, isWritable: true, pubkey: fundStateAccount },
-    { isSigner: true, isWritable: true, pubkey: wallet?.publicKey },
     { isSigner: false, isWritable: true, pubkey: fundPDA },
+    { isSigner: true, isWritable: true, pubkey: wallet?.publicKey },
     { isSigner: false, isWritable: true, pubkey: MANGO_PROGRAM_ID_V2 },
 
     { isSigner: false, isWritable: true, pubkey: mangoGroup.publicKey },
@@ -612,9 +607,8 @@ const placeAndSettleInstruction = new TransactionInstruction({
 })
 transaction.add(placeAndSettleInstruction)
   const settle_keys = [
-    { isSigner: false, isWritable: true, pubkey: fundStateAccount },
-    { isSigner: true, isWritable: true, pubkey: wallet?.publicKey },
     { isSigner: false, isWritable: true, pubkey: fundPDA },
+    { isSigner: true, isWritable: true, pubkey: wallet?.publicKey },
     { isSigner: false, isWritable: true, pubkey: MANGO_PROGRAM_ID_V2 },
 
     { isSigner: false, isWritable: true, pubkey: mangoGroup.publicKey },
@@ -677,10 +671,9 @@ transaction.add(placeAndSettleInstruction)
   transaction.add(SettleInstruction)
 
    const withdraw_keys = [
-    { isSigner: false, isWritable: true, pubkey: fundStateAccount },
 
+     { isSigner: false, isWritable: true, pubkey: fundPDA },
     { isSigner: true, isWritable: true, pubkey: wallet?.publicKey },
-    { isSigner: false, isWritable: true, pubkey: fundPDA },
     { isSigner: false, isWritable: true, pubkey: MANGO_PROGRAM_ID_V2 },
 
   { isSigner: false, isWritable: true, pubkey: mangoGroup.publicKey },
@@ -729,7 +722,6 @@ export async function mangoWithdrawInvestor(
   connection,
 
   marginAcc,
-  fundStateAccount,
   invStateAccount,
   fundPDA,
   wallet,
@@ -861,10 +853,9 @@ export async function mangoWithdrawInvestor(
   }
   const invBaseTokenAccount = await findAssociatedTokenAddress(wallet?.publicKey, new PublicKey(MANGO_TOKENS['USDC'].mintAddress));
   let keys1 = [
-    { isSigner: false, isWritable: true, pubkey: fundStateAccount },
+    { isSigner: false, isWritable: true, pubkey: fundPDA },
     { isSigner: false, isWritable: true, pubkey: invStateAccount },
     { isSigner: true, isWritable: true, pubkey: wallet?.publicKey },
-    { isSigner: false, isWritable: true, pubkey: fundPDA },
     { isSigner: false, isWritable: true, pubkey: MANGO_PROGRAM_ID_V2 },
 
     { isSigner: false, isWritable: true, pubkey: mangoGroup.publicKey },
@@ -937,11 +928,10 @@ const placeAndSettleInstruction = new TransactionInstruction({
 })
 transaction.add(placeAndSettleInstruction)
   const settle_keys = [
-    { isSigner: false, isWritable: true, pubkey: fundStateAccount },
+    { isSigner: false, isWritable: true, pubkey: fundPDA },
     { isSigner: false, isWritable: true, pubkey: invStateAccount },
 
     { isSigner: true, isWritable: true, pubkey: wallet?.publicKey },
-    { isSigner: false, isWritable: true, pubkey: fundPDA },
     { isSigner: false, isWritable: true, pubkey: MANGO_PROGRAM_ID_V2 },
 
     { isSigner: false, isWritable: true, pubkey: mangoGroup.publicKey },
@@ -996,12 +986,11 @@ transaction.add(placeAndSettleInstruction)
   transaction.add(SettleInstruction)
 
    const withdraw_keys = [
-    { isSigner: false, isWritable: true, pubkey: fundStateAccount },
+     { isSigner: false, isWritable: true, pubkey: fundPDA },
     { isSigner: false, isWritable: true, pubkey: invStateAccount },
 
 
     { isSigner: true, isWritable: true, pubkey: wallet?.publicKey },
-    { isSigner: false, isWritable: true, pubkey: fundPDA },
     { isSigner: false, isWritable: true, pubkey: MANGO_PROGRAM_ID_V2 },
 
   { isSigner: false, isWritable: true, pubkey: mangoGroup.publicKey },

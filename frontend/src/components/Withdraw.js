@@ -6,12 +6,11 @@ import { connection,  FUND_ACCOUNT_KEY, programId, TOKEN_PROGRAM_ID} from '../ut
 import { struct, u32 } from 'buffer-layout';
 import { createKeyIfNotExists, signAndSendTransaction, createAssociatedTokenAccountIfNotExist } from '../utils/web3';
 import { INVESTOR_DATA, FUND_DATA } from '../utils/programLayouts';
-import { IDS, MangoClient, NodeBankLayout, PerpMarketLayout } from '@blockworks-foundation/mango-client';
+import { createAccountInstruction, IDS, MangoClient, NodeBankLayout, PerpMarketLayout } from '@blockworks-foundation/mango-client';
 
 export const Withdraw = () => {
 
   const [fundPDA, setFundPDA] = useState('')
-  const [fundStateAccount, setFundStateAccount] = useState('')
   const [funds, setFunds] = useState([]);
 
 
@@ -29,18 +28,23 @@ export const Withdraw = () => {
       return;
     };
 
-    if(!fundStateAccount) {
+    if(!fundPDA) {
       alert("no funds found")
       return
     }
-    console.log("fundStateAcc::: ", fundStateAccount)
     
     const transaction = new Transaction()
 
-    const investerStateAccount = await createKeyIfNotExists(walletProvider, null, programId, fundPDA.substr(0, 31), INVESTOR_DATA.span)
+    const openOrdersLamports =
+    await connection.getMinimumBalanceForRentExemption(
+      INVESTOR_DATA.span,
+      'singleGossip'
+    )
+    let signers = []
+    const investerStateAccount = await createAccountInstruction(connection, key, INVESTOR_DATA.span, programId, openOrdersLamports, transaction, signers);
     const investorBaseTokenAccount = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(ids.tokens[0].mintKey), key, transaction);
 
-    let fundStateInfo = await connection.getAccountInfo(new PublicKey(fundStateAccount))
+    let fundStateInfo = await connection.getAccountInfo(new PublicKey(fundPDA ))
     let fundState = FUND_DATA.decode(fundStateInfo.data)
     console.log("fundState:: ", fundState)
 
@@ -64,7 +68,7 @@ export const Withdraw = () => {
 
     const instruction = new TransactionInstruction({
       keys: [
-        { pubkey: fundStateAccount, isSigner: false, isWritable: true },
+        { pubkey: fundPDA, isSigner: false, isWritable: true },
         { pubkey: investerStateAccount, isSigner: false, isWritable: true }, //fund State Account
         { pubkey: key, isSigner: true, isWritable: true },
         { pubkey: fundState.vault_key, isSigner: false, isWritable: true }, // Router Base Token Account
@@ -98,7 +102,8 @@ export const Withdraw = () => {
     let hash = await connection.getRecentBlockhash("finalized");
     console.log("blockhash", hash);
     transaction.recentBlockhash = hash.blockhash;
-
+    transaction.setSigners(key, investerStateAccount)
+    transaction.partialSign(...signers)
     const sign = await signAndSendTransaction(walletProvider, transaction);
     console.log("tx::: ", sign)
   }
@@ -133,7 +138,6 @@ export const Withdraw = () => {
       invFunds.push({
         fundPDA: PDA[0].toBase58(),
         fundManager: manager.toBase58(),
-        fundStateAccount: fundState.toBase58()
       });
     }
     console.log(invFunds)
@@ -143,13 +147,7 @@ export const Withdraw = () => {
   const handleFundSelect = async(event) => {
   
     setFundPDA(event.target.value);
-    funds.forEach(fund => {
-      if (fund.fundPDA == event.target.value) 
-      {setFundStateAccount(fund.fundStateAccount)
-       console.log("set fundStateAcoount")}
-    });
     console.log(`setting fundPDA :::: `, fundPDA)
-    console.log(`setting fundStateAccount :::: `, fundStateAccount)
   }
   
   const handleGetInvestments = async () => {
@@ -181,7 +179,7 @@ export const Withdraw = () => {
     // }
     console.log(invState);
     
-    let y = await connection.getAccountInfo(new PublicKey(fundStateAccount))
+    let y = await connection.getAccountInfo(new PublicKey(fundPDA))
     if (y == null)
     {
       alert("investor account not found")
@@ -200,17 +198,16 @@ export const Withdraw = () => {
         return;
       };
   
-      if(!fundStateAccount) {
+      if(!fundPDA) {
         alert("no funds found")
         return
       }
-      console.log("fundStateAcc::: ", fundStateAccount)      
 
-    if (fundStateAccount == ''){
+    if (fundPDA == ''){
       alert("get fund info first!")
       return
     }
-    let fundStateInfo = await connection.getAccountInfo((new PublicKey(fundStateAccount)))
+    let fundStateInfo = await connection.getAccountInfo((new PublicKey(fundPDA)))
     let fundState = FUND_DATA.decode(fundStateInfo.data)
     console.log("fundState:: ", fundState)
   
@@ -247,7 +244,7 @@ export const Withdraw = () => {
   
     const instruction = new TransactionInstruction({
       keys: [
-        { pubkey: new PublicKey(fundStateAccount), isSigner: false, isWritable: true },
+        { pubkey: new PublicKey(fundPDA), isSigner: false, isWritable: true },
         { pubkey: investorStateAccount, isSigner: false, isWritable: true },
         { pubkey: walletProvider?.publicKey, isSigner: true, isWritable: true },
         { pubkey: new PublicKey(ids.mangoProgramId), isSigner: false, isWritable: false },

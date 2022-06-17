@@ -24,7 +24,10 @@ export async function signAndSendTransaction(
   console.log(`wallet :::`, wallet)
   let signedTrans = await wallet.signTransaction(transaction);
   console.log("sign transaction");
-  let signature = await connection.sendRawTransaction(signedTrans.serialize());
+  let signature = await connection.sendRawTransaction(signedTrans.serialize(), {
+    skipPreflight : true,
+    maxRetries : 3
+  });
   console.log("send raw transaction");
   return signature;
 }
@@ -106,6 +109,30 @@ export async function createProgramAccountIfNotExist(
   }
 
   return publicKey
+}
+
+export async function createAccountInstruction(
+  connection,
+  payer,
+  space,
+  programId,
+  lamports,
+  transaction,
+  signers
+) {
+  const account = new Account();
+  const instruction = SystemProgram.createAccount({
+    fromPubkey: payer,
+    newAccountPubkey: account.publicKey,
+    lamports: lamports ? lamports : await connection.getMinimumBalanceForRentExemption(space),
+    space,
+    programId
+  })
+
+  transaction.add(instruction);
+  signers.push(account);
+
+  return account.publicKey;
 }
 
 

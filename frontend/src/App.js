@@ -8,7 +8,6 @@ import { InitialisedFund } from './components/InitialisedFund';
 import { Deposit } from './components/Deposit';
 import { Withdraw } from './components/Withdraw';
 // import { Claim } from './components/ClaimFee';
-import { MangoPlaceOrder } from './components/MangoPlaceOrder';
 import { DisplayInfo } from './components/DisplayInfo';
 import { AllFundsInvestors } from './components/AllFundsInvestors';
 
@@ -44,7 +43,6 @@ function App() {
         <Deposit />
         <Withdraw />
         {/* <Claim /> */}
-        <MangoPlaceOrder />
         <AllFundsInvestors/>
       </Container>
     </div>

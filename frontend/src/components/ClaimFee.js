@@ -12,7 +12,6 @@ import { updatePoolPrices } from './updatePrices';
 
 export const Claim = () => {
     const [fundPDA, setFundPDA] = useState('');
-    const [fundStateAccount, setFundStateAccount] = useState('')
     const [performanceFee, setPerformanceFee] = useState(0)
 
     const walletProvider = GlobalState.useState(s => s.walletProvider);
@@ -22,13 +21,8 @@ export const Claim = () => {
         const key = walletProvider?.publicKey;
         const ids = IDS['groups'][0]
                 
-        const fundStateAccount = await PublicKey.createWithSeed(
-          key,
-          FUND_ACCOUNT_KEY,
-          programId,
-        );
     
-        let fundStateInfo = await connection.getAccountInfo((fundStateAccount))
+        let fundStateInfo = await connection.getAccountInfo((fundPDA))
         let fundState = FUND_DATA.decode(fundStateInfo.data)
         console.log("fundState:: ", fundState)
     
@@ -52,7 +46,7 @@ export const Claim = () => {
         
         const claim_instruction = new TransactionInstruction({
         keys: [
-        {pubkey: fundStateAccount, isSigner: false, isWritable: true},
+        {pubkey: fundPDA, isSigner: false, isWritable: true},
         {pubkey: key, isSigner: true, isWritable: true },
         {pubkey: managerBaseTokenAccount, isSigner: false, isWritable:true},
         {pubkey: fundBaseVault, isSigner: false, isWritable:true},
