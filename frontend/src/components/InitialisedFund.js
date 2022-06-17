@@ -9,6 +9,7 @@ import { FUND_DATA, PLATFORM_DATA, u64, U64F64 } from '../utils/programLayouts';
 import { Badge } from 'reactstrap';
 import { IDS, MangoAccountLayout } from '@blockworks-foundation/mango-client'
 import BN from 'bn.js';
+import { sendSignedTransactionAndNotify } from '../utils/solanaWeb3';
 
 export const InitialisedFund = () => {
 
@@ -87,8 +88,20 @@ export const InitialisedFund = () => {
       console.log("blockhash", hash);
       transaction.recentBlockhash = hash.blockhash;
 
-      const sign = await signAndSendTransaction(walletProvider, transaction);
-      console.log("signature tx:: ", sign)
+      // const sign = await signAndSendTransaction(walletProvider, transaction);
+      // console.log("signature tx:: ", sign)
+      try {
+        await sendSignedTransactionAndNotify({
+            connection,
+            transaction: transaction,
+            successMessage: "Investment successful",
+            failMessage: "Investment unsuccessful",
+            wallet: walletProvider
+        })
+      } catch (error) {
+          console.error('init e: ', error);
+      }
+  
 
 
     GlobalState.update(s => {

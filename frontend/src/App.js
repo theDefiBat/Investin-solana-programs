@@ -10,7 +10,8 @@ import { Withdraw } from './components/Withdraw';
 // import { Claim } from './components/ClaimFee';
 import { DisplayInfo } from './components/DisplayInfo';
 import { AllFundsInvestors } from './components/AllFundsInvestors';
-
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 function App() {
   const walletProvider = GlobalState.useState(s => s.walletProvider);
@@ -30,6 +31,19 @@ function App() {
   return (
     <div>
       <Container>
+
+      <ToastContainer
+                position="top-right"
+                autoClose={5000}
+                hideProgressBar={false}
+                newestOnTop={false}
+                closeOnClick
+                rtl={false}
+                pauseOnFocusLoss
+                draggable
+                pauseOnHover
+            />
+
         <CustomNavbar />
         {
           address &&

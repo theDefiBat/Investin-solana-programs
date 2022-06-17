@@ -26,7 +26,8 @@ export async function signAndSendTransaction(
   console.log("sign transaction");
   let signature = await connection.sendRawTransaction(signedTrans.serialize(), {
     skipPreflight : true,
-    maxRetries : 3
+    // maxRetries : 3
+    preflightCommitment : 'confirmed'
   });
   console.log("send raw transaction");
   return signature;

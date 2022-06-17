@@ -6,6 +6,7 @@ import { nu64, struct, u32 } from 'buffer-layout';
 import { createKeyIfNotExists, findAssociatedTokenAddress, signAndSendTransaction, createAssociatedTokenAccountIfNotExist, createAccountInstruction } from '../utils/web3';
 import { FUND_DATA, INVESTOR_DATA } from '../utils/programLayouts';
 import { awaitTransactionSignatureConfirmation, IDS, MangoClient } from '@blockworks-foundation/mango-client';
+import { sendSignedTransactionAndNotify } from '../utils/solanaWeb3';
 
 export const Deposit = () => {
 
@@ -28,7 +29,7 @@ export const Deposit = () => {
       return;
     };
 
-    console.log('FundPDA::', fundPDA)
+    console.log('selected FundPDA::', fundPDA)
   
     let fundStateInfo = await connection.getAccountInfo(new PublicKey(fundPDA))
     let fundState = FUND_DATA.decode(fundStateInfo.data)
@@ -36,13 +37,13 @@ export const Deposit = () => {
 
     const transaction = new Transaction()
   
-    const openOrdersLamports =
-    await connection.getMinimumBalanceForRentExemption(
-      INVESTOR_DATA.span,
-      'singleGossip'
-    )
-    let signers = []
-    // const investerStateAccount = await createAccountInstruction(connection, key, INVESTOR_DATA.span, programId, openOrdersLamports, transaction, signers);
+    const openOrdersLamports = await connection.getMinimumBalanceForRentExemption(
+          INVESTOR_DATA.span,
+          'singleGossip'
+        )
+    let signers = [];
+    
+    const investerStateAccount = await createAccountInstruction(connection, key, INVESTOR_DATA.span, programId, openOrdersLamports, transaction, signers);
     const investorBaseTokenAccount = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(ids.tokens[0].mintKey), key, transaction);
 
     console.log("account size::: ", INVESTOR_DATA.span)
@@ -56,48 +57,52 @@ export const Deposit = () => {
       },
       data
     )
+    const keys =  [
+      { pubkey: new PublicKey(fundPDA), isSigner: false, isWritable: true }, //fund State Account
+      { pubkey: investerStateAccount, isSigner: false, isWritable: true },
+      { pubkey: key, isSigner: true, isWritable: true },
+      { pubkey: investorBaseTokenAccount, isSigner: false, isWritable: true }, // Investor Base Token Account
+      { pubkey: fundState.usdc_vault_key, isSigner: false, isWritable: true },
+      { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false }
+    ];
+
+    for(let i = 0; i<keys.length; i++){
+      console.log('>>',i, keys[i].pubkey.toBase58())
+    }
+
 
     const instruction = new TransactionInstruction({
-      keys: [
-        { pubkey: new PublicKey(fundPDA), isSigner: false, isWritable: true }, //fund State Account
-        // { pubkey: investerStateAccount, isSigner: false, isWritable: true },
-        { pubkey: key, isSigner: true, isWritable: true },
-        { pubkey: investorBaseTokenAccount, isSigner: false, isWritable: true }, // Investor Base Token Account
-        { pubkey: fundState.usdc_vault_key, isSigner: false, isWritable: true },
-        { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: true }
-      ],
+      keys,
       programId,
       data
     });
 
+   
     transaction.add(instruction)
     transaction.feePayer = walletProvider?.publicKey;
     let hash = await connection.getRecentBlockhash();
     console.log("tx", transaction);
     transaction.recentBlockhash = hash.blockhash;
-    // transaction.setSigners(key);
-    // transaction.partialSign(...signers)
-
-    const sign = await signAndSendTransaction(walletProvider, transaction);
-    console.log("signature tx:: ", sign)
-    await awaitTransactionSignatureConfirmation(sign, 120000, connection, 'finalized')
-    // const transaction2 = await setWalletTransaction(instruction, walletProvider?.publicKey);
-    // const signature = await signAndSendTransaction(walletProvider, transaction2);
-    // let result = await connection.confirmTransaction(signature, "confirmed");
-    // console.log("tx:: ", signature)
-    
-    // transaction.add(deposit_instruction);
-    // transaction.feePayer = key;
-    // let hash = await connection.getRecentBlockhash();
-    // console.log("blockhash", hash);
-    // transaction.recentBlockhash = hash.blockhash;
+    transaction.setSigners(key);
+    transaction.partialSign(...signers)
 
     // const sign = await signAndSendTransaction(walletProvider, transaction);
     // console.log("signature tx:: ", sign)
+    // await awaitTransactionSignatureConfirmation(sign, 120000, connection, 'finalized')
+   
 
+      try {
+          await sendSignedTransactionAndNotify({
+              connection,
+              transaction: transaction,
+              successMessage: "Investment successful",
+              failMessage: "Investment unsuccessful",
+              wallet: walletProvider
+          })
+      } catch (error) {
+          console.error('handleMakeInvestment: ', error);
+      }
 
-  // const investorDataAcc = await connection.getAccountInfo(investerStateAccount);
-  // const investorData = INVESTOR_DATA.decode(investorDataAcc.data);
   }
     
   const handleFunds = async () => {
