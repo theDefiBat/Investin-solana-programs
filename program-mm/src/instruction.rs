@@ -25,11 +25,9 @@ pub enum FundInstruction {
     ClaimPerformanceFee,
     
     ProcessDeposits {
-        investors_count: u8,
     },
 
     ProcessWithdraws {
-        investors_count: u8,
     },
 
     // MangoPlacePerpOrder {
@@ -68,18 +66,8 @@ impl FundInstruction {
             }
             2 => FundInstruction::InvestorWithdraw,
             3 => FundInstruction::InvestorRequestWithdraw,
-            4 => {
-                let investor_count = array_ref![data, 0, 1];
-                FundInstruction::ProcessDeposits {
-                    investors_count: u8::from_le_bytes(*investor_count),
-                }
-            }
-            5 => {
-                let investor_count = array_ref![data, 0, 1];
-                FundInstruction::ProcessWithdraws {
-                    investors_count: u8::from_le_bytes(*investor_count),
-                }
-            }
+            4 => FundInstruction::ProcessDeposits,
+            5 => FundInstruction::ProcessWithdraws,
             6 => FundInstruction::ClaimPerformanceFee,
             7 => FundInstruction::SetMangoDelegate,
             _ => {
