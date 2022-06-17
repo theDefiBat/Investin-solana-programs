@@ -90,7 +90,7 @@ export const AllFundsInvestors = () => {
                               <th style={{ width: "15%" }}>owner</th>
                               <th style={{ width: "15%" }}>amount</th>
                               <th style={{ width: "15%" }}>mngo_debt</th>
-                              <th style={{ width: "15%" }}>start_performance</th>
+                              <th style={{ width: "15%" }}>start_index</th>
                               <th style={{ width: "15%" }}>has_withdrawn</th>
                               <th style={{ width: "15%" }}>withdrawn_from_margin</th>
                             </tr>
@@ -107,7 +107,7 @@ export const AllFundsInvestors = () => {
                  <td >{i?.owner?.toBase58()}</td>
                  <td>{i?.amount?.toString()/10**6}</td>
                  <td>{i?.mngo_debt?.toString()}</td>
-                 <td>{i?.start_performance?.toString()}</td>
+                 <td>{i?.start_index?.toString()}</td>
 
                  <td>{i?.has_withdrawn}</td>
                  <td>{i?.withdrawn_from_margin}</td>

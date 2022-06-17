@@ -1,6 +1,6 @@
 use crate::error::FundError;
 use bytemuck::{from_bytes, from_bytes_mut, Pod, Zeroable};
-use fixed::types::U64F64;
+use fixed::types::I80F48;
 use solana_program::account_info::AccountInfo;
 use solana_program::program_error::ProgramError;
 use solana_program::program_pack::{IsInitialized, Sealed};
@@ -32,101 +32,73 @@ macro_rules! impl_loadable {
     };
 }
 
-macro_rules! check_eq {
-    ($x:expr, $y:expr) => {
-        if ($x != $y) {
-            return Err(FundError::Default.into());
-        }
-    };
-}
 
-#[repr(C)]
+#[repr(packed)]
 #[derive(Clone, Copy)]
 pub struct FundData {
+
     pub is_initialized: bool,
     pub signer_nonce: u8,
-    pub perp_market_index: u8,
-    pub padding: u8,
     pub no_of_investments: u32,
 
     /// Minimum Amount
     pub min_amount: u64,
 
-    /// Minimum Return
-    pub min_return: U64F64,
-
     /// Performance Fee Percentage
-    pub performance_fee_percentage: U64F64,
+    pub performance_fee_percentage: I80F48,
 
     /// Fund AUM
-    pub total_amount: U64F64,
-
-    /// Preformance in fund
-    pub prev_performance: U64F64,
+    pub total_amount: I80F48,
 
     /// Performance Fee
-    pub performance_fee: U64F64,
+    pub performance_fee: I80F48,
+    
+    /// Performance indicator of Fund
+    pub current_index: I80F48,
 
     /// Fund Deposits
-    pub deposits: u64,
+    pub pending_deposits: u64,
 
-    /// Vault balance
-    pub vault_balance: u64,
+    /// Pending Withdrawals
+    pub pending_withdrawals: u64,
 
     /// Wallet Address of the Manager
     pub manager_account: Pubkey,
 
-    /// Fund PDA
-    pub fund_pda: Pubkey,
-
-    /// Vault account key
-    pub vault_key: Pubkey,
-
-    /// Fund Mngo Vault
-    pub mngo_vault_key: Pubkey,
+    /// Vault token account
+    pub usdc_vault_key: Pubkey,
 
     /// Mango account for the fund
     pub mango_account: Pubkey,
 
-    /// Mango per share accrued
-    pub mngo_per_share: U64F64,
-
-    /// Mango due to Manager
-    pub mngo_manager: u64,
-
-    /// Mango Accrued in Mango Account
-    pub mngo_accrued: u64,
-
     // Delegate for Manager to call place/cancel
     pub delegate: Pubkey,
 
-    // all time Mngo accrual
-    pub total_mngo_accrued: u64,
 }
 impl_loadable!(FundData);
 
-#[repr(C)]
+#[repr(packed)]
 #[derive(Clone, Copy)]
 pub struct InvestorData {
     pub is_initialized: bool,
-    pub has_withdrawn: bool,
-    pub withdrawn_from_margin: bool,
-    pub padding: [u8; 5],
+    pub investment_status: u8, //1->pending_deposit 2->active_deposit 3->withdraw_requested 4->withdraw_processed
+    pub padding: [u8; 6],
 
     /// The Initial deposit (in USDC tokens)
     pub amount: u64,
 
-    // start performance of investor
-    pub start_performance: U64F64,
+    /// index at time of deposit activation
+    pub start_index: I80F48,
 
-    // mngo reward debt
-    pub mngo_debt: U64F64,
+    /// Returns set at time of withdraw execution
+    pub returns: u64,
 
     /// Investor wallet address
     pub owner: Pubkey,
 
-    // Fund manager wallet key
-    pub manager: Pubkey,
+    /// Invested Fund 
+    pub fund: Pubkey,
+
 }
 impl_loadable!(InvestorData);
 
@@ -149,18 +121,18 @@ impl FundData {
         account: &'a AccountInfo,
         program_id: &Pubkey,
     ) -> Result<RefMut<'a, Self>, ProgramError> {
-        check_eq!(account.data_len(), size_of::<Self>());
-        check_eq!(account.owner, program_id);
+        assert_eq!(account.data_len(), size_of::<Self>());
+        assert_eq!(account.owner, program_id);
 
         let data = Self::load_mut(account)?;
         Ok(data)
     }
-    pub fn load_checked<'a>(
+    pub fn loaded<'a>(
         account: &'a AccountInfo,
         program_id: &Pubkey,
     ) -> Result<Ref<'a, Self>, ProgramError> {
-        check_eq!(account.data_len(), size_of::<Self>());
-        check_eq!(account.owner, program_id);
+        assert_eq!(account.data_len(), size_of::<Self>());
+        assert_eq!(account.owner, program_id);
 
         let data = Self::load(account)?;
         Ok(data)
@@ -172,8 +144,8 @@ impl InvestorData {
         account: &'a AccountInfo,
         program_id: &Pubkey,
     ) -> Result<RefMut<'a, Self>, ProgramError> {
-        check_eq!(account.data_len(), size_of::<Self>());
-        check_eq!(account.owner, program_id);
+        assert_eq!(account.data_len(), size_of::<Self>());
+        assert_eq!(account.owner, program_id);
 
         let data = Self::load_mut(account)?;
         Ok(data)
@@ -182,8 +154,8 @@ impl InvestorData {
         account: &'a AccountInfo,
         program_id: &Pubkey,
     ) -> Result<Ref<'a, Self>, ProgramError> {
-        check_eq!(account.data_len(), size_of::<Self>());
-        check_eq!(account.owner, program_id);
+        assert_eq!(account.data_len(), size_of::<Self>());
+        assert_eq!(account.owner, program_id);
 
         let data = Self::load(account)?;
         Ok(data)

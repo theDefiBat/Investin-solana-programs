@@ -11,7 +11,7 @@ pub fn process_instruction(
     instruction_data: &[u8],
 ) -> ProgramResult {
     Fund::process(program_id, accounts, instruction_data).map_err(|e| {
-        msg!("{}", e); // log the error
-        e.into() // convert MangoError to generic ProgramError
+        msg!("{}", e);
+        e.into()
     })
 }

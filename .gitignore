@@ -9,9 +9,15 @@ src/client/util/store
 src/program-fund/target
 src/program-fund/Cargo.lock
 test-ledger/
-programs/program-mm/target
-programs/program-mm/Cargo.lock
-programs/program-fund/target
-programs/program-fund/Cargo.lock
+program-mm/target
+program-mm/Cargo.lock
+program-fund/target
+program-fund/Cargo.lock
 package-lock.json
 frontend/node_modules
+
+
+# Added by cargo
+
+/target
+program-fund/target/.rustc_info.json

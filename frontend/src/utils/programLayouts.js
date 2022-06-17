@@ -37,7 +37,7 @@ class BNLayout extends Blob {
   }
 }
 
-class U64F64Layout extends Blob {
+class I80F48Layout extends Blob {
   constructor(property) {
     super(16, property);
   }
@@ -54,8 +54,8 @@ class U64F64Layout extends Blob {
   }
 }
 
-export function U64F64(property = "") {
-  return new U64F64Layout(property)
+export function I80F48(property = "") {
+  return new I80F48Layout(property)
 }
 
 export function u64(property = "") {
@@ -74,44 +74,34 @@ export function i64(property = '') {
 export const FUND_DATA = struct([
   u8('is_initialized'),
   u8('signer_nonce'),
-  u8('perp_market_index'),
-  u8('padding'),
   u32('no_of_investments'),
 
   u64('min_amount'),
-  U64F64('min_return'),
-  U64F64('performance_fee_percentage'),
-  U64F64('total_amount'),
-  U64F64('prev_performance'),
-  U64F64('performance_fee'),
+  I80F48('performance_fee_percentage'),
+  I80F48('total_amount'),
+  I80F48('performance_fee'),
+  I80F48('current_index'),
 
-  u64('deposits'),
-  u64('vault_balance'),
+  u64('pending_deposits'),
+  u64('pending_withdrawals'),
 
   publicKeyLayout('manager_account'),
-  publicKeyLayout('fund_pda'),
-  publicKeyLayout('vault_key'),
-  publicKeyLayout('mngo_vault_key'),
+  publicKeyLayout('usdc_vault_key'),
   publicKeyLayout('mango_account'),
-
-  U64F64('mngo_per_share'),
-  u64('mngo_manager'),
-  u64('mngo_accrued'),
   publicKeyLayout('delegate'),
-  u64('total_mngo_accrued')
+
 ])
 
 export const INVESTOR_DATA = struct([
   u8('is_initialized'),
-  u8('has_withdrawn'),
-  u8('withdrawn_from_margin'),
-  seq(u8('padding'), 5),
+  u8('investment_status'),
+  seq(u8('padding'), 6),
 
   u64('amount'),
-  U64F64('start_performance'),
-  U64F64('mngo_debt'),
+  I80F48('start_index'),
+  u64('returns'),
   publicKeyLayout('owner'),
-  publicKeyLayout('manager'),
+  publicKeyLayout('fund'),
 ])
 
 

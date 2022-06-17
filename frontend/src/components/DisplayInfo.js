@@ -196,7 +196,7 @@ const getMangoAccountData = async () => {
             <p> min_return  : {fundData.min_return.toString()}</p>
             <p> performance_fee_percentage  : {fundData.performance_fee_percentage}</p>
             <p> total_amount in fund USDC  : {fundData.total_amount.toString()}</p>
-            <p> prev_performance  : {fundData.prev_performance}</p>
+            <p> current_index  : {fundData.current_index}</p>
             <br/>
 
             <p> **deposits  : {fundData.deposits.toString()}</p>
