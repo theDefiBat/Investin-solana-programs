@@ -7,6 +7,8 @@ import { createKeyIfNotExists, findAssociatedTokenAddress, signAndSendTransactio
 import { FUND_DATA, INVESTOR_DATA } from '../utils/programLayouts';
 import { awaitTransactionSignatureConfirmation, IDS, MangoClient } from '@blockworks-foundation/mango-client';
 import { sendSignedTransactionAndNotify } from '../utils/solanaWeb3';
+import bs58 from 'bs58';
+import BN from 'bn.js';
 
 export const ProcessDeposits = () => {
 
@@ -111,7 +113,7 @@ export const ProcessDeposits = () => {
       filters: [
         {
           memcmp : { offset : INVESTOR_DATA.offsetOf('fund') , bytes : fundPDA.toString()},
-          // memcmp : { offset : INVESTOR_DATA.offsetOf('investment_status') , bytes : 0}
+          memcmp : { offset : INVESTOR_DATA.offsetOf('investment_status') , bytes : bs58.encode((new BN(1, 'le')).toArray())}
         },
         { dataSize: INVESTOR_DATA.span }
       ]
