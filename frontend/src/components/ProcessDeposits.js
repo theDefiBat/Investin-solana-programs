@@ -39,6 +39,7 @@ export const ProcessDeposits = () => {
     let fundState = FUND_DATA.decode(fundStateInfo.data)
     console.log("fundState:: ", fundState)
 
+
     const transaction = new Transaction()
   
     const openOrdersLamports = await connection.getMinimumBalanceForRentExemption(
@@ -53,6 +54,18 @@ export const ProcessDeposits = () => {
     let mangoGroup = await client.getMangoGroup(new PublicKey(ids.publicKey))
     let nodeBankInfo = await connection.getAccountInfo(new PublicKey(ids.tokens[0].nodeKeys[0]))
     let nodeBank = NodeBankLayout.decode(nodeBankInfo.data)
+
+    let mangoAcc = await client.getMangoAccount(fundState.mango_account, new PublicKey(ids.serumProgramId))
+    console.log("mangoAcc.spot::",mangoAcc.spotOpenOrders);
+
+    const spotOrdersKeys = mangoAcc.spotOpenOrders.map( (i,index) => { 
+      console.log("spot order",index,i.toBase58())
+      return {
+        pubkey : i,
+        isSigner : false,
+        isWritable : false
+      }
+    })
 
     const dataLayout = struct([u32('instruction')])
     const data = Buffer.alloc(dataLayout.span)
@@ -74,21 +87,22 @@ export const ProcessDeposits = () => {
       { pubkey: nodeBank.vault, isSigner: false, isWritable: true }, //vault_ai
       { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
       { pubkey: fundState.usdc_vault_key, isSigner: false, isWritable: true },
-      { pubkey: SYSTEM_PROGRAM_ID, isSigner: false, isWritable: false },
-      { pubkey: SYSTEM_PROGRAM_ID, isSigner: false, isWritable: false },
-      { pubkey: SYSTEM_PROGRAM_ID, isSigner: false, isWritable: false },
-      { pubkey: SYSTEM_PROGRAM_ID, isSigner: false, isWritable: false },
-      { pubkey: SYSTEM_PROGRAM_ID, isSigner: false, isWritable: false },
-      { pubkey: SYSTEM_PROGRAM_ID, isSigner: false, isWritable: false },
-      { pubkey: SYSTEM_PROGRAM_ID, isSigner: false, isWritable: false },
-      { pubkey: SYSTEM_PROGRAM_ID, isSigner: false, isWritable: false },
-      { pubkey: SYSTEM_PROGRAM_ID, isSigner: false, isWritable: false },
-      { pubkey: SYSTEM_PROGRAM_ID, isSigner: false, isWritable: false },
-      { pubkey: SYSTEM_PROGRAM_ID, isSigner: false, isWritable: false },
-      { pubkey: SYSTEM_PROGRAM_ID, isSigner: false, isWritable: false },
-      { pubkey: SYSTEM_PROGRAM_ID, isSigner: false, isWritable: false },
-      { pubkey: SYSTEM_PROGRAM_ID, isSigner: false, isWritable: false },
-      { pubkey: SYSTEM_PROGRAM_ID, isSigner: false, isWritable: false },
+      // { pubkey: SYSTEM_PROGRAM_ID, isSigner: false, isWritable: false },
+      // { pubkey: SYSTEM_PROGRAM_ID, isSigner: false, isWritable: false },
+      // { pubkey: SYSTEM_PROGRAM_ID, isSigner: false, isWritable: false },
+      // { pubkey: SYSTEM_PROGRAM_ID, isSigner: false, isWritable: false },
+      // { pubkey: SYSTEM_PROGRAM_ID, isSigner: false, isWritable: false },
+      // { pubkey: SYSTEM_PROGRAM_ID, isSigner: false, isWritable: false },
+      // { pubkey: SYSTEM_PROGRAM_ID, isSigner: false, isWritable: false },
+      // { pubkey: SYSTEM_PROGRAM_ID, isSigner: false, isWritable: false },
+      // { pubkey: SYSTEM_PROGRAM_ID, isSigner: false, isWritable: false },
+      // { pubkey: SYSTEM_PROGRAM_ID, isSigner: false, isWritable: false },
+      // { pubkey: SYSTEM_PROGRAM_ID, isSigner: false, isWritable: false },
+      // { pubkey: SYSTEM_PROGRAM_ID, isSigner: false, isWritable: false },
+      // { pubkey: SYSTEM_PROGRAM_ID, isSigner: false, isWritable: false },
+      // { pubkey: SYSTEM_PROGRAM_ID, isSigner: false, isWritable: false },
+      // { pubkey: SYSTEM_PROGRAM_ID, isSigner: false, isWritable: false },
+      ...spotOrdersKeys,
       { pubkey: new PublicKey(selectedInvestmentStateAcc), isSigner: false, isWritable: true }
     ];
 
