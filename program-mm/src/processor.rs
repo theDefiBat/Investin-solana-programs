@@ -248,6 +248,7 @@ impl Fund {
         let fixed_accounts = array_ref![accounts, 0, NUM_FIXED];
         let open_orders_ais = array_ref![accounts, NUM_FIXED, MAX_PAIRS];
         let investors_ais = &accounts[NUM_FIXED+MAX_PAIRS..];
+        msg!("ivnestors ais:: {:?}", investors_ais.len());
         let [ 
             fund_pda_ai,
             manager_ai, 
@@ -281,6 +282,7 @@ impl Fund {
         let mut deposit_amount:u64 = 0;
 
         for i in 0..investors_ais.len() {
+            msg!("Investor ai:: {:?} of {}", investors_ais[i], investors_ais.len());
             let mut investor_data = InvestorData::load_mut_checked(&investors_ais[i], program_id)?;
             assert!(investor_data.investment_status == 1 && investor_data.fund == *fund_pda_ai.key);
             deposit_amount = deposit_amount.checked_add(investor_data.amount).unwrap();
@@ -380,7 +382,7 @@ impl Fund {
         accounts: &[AccountInfo],
     ) -> Result<(), ProgramError> {
 
-        const NUM_FIXED: usize = 11;
+        const NUM_FIXED: usize = 12;
         let fixed_accounts = array_ref![accounts, 0, NUM_FIXED];
         let open_orders_ais = array_ref![accounts, NUM_FIXED, MAX_PAIRS];
         let investors_ais = &accounts[NUM_FIXED+MAX_PAIRS..];
@@ -394,6 +396,7 @@ impl Fund {
             root_bank_ai,
             node_bank_ai,
             vault_ai,
+            signer_ai,
             token_prog_ai,
             fund_usdc_vault_ai,
         ] = fixed_accounts;
@@ -465,7 +468,7 @@ impl Fund {
                 node_bank_ai.key,
                 vault_ai.key,
                 fund_usdc_vault_ai.key,
-                fund_pda_ai.key,
+                signer_ai.key,
                 &open_orders_pubkeys,
                 withdraw_amount,
                 false
@@ -541,12 +544,7 @@ impl Fund {
                 &[&fund_pda_ai.key],
                 investor_data.returns,
             )?, 
-            &[
-                investor_usdc_vault_ai.clone(),
-                fund_vault_ai.clone(),
-                investor_ai.clone(),
-                token_prog_ai.clone(),
-            ],
+            accounts,
             &[&signer_seeds],
         )?;
 
@@ -742,11 +740,11 @@ impl Fund {
             }
             FundInstruction::ProcessDeposits => {
                 msg!("FundInstruction::ProcessDeposits");
-                return Self::process_deposits(program_id, accounts, investors_count);
+                return Self::process_deposits(program_id, accounts);
             }
             FundInstruction::ProcessWithdraws => {
                 msg!("FundInstruction::ProcessWithdraws");
-                return Self::process_withdraws(program_id, accounts, investors_count);
+                return Self::process_withdraws(program_id, accounts);
             }
             FundInstruction::SetMangoDelegate => {
                 msg!("FundInstruction::AddMangoDelegate");

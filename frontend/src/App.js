@@ -14,6 +14,7 @@ import { DisplayInfo } from './components/DisplayInfo';
 import { AllFundsInvestors } from './components/AllFundsInvestors';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { ProcessWithdraws } from './components/ProcessWithdraws';
 
 function App() {
   const walletProvider = GlobalState.useState(s => s.walletProvider);
@@ -57,9 +58,9 @@ function App() {
          <DisplayInfo/>
         <InitialisedFund />
         <Deposit />
-        <ProcessDeposits />
-
         <Withdraw />
+        <ProcessDeposits />
+        <ProcessWithdraws />
         {/* <Claim /> */}
         <AllFundsInvestors/>
       </Container>

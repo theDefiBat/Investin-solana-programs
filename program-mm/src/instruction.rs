@@ -24,11 +24,9 @@ pub enum FundInstruction {
 
     ClaimPerformanceFee,
     
-    ProcessDeposits {
-    },
+    ProcessDeposits,
 
-    ProcessWithdraws {
-    },
+    ProcessWithdraws,
 
     // MangoPlacePerpOrder {
     //     price: i64,

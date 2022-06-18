@@ -10,7 +10,7 @@ import { sendSignedTransactionAndNotify } from '../utils/solanaWeb3';
 import bs58 from 'bs58';
 import BN from 'bn.js';
 
-export const ProcessDeposits = () => {
+export const ProcessWithdraws = () => {
 
   const [selectedInvestmentStateAcc, setSelectedInvestmentStateAcc] = useState('');
   const [investments, setInvestments] = useState([]);
@@ -19,7 +19,7 @@ export const ProcessDeposits = () => {
   const ids = IDS['groups'][0]
 
   
-  const handleprocesDeposit = async () => {
+  const handleprocesWithdraw = async () => {
 
     const key = walletProvider?.publicKey;
 
@@ -42,11 +42,6 @@ export const ProcessDeposits = () => {
 
     const transaction = new Transaction()
   
-    const openOrdersLamports = await connection.getMinimumBalanceForRentExemption(
-          INVESTOR_DATA.span,
-          'singleGossip'
-        )
-    
 
     console.log("account size::: ", INVESTOR_DATA.span)
 
@@ -71,7 +66,7 @@ export const ProcessDeposits = () => {
     const data = Buffer.alloc(dataLayout.span)
     dataLayout.encode(
       {
-        instruction: 4,
+        instruction: 5,
       },
       data
     )
@@ -85,6 +80,7 @@ export const ProcessDeposits = () => {
       { pubkey: new PublicKey('AMzanZxMirPCgGcBoH9kw4Jzi9LFMomyUCXbpzDeL2T8'), isSigner: false, isWritable: true }, //root_bank_ai
       { pubkey: new PublicKey('BGcwkj1WudQwUUjFk78hAjwd1uAm8trh1N4CJSa51euh'), isSigner: false, isWritable: true }, //node_bank_ai
       { pubkey: nodeBank.vault, isSigner: false, isWritable: true }, //vault_ai
+      { pubkey: mangoGroup.signerKey, isSigner: false, isWritable: true },
       { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
       { pubkey: fundState.usdc_vault_key, isSigner: false, isWritable: true },
       ...spotOrdersKeys,
@@ -137,7 +133,7 @@ export const ProcessDeposits = () => {
       filters: [
         {
           memcmp : { offset : INVESTOR_DATA.offsetOf('fund') , bytes : fundPDA.toString()},
-          memcmp : { offset : INVESTOR_DATA.offsetOf('investment_status') , bytes : bs58.encode((new BN(1, 'le')).toArray())}
+          memcmp : { offset : INVESTOR_DATA.offsetOf('investment_status') , bytes : bs58.encode((new BN(3, 'le')).toArray())}
         },
         { dataSize: INVESTOR_DATA.span }
       ]
@@ -169,8 +165,9 @@ export const ProcessDeposits = () => {
 
   return (
     <div className="form-div">
-      <h4>Process Deposit</h4>
+      <h4>Process Withdraw</h4>
       
+      <button onClick={handleGetInvestors}>Load Investments of my fund</button>
       <br />
       <label htmlFor="funds">Select Investment Address:</label>
 
@@ -181,8 +178,7 @@ export const ProcessDeposits = () => {
           })
         }
       </select>
-      <button onClick={handleprocesDeposit}> Process Deposit</button>
-      <button onClick={handleGetInvestors}>Load Investments of my fund</button>
+      <button onClick={handleprocesWithdraw}> Process Withdraw</button>
     </div>
   )
 }
