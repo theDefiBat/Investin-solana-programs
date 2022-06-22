@@ -55,7 +55,6 @@ function App() {
         {/* {
           transactions && <TransactionsView transactions={transactions} />
         } */}
-         <DisplayInfo/>
         <InitialisedFund />
         <Deposit />
         <Withdraw />
@@ -63,6 +62,7 @@ function App() {
         <ProcessWithdraws />
         {/* <Claim /> */}
         <AllFundsInvestors/>
+        <DisplayInfo/>
       </Container>
     </div>
   );

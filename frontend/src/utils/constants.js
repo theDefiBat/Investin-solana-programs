@@ -18,7 +18,8 @@ export const cluster = "https://mango.rpcpool.com";
 export const connection = new Connection(cluster, "recent");
 
 // export const programId = new PublicKey('J65z283avUTTgWCEbMQk1HCVyJkTRoofLMsgAmvjHWBk');
-export const programId = new PublicKey('CikbdcmuRHrJa2FuYECETfx6hrzP3PctyjMeUBRd4H9A');
+// export const programId = new PublicKey('CikbdcmuRHrJa2FuYECETfx6hrzP3PctyjMeUBRd4H9A');
+export const programId = new PublicKey('HDFNSB26prLvBB2vvAoUoDEbQYbUxdUJztRcjozNakfz');
 
 export const delegate = new PublicKey('HcikBBJaAUTZXyqHQYHv46NkvwXVigkk2CuQgGuNQEnX');
 

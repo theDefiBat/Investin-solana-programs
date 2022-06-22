@@ -1,5 +1,6 @@
 import { Blob, seq, struct, u32, u8, u16, ns64 } from 'buffer-layout';
 import { PublicKey } from '@solana/web3.js';
+import { I80F48Layout } from '@blockworks-foundation/mango-client';
 import BN from 'bn.js';
 
 
@@ -37,7 +38,7 @@ class BNLayout extends Blob {
   }
 }
 
-class I80F48Layout extends Blob {
+class U64F64Layout extends Blob {
   constructor(property) {
     super(16, property);
   }
@@ -74,7 +75,11 @@ export function i64(property = '') {
 export const FUND_DATA = struct([
   u8('is_initialized'),
   u8('signer_nonce'),
+  u8('block_deposits'),
+  u8('paused_for_settlement'),
   u32('no_of_investments'),
+  u32('no_of_pending_withdrawals'),
+  u32('no_of_settle_withdrawals'),
 
   u64('min_amount'),
   I80F48('performance_fee_percentage'),
@@ -89,6 +94,13 @@ export const FUND_DATA = struct([
   publicKeyLayout('usdc_vault_key'),
   publicKeyLayout('mango_account'),
   publicKeyLayout('delegate'),
+  seq(
+    struct([
+    I80F48('share'),
+    u8('ready_for_settlement'),
+    seq(u8('spot'), 15),
+    seq(u8('perp'), 15),
+  ]), 1, 'forceSettleData'),
 
 ])
 

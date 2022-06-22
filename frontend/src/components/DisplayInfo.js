@@ -140,8 +140,8 @@ const getAllDecodeMangoData = async () => {
 
 const getMangoAccountData = async () => {
   let client = new MangoClient(connection, new PublicKey(ids.mangoProgramId))
-
-  let mangoAcc = await client.getMangoAccount(new PublicKey(mangoAccount), ids.serumProgramId)
+  console.log("Fetched Client")
+  let mangoAcc = await client.getMangoAccount(new PublicKey(mangoAccount), new PublicKey(ids.serumProgramId))
   console.log("mangoAccount:: ", mangoAccount)
 
   let mangoAccountDecoded = {};
@@ -192,10 +192,10 @@ const getMangoAccountData = async () => {
            <br/>
 
             <p> min_amount  : {fundData.min_amount.toString()}</p>
-            <p> performance_fee_percentage  : {fundData.performance_fee_percentage}</p>
+            <p> performance_fee_percentage  : {fundData.performance_fee_percentage.toString()}</p>
          
             <p> total_amount in fund USDC  : {fundData.total_amount.toString()}</p>
-            <p> current_index  : {fundData.current_index}</p>
+            <p> current_index  : {fundData.current_index.toString()}</p>
             <br/>
 
             <p> pending_deposits  : {fundData.pending_deposits.toString()}</p>
@@ -215,7 +215,7 @@ const getMangoAccountData = async () => {
 
 
 
-      {/* <hr/>
+      <hr/>
         Mango account  ::: {' '}
         <input type="text" value={mangoAccount} onChange={(event) => setMangoAccount(event.target.value)} />
         <button onClick={getMangoAccountData}>GET  MANGO ACC DATA </button>
@@ -296,14 +296,14 @@ const getMangoAccountData = async () => {
   
         
         </>
-      } */}
+      }
 
 
 
 
 
       <hr/>
-      {/* <h4>MANGO GRP </h4>
+      <h4>MANGO GRP </h4>
       <button onClick={getAllDecodeMangoData}>GET ALL MANGO DATA </button>
       {
         mangoGroup &&
@@ -405,7 +405,7 @@ const getMangoAccountData = async () => {
             <p> optimalRate : {rootBank.optimalRate}</p>
 
         </>
-      } */}
+      }
 
       
    
