@@ -28,17 +28,19 @@ pub enum FundInstruction {
 
     ProcessWithdraws,
 
-    // MangoPlacePerpOrder {
-    //     price: i64,
-    //     quantity: i64,
-    //     client_order_id: u64,
-    //     side: Side,
-    //     /// Can be 0 -> LIMIT, 1 -> IOC, 2 -> PostOnly
-    //     order_type: OrderType,
-    // },
-
     SetMangoDelegate,
 
+    PauseForSettlement,
+
+    InitForceSettle,
+
+    ForceUpdatePerp,
+
+    ForceUpdateSpot {
+        open_order_index: u8,
+    },
+
+    ForceWithdraws
     
 }
 
@@ -68,6 +70,16 @@ impl FundInstruction {
             5 => FundInstruction::ProcessWithdraws,
             6 => FundInstruction::ClaimPerformanceFee,
             7 => FundInstruction::SetMangoDelegate,
+            8 => FundInstruction::PauseForSettlement,
+            9 => FundInstruction::InitForceSettle,
+            10 => FundInstruction::ForceUpdatePerp,
+            11 => {
+                let open_order_index = array_ref![data, 0, 1];
+                FundInstruction::ForceUpdateSpot { 
+                    open_order_index: u8::from_le_bytes(*open_order_index),
+                }
+            },
+            12 => FundInstruction::ForceWithdraws,
             _ => {
                 return None;
             }

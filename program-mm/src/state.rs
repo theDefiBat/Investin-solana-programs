@@ -7,6 +7,9 @@ use solana_program::program_pack::{IsInitialized, Sealed};
 use solana_program::pubkey::Pubkey;
 use std::cell::{Ref, RefMut};
 use std::mem::size_of;
+use mango::state::{MangoAccount, MangoCache, MangoGroup, PerpMarket, HealthCache, HealthType, MAX_PAIRS, QUOTE_INDEX, MAX_TOKENS};
+
+
 
 pub trait Loadable: Pod {
     fn load_mut<'a>(account: &'a AccountInfo) -> Result<RefMut<'a, Self>, ProgramError> {
@@ -39,7 +42,11 @@ pub struct FundData {
 
     pub is_initialized: bool,
     pub signer_nonce: u8,
+    pub block_deposits: bool,
+    pub paused_for_settlement: bool,
     pub no_of_investments: u32,
+    pub no_of_pending_withdrawals: u32,
+    pub no_of_settle_withdrawals: u32,
 
     /// Minimum Amount
     pub min_amount: u64,
@@ -74,8 +81,20 @@ pub struct FundData {
     // Delegate for Manager to call place/cancel
     pub delegate: Pubkey,
 
+    pub force_settle: ForceSettleData
+
 }
 impl_loadable!(FundData);
+
+#[repr(packed)]
+#[derive(Clone, Copy)]
+pub struct ForceSettleData {
+    pub share: I80F48,
+    pub ready_for_settlement: bool,
+    pub spot: [bool; MAX_PAIRS],
+    pub perps: [bool; MAX_PAIRS],
+} impl_loadable!(ForceSettleData);
+
 
 #[repr(packed)]
 #[derive(Clone, Copy)]
@@ -127,7 +146,7 @@ impl FundData {
         let data = Self::load_mut(account)?;
         Ok(data)
     }
-    pub fn loaded<'a>(
+    pub fn load_checked<'a>(
         account: &'a AccountInfo,
         program_id: &Pubkey,
     ) -> Result<Ref<'a, Self>, ProgramError> {
@@ -136,6 +155,12 @@ impl FundData {
 
         let data = Self::load(account)?;
         Ok(data)
+    }
+
+    pub fn check_force_settled(&self) -> Result<(bool, bool), ProgramError> {
+        let spot_settled = self.force_settle.spot.iter().eq(&[false; MAX_PAIRS]);
+        let perp_settled = self.force_settle.perps.iter().eq(&[false; MAX_PAIRS]);
+        Ok((spot_settled, perp_settled))
     }
 }
 
