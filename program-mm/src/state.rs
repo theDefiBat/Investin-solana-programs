@@ -118,6 +118,8 @@ pub struct InvestorData {
     /// Invested Fund 
     pub fund: Pubkey,
 
+    pub extra_padding: [u8; 160],
+
 }
 impl_loadable!(InvestorData);
 

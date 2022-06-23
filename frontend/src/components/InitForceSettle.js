@@ -32,7 +32,6 @@ export const InitForceSettle = () => {
     const fundPDA = (await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId))[0];
     console.log("fundPDA::",fundPDA.toBase58())
 
-    console.log('selected investment::', selectedInvestmentStateAcc)
   
     let fundStateInfo = await connection.getAccountInfo(new PublicKey(fundPDA))
     let fundState = FUND_DATA.decode(fundStateInfo.data)
@@ -102,7 +101,6 @@ export const InitForceSettle = () => {
       // { pubkey: fundState.usdc_vault_key, isSigner: false, isWritable: true },
       ...spotOrdersKeys,
       ...investments,
-      { pubkey: new PublicKey(selectedInvestmentStateAcc), isSigner: false, isWritable: true }
     ];
 
     for(let i = 0; i<keys.length; i++){
@@ -176,10 +174,6 @@ export const InitForceSettle = () => {
     setInvestments(investmentStateAccs);
   }
 
-  const handleSelectInvestment = async(event) => {
-    setSelectedInvestmentStateAcc(event.target.value);
-    console.log(`setting selectedInvestmentStateAcc :::: `,event.target.value, selectedInvestmentStateAcc)
-  }
 
   return (
     <div className="form-div">

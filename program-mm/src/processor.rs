@@ -82,7 +82,7 @@ impl Fund {
         min_amount: u64,
         performance_fee_bps: u64,
     ) -> Result<(), ProgramError> {
-        const NUM_FIXED: usize = 9;
+        const NUM_FIXED: usize = 8;
         let accounts = array_ref![accounts, 0, NUM_FIXED];
 
         let [
@@ -92,7 +92,6 @@ impl Fund {
             mango_program_ai,
             mango_group_ai, 
             mango_account_ai,
-            mango_cache_ai,
             delegate_ai,
             system_program_ai
         ] = accounts;
@@ -440,7 +439,7 @@ impl Fund {
         )?;
 
         let withdraw_amount = compute_withdraw_amount(program_id, investors_ais, fund_pda_ai, &mut fund_data, 3)?;
-
+        msg!("Withdrawing {:?} from mango", withdraw_amount);
         let open_orders_pubkeys = open_orders_ais.clone().map(|a| *a.key);
 
         let signer_nonce = fund_data.signer_nonce;
@@ -497,12 +496,11 @@ impl Fund {
         accounts: &[AccountInfo],
     ) -> Result<(), ProgramError> {
 
-        const NUM_FIXED: usize = 6;
+        const NUM_FIXED: usize = 5;
         let accounts = array_ref![accounts, 0, NUM_FIXED];
 
         let [
             fund_pda_ai, 
-            manager_ai, 
             mango_program_ai, 
             mango_group_ai, 
             mango_account_ai,
@@ -514,14 +512,15 @@ impl Fund {
         assert_eq!(mango_v3::id(), *mango_program_ai.key);
         assert_eq!(*mango_account_ai.key, fund_data.mango_account);
         let ts_check = Clock::get()?.unix_timestamp.checked_rem(WEEK_SECONDS).unwrap();
-        assert!((ts_check >= DAY_SECONDS + (10*HOUR_SECONDS)) || (ts_check <= (DAY_SECONDS + (12*HOUR_SECONDS)))); //Only from 10:00 to 12:00 UTC Every Friday
+        assert!((ts_check >= DAY_SECONDS + (10*HOUR_SECONDS)) && (ts_check <= (DAY_SECONDS + (12*HOUR_SECONDS)))); //Only from 10:00 to 12:00 UTC Every Friday
         assert!(!fund_data.paused_for_settlement);
         fund_data.paused_for_settlement = true;
 
 
         let signer_nonce = fund_data.signer_nonce;
+        let (manager_account, signer_nonce) = (fund_data.manager_account, fund_data.signer_nonce);
         let signer_seeds = [
-            manager_ai.key.as_ref(),
+            &manager_account.as_ref(),
             bytes_of(&signer_nonce),
         ];
         drop(fund_data);
@@ -622,13 +621,13 @@ impl Fund {
         let perp_market_index = get_perp_index(mango_group_ai, mango_program_ai, perp_market_ai)?;
         assert!(fund_data.force_settle.perps[perp_market_index]);
         fund_data.force_settle.perps[perp_market_index] = false;
-        let (manager_account, signer_nonce) = (fund_data.manager_account, fund_data.signer_nonce);
         let mut k = vec![];
         for i in 0..packed_open_orders_ais.len(){
             k[i] = *packed_open_orders_ais[i].key;
         }
-
+        
         let (side, quantity) = get_perp_vals(fund_data.force_settle.share, perp_market_index, mango_account_ai, mango_group_ai, mango_program_ai)?;
+        let (manager_account, signer_nonce) = (fund_data.manager_account, fund_data.signer_nonce);
         let signer_seeds = [
             &manager_account.as_ref(),
             bytes_of(&signer_nonce),
