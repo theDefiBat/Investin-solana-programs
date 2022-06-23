@@ -114,6 +114,8 @@ export const INVESTOR_DATA = struct([
   u64('returns'),
   publicKeyLayout('owner'),
   publicKeyLayout('fund'),
+  seq(u8('extra_padding'), 160),
+
 ])
 
 

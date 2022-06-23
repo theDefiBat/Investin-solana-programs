@@ -11,17 +11,21 @@ import { IDS, MangoAccountLayout, MangoClient } from '@blockworks-foundation/man
 import BN from 'bn.js';
 import { sendSignedTransactionAndNotify } from '../utils/solanaWeb3';
 
-export const InitialisedFund = () => {
+export const Settlement = () => {
 
+   const [fundAddress, setFundAddress] = useState('')
+
+
+  
   const walletProvider = GlobalState.useState(s => s.walletProvider);
 
-  const handleInitializeFund = async () => {
+  const handlePauseForSettlement = async () => {
 
     const transaction = new Transaction()
     let ids = IDS['groups'][0]
 
 
-    const fundPDA = await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId);
+    const fundPDA = await new PublicKey(fundAddress);
 
     const mango_group_ai = new PublicKey(ids.publicKey);
     let client = new MangoClient(connection, new PublicKey(ids.mangoProgramId))
@@ -30,50 +34,37 @@ export const InitialisedFund = () => {
 
    
     console.log(`FUND_DATA.span :::: `, FUND_DATA.span) 
-    console.log(`fundPDA::: `, fundPDA[0].toBase58())
+    console.log(`fundPDA::: `, fundPDA.toBase58())
 
     const accountNumBN = new BN(0);
 
     const mango_account_ai = await PublicKey.findProgramAddress([
       mango_group_ai.toBytes(),
-      fundPDA[0].toBytes(),
+      fundPDA.toBytes(),
       accountNumBN.toArrayLike(Buffer, 'le', 8),
     ],
     new PublicKey(ids.mangoProgramId))
 
 
-      const dataLayout = struct([u32('instruction'), nu64('min_amount'), nu64('performance_fee_percentage')])
+      const dataLayout = struct([u32('instruction')])
 
       const data = Buffer.alloc(dataLayout.span)
-      console.log("min_amount * (10 ** ids.tokens[0].decimals::",min_amount * (10 ** ids.tokens[0].decimals));
-      console.log("platform_fee_percentage * 100::",platform_fee_percentage * 100)
       dataLayout.encode(
         {
-          instruction: 0,
-          min_amount: min_amount * (10 ** ids.tokens[0].decimals),
-          performance_fee_percentage: platform_fee_percentage * 100,
+          instruction: 8,
         },
         data
       )
 
-      const fundBaseVault = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(ids.tokens[0].mintKey), fundPDA[0], transaction);
-      
-      // const fundBaseVault = await findAssociatedTokenAddress(fundPDA[0], new PublicKey(ids.tokens[0].mintKey));
-
-      console.log("fundBaseVault:",fundBaseVault.toBase58())
 
       console.log('data', data)
         const keys = [
-          { pubkey: walletProvider?.publicKey, isSigner: true, isWritable: true },
-          { pubkey: fundPDA[0], isSigner: false, isWritable: true },
-
-          { pubkey: fundBaseVault, isSigner: false, isWritable: true },
+          { pubkey: fundPDA, isSigner: false, isWritable: true },
           { pubkey: new PublicKey(ids.mangoProgramId), isSigner: false, isWritable: false },
           { pubkey: new PublicKey(ids.publicKey), isSigner: false, isWritable: true },
           { pubkey: mango_account_ai[0], isSigner: false, isWritable: true },
-          { pubkey: delegate, isSigner: false, isWritable: false},
+          { pubkey: SYSTEM_PROGRAM_ID, isSigner: false, isWritable: false},
           { pubkey: SYSTEM_PROGRAM_ID, isSigner: false, isWritable: false}
-
         ]
 
         for(let i = 0; i<keys.length; i++){
@@ -99,8 +90,8 @@ export const InitialisedFund = () => {
         await sendSignedTransactionAndNotify({
             connection,
             transaction: transaction,
-            successMessage: "Investment successful",
-            failMessage: "Investment unsuccessful",
+            successMessage: "Pause successful",
+            failMessage: "Pause unsuccessful",
             wallet: walletProvider
         })
       } catch (error) {
@@ -110,7 +101,7 @@ export const InitialisedFund = () => {
 
 
     GlobalState.update(s => {
-      s.createFundPublicKey = fundPDA[0];
+      s.createFundPublicKey = fundPDA;
     })
   }
 
@@ -123,14 +114,13 @@ export const InitialisedFund = () => {
 
   return (
     <div className="form-div">
-      <h4>Initialise Fund</h4>
-      min_amount ::: {' '}
-      <input type="number" value={min_amount} onChange={(event) => setMin_amount(event.target.value)} />
+      <h4>Pause Fund</h4>
+
+      Fund  ::: {' '}
+        <input type="text" value={fundAddress} onChange={(event) => setFundAddress(event.target.value)} />
+        <br />
       <br />
-      platform_fee_percentage ::: {' '}
-      <input type="number" value={platform_fee_percentage} onChange={(event) => setPlatform_fee_percentage(event.target.value)} />
-      <br />
-      <button onClick={handleInitializeFund}>initialise fund</button>
+      <button onClick={handlePauseForSettlement}>Pause</button>
     </div>
   )
 }
