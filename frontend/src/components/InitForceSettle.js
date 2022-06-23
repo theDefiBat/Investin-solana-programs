@@ -13,6 +13,8 @@ import BN from 'bn.js';
 export const InitForceSettle = () => {
 
   const [investments, setInvestments] = useState([]);
+  const [fundAddress, setFundAddress] = useState('')
+
 
   const walletProvider = GlobalState.useState(s => s.walletProvider);
   const ids = IDS['groups'][0]
@@ -29,7 +31,7 @@ export const InitForceSettle = () => {
 
 
 
-    const fundPDA = (await PublicKey.findProgramAddress([walletProvider?.publicKey.toBuffer()], programId))[0];
+    const fundPDA = await new PublicKey(fundAddress);
     console.log("fundPDA::",fundPDA.toBase58())
 
   
@@ -83,7 +85,7 @@ export const InitForceSettle = () => {
     const data = Buffer.alloc(dataLayout.span)
     dataLayout.encode(
       {
-        instruction: 5,
+        instruction: 9,
       },
       data
     )
@@ -100,7 +102,7 @@ export const InitForceSettle = () => {
       // { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
       // { pubkey: fundState.usdc_vault_key, isSigner: false, isWritable: true },
       ...spotOrdersKeys,
-      ...investments,
+      ...investmentKeys,
     ];
 
     for(let i = 0; i<keys.length; i++){
@@ -178,6 +180,10 @@ export const InitForceSettle = () => {
   return (
     <div className="form-div">
       <h4>Init Force Settle</h4>
+
+      Fund  ::: {' '}
+        <input type="text" value={fundAddress} onChange={(event) => setFundAddress(event.target.value)} />
+        <br />
       
       <button onClick={handInitForceSettle}>Init</button>
     </div>
