@@ -17,6 +17,7 @@ import 'react-toastify/dist/ReactToastify.css';
 import { ProcessWithdraws } from './components/ProcessWithdraws';
 import { Settlement } from './components/Settlement';
 import { InitForceSettle } from './components/InitForceSettle';
+import { ForceProcessWithdraws } from './components/ForceProcessWithdraws';
 
 function App() {
   const walletProvider = GlobalState.useState(s => s.walletProvider);
@@ -64,6 +65,7 @@ function App() {
         <ProcessWithdraws />
         <Settlement />
         <InitForceSettle />
+        <ForceProcessWithdraws/>
         {/* <Claim /> */}
         <AllFundsInvestors/>
         <DisplayInfo/>

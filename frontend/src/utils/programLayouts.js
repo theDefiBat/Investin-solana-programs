@@ -98,8 +98,8 @@ export const FUND_DATA = struct([
     struct([
     I80F48('share'),
     u8('ready_for_settlement'),
-    seq(u8('spot'), 15),
-    seq(u8('perp'), 15),
+    seq(u8('spot'), 15, 'spot'),
+    seq(u8('perp'), 15, 'perp'),
   ]), 1, 'forceSettleData'),
 
 ])
