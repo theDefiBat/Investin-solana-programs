@@ -1209,7 +1209,7 @@ impl Fund {
                 return Self::force_update_spot(program_id, accounts, open_order_index);
             }
             FundInstruction::ForceWithdraws => {
-                msg!("FundInstruction::ProcessWithdraws");
+                msg!("FundInstruction::ForceWithdraws");
                 return Self::force_withdraws(program_id, accounts);
             }
             
