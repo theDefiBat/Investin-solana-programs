@@ -55,6 +55,9 @@ export const ProcessDeposits = () => {
     let nodeBankInfo = await connection.getAccountInfo(new PublicKey(ids.tokens[0].nodeKeys[0]))
     let nodeBank = NodeBankLayout.decode(nodeBankInfo.data)
 
+    console.log("vault_ai: ", nodeBank.vault);
+    console.log("mangoGroup.signerKey", mangoGroup.signerKey);
+
     let mangoAcc = await client.getMangoAccount(fundState.mango_account, new PublicKey(ids.serumProgramId))
     console.log("mangoAcc.spot::",mangoAcc.spotOpenOrders);
 

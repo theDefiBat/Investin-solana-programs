@@ -7,7 +7,7 @@ import { PublicKey, SystemProgram, Transaction, TransactionInstruction } from '@
 import { TOKEN_PROGRAM_ID } from '@project-serum/serum/lib/token-instructions';
 import { FUND_DATA, PLATFORM_DATA, u64, U64F64 } from '../utils/programLayouts';
 import { Badge } from 'reactstrap';
-import { IDS, MangoAccountLayout } from '@blockworks-foundation/mango-client'
+import { IDS, MangoAccountLayout, MangoGroup, MangoClient } from '@blockworks-foundation/mango-client'
 import BN from 'bn.js';
 import { sendSignedTransactionAndNotify } from '../utils/solanaWeb3';
 
@@ -51,6 +51,10 @@ export const InitialisedFund = () => {
         data
       )
 
+      let client = new MangoClient(connection, new PublicKey(ids.mangoProgramId))
+      let mangoGroup = await client.getMangoGroup(new PublicKey(ids.publicKey))
+      console.log("signer:", mangoGroup.signerKey);
+
       const fundBaseVault = await createAssociatedTokenAccountIfNotExist(walletProvider, new PublicKey(ids.tokens[0].mintKey), fundPDA[0], transaction);
       
       // const fundBaseVault = await findAssociatedTokenAddress(fundPDA[0], new PublicKey(ids.tokens[0].mintKey));
@@ -90,17 +94,17 @@ export const InitialisedFund = () => {
 
       // const sign = await signAndSendTransaction(walletProvider, transaction);
       // console.log("signature tx:: ", sign)
-      try {
-        await sendSignedTransactionAndNotify({
-            connection,
-            transaction: transaction,
-            successMessage: "Investment successful",
-            failMessage: "Investment unsuccessful",
-            wallet: walletProvider
-        })
-      } catch (error) {
-          console.error('init e: ', error);
-      }
+      // try {
+      //   await sendSignedTransactionAndNotify({
+      //       connection,
+      //       transaction: transaction,
+      //       successMessage: "Investment successful",
+      //       failMessage: "Investment unsuccessful",
+      //       wallet: walletProvider
+      //   })
+      // } catch (error) {
+      //     console.error('init e: ', error);
+      // }
   
 
 

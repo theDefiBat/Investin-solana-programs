@@ -50,6 +50,9 @@ export const ProcessWithdraws = () => {
     let nodeBankInfo = await connection.getAccountInfo(new PublicKey(ids.tokens[0].nodeKeys[0]))
     let nodeBank = NodeBankLayout.decode(nodeBankInfo.data)
 
+    console.log("vault_ai: ", nodeBank.vault);
+    console.log("mangoGroup.signerKey", mangoGroup.signerKey);
+
     let mangoAcc = await client.getMangoAccount(fundState.mango_account, new PublicKey(ids.serumProgramId))
     console.log("mangoAcc.spot::",mangoAcc.spotOpenOrders);
 
@@ -111,13 +114,13 @@ export const ProcessWithdraws = () => {
    
 
       try {
-          await sendSignedTransactionAndNotify({
-              connection,
-              transaction: transaction,
-              successMessage: "Investment successful",
-              failMessage: "Investment unsuccessful",
-              wallet: walletProvider
-          })
+          // await sendSignedTransactionAndNotify({
+          //     connection,
+          //     transaction: transaction,
+          //     successMessage: "Investment successful",
+          //     failMessage: "Investment unsuccessful",
+          //     wallet: walletProvider
+          // })
       } catch (error) {
           console.error('handleMakeInvestment: ', error);
       }
