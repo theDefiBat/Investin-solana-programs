@@ -17,3 +17,4 @@ programs/program-aggregator/target
 package-lock.json
 connect-wallet-and-transfer/node_modules
 **.coderrect
+/target

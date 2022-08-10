@@ -49,6 +49,9 @@ macro_rules! check_eq {
     }
 }
 
+pub const FRIKTION_CLAIM_PENDING_DEPOSIT_OPCODE: u64 = 0xec8c58e1332e4df9;
+pub const FRIKTION_DEPOSIT_OPCODE: u64 = 0xf223c68952e1f2b6;
+pub const FRIKTION_WITHDRAW_OPCODE: u64 = 0xb712469c946da122;
 pub mod volt_program_id {
     use solana_program::declare_id;
     declare_id!("VoLT1mJz1sbnxwq5Fv2SXjdVDgPXrb9tJyC8WpMDkSp");
@@ -136,7 +139,7 @@ pub fn friktion_deposit_ins(
 
     // let instr = FundInstruction::FriktionDepositInstr { discrim, amount };
     let mut cpi_data = Vec::<u8>::new();
-    cpi_data.extend_from_slice(&discrim.to_le_bytes());
+    cpi_data.extend(FRIKTION_DEPOSIT_OPCODE.to_be_bytes().to_vec());
     cpi_data.extend_from_slice(&amount.to_le_bytes());
     Ok(Instruction { program_id: *program_id, accounts, data: cpi_data })
 }
@@ -208,8 +211,8 @@ pub fn friktion_withdraw_ins(
         AccountMeta::new(*authority_check_pk, true),
         AccountMeta::new(*vault_mint_pk, false),
         AccountMeta::new(*volt_vault_pk, false),
-        AccountMeta::new_readonly(*vault_authority_pk, false),
         AccountMeta::new_readonly(*extra_volt_data_pk, false),
+        AccountMeta::new_readonly(*vault_authority_pk, false),
         AccountMeta::new_readonly(*whitelist_pk, false),
         AccountMeta::new(*deposit_pool_pk, false),
         AccountMeta::new(*underlying_token_destination_pk, false),
@@ -226,7 +229,7 @@ pub fn friktion_withdraw_ins(
 
     // let instr = FundInstruction::FriktionDepositInstr { discrim, amount };
     let mut cpi_data = Vec::<u8>::new();
-    cpi_data.extend_from_slice(&discrim.to_le_bytes());
+    cpi_data.extend(FRIKTION_WITHDRAW_OPCODE.to_be_bytes().to_vec());
     cpi_data.extend_from_slice(&withdraw_amount.to_le_bytes());
     Ok(Instruction { program_id: *program_id, accounts, data: cpi_data })
 }
@@ -331,7 +334,7 @@ pub fn friktion_claim_pending_deposit_ins(
 
     // let instr = FundInstruction::FriktionDepositInstr { discrim, amount };
     let mut cpi_data = Vec::<u8>::new();
-    cpi_data.extend_from_slice(&discrim.to_le_bytes());
+    cpi_data.extend(FRIKTION_CLAIM_PENDING_DEPOSIT_OPCODE.to_be_bytes().to_vec());
     Ok(Instruction { program_id: *program_id, accounts, data: cpi_data })
 }
 
