@@ -525,8 +525,8 @@ impl Fund {
                 ],
                 &[&["router".as_ref(), bytes_of(&platform_data.router_nonce)]]
             )?;
-            fund_data.amount_in_router -= investor_data.amount_in_router;
-            fund_data.no_of_investments -= 1;
+            fund_data.amount_in_router = fund_data.amount_in_router.checked_sub(investor_data.amount_in_router).unwrap();
+            fund_data.no_of_investments = fund_data.no_of_investments.checked_sub(1).unwrap();
             investor_data.amount_in_router = 0;
             investor_data.is_initialized = false;
             let index = fund_data.get_investor_index(investor_state_ai.key).unwrap();
@@ -535,8 +535,9 @@ impl Fund {
             close_investor_account(investor_ai, investor_state_ai)?;
         } else {
             check!(investor_data.has_withdrawn == true && 
-                (investor_data.withdrawn_from_margin == true || investor_data.margin_debt[0] == 0) &&
-                (investor_data.withdrawn_ul_from_friktion == true),
+                (investor_data.withdrawn_from_margin == true || investor_data.margin_debt[0] == 0) ,
+                // &&
+                // (investor_data.withdrawn_ul_from_friktion == true || investor_data.withdrawn_ftokens_from_friktion == true),
                  FundError::InvalidInstruction);
             for i in 0..NUM_TOKENS {
                 // TODO:: check if fund_debt on inv_acc <= fund_debt on fund
@@ -653,7 +654,7 @@ impl Fund {
 
             for i in 0..NUM_TOKENS {
                 let mut withdraw_amount: u64 = U64F64::to_num(
-                    U64F64::from_num(fund_data.tokens[i].balance-fund_data.tokens[i].debt)
+                    U64F64::from_num(fund_data.tokens[i].balance.checked_sub(fund_data.tokens[i].debt).unwrap())
                 .checked_mul(share).unwrap());
                 investor_data.token_indexes[i] = fund_data.tokens[i].index[fund_data.tokens[i].mux as usize];
                 if fund_data.number_of_active_investments == 1 { // ceil for last investor
@@ -669,17 +670,17 @@ impl Fund {
 
             if fund_data.friktion_vault.is_active {
                 let ul_withdraw_amount: u64 = U64F64::to_num(
-                    U64F64::from_num(fund_data.friktion_vault.ul_token_balance - fund_data.friktion_vault.ul_token_debt)
+                    U64F64::from_num(fund_data.friktion_vault.ul_token_balance.checked_sub(fund_data.friktion_vault.ul_token_debt).unwrap())
                 .checked_mul(share).unwrap());
                 investor_data.friktion_ul_debt = ul_withdraw_amount;
-                fund_data.friktion_vault.ul_token_debt += ul_withdraw_amount;
+                fund_data.friktion_vault.ul_token_debt = fund_data.friktion_vault.ul_token_debt.checked_add(ul_withdraw_amount).unwrap();
                 check!(fund_data.friktion_vault.ul_token_balance >= fund_data.friktion_vault.ul_token_debt, ProgramError::InsufficientFunds);
                 
                 let fc_withdraw_amount: u64 = U64F64::to_num(
-                    U64F64::from_num(fund_data.friktion_vault.fc_token_balance - fund_data.friktion_vault.fc_token_debt)
+                    U64F64::from_num(fund_data.friktion_vault.fc_token_balance.checked_sub(fund_data.friktion_vault.fc_token_debt).unwrap())
                 .checked_mul(share).unwrap());
                 investor_data.friktion_fc_debt = fc_withdraw_amount;
-                fund_data.friktion_vault.fc_token_debt += fc_withdraw_amount;
+                fund_data.friktion_vault.fc_token_debt = fund_data.friktion_vault.fc_token_debt.checked_add(fc_withdraw_amount).unwrap();
                 check!(fund_data.friktion_vault.fc_token_balance >= fund_data.friktion_vault.fc_token_debt, ProgramError::InsufficientFunds);
             
             }
@@ -1555,25 +1556,25 @@ pub fn update_amount_and_performance(
     let mut fund_val = mango_val;
     
     // add USDC balance (not decimal adjusted)
-    fund_val = fund_val.checked_add(U64F64::from_num(fund_data.tokens[0].balance - fund_data.tokens[0].debt)).unwrap();
+    fund_val = fund_val.checked_add(U64F64::from_num(fund_data.tokens[0].balance.checked_sub(fund_data.tokens[0].debt).unwrap())).unwrap();
     // msg!("USDC: {:?}", U64F64::from_num(fund_data.tokens[0].balance - fund_data.tokens[0].debt));
     // Calculate prices for all tokens with balances
     msg!("Timestamp:: {:?}", Clock::get()?.unix_timestamp);
     for i in 1..NUM_TOKENS {
 
         // dont update if token balance == 0
-        if (fund_data.tokens[i].balance - fund_data.tokens[i].debt) == 0 { continue; }
+        if (fund_data.tokens[i].balance.checked_sub(fund_data.tokens[i].debt).unwrap()) == 0 { continue; }
         
         // get last mux
         // get index of token
         let token_info = platform_data.token_list[fund_data.tokens[i].index[fund_data.tokens[i].mux as usize] as usize];
         
-        if Clock::get()?.unix_timestamp - token_info.last_updated > 100 {
+        if Clock::get()?.unix_timestamp.checked_sub(token_info.last_updated).unwrap() > 100 {
             msg!("{} price not up-to-date", i);
             return Err(FundError::PriceStaleInAccount.into())
         }
         // calculate price in terms of base token
-        let mut val: U64F64 = U64F64::from_num(fund_data.tokens[i].balance - fund_data.tokens[i].debt)
+        let mut val: U64F64 = U64F64::from_num(fund_data.tokens[i].balance.checked_sub(fund_data.tokens[i].debt).unwrap())
         .checked_mul(token_info.pool_price).unwrap();
 
          if token_info.pc_index != 0 {
@@ -1591,17 +1592,17 @@ pub fn update_amount_and_performance(
 
         let friktion_ul_token_info = platform_data.token_list[fund_data.tokens[fund_data.friktion_vault.ul_token_slot as usize].index[fund_data.tokens[fund_data.friktion_vault.ul_token_slot as usize].mux as usize] as usize];
             
-            if Clock::get()?.unix_timestamp - fund_data.friktion_vault.last_updated > 100 {
+            if Clock::get()?.unix_timestamp.checked_sub(fund_data.friktion_vault.last_updated).unwrap() > 100 {
                 msg!("FKV not up-to-date...");
                 return Err(FundError::PriceStaleInAccount.into())
             }
             // calculate price in terms of base token
-            let mut val: U64F64 = U64F64::from_num(fund_data.friktion_vault.ul_token_balance - fund_data.friktion_vault.ul_token_debt )
+            let mut val: U64F64 = U64F64::from_num(fund_data.friktion_vault.ul_token_balance.checked_sub(fund_data.friktion_vault.ul_token_debt).unwrap())
             .checked_mul(friktion_ul_token_info.pool_price).unwrap();
     
              if friktion_ul_token_info.pc_index != 0 {
                  let underlying_token_info = platform_data.token_list[friktion_ul_token_info.pc_index as usize];
-                 if Clock::get()?.unix_timestamp - underlying_token_info.last_updated > 100 {
+                 if Clock::get()?.unix_timestamp.checked_sub(underlying_token_info.last_updated).unwrap() > 100 {
                     msg!("ul price not up-to-date.. aborting");
                     return Err(FundError::PriceStaleInAccount.into())
                 }

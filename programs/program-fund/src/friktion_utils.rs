@@ -49,9 +49,12 @@ macro_rules! check_eq {
     }
 }
 
-pub const FRIKTION_CLAIM_PENDING_DEPOSIT_OPCODE: u64 = 0xec8c58e1332e4df9;
 pub const FRIKTION_DEPOSIT_OPCODE: u64 = 0xf223c68952e1f2b6;
+pub const FRIKTION_CANCEL_PENDING_DEPOSIT_OPCODE: u64 = 0xa82f8ac77883b013;
+pub const FRIKTION_CLAIM_PENDING_DEPOSIT_OPCODE: u64 = 0xec8c58e1332e4df9;
 pub const FRIKTION_WITHDRAW_OPCODE: u64 = 0xb712469c946da122;
+pub const FRIKTION_CANCEL_PEDNING_WITHDRAW_OPCODE: u64 = 0xdcf2c6fac1a58a50;
+pub const FRIKTION_CLAIM_PEDNING_WITHDRAW_OPCODE: u64 = 0xb108d916d1528a1a;
 pub mod volt_program_id {
     use solana_program::declare_id;
     declare_id!("VoLT1mJz1sbnxwq5Fv2SXjdVDgPXrb9tJyC8WpMDkSp");
@@ -85,8 +88,8 @@ pub fn read_friktion_data(
 
 pub fn friktion_deposit_ins(
     program_id: &Pubkey,
-    authority_pk: &Pubkey,
-    dao_authority_pk: &Pubkey,
+    payer_authority_pk: &Pubkey,
+    non_payer_authority_pk: &Pubkey,
     authority_check_pk: &Pubkey,
     vault_mint_pk: &Pubkey,
     volt_vault_pk: &Pubkey,
@@ -108,12 +111,11 @@ pub fn friktion_deposit_ins(
     entropy_cache_pk: &Pubkey,
     system_program_pk: &Pubkey,
     token_program_pk: &Pubkey,
-    discrim: u64,
     amount: u64
 ) -> Result<Instruction, ProgramError> {
     let mut accounts = vec![
-        AccountMeta::new(*authority_pk, true),
-        AccountMeta::new(*dao_authority_pk, true),
+        AccountMeta::new(*payer_authority_pk, true),
+        AccountMeta::new(*non_payer_authority_pk, true),
         AccountMeta::new(*authority_check_pk, true),
         AccountMeta::new(*vault_mint_pk, false),
         AccountMeta::new(*volt_vault_pk, false),
@@ -147,7 +149,6 @@ pub fn friktion_deposit_ins(
 pub fn friktion_cancel_pending_deposit_ins(
     program_id: &Pubkey,
     authority_pk: &Pubkey,
-    vault_mint_pk: &Pubkey,
     volt_vault_pk: &Pubkey,
     extra_volt_data_pk: &Pubkey,
     vault_authority_pk: &Pubkey,
@@ -158,11 +159,9 @@ pub fn friktion_cancel_pending_deposit_ins(
     epoch_info_pk: &Pubkey,
     system_program_pk: &Pubkey,
     token_program_pk: &Pubkey,
-    discrim: u64
 ) -> Result<Instruction, ProgramError> {
     let mut accounts = vec![
         AccountMeta::new(*authority_pk, true),
-        AccountMeta::new(*vault_mint_pk, false),
         AccountMeta::new(*volt_vault_pk, false),
         AccountMeta::new_readonly(*extra_volt_data_pk, false),
         AccountMeta::new_readonly(*vault_authority_pk, false),
@@ -173,19 +172,18 @@ pub fn friktion_cancel_pending_deposit_ins(
         AccountMeta::new(*epoch_info_pk, false),
         AccountMeta::new_readonly(*system_program_pk, false),
         AccountMeta::new_readonly(*token_program_pk, false),
-        AccountMeta::new_readonly(solana_program::sysvar::rent::id(), false)
     ];
 
     // let instr = FundInstruction::FriktionDepositInstr { discrim, amount };
     let mut cpi_data = Vec::<u8>::new();
-    cpi_data.extend_from_slice(&discrim.to_le_bytes());
+    cpi_data.extend(FRIKTION_CANCEL_PENDING_DEPOSIT_OPCODE.to_be_bytes().to_vec());
     Ok(Instruction { program_id: *program_id, accounts, data: cpi_data })
 }
 
 pub fn friktion_withdraw_ins(
     program_id: &Pubkey,
-    authority_pk: &Pubkey,
-    dao_authority_pk: &Pubkey,
+    payer_authority_pk: &Pubkey,
+    non_payer_authority_pk: &Pubkey,
     authority_check_pk: &Pubkey,
     vault_mint_pk: &Pubkey,
     volt_vault_pk: &Pubkey,
@@ -202,12 +200,11 @@ pub fn friktion_withdraw_ins(
     fee_acct_pk: &Pubkey,
     system_program_pk: &Pubkey,
     token_program_pk: &Pubkey,
-    discrim: u64,
     withdraw_amount: u64
 ) -> Result<Instruction, ProgramError> {
     let mut accounts = vec![
-        AccountMeta::new(*authority_pk, true),
-        AccountMeta::new(*dao_authority_pk, true),
+        AccountMeta::new(*payer_authority_pk, true),
+        AccountMeta::new(*non_payer_authority_pk, true),
         AccountMeta::new(*authority_check_pk, true),
         AccountMeta::new(*vault_mint_pk, false),
         AccountMeta::new(*volt_vault_pk, false),
@@ -247,7 +244,6 @@ pub fn friktion_cancel_pending_withdrawal_ins(
     epoch_info_pk: &Pubkey,
     system_program_pk: &Pubkey,
     token_program_pk: &Pubkey,
-    discrim: u64
 ) -> Result<Instruction, ProgramError> {
     let mut accounts = vec![
         AccountMeta::new(*authority_pk, true),
@@ -261,12 +257,11 @@ pub fn friktion_cancel_pending_withdrawal_ins(
         AccountMeta::new(*epoch_info_pk, false),
         AccountMeta::new_readonly(*system_program_pk, false),
         AccountMeta::new_readonly(*token_program_pk, false),
-        AccountMeta::new_readonly(solana_program::sysvar::rent::id(), false)
     ];
 
     // let instr = FundInstruction::FriktionDepositInstr { discrim, amount };
     let mut cpi_data = Vec::<u8>::new();
-    cpi_data.extend_from_slice(&discrim.to_le_bytes());
+    cpi_data.extend(FRIKTION_CANCEL_PEDNING_WITHDRAW_OPCODE.to_be_bytes().to_vec());
     Ok(Instruction { program_id: *program_id, accounts, data: cpi_data })
 }
 
@@ -283,7 +278,6 @@ pub fn friktion_claim_pending_withdrawal_ins(
     round_underlying_tokens_for_pending_withdrawals_pk: &Pubkey,
     system_program_pk: &Pubkey,
     token_program_pk: &Pubkey,
-    discrim: u64
 ) -> Result<Instruction, ProgramError> {
     let mut accounts = vec![
         AccountMeta::new(*authority_pk, true),
@@ -301,7 +295,7 @@ pub fn friktion_claim_pending_withdrawal_ins(
 
     // let instr = FundInstruction::FriktionDepositInstr { discrim, amount };
     let mut cpi_data = Vec::<u8>::new();
-    cpi_data.extend_from_slice(&discrim.to_le_bytes());
+    cpi_data.extend(FRIKTION_CLAIM_PEDNING_WITHDRAW_OPCODE.to_be_bytes().to_vec());
     Ok(Instruction { program_id: *program_id, accounts, data: cpi_data })
 }
 
@@ -317,7 +311,6 @@ pub fn friktion_claim_pending_deposit_ins(
     pending_deposit_info_pk: &Pubkey,
     system_program_pk: &Pubkey,
     token_program_pk: &Pubkey,
-    discrim: u64
 ) -> Result<Instruction, ProgramError> {
     let mut accounts = vec![
         AccountMeta::new(*authority_pk, true),
@@ -482,7 +475,6 @@ pub fn friktion_deposit(
                 entropy_cache_ai.key,
                 system_program_ai.key,
                 token_program_ai.key,
-                13182846803881894898,
                 deposit_amount
             )?,
             &[
@@ -567,7 +559,7 @@ let accounts = array_ref![accounts, 0, NUM_FIXED];
     check!(*volt_program_ai.key == volt_program_id::ID, FundError::IncorrectProgramId);
     check!(*volt_vault_ai.key == fund_data.friktion_vault.volt_vault_id, FundError::FriktionIncorrectVault);
     let fc_token_data = parse_token_account(vault_token_source_ai)?;
-    let withdraw_amount = fc_token_data.amount - fund_data.friktion_vault.fc_token_debt;
+    let withdraw_amount = fc_token_data.amount.checked_sub(fund_data.friktion_vault.fc_token_debt).unwrap();
     drop(fc_token_data);
     drop(fund_data);
     msg!("Trying CPI");
@@ -594,7 +586,6 @@ let accounts = array_ref![accounts, 0, NUM_FIXED];
             fee_acct_ai.key,
             system_program_ai.key,
             token_program_ai.key,
-            2495396153584390839,
             withdraw_amount
         )?,
         &[
@@ -674,7 +665,6 @@ pub fn friktion_cancel_pending_deposit(
             &friktion_cancel_pending_deposit_ins(
                 volt_program_ai.key,
                 authority_ai.key,
-                vault_mint_ai.key,
                 volt_vault_ai.key,
                 extra_volt_data_ai.key,
                 vault_authority_ai.key,
@@ -685,7 +675,6 @@ pub fn friktion_cancel_pending_deposit(
                 epoch_info_ai.key,
                 system_program_ai.key,
                 token_program_ai.key,
-                1418778437388742568,
             )?,
             &[
                 volt_program_ai.clone(),
@@ -767,7 +756,6 @@ pub fn friktion_cancel_pending_withdrawal(
             epoch_info_ai.key,
             system_program_ai.key,
             token_program_ai.key,
-            5803633322374918876,
         )?,
         &[
             volt_program_ai.clone(),
@@ -845,7 +833,6 @@ pub fn friktion_claim_pending_withdrawal(
             round_underlying_tokens_for_pending_withdrawals_ai.key,
             system_program_ai.key,
             token_program_ai.key,
-            1912432049757161649,
         )?,
         &[
             volt_program_ai.clone(),
@@ -923,7 +910,6 @@ pub fn friktion_claim_pending_deposit(
                 pending_deposit_info_ai.key,
                 system_program_ai.key,
                 token_program_ai.key,
-                13863699443424371388,
                 )?,
     &[
                 volt_program_ai.clone(),
@@ -1028,7 +1014,6 @@ pub fn friktion_investor_withdraw_ul(
                 &friktion_cancel_pending_deposit_ins(
                     volt_program_ai.key,
                     authority_ai.key,
-                    vault_mint_ai.key,
                     volt_vault_ai.key,
                     extra_volt_data_ai.key,
                     vault_authority_ai.key,
@@ -1039,7 +1024,6 @@ pub fn friktion_investor_withdraw_ul(
                     epoch_info_ai.key,
                     system_program_ai.key,
                     token_program_ai.key,
-                    1418778437388742568,
                 )?,
                 &[
                     volt_program_ai.clone(),
@@ -1319,7 +1303,6 @@ pub fn friktion_investor_withdraw_ul_2(
                             entropy_cache_ai.key,
                             system_program_ai.key,
                             token_program_ai.key,
-                            13182846803881894898,
                             deposit_amount
                         )?,
                         &[
@@ -1454,7 +1437,6 @@ pub fn friktion_investor_withdraw_ftokens(
                     epoch_info_ai.key,
                     system_program_ai.key,
                     token_program_ai.key,
-                    5803633322374918876,
                     )?,
                     &[
                         volt_program_ai.clone(),
@@ -1508,7 +1490,6 @@ pub fn friktion_investor_withdraw_ftokens(
                             fee_acct_ai.key,
                             system_program_ai.key,
                             token_program_ai.key,
-                            2495396153584390839,
                             withdraw_amount
                         )?,
                         &[
@@ -1596,11 +1577,13 @@ pub fn update_friktion_value(
     check!(*pending_deposit_info_ai.key == pending_deposit_pda, FundError::IncorrectPDA);
     if pending_deposit_info_ai.data_len() > 0 {
         let pending_info: &[u8] = &(pending_deposit_info_ai.data.borrow())[8..];
-        let pending_deposit_data = volt_abi::PendingDeposit::try_from_slice(pending_info)?;
+        let pending_deposit_data :volt_abi::PendingDeposit = volt_abi::PendingDeposit::try_from_slice(pending_info)?;
         check!(pending_deposit_data.round_number == current_round || pending_deposit_data.num_underlying_deposited == 0, FundError::FriktionUnclaimedPendingDeposit);
         fund_data.friktion_vault.ul_token_balance = pending_deposit_data.num_underlying_deposited;
-        val = fund_data.friktion_vault.ul_token_balance.checked_sub(fund_data.friktion_vault.ul_token_debt).unwrap();
-        msg!("Underlying Deposited: {}, Round_Num {}", pending_deposit_data.num_underlying_deposited, pending_deposit_data.round_number);
+        if(fund_data.friktion_vault.ul_token_balance > 0){
+            val = fund_data.friktion_vault.ul_token_balance.checked_sub(fund_data.friktion_vault.ul_token_debt).unwrap();
+            msg!("Underlying Deposited: {}, Round_Num {}", pending_deposit_data.num_underlying_deposited, pending_deposit_data.round_number);
+        }
     }
 
     let fc_tokens_ta_ai = next_account_info(accounts_iter)?;
@@ -1612,7 +1595,7 @@ pub fn update_friktion_value(
     check!(*pending_withdrawal_info_ai.key == pending_withdrawal_pda, FundError::IncorrectPDA);
     if pending_withdrawal_info_ai.data_len() > 0 {
         let pending_info: &[u8] = &(pending_withdrawal_info_ai.data.borrow())[8..];
-        let pending_withdrawal_data = volt_abi::PendingWithdrawal::try_from_slice(pending_info)?;
+        let pending_withdrawal_data :volt_abi::PendingWithdrawal = volt_abi::PendingWithdrawal::try_from_slice(pending_info)?;
         check!(pending_withdrawal_data.round_number == current_round || pending_withdrawal_data.num_volt_redeemed == 0, FundError::FriktionUnclaimedPendingwithdrawal);
         fc_tokens = fc_tokens.checked_add(pending_withdrawal_data.num_volt_redeemed).unwrap();
         msg!("Volt Tokens Withdrawan: {}, Round_Num {}", pending_withdrawal_data.num_volt_redeemed, pending_withdrawal_data.round_number);
