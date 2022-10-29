@@ -466,7 +466,13 @@ pub enum FundInstruction {
     },
     FriktionRemoveFromFund,
     FriktionInvestorWithdrawUL,
-    FriktionInvestorWithdrawFTokens
+    FriktionInvestorWithdrawFTokens,
+    InitReimbursement,
+
+    Reimburse{
+        token_index: usize, 
+        index_into_table: usize, 
+    },
 }
 
 
@@ -812,6 +818,17 @@ impl FundInstruction {
             }
             45 => {
                 FundInstruction::FriktionInvestorWithdrawUL2
+            }
+            46 => FundInstruction::InitReimbursement,
+            
+            47 => {
+                let data = array_ref![data, 0, 8 + 8 ];
+                let (token_index, index_into_table) = array_refs![data, 8, 8];
+
+                FundInstruction::Reimburse { 
+                    token_index: usize::from_le_bytes(*token_index), 
+                    index_into_table: usize::from_le_bytes(*index_into_table), 
+                }
             }
             
 
