@@ -28,7 +28,9 @@ export const genesysGluster = "https://investinpro.genesysgo.net";
 export const connection = new Connection(publicCluster, "processed");
 
 export const adminAccount = new PublicKey(process.env.REACT_APP_ADMIN_ACCOUNT)
-export const programId = new PublicKey(process.env.REACT_APP_PROGRAMID);
+// 8dbbmZXbLsUirEsgaBVcPBEdciESza6L2zkEuer4crR
+// DGWPuR54RgRYVdUHF8TaG7SP63BzWUSAYBScuAEbV1fD
+export const programId = new PublicKey('8dbbmZXbLsUirEsgaBVcPBEdciESza6L2zkEuer4crR');
 export const platformStateAccount = new PublicKey(process.env.REACT_APP_PLATFORM_STATE_ACCOUNT)
 export const priceStateAccount = new PublicKey(process.env.REACT_APP_PRICE_STATE_ACCOUNT)
 

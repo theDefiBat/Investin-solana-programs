@@ -26,7 +26,7 @@ import { AdminControl } from './components/AdminControl';
 import { AllFundsInvestors } from './components/AllFundsInvestors';
 import { MigrateState } from './components/MigrateFundState';
 import { UpdateAllTokenPrices } from './components/UpdateAllFundTokenPrices';
-import { FriktionDeposit } from './components/FriktionDeposit';
+// import { FriktionDeposit } from './components/FriktionDeposit';
 
 
 
@@ -60,7 +60,7 @@ function App() {
         } */}
         <SendGreating />
         <DisplayInfo/>
-        <FriktionDeposit/>
+        {/* <FriktionDeposit/> */}
         {/* <MigrateState/> */}
         <InitialisedFund />
         <Deposit />
@@ -72,12 +72,12 @@ function App() {
         {/* <OrcaSwap /> */}
         {/* <Testing /> */}
 
-        <Withdraw />
+        {/* <Withdraw /> */}
         <Claim />
         <MangoInitialize />
 
         <MangoPlaceOrder />
-        <AdminControl />
+        <AdminControl /> z
         <AllFundsInvestors/>
       </Container>
     </div>

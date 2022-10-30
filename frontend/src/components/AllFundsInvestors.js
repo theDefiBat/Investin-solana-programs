@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { createAssociatedTokenAccount, createAssociatedTokenAccountIfNotExist, createKeyIfNotExists, createTokenAccountIfNotExist, findAssociatedTokenAddress, setWalletTransaction, signAndSendTransaction } from '../utils/web3'
-import { connection, FUND_ACCOUNT_KEY, idsIndex, platformStateAccount, PLATFORM_ACCOUNT_KEY, programId, SYSTEM_PROGRAM_ID } from '../utils/constants'
+import { connection, FUND_ACCOUNT_KEY, idsIndex, MANGO_GROUP_ACCOUNT, MANGO_PROGRAM_ID, platformStateAccount, PLATFORM_ACCOUNT_KEY, programId, SERUM_PROGRAM_ID_V3, SYSTEM_PROGRAM_ID } from '../utils/constants'
 import { GlobalState } from '../store/globalState';
 import { PublicKey, Transaction, TransactionInstruction } from '@solana/web3.js';
 import { TOKEN_PROGRAM_ID } from '@project-serum/serum/lib/token-instructions';
@@ -9,7 +9,7 @@ import { Badge } from 'reactstrap';
 import BN from 'bn.js';
 import { Card, Col, Row ,Table} from 'reactstrap';
 import { Blob, seq, struct, u32, u8, u16, ns64 ,nu64} from 'buffer-layout';
-import { IDS, sleep } from '@blockworks-foundation/mango-client';
+import { IDS, MangoClient, sleep } from '@blockworks-foundation/mango-client';
 import { TOKENS } from '../utils/tokens';
 const ids= IDS['groups'][idsIndex];
 
@@ -71,22 +71,52 @@ export const AllFundsInvestors = () => {
       // }
     ] });
     console.log("-------1)-AllMigratedFunds nondecoded::",allFunds)
+    const client = new MangoClient(connection, MANGO_PROGRAM_ID)
+    let mangoGroup = await client.getMangoGroup(MANGO_GROUP_ACCOUNT)
+    const mangoCache = await mangoGroup.loadCache(connection);
+    const rootBanks = await mangoGroup.loadRootBanks(connection) 
+
     for (const data of allFunds) {
         const decodedData = FUND_PDA_DATA.decode(data.account.data);
         // const PDA_balance  = await connection.getBalance(decodedData.fund_pda, "max");
         // console.log("PDA_balance:",PDA_balance)
 
-       
-            managers.push({
-                fund_v3_index : decodedData.fund_v3_index,
-                fundState : decodedData,
-                fundPDA: decodedData.fund_pda.toBase58(),
-                fundManager: decodedData.manager_account.toBase58(),
-                fundStateAccount: data.pubkey.toBase58(),
-                // PDA_balance : PDA_balance,
-                // fundName: decodedData.fund_pda.toBase58(),
-                // totalAmount: (new TokenAmount(decodedData.total_amount, ids.tokens[0].decimals)).toEther().toNumber(),
-            });
+        console.log("mangoAccount:",decodedData.mango_positions.mango_account.toBase58())
+        if(decodedData.mango_positions.mango_account.toBase58() !=='11111111111111111111111111111111') {
+          let mangoAccount = await client.getMangoAccount(decodedData.mango_positions.mango_account, SERUM_PROGRAM_ID_V3)
+          console.log("mm mangoAccount:",mangoAccount)
+               managers.push({
+                   fund_v3_index : decodedData.fund_v3_index,
+                   fundState : decodedData,
+                   fundPDA: decodedData.fund_pda.toBase58(),
+                   fundManager: decodedData.manager_account.toBase58(),
+                   fundStateAccount: data.pubkey.toBase58(),
+                   // PDA_balance : PDA_balance,   
+                   // fundName: decodedData.fund_pda.toBase58(),
+                   // totalAmount: (new TokenAmount(decodedData.total_amount, ids.tokens[0].decimals)).toEther().toNumber(),
+                   mango_account: decodedData.mango_positions.mango_account.toBase58(),
+         
+                   index0: (mangoAccount.getUiDeposit(mangoCache.rootBankCache[0], mangoGroup, 0)).toFixed(6),
+                   index1: (mangoAccount.getUiDeposit(mangoCache.rootBankCache[1], mangoGroup, 1)).toFixed(6),
+                   index2: (mangoAccount.getUiDeposit(mangoCache.rootBankCache[2], mangoGroup, 2)).toFixed(6),
+                   index3: (mangoAccount.getUiDeposit(mangoCache.rootBankCache[3], mangoGroup, 3)).toFixed(6),
+                   index4: (mangoAccount.getUiDeposit(mangoCache.rootBankCache[4], mangoGroup, 4)).toFixed(6),
+                   index5: (mangoAccount.getUiDeposit(mangoCache.rootBankCache[5], mangoGroup, 5)).toFixed(6),
+                   index6: (mangoAccount.getUiDeposit(mangoCache.rootBankCache[6], mangoGroup, 6)).toFixed(6),
+                   // index7: (mangoAccount.getUiDeposit(mangoCache.rootBankCache[7], mangoGroup, 7)).toFixed(6),
+                   index8: (mangoAccount.getUiDeposit(mangoCache.rootBankCache[8], mangoGroup, 8)).toFixed(6),
+                   // index9: (mangoAccount.getUiDeposit(mangoCache.rootBankCache[9], mangoGroup, 9)).toFixed(6),
+                   index10: (mangoAccount.getUiDeposit(mangoCache.rootBankCache[10], mangoGroup, 10)).toFixed(6),
+                   index11: (mangoAccount.getUiDeposit(mangoCache.rootBankCache[11], mangoGroup, 11)).toFixed(6),
+                   index12: (mangoAccount.getUiDeposit(mangoCache.rootBankCache[12], mangoGroup, 12)).toFixed(6),
+                   // index13: (mangoAccount.getUiDeposit(mangoCache.rootBankCache[13], mangoGroup, 13)).toFixed(6),
+                   index14: (mangoAccount.getUiDeposit(mangoCache.rootBankCache[14], mangoGroup, 14)).toFixed(6),
+                   index15: (mangoAccount.getUiDeposit(mangoCache.rootBankCache[15], mangoGroup, 15)).toFixed(6),
+               });
+        } else {
+         console.log("NO mangoAccount:",decodedData.mango_positions.mango_account.toBase58(),decodedData.fund_pda.toBase58())
+        }
+     
     }
     console.log("-----2) AllMigratedFunds Decoded PDA funds:",managers);
 
@@ -224,6 +254,25 @@ export const AllFundsInvestors = () => {
                               {/* <th style={{ width: "15%" }}>PDA_balance</th> */}
                               {/* <th style={{ width: "15%" }}>amount</th>
                               <th style={{ width: "15%" }}>amount_in_router</th> */}
+                               <th style={{ width: "15%" }}>mango_account</th>
+
+                                <th style={{ width: "15%" }}>0</th>
+                                <th style={{ width: "15%" }}>1</th>
+                                <th style={{ width: "15%" }}>2</th>
+                                <th style={{ width: "15%" }}>3</th>
+                                <th style={{ width: "15%" }}>4</th>
+                                <th style={{ width: "15%" }}>5</th>
+                                <th style={{ width: "15%" }}>6</th>
+                                {/* <th style={{ width: "15%" }}>7</th> */}
+                                <th style={{ width: "15%" }}>8</th>
+                                {/* <th style={{ width: "15%" }}>9</th> */}
+                                <th style={{ width: "15%" }}>10</th>
+                                <th style={{ width: "15%" }}>11</th>
+                                <th style={{ width: "15%" }}>12</th>
+                                {/* <th style={{ width: "15%" }}>13</th> */}
+                                <th style={{ width: "15%" }}>14</th>
+                                <th style={{ width: "15%" }}>15</th>
+
                             </tr>
                           </thead>
 
@@ -242,6 +291,26 @@ export const AllFundsInvestors = () => {
                  {/* <td>{i?.PDA_balance}</td> */}
                  {/* <td>{i?.amount?.toString()/10**6}</td>
                  <td>{i?.amount_in_router?.toString()/10**6}</td> */}
+
+                  <td >{i?.mango_account}</td>
+
+                  <td >{i?.index0}</td>
+                  <td >{i?.index1}</td>
+                  <td >{i?.index2}</td>
+                  <td >{i?.index3}</td>
+                  <td >{i?.index4}</td>
+                  <td >{i?.index5}</td>
+                  <td >{i?.index6}</td>
+
+                  <td >{i?.index8}</td>
+
+                  <td >{i?.index10}</td>
+                  <td >{i?.index11}</td>
+                  <td >{i?.index12}</td>
+
+                  <td >{i?.index14}</td>
+                  <td >{i?.index15}</td>
+
                
                </tr>
             })
