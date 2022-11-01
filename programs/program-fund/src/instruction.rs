@@ -127,7 +127,7 @@ pub enum FundInstruction {
     /// 1. `[writable]` mango_account_ai - the mango account data
     /// 2. `[signer]` owner_ai - Solana account of owner of the mango account
     /// 3. `[]` rent_ai - Rent sysvar account
-    MangoInitialize,
+    // MangoInitialize,
 
     /// Proxy to Deposit instruction on Mango
     /// 
@@ -142,11 +142,11 @@ pub enum FundInstruction {
     /// vault_ai,               // write
     /// token_prog_ai,          // read
     /// owner_token_account_ai, // write
-    MangoDeposit {
-        token_slot_index: u8,
-        mango_token_index: u8,
-        quantity: u64
-    },
+    // MangoDeposit {
+    //     token_slot_index: u8,
+    //     mango_token_index: u8,
+    //     quantity: u64
+    // },
 
     /// Place an order on the Serum Dex and settle funds from the open orders account
     ///
@@ -164,13 +164,13 @@ pub enum FundInstruction {
     /// event_queue_ai,    // write
     /// referrer_mango_account_ai, //write
     /// default_acc,
-    MangoPlacePerpOrder { //Only Market Orders
-        perp_market_id: u8,
-        side: Side,
-        price: i64,
-        quantity: i64,
-        reduce_only: bool
-    },
+    // MangoPlacePerpOrder { //Only Market Orders
+    //     perp_market_id: u8,
+    //     side: Side,
+    //     price: i64,
+    //     quantity: i64,
+    //     reduce_only: bool
+    // },
 
     /// Place an order on the Serum Dex and settle funds from the open orders account
     ///
@@ -187,54 +187,54 @@ pub enum FundInstruction {
     /// asks_ai,            // write
     /// event_queue_ai,    // write
     /// default_acc,
-    MangoPlacePerpOrder2  {
-        // perp Market
-        perp_market_id: u8,
+    // MangoPlacePerpOrder2  {
+    //     // perp Market
+    //     perp_market_id: u8,
 
-        /// Price in quote lots per base lots.
-        ///
-        /// Effect is based on order type, it's usually
-        /// - fill orders on the book up to this price or
-        /// - place an order on the book at this price.
-        ///
-        /// Ignored for Market orders and potentially adjusted for PostOnlySlide orders.
-        price: i64,
+    //     /// Price in quote lots per base lots.
+    //     ///
+    //     /// Effect is based on order type, it's usually
+    //     /// - fill orders on the book up to this price or
+    //     /// - place an order on the book at this price.
+    //     ///
+    //     /// Ignored for Market orders and potentially adjusted for PostOnlySlide orders.
+    //     price: i64,
 
-        /// Max base lots to buy/sell.
-        max_base_quantity: i64,
+    //     /// Max base lots to buy/sell.
+    //     max_base_quantity: i64,
 
-        /// Max quote lots to pay/receive (not taking fees into account).
-        max_quote_quantity: i64,
+    //     /// Max quote lots to pay/receive (not taking fees into account).
+    //     max_quote_quantity: i64,
 
-        /// Arbitrary user-controlled order id.
-        client_order_id: u64,
+    //     /// Arbitrary user-controlled order id.
+    //     client_order_id: u64,
 
-        /// Timestamp of when order expires
-        ///
-        /// Send 0 if you want the order to never expire.
-        /// Timestamps in the past mean the instruction is skipped.
-        /// Timestamps in the future are reduced to now + 255s.
-        expiry_timestamp: u64,
+    //     /// Timestamp of when order expires
+    //     ///
+    //     /// Send 0 if you want the order to never expire.
+    //     /// Timestamps in the past mean the instruction is skipped.
+    //     /// Timestamps in the future are reduced to now + 255s.
+    //     expiry_timestamp: u64,
 
-        side: Side,
+    //     side: Side,
 
-        /// Can be 0 -> LIMIT, 1 -> IOC, 2 -> PostOnly, 3 -> Market, 4 -> PostOnlySlide
-        order_type: OrderType,
+    //     /// Can be 0 -> LIMIT, 1 -> IOC, 2 -> PostOnly, 3 -> Market, 4 -> PostOnlySlide
+    //     order_type: OrderType,
 
-        reduce_only: bool,
+    //     reduce_only: bool,
 
-        /// Maximum number of orders from the book to fill.
-        ///
-        /// Use this to limit compute used during order matching.
-        /// When the limit is reached, processing stops and the instruction succeeds.
-        limit: u8,
-    },
+    //     /// Maximum number of orders from the book to fill.
+    //     ///
+    //     /// Use this to limit compute used during order matching.
+    //     /// When the limit is reached, processing stops and the instruction succeeds.
+    //     limit: u8,
+    // },
 
-    CancelPerpOrder {
-        client_order_id: u64
-    },
+    // CancelPerpOrder {
+    //     client_order_id: u64
+    // },
 
-    WithdrawProcessLimitOrders,
+    // WithdrawProcessLimitOrders,
     
     /// Settle all funds from serum dex open orders into MarginAccount positions
     ///
@@ -256,9 +256,9 @@ pub enum FundInstruction {
     /// 11. `[writable]` quote_vault_acc - MangoGroup quote vault acc
     /// 12. `[]` dex_signer_acc - dex Market signer account
     /// 13. `[]` spl token program
-    MangoRemovePerpIndex {
-        perp_market_id: u8
-    },
+    // MangoRemovePerpIndex {
+    //     perp_market_id: u8
+    // },
 
     /// Withdraw funds that were deposited earlier.
     ///
@@ -301,11 +301,11 @@ pub enum FundInstruction {
     // signer_ai,          // read
     // token_prog_ai,      // read
     // default_ai
-    MangoWithdraw {
-        token_slot_index: u8,
-        mango_token_index: u8,
-        quantity: u64
-    },
+    // MangoWithdraw {
+    //     token_slot_index: u8,
+    //     mango_token_index: u8,
+    //     quantity: u64
+    // },
 
     /// Withdraw funds that were deposited earlier.
     // fund_account_ai,      //write
@@ -326,7 +326,7 @@ pub enum FundInstruction {
     // signer_ai,          // read
     // token_prog_ai,      // read
     // default_ai
-    MangoWithdrawInvestor,
+    // MangoWithdrawInvestor,
 
     /// Place an order on the Serum Dex and settle funds from the open orders account
     ///fund_account_ai,
@@ -573,47 +573,47 @@ impl FundInstruction {
                     change_perf_fee: u64::from_le_bytes(*change_perf_fee)
                 }
             },
-            8 => {
-                FundInstruction::MangoInitialize
-            },
-            9 => {
-                let data = array_ref![data, 0, 1 + 1 + 8];
+            // 8 => {
+            //     FundInstruction::MangoInitialize
+            // },
+            // 9 => {
+            //     let data = array_ref![data, 0, 1 + 1 + 8];
 
-                let (
-                    token_slot_index,
-                    mango_token_index,
-                    quantity
-                ) = array_refs![data, 1, 1, 8];
+            //     let (
+            //         token_slot_index,
+            //         mango_token_index,
+            //         quantity
+            //     ) = array_refs![data, 1, 1, 8];
 
-                FundInstruction::MangoDeposit{
-                    token_slot_index: u8::from_le_bytes(*token_slot_index),
-                    mango_token_index: u8::from_le_bytes(*mango_token_index),
-                    quantity: u64::from_le_bytes(*quantity)
-                }
-            },
-            10 => {
-                let data_arr = array_ref![data, 0, 1 + 1 + 8 + 8 + 1];
-                let (perp_market_id, side, price, quantity, reduce_only) =
-                array_refs![data_arr, 1, 1, 8, 8, 1];
-                let reduce_only = match reduce_only {
-                    [0] => false,
-                    [1] => true,
-                    _ => return None,
-                };
-                FundInstruction::MangoPlacePerpOrder {
-                    perp_market_id: u8::from_le_bytes(*perp_market_id),
-                    side: Side::try_from_primitive(side[0]).ok()?,
-                    price: i64::from_le_bytes(*price),
-                    quantity: i64::from_le_bytes(*quantity),
-                    reduce_only
-                }
-            },
-            11 => {
-                let perp_market_id = array_ref![data, 0, 1];
-                FundInstruction::MangoRemovePerpIndex {
-                    perp_market_id: u8::from_le_bytes(*perp_market_id)
-                }
-            },
+            //     FundInstruction::MangoDeposit{
+            //         token_slot_index: u8::from_le_bytes(*token_slot_index),
+            //         mango_token_index: u8::from_le_bytes(*mango_token_index),
+            //         quantity: u64::from_le_bytes(*quantity)
+            //     }
+            // },
+            // 10 => {
+            //     let data_arr = array_ref![data, 0, 1 + 1 + 8 + 8 + 1];
+            //     let (perp_market_id, side, price, quantity, reduce_only) =
+            //     array_refs![data_arr, 1, 1, 8, 8, 1];
+            //     let reduce_only = match reduce_only {
+            //         [0] => false,
+            //         [1] => true,
+            //         _ => return None,
+            //     };
+            //     FundInstruction::MangoPlacePerpOrder {
+            //         perp_market_id: u8::from_le_bytes(*perp_market_id),
+            //         side: Side::try_from_primitive(side[0]).ok()?,
+            //         price: i64::from_le_bytes(*price),
+            //         quantity: i64::from_le_bytes(*quantity),
+            //         reduce_only
+            //     }
+            // },
+            // 11 => {
+            //     let perp_market_id = array_ref![data, 0, 1];
+            //     FundInstruction::MangoRemovePerpIndex {
+            //         perp_market_id: u8::from_le_bytes(*perp_market_id)
+            //     }
+            // },
             // 12 => {
             //     let data_arr = array_ref![data, 0, 17];
             //     let (
@@ -627,18 +627,18 @@ impl FundInstruction {
             //         trade_size: u64::from_le_bytes(*trade_size),
             //     }
             // },
-            13 => {
-                let data_arr = array_ref![data, 0, 1 + 1 + 8];
-                let (token_slot_index, mango_token_index, quantity) = array_refs![data_arr, 1, 1, 8];
-                FundInstruction::MangoWithdraw {
-                    token_slot_index: u8::from_le_bytes(*token_slot_index),
-                    mango_token_index: u8::from_le_bytes(*mango_token_index),
-                    quantity: u64::from_le_bytes(*quantity)
-                }
-            },
-            14 => {
-                FundInstruction::MangoWithdrawInvestor
-            },
+            // 13 => {
+            //     let data_arr = array_ref![data, 0, 1 + 1 + 8];
+            //     let (token_slot_index, mango_token_index, quantity) = array_refs![data_arr, 1, 1, 8];
+            //     FundInstruction::MangoWithdraw {
+            //         token_slot_index: u8::from_le_bytes(*token_slot_index),
+            //         mango_token_index: u8::from_le_bytes(*mango_token_index),
+            //         quantity: u64::from_le_bytes(*quantity)
+            //     }
+            // },
+            // 14 => {
+            //     FundInstruction::MangoWithdrawInvestor
+            // },
             // 15 => {
             //     let price = array_ref![data, 0, 8];
             //     FundInstruction::MangoWithdrawInvestorPlaceOrder {
@@ -729,44 +729,44 @@ impl FundInstruction {
                 FundInstruction::InitOpenOrderAccounts
             }
             
-            28 => {
-                let data_arr = array_ref![data, 0, 1 + 8 + 8 + 8 + 8 + 8 + 1 + 1 + 1 + 1 ];
-                let (
-                    perp_market_id,
-                    price,
-                    max_base_quantity,
-                    max_quote_quantity,
-                    client_order_id,
-                    expiry_timestamp,
-                    side,
-                    order_type,
-                    reduce_only,
-                    limit,
-                ) = array_refs![data_arr, 1, 8, 8, 8, 8, 8, 1, 1, 1, 1];
+            // 28 => {
+            //     let data_arr = array_ref![data, 0, 1 + 8 + 8 + 8 + 8 + 8 + 1 + 1 + 1 + 1 ];
+            //     let (
+            //         perp_market_id,
+            //         price,
+            //         max_base_quantity,
+            //         max_quote_quantity,
+            //         client_order_id,
+            //         expiry_timestamp,
+            //         side,
+            //         order_type,
+            //         reduce_only,
+            //         limit,
+            //     ) = array_refs![data_arr, 1, 8, 8, 8, 8, 8, 1, 1, 1, 1];
 
-                FundInstruction::MangoPlacePerpOrder2 { 
-                    perp_market_id: u8::from_le_bytes(*perp_market_id),
-                    price: i64::from_le_bytes(*price),
-                    max_base_quantity: i64::from_le_bytes(*max_base_quantity),
-                    max_quote_quantity: i64::from_le_bytes(*max_quote_quantity),
-                    client_order_id: u64::from_le_bytes(*client_order_id),
-                    expiry_timestamp: u64::from_le_bytes(*expiry_timestamp),
-                    side: Side::try_from_primitive(side[0]).ok()?, 
-                    order_type: OrderType::try_from_primitive(order_type[0]).ok()?, 
-                    reduce_only: reduce_only[0] != 0,
-                    limit: u8::from_le_bytes(*limit),
-                }     
-            }
+            //     FundInstruction::MangoPlacePerpOrder2 { 
+            //         perp_market_id: u8::from_le_bytes(*perp_market_id),
+            //         price: i64::from_le_bytes(*price),
+            //         max_base_quantity: i64::from_le_bytes(*max_base_quantity),
+            //         max_quote_quantity: i64::from_le_bytes(*max_quote_quantity),
+            //         client_order_id: u64::from_le_bytes(*client_order_id),
+            //         expiry_timestamp: u64::from_le_bytes(*expiry_timestamp),
+            //         side: Side::try_from_primitive(side[0]).ok()?, 
+            //         order_type: OrderType::try_from_primitive(order_type[0]).ok()?, 
+            //         reduce_only: reduce_only[0] != 0,
+            //         limit: u8::from_le_bytes(*limit),
+            //     }     
+            // }
 
-            29 => {
-                let order_id = array_ref![data, 0, 8];
-                FundInstruction::CancelPerpOrder {
-                    client_order_id: u64::from_le_bytes(*order_id)
-                }
-            }
-            30 => {
-                FundInstruction::WithdrawProcessLimitOrders
-            }
+            // 29 => {
+            //     let order_id = array_ref![data, 0, 8];
+            //     FundInstruction::CancelPerpOrder {
+            //         client_order_id: u64::from_le_bytes(*order_id)
+            //     }
+            // }
+            // 30 => {
+            //     FundInstruction::WithdrawProcessLimitOrders
+            // }
             
             33 => {
                 FundInstruction::ReadFriktion

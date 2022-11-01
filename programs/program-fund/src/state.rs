@@ -163,10 +163,14 @@ pub struct FundAccount {
 
      
      pub friktion_vault: FriktionVaultInfo, // 96 u8
+
+     pub reimbursement_init: bool,
+
+     pub reimbursement_claimed: bool,
      
     //  pub margin_update_padding: [u8; 24], //80 Bytes for Depr. MarginInfo Size
 
-    pub migration_additonal_padding: [u8; 1856] // 2024 + 24 - 96 - 96 =  1864
+    pub migration_additonal_padding: [u8; 1854] // 2024 + 24 - 96 - 96 =  1864
 }
 impl_loadable!(FundAccount);
 
